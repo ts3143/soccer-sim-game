@@ -1,0 +1,113 @@
+import { describe, expect, it } from "vitest";
+import { competitionsConfig } from "../../common/config/competitions";
+import type { Club, Player } from "../../common/schema";
+import { generateWorld } from "../generate/world";
+import { matchResult, simulateMatch, startMatch, stepMatch } from "./match";
+import { teamInput } from "./prepare";
+import type { MatchInput } from "./types";
+
+const world = generateWorld({
+  seed: "engine-test",
+  name: "t",
+  userCid: 0,
+  createdAt: "2026-07-01T00:00:00.000Z",
+});
+const squadOf = (club: Club): Player[] => world.players.filter((p) => p.cid === club.cid);
+const club = (cid: number) => world.clubs[cid] as Club;
+const NEUTRAL = { chanceQuality: 1, foulRate: 1, directness: 0 };
+
+function input(homeCid: number, awayCid: number, seed: string, feed = false): MatchInput {
+  return {
+    seed,
+    home: teamInput(club(homeCid), squadOf(club(homeCid))),
+    away: teamInput(club(awayCid), squadOf(club(awayCid))),
+    neutralVenue: false,
+    style: NEUTRAL,
+    knockout: null,
+    feed,
+  };
+}
+
+const eng1 = world.clubs.filter((c) => c.leagueId === "ENG1");
+const strongest = eng1.reduce((a, b) => (b.strengthTarget > a.strengthTarget ? b : a));
+const weakest = eng1.reduce((a, b) => (b.strengthTarget < a.strengthTarget ? b : a));
+
+describe("match engine: determinism", () => {
+  it("gives the same result for the same seed, and a different one for another seed", () => {
+    const a = simulateMatch(input(0, 1, "m1"));
+    expect(simulateMatch(input(0, 1, "m1"))).toEqual(a);
+    const others = ["m2", "m3", "m4"].map((seed) => simulateMatch(input(0, 1, seed)));
+    expect(others.some((o) => JSON.stringify(o) !== JSON.stringify(a))).toBe(true);
+  });
+
+  it("is identical when paused and resumed, in any step size", () => {
+    const whole = simulateMatch(input(2, 3, "pause"));
+    for (const size of [1, 7, 50]) {
+      const state = startMatch(input(2, 3, "pause"));
+      while (!state.finished) stepMatch(state, size);
+      expect(matchResult(state)).toEqual(whole);
+    }
+  });
+
+  it("is unaffected by switching the live feed on", () => {
+    const state = startMatch(input(4, 5, "feed", true));
+    const events = [];
+    while (!state.finished) events.push(...stepMatch(state, 3));
+    const withFeed = matchResult(state);
+    expect(withFeed).toEqual(simulateMatch(input(4, 5, "feed", false)));
+    expect(events.filter((e) => e.type === "goal")).toHaveLength(
+      withFeed.homeGoals + withFeed.awayGoals,
+    );
+    expect(events.some((e) => e.type === "shot")).toBe(true);
+  });
+});
+
+describe("match engine: plausibility", () => {
+  it("produces a full match with consistent stats", () => {
+    const result = simulateMatch(input(0, 1, "stats"));
+    const [home, away] = result.teams;
+    expect(home.goals).toBe(result.homeGoals);
+    expect(away.goals).toBe(result.awayGoals);
+    expect(home.possession + away.possession).toBeCloseTo(1, 6);
+    expect(result.duration).toBeGreaterThanOrEqual(90 * 60);
+    const scorers = result.players.reduce((s, p) => s + p.goals, 0);
+    expect(scorers).toBe(result.homeGoals + result.awayGoals);
+    expect(result.players.filter((p) => p.startedInSlot !== null)).toHaveLength(22);
+  });
+
+  it("lets stronger teams win more often", { timeout: 60_000 }, () => {
+    let strongWins = 0;
+    let weakWins = 0;
+    for (let i = 0; i < 300; i++) {
+      const homeStrong = i % 2 === 0;
+      const r = simulateMatch(
+        homeStrong
+          ? input(strongest.cid, weakest.cid, `s${i}`)
+          : input(weakest.cid, strongest.cid, `s${i}`),
+      );
+      const strongGoals = homeStrong ? r.homeGoals : r.awayGoals;
+      const weakGoals = homeStrong ? r.awayGoals : r.homeGoals;
+      if (strongGoals > weakGoals) strongWins++;
+      if (weakGoals > strongGoals) weakWins++;
+    }
+    expect(strongWins).toBeGreaterThan(weakWins * 2);
+  });
+
+  it(
+    "uses each league's chance quality as an input (fewer goals at 0.88)",
+    { timeout: 60_000 },
+    () => {
+      const eng2 = competitionsConfig.leagues.find((l) => l.id === "ENG2")?.styleModifiers;
+      let neutralGoals = 0;
+      let eng2Goals = 0;
+      for (let i = 0; i < 300; i++) {
+        const base = input(i % 20, (i + 7) % 20, `cq${i}`);
+        const n = simulateMatch(base);
+        const e = simulateMatch({ ...base, style: eng2 ?? NEUTRAL });
+        neutralGoals += n.homeGoals + n.awayGoals;
+        eng2Goals += e.homeGoals + e.awayGoals;
+      }
+      expect(eng2Goals).toBeLessThan(neutralGoals);
+    },
+  );
+});
