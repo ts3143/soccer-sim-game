@@ -108,12 +108,12 @@ describe("cards", () => {
     const pressing = {
       ...base.away,
       sliders: { ...base.away.sliders, pressing: 2 },
-      aiInGame: true,
+      aiInGame: false,
     };
     const sitting = {
       ...base.away,
       sliders: { ...base.away.sliders, pressing: -2 },
-      aiInGame: true,
+      aiInGame: false,
     };
     let fouls = { calm: 0, hot: 0, press: 0, sit: 0 };
     let energy = { press: 0, sit: 0 };
