@@ -60,19 +60,19 @@
     "FB": 2, "WB": 2, "WM": 2, "W": 0
   },
   "ovrScaling": {
-    "_note": "OVR = offset + scale * weightedMean, per position. Fixed constants: fitted once in M1 so the generated population matches the OVR bands, then stored here. Never recomputed per save; they change only through a deliberate refit (planned for v1.1 with the weight refit). Identity values until fitted.",
-    "status": "unfitted",
+    "_note": "OVR = offset + scale * weightedMean, per position. Fixed constants: fitted once in M1 so the generated population matches the OVR bands, then stored here. Never recomputed per save; they change only through a deliberate refit (planned for v1.1 with the weight refit). Fitted with tools/fit-ovr-scaling.ts.",
+    "status": "fitted",
     "positions": {
-      "GK": { "scale": 1.0, "offset": 0 },
-      "CB": { "scale": 1.0, "offset": 0 },
-      "FB": { "scale": 1.0, "offset": 0 },
-      "WB": { "scale": 1.0, "offset": 0 },
-      "DM": { "scale": 1.0, "offset": 0 },
-      "CM": { "scale": 1.0, "offset": 0 },
-      "WM": { "scale": 1.0, "offset": 0 },
-      "AM": { "scale": 1.0, "offset": 0 },
-      "W": { "scale": 1.0, "offset": 0 },
-      "ST": { "scale": 1.0, "offset": 0 }
+      "GK": { "scale": 1.1101, "offset": -7.87 },
+      "CB": { "scale": 1.0559, "offset": -4.23 },
+      "FB": { "scale": 0.9647, "offset": 2.27 },
+      "WB": { "scale": 0.9659, "offset": 2 },
+      "DM": { "scale": 0.9549, "offset": 1.86 },
+      "CM": { "scale": 0.9585, "offset": 3.08 },
+      "WM": { "scale": 0.9671, "offset": 1.9 },
+      "AM": { "scale": 0.9541, "offset": 2.69 },
+      "W": { "scale": 0.9559, "offset": 3.92 },
+      "ST": { "scale": 0.9562, "offset": 4.29 }
     }
   },
   "ovrBands": [
