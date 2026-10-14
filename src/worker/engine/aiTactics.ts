@@ -23,13 +23,18 @@ import type { EngineTeamInput } from "./types";
 const NEUTRAL: SliderSettings = { mentality: 0, pressing: 0, directness: 0 };
 const clampStep = (x: number) => Math.max(-2, Math.min(2, Math.round(x)));
 
-interface Profile {
+export interface Profile {
   ratings: TeamRatings;
   longBall: number;
   overall: number;
 }
 
-function profile(team: EngineTeamInput, c: Coefficients): Profile {
+/** A team's pre-match ratings (fresh, at kick-off condition) with the given sliders. */
+export function teamProfile(
+  team: EngineTeamInput,
+  c: Coefficients = COEFFICIENTS,
+  sliders: SliderSettings = NEUTRAL,
+): Profile {
   const formation = formationById(team.formation);
   const byPid = new Map(team.players.map((p) => [p.pid, p]));
   const starters = team.lineup.map((pid) => byPid.get(pid));
@@ -45,7 +50,7 @@ function profile(team: EngineTeamInput, c: Coefficients): Profile {
       return p && r ? { ratings: r, foot: p.foot } : null;
     }),
     taker,
-    NEUTRAL,
+    sliders,
     c,
   );
   // Long-ball outlet: the front players' height, jumping and pace.
@@ -71,8 +76,8 @@ export function aiSliders(
   leagueDirectness: number,
   c: Coefficients = COEFFICIENTS,
 ): SliderSettings {
-  const me = profile(own, c);
-  const them = profile(opponent, c);
+  const me = teamProfile(own, c);
+  const them = teamProfile(opponent, c);
   const edge = me.overall - them.overall + (home ? 1.5 : -1.5);
   const mentality = edge >= 9 ? 2 : edge >= 4 ? 1 : edge <= -9 ? -2 : edge <= -4 ? -1 : 0;
   const pressing = clampStep((me.ratings.pressing - me.ratings.passing) / 5);

@@ -6,8 +6,9 @@
 import type { StyleModifiers } from "../../common/config/competitions";
 import type { Foot, SliderSettings } from "../../common/schema";
 
-/** 0 = home, 1 = away. */
-export type TeamSide = 0 | 1;
+import type { TeamSide } from "../../common/match";
+
+export type { TeamSide };
 
 export interface EnginePlayer {
   pid: number;
@@ -59,111 +60,12 @@ export interface MatchInput {
   feed: boolean;
 }
 
-export type ShotType =
-  "central" | "header" | "dribble" | "longShot" | "rebound" | "penalty" | "freeKick";
-export type ShotOutcome = "goal" | "saved" | "blocked" | "off";
-export type Period = "first" | "second" | "extraFirst" | "extraSecond" | "penalties";
-
-/** Something that happened, for the live feed and (key types) the match record. */
-export type MatchEvent =
-  | { type: "kickoff"; period: Period; clock: number }
-  | { type: "periodEnd"; period: Period; clock: number }
-  | {
-      type: "shot";
-      clock: number;
-      side: TeamSide;
-      pid: number;
-      assistPid: number | null;
-      shotType: ShotType;
-      xg: number;
-      outcome: ShotOutcome;
-    }
-  | {
-      type: "goal";
-      clock: number;
-      side: TeamSide;
-      pid: number;
-      assistPid: number | null;
-      penalty: boolean;
-    }
-  | { type: "foul"; clock: number; side: TeamSide; pid: number; victimPid: number | null }
-  | {
-      type: "card";
-      clock: number;
-      side: TeamSide;
-      pid: number;
-      card: "yellow" | "secondYellow" | "red";
-    }
-  | { type: "corner"; clock: number; side: TeamSide }
-  | { type: "penaltyAwarded"; clock: number; side: TeamSide; pid: number | null }
-  | {
-      type: "sub";
-      clock: number;
-      side: TeamSide;
-      outPid: number;
-      inPid: number;
-      reason: "injury" | "fatigue" | "tactical" | "redCardKeeper";
-    }
-  | { type: "injury"; clock: number; side: TeamSide; pid: number; days: number; replaced: boolean }
-  | { type: "shootoutKick"; side: TeamSide; pid: number; scored: boolean };
-
-export interface PlayerMatchStats {
-  pid: number;
-  side: TeamSide;
-  /** Formation slot he started in; null if he came off the bench. */
-  startedInSlot: number | null;
-  minutes: number;
-  goals: number;
-  assists: number;
-  shots: number;
-  shotsOnTarget: number;
-  xg: number;
-  xa: number;
-  passes: number;
-  passesCompleted: number;
-  keyPasses: number;
-  fouls: number;
-  foulsWon: number;
-  yellowCards: number;
-  redCards: number;
-  /** Days out if injured in this match, else 0. */
-  injuryDays: number;
-  /** In-match energy (0–1) when he left the pitch or at full time. */
-  energyEnd: number;
-}
-
-export interface TeamMatchStats {
-  goals: number;
-  shots: number;
-  shotsOnTarget: number;
-  xg: number;
-  passes: number;
-  /** Share of in-play time with the ball, 0–1. */
-  possession: number;
-  possessions: number;
-  corners: number;
-  fouls: number;
-  yellowCards: number;
-  redCards: number;
-  penaltiesAwarded: number;
-  penaltiesScored: number;
-  subsUsed: number;
-  windowsUsed: number;
-  injuries: number;
-}
-
-export interface MatchResult {
-  homeGoals: number;
-  awayGoals: number;
-  extraTime: boolean;
-  /** Shoot-out score (home-away) if there was one. */
-  penalties: string | null;
-  /** Knockout winner (after aggregate, extra time and penalties); null if not a knockout or a draw. */
-  winner: TeamSide | null;
-  teams: [TeamMatchStats, TeamMatchStats];
-  players: PlayerMatchStats[];
-  /** Goals, cards, substitutions and injuries (the match record's key events). */
-  keyEvents: MatchEvent[];
-  /** Match length in seconds, including added time. */
-  duration: number;
-}
+export type {
+  MatchEvent,
+  MatchResult,
+  Period,
+  PlayerMatchStats,
+  ShotOutcome,
+  ShotType,
+  TeamMatchStats,
+} from "../../common/match";

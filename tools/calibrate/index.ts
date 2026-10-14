@@ -1,35 +1,55 @@
 /**
- * Calibration harness: `pnpm calibrate [--matches N] [--seed S]`.
+ * Calibration harness: `pnpm calibrate [--matches N] [--seasons S] [--seed X] [--check]`.
  *
- * Generates a world, then simulates N matches between random pairs of clubs from the
- * same league, with league styles neutral (all modifiers 1.0), and reports each
- * per-match target in data/config/calibration_targets.json as PASS/FAIL. Metrics the
- * engine doesn't produce yet are listed as "not yet".
+ * Gates (M2): every per-match target in data/config/calibration_targets.json on a
+ * neutral sample (league styles at 1.0); each league's style-scaled checks (leagueChecks)
+ * over round-robin seasons; the parity target in ENG1; under 5 ms per match. Season
+ * targets are reported for information (gated in M3 with the real calendar). Prints the
+ * Team OVR fit and the match-rating centring values. With --check, exits 1 on a failure.
  */
 import { readFileSync } from "node:fs";
 import { competitionsConfig } from "../../src/common/config/competitions";
-import type { Club, Player } from "../../src/common/schema";
-import { Random } from "../../src/worker/core/random";
-import { aiSliders } from "../../src/worker/engine/aiTactics";
-import { simulateMatch } from "../../src/worker/engine/match";
-import { teamInput } from "../../src/worker/engine/prepare";
-import type { EngineTeamInput, MatchResult } from "../../src/worker/engine/types";
+import { COEFFICIENTS } from "../../src/worker/engine/coefficients";
 import { generateWorld } from "../../src/worker/generate/world";
+import { fitTeamOvr, RATING_KEYS, ratingCentring } from "./fit";
+import { averageSeasons, perMatch, seasonMetrics, type SeasonMetrics } from "./metrics";
+import { League } from "./runs";
 
-interface Target {
+interface Band {
   target: number;
   tol: [number, number];
+}
+interface Targets {
+  perMatch: Record<string, Band | string>;
+  perSeason: Record<string, Band | string>;
+  leagueChecks: { chanceQuality: string[]; foulRate: string[] };
 }
 
 const args = process.argv.slice(2);
 const option = (name: string, fallback: string) =>
   args.includes(name) ? (args[args.indexOf(name) + 1] ?? fallback) : fallback;
 const MATCHES = Number(option("--matches", "10000"));
+const SEASONS = Number(option("--seasons", "3"));
 const SEED = option("--seed", "calibrate");
+const CHECK = args.includes("--check");
 
 const targets = JSON.parse(
   readFileSync(new URL("../../data/config/calibration_targets.json", import.meta.url), "utf8"),
-) as { perMatch: Record<string, Target | string> };
+) as Targets;
+const isBand = (v: Band | string | undefined): v is Band => typeof v === "object" && v !== null;
+
+let failures = 0;
+const fmt = (x: number) => (Math.abs(x) < 1 ? x.toFixed(3) : x.toFixed(2));
+const verdict = (pass: boolean, gated = true) => {
+  if (gated && !pass) failures++;
+  return gated ? (pass ? "PASS" : "FAIL") : pass ? "ok" : "off";
+};
+const line = (name: string, value: number, band: Band, gated = true) => {
+  const pass = value >= band.tol[0] && value <= band.tol[1];
+  console.log(
+    `  ${name.padEnd(20)} ${fmt(value).padStart(8)}   ${fmt(band.target).padStart(6)}   ${`${fmt(band.tol[0])}-${fmt(band.tol[1])}`.padEnd(13)} ${verdict(pass, gated)}`,
+  );
+};
 
 const world = generateWorld({
   seed: SEED,
@@ -37,124 +57,122 @@ const world = generateWorld({
   userCid: 0,
   createdAt: "2026-07-01T00:00:00.000Z",
 });
-const squads = new Map<number, Player[]>();
-for (const p of world.players) {
-  if (p.cid !== null) squads.set(p.cid, [...(squads.get(p.cid) ?? []), p]);
-}
-const inputs = new Map<number, EngineTeamInput>(
-  world.clubs.map((club: Club) => [club.cid, teamInput(club, squads.get(club.cid) ?? [])]),
-);
-const clubsByLeague = new Map(
-  competitionsConfig.leagues.map((l) => [l.id, world.clubs.filter((c) => c.leagueId === l.id)]),
-);
-// Pick leagues in proportion to their number of league matches per season.
-const leagueWeights = competitionsConfig.leagues.map((l) => ({
-  id: l.id,
-  w: l.clubs * (l.clubs - 1),
-}));
+const league = new League(world);
 
-const NEUTRAL = { chanceQuality: 1, foulRate: 1, directness: 0 };
-const fixtures = Random.fromSeed(`${SEED}/fixtures`);
-const results: MatchResult[] = [];
+// ---------------------------------------------------------------------------
+// 1. Neutral sample
+
 const started = performance.now();
-for (let i = 0; i < MATCHES; i++) {
-  const league = fixtures.weighted(leagueWeights, (l) => l.w).id;
-  const clubs = clubsByLeague.get(league) ?? [];
-  const [home, away] = fixtures.shuffle(clubs).slice(0, 2) as [Club, Club];
-  const homeTeam = inputs.get(home.cid) as EngineTeamInput;
-  const awayTeam = inputs.get(away.cid) as EngineTeamInput;
-  results.push(
-    simulateMatch({
-      seed: `${SEED}/match:${i}`,
-      home: { ...homeTeam, sliders: aiSliders(homeTeam, awayTeam, true, NEUTRAL.directness) },
-      away: { ...awayTeam, sliders: aiSliders(awayTeam, homeTeam, false, NEUTRAL.directness) },
-      neutralVenue: false,
-      style: NEUTRAL,
-      knockout: null,
-      feed: false,
-    }),
-  );
-}
+const sample = league.neutralSample(MATCHES, SEED);
 const msPerMatch = (performance.now() - started) / MATCHES;
+const neutral = perMatch(sample);
 
-const n = results.length;
-const sum = (f: (r: MatchResult) => number) => results.reduce((s, r) => s + f(r), 0);
-const share = (f: (r: MatchResult) => boolean) => results.filter(f).length / n;
-const goals = (r: MatchResult) => r.homeGoals + r.awayGoals;
-const totalShots = sum((r) => r.teams[0].shots + r.teams[1].shots);
-const teamMatches = results.flatMap((r) => r.teams);
-
-const measured: Record<string, number> = {
-  goals: sum(goals) / n,
-  homeWinPct: share((r) => r.homeGoals > r.awayGoals),
-  drawPct: share((r) => r.homeGoals === r.awayGoals),
-  awayWinPct: share((r) => r.homeGoals < r.awayGoals),
-  nilNilPct: share((r) => goals(r) === 0),
-  fourPlusGoalsPct: share((r) => goals(r) >= 4),
-  shotsTotal: totalShots / n,
-  onTargetShare: sum((r) => r.teams[0].shotsOnTarget + r.teams[1].shotsOnTarget) / totalShots,
-  xgPerShot: sum((r) => r.teams[0].xg + r.teams[1].xg) / totalShots,
-  conversionRate: sum(goals) / totalShots,
-  yellowCards: sum((r) => r.teams[0].yellowCards + r.teams[1].yellowCards) / n,
-  redCards: sum((r) => r.teams[0].redCards + r.teams[1].redCards) / n,
-  penaltiesAwarded: sum((r) => r.teams[0].penaltiesAwarded + r.teams[1].penaltiesAwarded) / n,
-  penaltyConversion:
-    sum((r) => r.teams[0].penaltiesScored + r.teams[1].penaltiesScored) /
-    Math.max(
-      1,
-      sum((r) => r.teams[0].penaltiesAwarded + r.teams[1].penaltiesAwarded),
-    ),
-  corners: sum((r) => r.teams[0].corners + r.teams[1].corners) / n,
-  fouls: sum((r) => r.teams[0].fouls + r.teams[1].fouls) / n,
-  subsUsedPerTeam: sum((r) => r.teams[0].subsUsed + r.teams[1].subsUsed) / (2 * n),
-};
-const possessionInRange =
-  teamMatches.filter((t) => t.possession >= 0.3 && t.possession <= 0.7).length / teamMatches.length;
-
-const fmt = (x: number) => (Math.abs(x) < 1 ? x.toFixed(3) : x.toFixed(2));
-console.log(
-  `Soccer Sim Game: calibration (seed "${SEED}", ${n.toLocaleString("en-GB")} matches, neutral league style)\n`,
-);
-console.log("metric               measured   target   band            result");
-let failed = 0;
+console.log(`Soccer Sim Game: calibration (seed "${SEED}")\n`);
+console.log(`Neutral sample: ${MATCHES.toLocaleString("en-GB")} matches, league styles at 1.0`);
+console.log("  metric               measured   target   band          result");
 for (const [name, spec] of Object.entries(targets.perMatch)) {
-  if (name.startsWith("_")) continue;
   if (name === "possessionRange") {
-    const pass = possessionInRange >= 0.95;
-    if (!pass) failed++;
+    const pass = (neutral.possessionInRange as number) >= 0.95;
     console.log(
-      `${"possessionRange".padEnd(20)} ${(possessionInRange * 100).toFixed(1).padStart(7)}%   ≥95% of team-matches in 30-70%   ${pass ? "PASS" : "FAIL"}`,
+      `  ${"possessionRange".padEnd(20)} ${`${((neutral.possessionInRange as number) * 100).toFixed(1)}%`.padStart(8)}   95% of team-matches in 30-70%  ${verdict(pass)}`,
     );
-    continue;
+  } else if (isBand(spec) && neutral[name] !== undefined) {
+    line(name, neutral[name], spec);
   }
-  if (typeof spec === "string") continue;
-  const value = measured[name];
-  if (value === undefined) {
-    console.log(
-      `${name.padEnd(20)} ${"-".padStart(8)}   ${fmt(spec.target).padStart(6)}   ${`${spec.tol[0]}-${spec.tol[1]}`.padEnd(14)}  not yet`,
-    );
-    continue;
-  }
-  const pass = value >= spec.tol[0] && value <= spec.tol[1];
-  if (!pass) failed++;
+}
+
+// ---------------------------------------------------------------------------
+// 2. Leagues: style-scaled checks and season numbers
+
+const seasonsByLeague = new Map<string, SeasonMetrics>();
+for (const config of competitionsConfig.leagues) {
+  const seasons = league.seasons(config.id, SEASONS, SEED);
+  const all = seasons.flat();
+  const metrics = perMatch(all);
+  const style = config.styleModifiers;
   console.log(
-    `${name.padEnd(20)} ${fmt(value).padStart(8)}   ${fmt(spec.target).padStart(6)}   ${`${spec.tol[0]}-${spec.tol[1]}`.padEnd(14)}  ${pass ? "PASS" : "FAIL"}`,
+    `\n${config.id} (${config.name}): ${SEASONS} round-robin seasons, ${all.length.toLocaleString("en-GB")} matches; chance quality ${style.chanceQuality}, foul rate ${style.foulRate}`,
+  );
+  console.log("  metric               measured   target   band          result");
+  const scaled = [
+    ...targets.leagueChecks.chanceQuality.map((m) => [m, style.chanceQuality] as const),
+    ...targets.leagueChecks.foulRate.map((m) => [m, style.foulRate] as const),
+  ];
+  for (const [name, factor] of scaled) {
+    const spec = targets.perMatch[name];
+    if (!isBand(spec)) continue;
+    line(name, metrics[name] as number, {
+      target: spec.target * factor,
+      tol: [spec.tol[0] * factor, spec.tol[1] * factor],
+    });
+  }
+  for (const name of ["homeWinPct", "drawPct", "nilNilPct", "fourPlusGoalsPct", "shotsTotal"]) {
+    const spec = targets.perMatch[name];
+    if (isBand(spec)) line(name, metrics[name] as number, spec, false);
+  }
+  const season = averageSeasons(seasons.map(seasonMetrics));
+  seasonsByLeague.set(config.id, season);
+}
+
+console.log(
+  "\nSeason numbers (average per season; information only until M3, parity gated in ENG1)",
+);
+console.log("  league  champion  bottom  top scorer  top assists  top-6 lose to bottom-6");
+for (const [id, s] of seasonsByLeague) {
+  console.log(
+    `  ${id.padEnd(6)}  ${s.championPoints.toFixed(1).padStart(8)}  ${s.bottomPoints.toFixed(1).padStart(6)}  ${s.topScorerGoals.toFixed(1).padStart(10)}  ${s.topAssists.toFixed(1).padStart(11)}  ${(s.top6LoseToBottom6Pct * 100).toFixed(1).padStart(10)}%`,
   );
 }
-console.log(`\nSpeed: ${msPerMatch.toFixed(2)} ms per match (budget < 5 ms)`);
+const eng1 = seasonsByLeague.get("ENG1");
+if (eng1) {
+  console.log("  ENG1 against the season targets:");
+  const seasonTarget = (name: string) => targets.perSeason[name] as Band;
+  line("championPointsENG1", eng1.championPoints, seasonTarget("championPointsENG1"), false);
+  line("bottomPointsENG1", eng1.bottomPoints, seasonTarget("bottomPointsENG1"), false);
+  line("topScorerGoals", eng1.topScorerGoals, seasonTarget("topScorerGoals"), false);
+  line("topAssists", eng1.topAssists, seasonTarget("topAssists"), false);
+  line("top6LoseToBottom6Pct", eng1.top6LoseToBottom6Pct, seasonTarget("top6LoseToBottom6Pct"));
+}
+
+// ---------------------------------------------------------------------------
+// 3. Speed, information, fits
+
+console.log("\nSpeed");
+line("ms per match", msPerMatch, { target: 1, tol: [0, 5] });
+
+console.log("\nFor information (neutral sample)");
+const info = (label: string, value: string) => console.log(`  ${label.padEnd(36)} ${value}`);
+info("injuries per team per match", fmt(neutral.injuriesPerTeam as number));
+info(
+  "passes per team / completion",
+  `${(neutral.passesPerTeam as number).toFixed(0)} / ${((neutral.passCompletion as number) * 100).toFixed(1)}%`,
+);
+info(
+  "ratings below 5.0 / above 8.5 / 9+",
+  `${((neutral.ratingsBelow5 as number) * 100).toFixed(1)}% / ${((neutral.ratingsAbove85 as number) * 100).toFixed(1)}% / ${((neutral.ratings9Plus as number) * 100).toFixed(2)}%`,
+);
+const centring = ratingCentring(sample);
+info(
+  "rating centring (raw mean, 60+ min)",
+  Object.entries(centring)
+    .map(
+      ([position, v]) =>
+        `${position} ${v.toFixed(2)} (now ${COEFFICIENTS.ratings.expected[position as keyof typeof COEFFICIENTS.ratings.expected]})`,
+    )
+    .join(", "),
+);
+
+const fit = fitTeamOvr(sample);
 console.log(
-  `Possessions per match: ${(sum((r) => r.teams[0].possessions + r.teams[1].possessions) / n).toFixed(1)}, ` +
-    `passes per team: ${(sum((r) => r.teams[0].passes + r.teams[1].passes) / (2 * n)).toFixed(0)}`,
-);
-const starters = results.flatMap((r) =>
-  r.players.filter((p) => p.startedInSlot !== null && p.minutes >= 90),
+  `\nTeam OVR fit: goal difference on team-rating differences (R² ${fit.r2.toFixed(3)}, home intercept ${fit.intercept.toFixed(3)})`,
 );
 console.log(
-  `Injuries per team-match: ${(sum((r) => r.teams[0].injuries + r.teams[1].injuries) / (2 * n)).toFixed(2)}, ` +
-    `full-match starters' energy at full time: ${(starters.reduce((t, p) => t + p.energyEnd, 0) / Math.max(1, starters.length)).toFixed(2)}`,
+  "  " +
+    RATING_KEYS.map(
+      (key) =>
+        `${key} ${fit.coefficients[key].toFixed(4)} (weight ${(fit.weights[key] * 100).toFixed(0)}%)`,
+    ).join(", "),
 );
-console.log(
-  failed === 0
-    ? "\nAll measured targets pass."
-    : `\n${failed} measured target(s) outside their band.`,
-);
+
+console.log(failures === 0 ? "\nAll gated checks pass." : `\n${failures} gated check(s) failed.`);
+if (CHECK && failures > 0) process.exitCode = 1;

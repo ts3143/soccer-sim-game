@@ -197,6 +197,31 @@ export function computeTeamRatings(
   return out;
 }
 
+/**
+ * Team OVR (SPEC §8.2): a 0–100 summary of the seven ratings. The spec's version is a
+ * regression of the ratings onto goal difference; `pnpm calibrate` prints that fit, and
+ * its weights replace these hand-set placeholders before Team OVR is first shown (M5).
+ */
+export const TEAM_OVR_WEIGHTS: Record<keyof TeamRatings, number> = {
+  passing: 0.18,
+  attack: 0.22,
+  pressing: 0.12,
+  defence: 0.22,
+  aerial: 0.08,
+  setPieces: 0.03,
+  goalkeeping: 0.15,
+};
+
+export function teamOvr(ratings: TeamRatings, weights = TEAM_OVR_WEIGHTS): number {
+  let sum = 0;
+  let total = 0;
+  for (const key of Object.keys(weights) as (keyof TeamRatings)[]) {
+    sum += weights[key] * ratings[key];
+    total += weights[key];
+  }
+  return Math.round(Math.min(100, Math.max(0, sum / total)));
+}
+
 /** Effective ratings at a given energy (0–1): physical drop most, others half as much. */
 export function effectiveRatings(
   ratings: readonly number[],

@@ -89,9 +89,11 @@ export function prepareMatch(
   const awayTeam = teamInput(away.club, away.squad);
   const neutral = setup.neutralVenue ?? false;
   const watched = setup.watchedBy ?? null;
-  if (watched !== 0) homeTeam.sliders = aiSliders(homeTeam, awayTeam, !neutral, setup.style.directness);
+  if (watched !== 0)
+    homeTeam.sliders = aiSliders(homeTeam, awayTeam, !neutral, setup.style.directness);
   else homeTeam.aiInGame = false;
-  if (watched !== 1) awayTeam.sliders = aiSliders(awayTeam, homeTeam, false, setup.style.directness);
+  if (watched !== 1)
+    awayTeam.sliders = aiSliders(awayTeam, homeTeam, false, setup.style.directness);
   else awayTeam.aiInGame = false;
   return {
     seed: setup.seed,

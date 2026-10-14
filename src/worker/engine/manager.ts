@@ -45,7 +45,11 @@ export function sendOff(
 ): void {
   p.sentOff = true;
   p.stats.redCards++;
-  if (card === "secondYellow") p.stats.yellowCards++;
+  if (card === "secondYellow") {
+    // A second yellow counts as a yellow and the red.
+    p.stats.yellowCards++;
+    team.stats.yellowCards++;
+  }
   team.stats.redCards++;
   if (p.slot !== null) team.slots[p.slot] = null;
   p.slot = null;
@@ -125,12 +129,12 @@ export function canSubstitute(team: TeamState, free: boolean): boolean {
   );
 }
 
-function substitute(
+export function substitute(
   s: MatchState,
   team: TeamState,
   out: PlayerState,
   incoming: PlayerState,
-  reason: "injury" | "fatigue" | "tactical" | "redCardKeeper",
+  reason: "injury" | "fatigue" | "tactical" | "redCardKeeper" | "manager",
 ): void {
   const slotIndex = out.slot as number;
   const minute = currentMinute(s);
@@ -139,6 +143,8 @@ function substitute(
   out.stats.energyEnd = out.energy;
   incoming.slot = slotIndex;
   incoming.onMinute = minute;
+  incoming.stats.position =
+    team.plan.formation.slots[slotIndex]?.position ?? incoming.stats.position;
   team.slots[slotIndex] = incoming;
   team.bench = team.bench.filter((b) => b !== incoming);
   team.stats.subsUsed++;
@@ -200,7 +206,18 @@ export function manageStoppage(s: MatchState, free: boolean): void {
       if (!p.injured) continue;
       if (!team.input.aiInGame) {
         if (p.energy > s.c.energy.floor) {
-          emit(s, { type: "injury", clock: s.clock, side: team.side, pid: p.input.pid, days: p.stats.injuryDays, replaced: false }, true);
+          emit(
+            s,
+            {
+              type: "injury",
+              clock: s.clock,
+              side: team.side,
+              pid: p.input.pid,
+              days: p.stats.injuryDays,
+              replaced: false,
+            },
+            true,
+          );
           p.energy = s.c.energy.floor;
           changed = true;
         }
@@ -234,7 +251,8 @@ export function manageStoppage(s: MatchState, free: boolean): void {
     const gkIndex = team.plan.formation.slots.findIndex((slot) => slot.position === "GK");
     if (team.slots[gkIndex] === null) {
       const outfield = onPitch(team);
-      const reserve = team.input.aiInGame && canSubstitute(team, free) ? bestFor(team, gkIndex) : null;
+      const reserve =
+        team.input.aiInGame && canSubstitute(team, free) ? bestFor(team, gkIndex) : null;
       const sacrifice = outfield.reduce<PlayerState | null>(
         (worst, p) =>
           !worst ||

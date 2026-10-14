@@ -40,7 +40,29 @@ export type PickerKind =
   | "assistCentral"
   | "assistCross"
   | "fouler"
-  | "fouled";
+  | "fouled"
+  | "passer"
+  | "progressive"
+  | "presser"
+  | "midDefender"
+  | "boxDefender"
+  | "aerialDefender";
+export const PICKER_KINDS: readonly PickerKind[] = [
+  "central",
+  "header",
+  "dribble",
+  "longShot",
+  "assistCentral",
+  "assistCross",
+  "fouler",
+  "fouled",
+  "passer",
+  "progressive",
+  "presser",
+  "midDefender",
+  "boxDefender",
+  "aerialDefender",
+];
 
 export interface PlayerState {
   input: EnginePlayer;
@@ -56,6 +78,13 @@ export interface PlayerState {
   sentOff: boolean;
   /** Injured and waiting to be replaced (or already off). */
   injured: boolean;
+  /** Passes attempted, accumulated as a share of each possession's passes (rounded at the end). */
+  passShareAcc: number;
+  /** Misplaced passes in kept possessions, accumulated the same way. */
+  passFailAcc: number;
+  passesFailed: number;
+  /** This player's share of his team's passes while on the pitch. */
+  passShare: number;
   stats: PlayerMatchStats;
 }
 
@@ -115,8 +144,8 @@ export interface MatchState {
   inPlaySeconds: number;
   /** Feed events produced since the last stepMatch() call returned. */
   pending: MatchEvent[];
-  /** The next stoppage is free for substitutions (half-time, before/within extra time). */
-  freeStoppage: boolean;
+  /** Paused before kick-off or at a break: changes made now don't use a window. */
+  atBreak: boolean;
   nextRefresh: number;
 }
 
@@ -158,6 +187,12 @@ const POSITION_WEIGHTS: Record<PickerKind, Partial<Record<Position, number>>> = 
   assistCross: { W: 2, WM: 2, WB: 2, FB: 1.6, AM: 0.8, CM: 0.6, ST: 0.4 },
   fouler: { DM: 1.6, CB: 1.3, CM: 1.2, FB: 1.1, WB: 1.1, WM: 0.9, ST: 0.8, AM: 0.7, W: 0.7, GK: 0.05 },
   fouled: { W: 1.8, AM: 1.6, ST: 1.5, WM: 1.3, CM: 1, WB: 0.9, FB: 0.7, DM: 0.7, CB: 0.4, GK: 0.1 },
+  passer: { GK: 0.45, CB: 1.15, FB: 1, WB: 1, DM: 1.35, CM: 1.45, WM: 0.95, AM: 1.1, W: 0.8, ST: 0.55 },
+  progressive: { CB: 0.9, FB: 0.9, WB: 1, DM: 1.3, CM: 1.4, WM: 1, AM: 1.2, W: 0.8, ST: 0.3, GK: 0.1 },
+  presser: { ST: 1.3, W: 1.2, AM: 1.2, WM: 1, CM: 1, DM: 0.8, WB: 0.7, FB: 0.5, CB: 0.3 },
+  midDefender: { DM: 1.6, CM: 1.3, CB: 1.1, FB: 1, WB: 1, WM: 0.8, AM: 0.5, W: 0.4, ST: 0.3 },
+  boxDefender: { CB: 1.6, DM: 1.2, FB: 1, WB: 0.9, CM: 0.6, WM: 0.4, AM: 0.2, W: 0.2, ST: 0.2 },
+  aerialDefender: { CB: 2, DM: 1, FB: 0.8, WB: 0.7, CM: 0.6, ST: 0.5, WM: 0.4, AM: 0.3, W: 0.3 },
 }; // prettier-ignore
 
 const SKILL: Record<PickerKind, (r: readonly number[]) => number> = {
@@ -169,6 +204,12 @@ const SKILL: Record<PickerKind, (r: readonly number[]) => number> = {
   assistCross: (r) => r[R.crs] as number,
   fouler: (r) => avg(r, "tkl", "str"),
   fouled: (r) => avg(r, "drb", "spd"),
+  passer: (r) => avg(r, "spa", "lpa"),
+  progressive: (r) => avg(r, "spa", "lpa", "oiq"),
+  presser: (r) => avg(r, "wrk", "ant", "tkl"),
+  midDefender: (r) => avg(r, "tkl", "ant"),
+  boxDefender: (r) => avg(r, "tkl", "diq"),
+  aerialDefender: (r) => avg(r, "hdr", "jmp", "hgt"),
 };
 
 function buildPicker(team: TeamState, kind: PickerKind, c: Coefficients): Picker {
@@ -212,11 +253,17 @@ export function pick(
 // ---------------------------------------------------------------------------
 // Setup and refresh
 
-function emptyPlayerStats(pid: number, side: TeamSide, slot: number | null): PlayerMatchStats {
+function emptyPlayerStats(
+  pid: number,
+  side: TeamSide,
+  slot: number | null,
+  position: Position,
+): PlayerMatchStats {
   return {
     pid,
     side,
     startedInSlot: slot,
+    position,
     minutes: 0,
     goals: 0,
     assists: 0,
@@ -227,12 +274,25 @@ function emptyPlayerStats(pid: number, side: TeamSide, slot: number | null): Pla
     passes: 0,
     passesCompleted: 0,
     keyPasses: 0,
+    progressivePasses: 0,
+    crosses: 0,
+    tackles: 0,
+    interceptions: 0,
+    clearances: 0,
+    blocks: 0,
+    aerialsWon: 0,
+    dribbles: 0,
+    dribblesCompleted: 0,
     fouls: 0,
     foulsWon: 0,
     yellowCards: 0,
     redCards: 0,
+    saves: 0,
+    goalsConceded: 0,
+    cleanSheet: 0,
     injuryDays: 0,
     energyEnd: 1,
+    rating: 0,
   };
 }
 
@@ -242,6 +302,7 @@ const emptyTeamStats = (): TeamMatchStats => ({
   shotsOnTarget: 0,
   xg: 0,
   passes: 0,
+  passesCompleted: 0,
   possession: 0,
   possessions: 0,
   corners: 0,
@@ -283,7 +344,16 @@ export function initTeam(
       booked: false,
       sentOff: false,
       injured: false,
-      stats: emptyPlayerStats(pid, side, slot),
+      passShareAcc: 0,
+      passFailAcc: 0,
+      passesFailed: 0,
+      passShare: 0,
+      stats: emptyPlayerStats(
+        pid,
+        side,
+        slot,
+        slot === null ? "CM" : (formation.slots[slot] as FormationSlot).position,
+      ),
     };
   };
   const slots = input.lineup.map((pid, i) => make(pid, i));
@@ -348,21 +418,18 @@ export function refreshTeam(team: TeamState, c: Coefficients): void {
     team.sliders,
     c,
   );
-  const kinds: PickerKind[] = [
-    "central",
-    "header",
-    "dribble",
-    "longShot",
-    "assistCentral",
-    "assistCross",
-    "fouler",
-    "fouled",
-  ];
-  team.pickers = Object.fromEntries(kinds.map((k) => [k, buildPicker(team, k, c)])) as Record<
-    PickerKind,
-    Picker
-  >;
+  team.pickers = Object.fromEntries(
+    PICKER_KINDS.map((k) => [k, buildPicker(team, k, c)]),
+  ) as Record<PickerKind, Picker>;
   const total = (picker: Picker) => picker.cumulative[picker.cumulative.length - 1] ?? 0;
+  // Each player's share of the team's passes (passes are spread deterministically).
+  const passing = team.pickers.passer;
+  const passTotal = total(passing);
+  for (const p of players) p.passShare = 0;
+  passing.players.forEach((p, i) => {
+    const before = i === 0 ? 0 : (passing.cumulative[i - 1] as number);
+    p.passShare = passTotal > 0 ? ((passing.cumulative[i] as number) - before) / passTotal : 0;
+  });
   team.chanceMix = {
     central: c.chanceMix.central * Math.sqrt(total(team.pickers.assistCentral)),
     cross: c.chanceMix.cross * Math.sqrt(total(team.pickers.assistCross)),
@@ -403,7 +470,7 @@ export function initState(input: MatchInput, rng: Random, c: Coefficients): Matc
     finished: false,
     inPlaySeconds: 0,
     pending: [],
-    freeStoppage: false,
+    atBreak: true,
     nextRefresh: c.energy.refreshEvery,
   };
 }

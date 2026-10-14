@@ -7,12 +7,34 @@
  *   while (!state.finished) stepMatch(state, 1);   // or stepMatch(state) to the end
  *   const result = matchResult(state);
  */
+import { formationById } from "../../common/config/formations";
+import type { Position } from "../../common/config/ratings";
+import type { SliderSettings } from "../../common/schema";
+import { maximizeAssignment } from "../core/assignment";
+import { rawPositionOvr, wrongFootPenalty } from "../core/ovr";
 import { Random } from "../core/random";
 import { COEFFICIENTS, type Coefficients } from "./coefficients";
-import { addExtraTimeAllowance, manageStoppage, playMinutes, restAtBreak } from "./manager";
+import {
+  addExtraTimeAllowance,
+  manageStoppage,
+  playMinutes,
+  restAtBreak,
+  substitute,
+} from "./manager";
 import { runPossession } from "./possession";
 import { playShootout } from "./shootout";
-import { emit, initState, onPitch, PERIOD_CAP, refreshTeam, type MatchState } from "./state";
+import { matchRating } from "./ratings";
+import {
+  emit,
+  initState,
+  onPitch,
+  PERIOD_CAP,
+  refreshTeam,
+  type MatchState,
+  type PlayerState,
+  type TeamState,
+} from "./state";
+import { formationPlan } from "./teamRatings";
 import type {
   MatchEvent,
   MatchInput,
@@ -62,6 +84,7 @@ function beginPeriod(
   s.periodEnd = PERIOD_START[period] + (length + addedMinutes) * 60;
   s.ball = kickoff;
   s.zone = "mid";
+  s.atBreak = true;
   emit(s, { type: "kickoff", period, clock: s.clock }, false);
 }
 
@@ -107,6 +130,7 @@ function endPeriodIfDue(s: MatchState): void {
  */
 export function stepMatch(state: MatchState, possessions = Infinity): MatchEvent[] {
   for (let n = 0; n < possessions && !state.finished; n++) {
+    state.atBreak = false;
     const { inPlay, dead } = runPossession(state);
     state.clock += inPlay + dead;
     playMinutes(state, (inPlay + dead) / 60);
@@ -127,23 +151,53 @@ export function matchMinute(clock: number): number {
   return Math.floor(clock / 60) + 1;
 }
 
+const CLEAN_SHEET_POSITIONS: readonly Position[] = ["GK", "CB", "FB", "WB"];
+
 export function matchResult(state: MatchState): MatchResult {
   if (!state.finished) throw new Error("matchResult: the match isn't finished");
-  const totalPossession = state.teams[0].possessionSeconds + state.teams[1].possessionSeconds;
-  const teamStats = state.teams.map((t) => ({
-    ...t.stats,
-    possession: totalPossession > 0 ? t.possessionSeconds / totalPossession : 0.5,
-  })) as [TeamMatchStats, TeamMatchStats];
   const fullTime = PERIOD_CAP[state.extraTime ? "extraSecond" : "second"];
+  const totalPossession = state.teams[0].possessionSeconds + state.teams[1].possessionSeconds;
+  const outcome = (side: TeamSide): "win" | "draw" | "loss" => {
+    const own = state.score[side];
+    const opp = state.score[side === 0 ? 1 : 0];
+    return own > opp ? "win" : own < opp ? "loss" : "draw";
+  };
+
   const players = state.teams.flatMap((t) =>
     t.all
       .filter((p) => p.onMinute !== null)
-      .map((p) => ({
-        ...p.stats,
-        minutes: Math.max(0, (p.offMinute ?? fullTime) - (p.onMinute ?? 0)),
-        energyEnd: p.slot === null ? p.stats.energyEnd : p.energy,
-      })),
+      .map((p) => {
+        const minutes = Math.max(0, (p.offMinute ?? fullTime) - (p.onMinute ?? 0));
+        const passes = Math.round(p.passShareAcc);
+        const stats = {
+          ...p.stats,
+          minutes,
+          xg: Math.round(p.stats.xg * 100) / 100,
+          xa: Math.round(p.stats.xa * 100) / 100,
+          passes,
+          passesCompleted: Math.max(0, passes - p.passesFailed - Math.round(p.passFailAcc)),
+          cleanSheet:
+            p.stats.goalsConceded === 0 &&
+            minutes >= 60 &&
+            CLEAN_SHEET_POSITIONS.includes(p.stats.position)
+              ? 1
+              : 0,
+          energyEnd: Math.round((p.slot === null ? p.stats.energyEnd : p.energy) * 100) / 100,
+        };
+        return { ...stats, rating: matchRating(stats, outcome(p.side), state.c) };
+      }),
   );
+
+  const teamStats = state.teams.map((t) => {
+    const own = players.filter((p) => p.side === t.side);
+    return {
+      ...t.stats,
+      xg: Math.round(t.stats.xg * 100) / 100,
+      passes: own.reduce((sum, p) => sum + p.passes, 0),
+      passesCompleted: own.reduce((sum, p) => sum + p.passesCompleted, 0),
+      possession: totalPossession > 0 ? t.possessionSeconds / totalPossession : 0.5,
+    };
+  }) as [TeamMatchStats, TeamMatchStats];
 
   let winner: TeamSide | null = null;
   if (state.input.knockout) {
@@ -162,6 +216,82 @@ export function matchResult(state: MatchState): MatchResult {
     keyEvents: [...state.keyEvents],
     duration: state.clock,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Changes by the user, for the club he is managing in a watched match
+
+export interface MatchChanges {
+  subs?: { outPid: number; inPid: number }[];
+  sliders?: Partial<SliderSettings>;
+  /** Switch formation; the players on the pitch are re-slotted by best fit. */
+  formation?: string;
+}
+
+export class MatchChangeError extends Error {}
+
+function reslot(team: TeamState, formationId: string): void {
+  const formation = formationById(formationId);
+  const players = onPitch(team);
+  const scores = players.map((p) =>
+    formation.slots.map(
+      (slot) =>
+        rawPositionOvr(p.eff, slot.position) -
+        wrongFootPenalty(slot.position, slot.side, p.input.foot),
+    ),
+  );
+  const slotOfPlayer = maximizeAssignment(scores);
+  const slots: (PlayerState | null)[] = formation.slots.map(() => null);
+  players.forEach((p, i) => {
+    const slot = slotOfPlayer[i] as number;
+    slots[slot] = p;
+    p.slot = slot;
+  });
+  team.plan = formationPlan(formation);
+  team.slots = slots;
+}
+
+/**
+ * Applies the user's changes at a pause (between possessions). Substitutions made before
+ * kick-off or at a break are free; otherwise one call uses one window, however many
+ * players come on. Throws MatchChangeError if a change breaks the rules.
+ */
+export function applyChanges(state: MatchState, side: TeamSide, changes: MatchChanges): void {
+  if (state.finished) throw new MatchChangeError("The match is over");
+  const nothing =
+    (changes.subs ?? []).length === 0 &&
+    !changes.formation &&
+    Object.keys(changes.sliders ?? {}).length === 0;
+  if (nothing) return;
+  const team = state.teams[side];
+  const free = state.atBreak;
+  const subs = changes.subs ?? [];
+  if (subs.length > 0) {
+    const left = team.subLimit - team.stats.subsUsed;
+    if (subs.length > left) throw new MatchChangeError(`Only ${left} substitution(s) left`);
+    if (!free && team.stats.windowsUsed >= team.windowLimit) {
+      throw new MatchChangeError("No substitution windows left");
+    }
+    for (const { outPid, inPid } of subs) {
+      const out = onPitch(team).find((p) => p.input.pid === outPid);
+      const incoming = team.bench.find((p) => p.input.pid === inPid);
+      if (!out) throw new MatchChangeError(`Player ${outPid} is not on the pitch`);
+      if (!incoming) throw new MatchChangeError(`Player ${inPid} is not an available substitute`);
+      substitute(state, team, out, incoming, out.injured ? "injury" : "manager");
+    }
+    if (!free) team.stats.windowsUsed++;
+  }
+  if (changes.formation && changes.formation !== team.plan.formation.id)
+    reslot(team, changes.formation);
+  if (changes.sliders) {
+    for (const value of Object.values(changes.sliders)) {
+      if (!Number.isInteger(value) || value < -2 || value > 2) {
+        throw new MatchChangeError("Sliders take whole steps from -2 to +2");
+      }
+    }
+    team.sliders = { ...team.sliders, ...changes.sliders };
+  }
+  refreshTeam(team, state.c);
 }
 
 /** Runs a whole match headlessly. */

@@ -66,6 +66,18 @@ export const COEFFICIENTS = {
   /** Of shots that miss: share saved, blocked (rest off target), before type adjustments. */
   shotOutcome: { saved: 0.25, blocked: 0.28, longShotBlockedBonus: 0.08, headerBlockedFactor: 0.4 },
 
+  /**
+   * How a lost ball is won back, per phase (the rest are loose balls and passes out of
+   * play, credited to no defender). Interceptions and loose balls count as failed passes.
+   */
+  turnovers: {
+    buildUp: { interception: 0.2, tackle: 0.27, clearance: 0 },
+    progression: { interception: 0.2, tackle: 0.27, clearance: 0 },
+    chance: { interception: 0.22, tackle: 0.25, clearance: 0.3 },
+  },
+  /** Misplaced passes within possessions that are kept, as a share of all passes. */
+  passFailureBase: 0.06,
+
   /** Chance types in the final third (weights before team-composition factors). */
   chanceMix: { central: 1, cross: 0.55, dribble: 0.35, longShot: 0.45, crossPerDirectness: 0.12 },
 
@@ -83,6 +95,8 @@ export const COEFFICIENTS = {
     deadAfterShotOff: 24,
     deadAfterSave: 12,
     secondsPerPass: 4.2,
+    /** Passing tempo: seconds per pass × (1 + this × directness) (short passing = more passes). */
+    passTempoPerDirectness: 0.1,
   },
   /** Added time, in minutes (uniform between min and max). */
   addedTime: { firstHalf: [1, 4], secondHalf: [2, 7] },
@@ -177,6 +191,53 @@ export const COEFFICIENTS = {
     /** Medical dial 0–100 → risk × (1.15 − 0.3 × dial/100). */
     medicalBase: 1.15,
     medicalSpan: 0.3,
+  },
+  /**
+   * Match ratings (SPEC §8.7): 6.0 plus contributions, then centred on what's normal for
+   * the position (expected), so every position averages ~6.6. Cameos regress to 6.6.
+   */
+  ratings: {
+    goal: 1,
+    assist: 0.6,
+    keyPass: 0.12,
+    shotOnTarget: 0.08,
+    shotOff: -0.03,
+    dribbleWon: 0.05,
+    dribbleLost: -0.03,
+    tackle: 0.07,
+    interception: 0.07,
+    clearance: 0.03,
+    block: 0.08,
+    aerialWon: 0.025,
+    progressivePass: 0.02,
+    passCompleted: 0.002,
+    passFailed: -0.015,
+    save: 0.22,
+    keeperConceded: -0.28,
+    defenderConceded: -0.12,
+    keeperCleanSheet: 0.6,
+    defenderCleanSheet: 0.35,
+    yellow: -0.3,
+    red: -1.2,
+    foul: -0.04,
+    foulWon: 0.03,
+    win: 0.25,
+    loss: -0.25,
+    /** Raw score that's average for each position (centring), calibrated by the harness. */
+    expected: {
+      GK: 6.6,
+      CB: 6.6,
+      FB: 6.6,
+      WB: 6.6,
+      DM: 6.6,
+      CM: 6.6,
+      WM: 6.6,
+      AM: 6.6,
+      W: 6.6,
+      ST: 6.6,
+    },
+    /** Minutes for a full-weight rating; fewer pull the rating toward 6.6. */
+    fullWeightMinutes: 60,
   },
   ai: {
     /** Minute ranges for planned substitution windows (uniform within). */

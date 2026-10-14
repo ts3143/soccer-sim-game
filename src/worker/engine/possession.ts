@@ -2,7 +2,8 @@
  * One possession (SPEC §8.1): start zone → build-up (or a long ball) → progression →
  * chance creation → shot with xG → outcome. Fouls can interrupt any phase; in the final
  * third they become free kicks or penalties. Saved and blocked shots and cleared attacks
- * can win corners. Team ratings set each step's odds; player ratings decide who acts.
+ * can win corners. Team ratings set each step's odds; player ratings decide who acts,
+ * and every action is credited to a player's stats (SPEC §10.1).
  */
 import { RATING_INDEX as R } from "../../common/config/ratings";
 import type { Random } from "../core/random";
@@ -11,6 +12,7 @@ import {
   avg,
   clamp,
   emit,
+  onPitch,
   pick,
   refreshTeam,
   sigmoid,
@@ -49,10 +51,61 @@ function chooseChance(rng: Random, team: TeamState, crossPerDirectness: number):
   return "longShot";
 }
 
-const keeperOf = (team: TeamState): PlayerState | null => {
+export const keeperOf = (team: TeamState): PlayerState | null => {
   const index = team.plan.formation.slots.findIndex((slot) => slot.position === "GK");
   return team.slots[index] ?? null;
 };
+
+// ---------------------------------------------------------------------------
+// Ball won back: credit the defender (tackle, interception, clearance) or nobody (a loose
+// ball), and the attacker whose pass went astray.
+
+type Winner = "presser" | "midDefender" | "boxDefender";
+
+function ballWon(
+  s: MatchState,
+  att: TeamState,
+  def: TeamState,
+  phase: Phase,
+  picker: Winner,
+): void {
+  const split = s.c.turnovers[phase];
+  const r = s.rng.next();
+  if (r < split.tackle) {
+    const winner = pick(s.rng, def.pickers[picker]);
+    if (winner) winner.stats.tackles++;
+    return;
+  }
+  if (r < split.tackle + split.interception) {
+    const winner = pick(s.rng, def.pickers[picker]);
+    if (winner) winner.stats.interceptions++;
+  } else if (r < split.tackle + split.interception + split.clearance) {
+    const winner = pick(s.rng, def.pickers.boxDefender);
+    if (winner) winner.stats.clearances++;
+  }
+  failedPass(s, att);
+}
+
+function failedPass(s: MatchState, att: TeamState, passer?: PlayerState | null) {
+  const p = passer ?? pick(s.rng, att.pickers.passer);
+  if (p) p.passesFailed++;
+}
+
+function progressivePass(s: MatchState, att: TeamState) {
+  const p = pick(s.rng, att.pickers.progressive);
+  if (p) p.stats.progressivePasses++;
+}
+
+function aerialClear(s: MatchState, def: TeamState) {
+  const p = pick(s.rng, def.pickers.aerialDefender);
+  if (p) {
+    p.stats.aerialsWon++;
+    p.stats.clearances++;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fouls and cards
 
 /** The defending side may foul. Returns true if it did (cards handled here). */
 function foul(s: MatchState, att: TeamState, def: TeamState, phase: Phase): boolean {
@@ -102,6 +155,9 @@ function foul(s: MatchState, att: TeamState, def: TeamState, phase: Phase): bool
   return true;
 }
 
+// ---------------------------------------------------------------------------
+// Shots
+
 interface ShotSpec {
   shotType: ShotType;
   shooter: PlayerState;
@@ -111,18 +167,11 @@ interface ShotSpec {
   blocked: number;
 }
 
-function xgFor(
-  s: MatchState,
-  att: TeamState,
-  def: TeamState,
-  base: number,
-  skill: number,
-  spread = true,
-): number {
+function xgFor(s: MatchState, att: TeamState, def: TeamState, base: number, skill: number): number {
   const c = s.c;
   return clamp(
     base *
-      (spread ? Math.exp(c.xg.spread * s.rng.normal() - (c.xg.spread * c.xg.spread) / 2) : 1) *
+      Math.exp(c.xg.spread * s.rng.normal() - (c.xg.spread * c.xg.spread) / 2) *
       Math.exp((-c.xg.pressure * (def.ratings.defence - att.ratings.attack)) / 10) *
       Math.exp((c.xg.shooter * (skill - 60)) / 10) *
       s.input.style.chanceQuality,
@@ -131,36 +180,72 @@ function xgFor(
   );
 }
 
-function openPlayShot(
+/**
+ * Open-play attempt of a given kind. The creator (crosser or dribbler) is chosen first:
+ * the chance can fail before the shot, and both outcomes go into the stats.
+ */
+function openPlay(
   s: MatchState,
   att: TeamState,
   def: TeamState,
   kind: ChanceKind,
+  succeeds: boolean,
 ): ShotSpec | null {
   const { c, rng } = s;
-  const shooter = pick(rng, att.pickers[kind === "cross" ? "header" : kind]);
+  if (kind === "cross") {
+    const crosser = pick(rng, att.pickers.assistCross);
+    if (crosser) crosser.stats.crosses++;
+    if (!succeeds) {
+      aerialClear(s, def);
+      failedPass(s, att, crosser);
+      return null;
+    }
+    const shooter = pick(rng, att.pickers.header, crosser);
+    if (!shooter) return null;
+    shooter.stats.aerialsWon++;
+    return {
+      shotType: "header",
+      shooter,
+      assister: crosser,
+      xg: xgFor(s, att, def, c.xg.header, avg(shooter.eff, "hdr", "jmp")),
+      blocked: c.shotOutcome.blocked * c.shotOutcome.headerBlockedFactor,
+    };
+  }
+  if (kind === "dribble") {
+    const dribbler = pick(rng, att.pickers.dribble);
+    if (!dribbler) return null;
+    dribbler.stats.dribbles++;
+    if (!succeeds) {
+      const winner = pick(rng, def.pickers.boxDefender);
+      if (winner) winner.stats.tackles++;
+      return null;
+    }
+    dribbler.stats.dribblesCompleted++;
+    const assister = rng.bool(0.3) ? pick(rng, att.pickers.assistCentral, dribbler) : null;
+    return {
+      shotType: "dribble",
+      shooter: dribbler,
+      assister,
+      xg: xgFor(s, att, def, c.xg.dribble, dribbler.eff[R.fin] as number),
+      blocked: c.shotOutcome.blocked,
+    };
+  }
+  if (!succeeds) {
+    ballWon(s, att, def, "chance", kind === "central" ? "boxDefender" : "midDefender");
+    return null;
+  }
+  const shooter = pick(rng, att.pickers[kind]);
   if (!shooter) return null;
-  let assister: PlayerState | null = null;
-  if (kind === "cross") assister = pick(rng, att.pickers.assistCross, shooter);
-  else if (kind === "central") assister = pick(rng, att.pickers.assistCentral, shooter);
-  else if (rng.bool(kind === "longShot" ? 0.4 : 0.3))
-    assister = pick(rng, att.pickers.assistCentral, shooter);
+  const assister =
+    kind === "central" || rng.bool(0.4) ? pick(rng, att.pickers.assistCentral, shooter) : null;
   const skill =
-    kind === "cross"
-      ? avg(shooter.eff, "hdr", "jmp")
-      : kind === "longShot"
-        ? (shooter.eff[R.lsh] as number)
-        : (shooter.eff[R.fin] as number);
-  const base = kind === "cross" ? c.xg.header : c.xg[kind];
-  const blocked =
-    (c.shotOutcome.blocked + (kind === "longShot" ? c.shotOutcome.longShotBlockedBonus : 0)) *
-    (kind === "cross" ? c.shotOutcome.headerBlockedFactor : 1);
+    kind === "longShot" ? (shooter.eff[R.lsh] as number) : (shooter.eff[R.fin] as number);
   return {
-    shotType: kind === "cross" ? "header" : kind,
+    shotType: kind,
     shooter,
     assister,
-    xg: xgFor(s, att, def, base, skill),
-    blocked,
+    xg: xgFor(s, att, def, c.xg[kind], skill),
+    blocked: c.shotOutcome.blocked + (kind === "longShot" ? c.shotOutcome.longShotBlockedBonus : 0),
   };
 }
 
@@ -205,6 +290,13 @@ function resolveShot(
     shooter.stats.shotsOnTarget++;
     att.stats.shotsOnTarget++;
   }
+  if (outcome === "saved") {
+    const keeper = keeperOf(def);
+    if (keeper) keeper.stats.saves++;
+  } else if (outcome === "blocked") {
+    const blocker = pick(rng, def.pickers.boxDefender);
+    if (blocker) blocker.stats.blocks++;
+  }
   const clock = s.clock;
   const assistPid = assister?.input.pid ?? null;
   emit(
@@ -227,6 +319,7 @@ function resolveShot(
     s.score[att.side]++;
     if (assister) assister.stats.assists++;
     if (shot.shotType === "penalty") att.stats.penaltiesScored++;
+    for (const p of onPitch(def)) p.stats.goalsConceded++;
     emit(
       s,
       {
@@ -272,16 +365,19 @@ function setPieceDelivery(s: MatchState, att: TeamState, def: TeamState): ShotOu
   const attackQuality =
     (1 - c.setPiece.setPiecesShare) * A.aerial + c.setPiece.setPiecesShare * A.setPieces;
   const home = s.input.neutralVenue ? 0 : att.side === 0 ? c.homeAdvantage : -c.homeAdvantage;
+  const taker = att.setPieceTaker;
+  if (taker) taker.stats.crosses++;
   if (
     !rng.bool(
       sigmoid(c.setPiece.base + (c.slope / 10) * (attackQuality - def.ratings.aerial) + home),
     )
   ) {
+    aerialClear(s, def);
     return "cleared";
   }
-  const shooter = pick(rng, att.pickers.header);
+  const shooter = pick(rng, att.pickers.header, taker);
   if (!shooter) return "cleared";
-  const taker = att.setPieceTaker;
+  shooter.stats.aerialsWon++;
   return resolveShot(s, att, def, {
     shotType: "header",
     shooter,
@@ -304,6 +400,9 @@ function directFreeKick(s: MatchState, att: TeamState, def: TeamState): ShotOutc
     blocked: c.setPiece.freeKickBlocked,
   });
 }
+
+// ---------------------------------------------------------------------------
+// The possession
 
 type AttackStep = "chance" | "corner" | "freeKick" | "penalty";
 
@@ -345,8 +444,18 @@ export function runPossession(s: MatchState): { inPlay: number; dead: number } {
           home +
           c.sliders.pressingExposure * def.sliders.pressing,
       );
-      if (rng.bool(p)) zone = rng.bool(c.buildUp.longBallToFinalThird) ? "att" : "mid";
-      else end = lose(c.startZone.afterProgressionLoss);
+      if (rng.bool(p)) {
+        progressivePass(s, att);
+        if (rng.bool(0.5)) {
+          const target = pick(rng, att.pickers.header);
+          if (target) target.stats.aerialsWon++;
+        }
+        zone = rng.bool(c.buildUp.longBallToFinalThird) ? "att" : "mid";
+      } else {
+        aerialClear(s, def);
+        failedPass(s, att);
+        end = lose(c.startZone.afterProgressionLoss);
+      }
     } else {
       inPlay += c.time.buildUp;
       const p = sigmoid(
@@ -355,8 +464,13 @@ export function runPossession(s: MatchState): { inPlay: number; dead: number } {
           home -
           c.buildUp.shortBonusPerStep * directness,
       );
-      if (rng.bool(p)) zone = "mid";
-      else end = lose(c.startZone.afterBuildUpLoss);
+      if (rng.bool(p)) {
+        progressivePass(s, att);
+        zone = "mid";
+      } else {
+        ballWon(s, att, def, "buildUp", "presser");
+        end = lose(c.startZone.afterBuildUpLoss);
+      }
     }
   }
   if (zone === "def" && !end) zone = "mid"; // repeated free kicks carry them through
@@ -369,9 +483,15 @@ export function runPossession(s: MatchState): { inPlay: number; dead: number } {
     }
     inPlay += c.time.progression;
     const p = sigmoid(c.progression.base + k * (att.ratings.passing - def.ratings.defence) + home);
-    if (rng.bool(p)) zone = "att";
-    else end = lose(c.startZone.afterProgressionLoss);
+    if (rng.bool(p)) {
+      progressivePass(s, att);
+      zone = "att";
+    } else {
+      ballWon(s, att, def, "progression", "midDefender");
+      end = lose(c.startZone.afterProgressionLoss);
+    }
   }
+
   // The final third (reached, or carried there by repeated free kicks): chances, set
   // pieces and their follow-ups.
   let step: AttackStep = "chance";
@@ -384,9 +504,12 @@ export function runPossession(s: MatchState): { inPlay: number; dead: number } {
         step = rng.bool(c.setPiece.penaltyShare) ? "penalty" : "freeKick";
         continue;
       }
-      if (
-        !rng.bool(sigmoid(c.chance.base + k * (att.ratings.attack - def.ratings.defence) + home))
-      ) {
+      const kind = chooseChance(rng, att, c.chanceMix.crossPerDirectness);
+      const succeeds = rng.bool(
+        sigmoid(c.chance.base + k * (att.ratings.attack - def.ratings.defence) + home),
+      );
+      const shot = openPlay(s, att, def, kind, succeeds);
+      if (!shot) {
         if (rng.bool(c.setPiece.cornerFromChanceLoss)) {
           step = "corner";
           continue;
@@ -394,13 +517,7 @@ export function runPossession(s: MatchState): { inPlay: number; dead: number } {
         end = lose(c.startZone.afterChanceLoss);
         break;
       }
-      const shot = openPlayShot(
-        s,
-        att,
-        def,
-        chooseChance(rng, att, c.chanceMix.crossPerDirectness),
-      );
-      outcome = shot ? resolveShot(s, att, def, shot) : "off";
+      outcome = resolveShot(s, att, def, shot);
     } else if (step === "corner") {
       att.stats.corners++;
       emit(s, { type: "corner", clock: s.clock, side: att.side }, false);
@@ -455,10 +572,18 @@ export function runPossession(s: MatchState): { inPlay: number; dead: number } {
   }
   end ??= lose(c.startZone.afterChanceLoss);
 
+  // Passes: spread over the players on the ball, by their share of the team's passing.
   const timeScale = 1 - c.time.perDirectness * directness;
   const seconds = inPlay * timeScale;
+  const passes = Math.max(
+    1,
+    seconds / (c.time.secondsPerPass * (1 + c.time.passTempoPerDirectness * directness)),
+  );
+  for (const p of onPitch(att)) {
+    p.passShareAcc += passes * p.passShare;
+    p.passFailAcc += passes * p.passShare * c.passFailureBase;
+  }
   att.possessionSeconds += seconds;
-  att.stats.passes += Math.max(1, Math.round(seconds / (c.time.secondsPerPass * timeScale)));
   s.inPlaySeconds += seconds;
   s.ball = end.ball;
   s.zone = end.zone;
