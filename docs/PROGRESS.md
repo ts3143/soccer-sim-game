@@ -158,5 +158,20 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - **M5:** Team OVR still uses placeholder weights. The harness fits real weights (R² 0.18–0.31, defence weighted most); adopt them before M5 shows Team OVR.
 - **M6:** the Watch screen replaces the Match lab. `applyChanges` and the event feed are ready for it.
 
+## M3 notes (2026-10-14, in progress)
+**Chunk 1: calendar, league fixtures, tables** (`src/worker/schedule/`)
+- `seasonCalendar(season)` dates every league round and cup round. Two slots a week: Saturday and Wednesday. Each config MM-DD date moves to the nearest slot, so the season keeps its shape whatever weekday a date falls on.
+- League fixtures are a double round-robin, with clubs shuffled by the season's own random stream. No club plays three home or three away matches in a row. The two meetings of a pair are at least 16 rounds apart (18 clubs) and 22 apart (24 clubs).
+- League tables use each league's tie-breakers from config. Head-to-head criteria use a mini-table of the clubs still tied; `draw` is seeded and stable.
+- `pnpm calendar [--season Y] [--sim]` prints a season's calendar, and with `--sim` plays the league fixtures and prints the tables.
+- 34 new unit tests. They check the calendar rules for 20 seasons (2026–2045), fixture fairness and the tie-breaker cases.
+
+**Judgment calls (chunk 1)**
+- A cup-final weekend is kept free of league rounds for every league in that cup. GER1's last date and the German cup final are both 22 May 2027, so GER1 ends on 15 May (the real league also finishes before its cup final). The English top flight keeps 15 May free for the English cup final.
+- Earlier cup rounds are spread evenly across midweeks: from 10 days after the entrants' first league round to 4 weeks before the final, outside the winter break. 2026/27: English cup 19 Aug, 21 Oct, 16 Dec, 17 Feb, 14 Apr, final 15 May. German cup 9 Sep, 18 Nov, 10 Feb, 21 Apr, final 22 May.
+- Spare weekends (ENG1 2, GER1 1) are spread evenly, like international breaks. ENG2's extra rounds (7, or 8 when Christmas Day is a Saturday) are spread through the season's midweeks, never on a cup midweek.
+- No matches on 24 or 25 December.
+- The second half of the round-robin is the first half with venues swapped, starting from its second round. A straight mirror gave some clubs three home or away matches in a row at the turn of the season.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

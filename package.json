@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "lint": "eslint . && prettier --check . && tsc -b",
     "format": "prettier --write .",
+    "calendar": "tsx tools/calendar.ts",
     "calibrate": "tsx tools/calibrate/index.ts",
     "generate": "tsx tools/generate/index.ts"
   },

@@ -1,7 +1,7 @@
 /**
  * World config (data/config/competitions_mvp.json): leagues, cups, windows, key dates
  * and roster rules. Leagues and cups are data-driven: adding a country later means
- * adding config entries, not code. Fields the season loop needs (M3) are typed then.
+ * adding config entries, not code.
  */
 import raw from "../../../data/config/competitions_mvp.json";
 
@@ -10,6 +10,23 @@ export interface StyleModifiers {
   foulRate: number;
   directness: number;
 }
+
+/**
+ * League-table tie-breakers, applied in order (SPEC §2.1). Head-to-head criteria compare
+ * only the matches among the clubs still tied; `draw` is a seeded random draw.
+ */
+export const TIE_BREAKERS = [
+  "points",
+  "goalDifference",
+  "goalsFor",
+  "goalsAgainst",
+  "wins",
+  "headToHeadPoints",
+  "headToHeadGoalDifference",
+  "headToHeadGoalsFor",
+  "draw",
+] as const;
+export type TieBreaker = (typeof TIE_BREAKERS)[number];
 
 export interface LeagueConfig {
   id: string;
@@ -24,6 +41,8 @@ export interface LeagueConfig {
   promotion: { automatic: number; playoffPositions: number[]; promotedPlaces: number } | null;
   relegation: { places: number; to: string } | null;
   styleModifiers: StyleModifiers;
+  /** Table order after points; each league sets its own (T, 2026-10-14). */
+  tieBreakers: TieBreaker[];
 }
 
 export interface CupConfig {
@@ -58,6 +77,23 @@ export interface CompetitionsConfig {
   renewals: { endOfSeasonResignPhase: boolean; expiryWarningMonths: number };
 }
 
+const isTieBreaker = (value: string): value is TieBreaker =>
+  (TIE_BREAKERS as readonly string[]).includes(value);
+
+/** Validates a league's tie-breaker list: known names, no repeats, `draw` only last. */
+export function parseTieBreakers(league: string, list: readonly string[]): TieBreaker[] {
+  const out: TieBreaker[] = [];
+  for (const [i, name] of list.entries()) {
+    if (!isTieBreaker(name)) throw new Error(`${league}: unknown tie-breaker "${name}"`);
+    if (out.includes(name)) throw new Error(`${league}: tie-breaker "${name}" listed twice`);
+    if (name === "draw" && i !== list.length - 1)
+      throw new Error(`${league}: the "draw" tie-breaker must come last`);
+    out.push(name);
+  }
+  if (out[0] !== "points") throw new Error(`${league}: tie-breakers must start with "points"`);
+  return out;
+}
+
 function parse(json: typeof raw): CompetitionsConfig {
   const leagues = json.leagues.map((l): LeagueConfig => ({
     id: l.id,
@@ -77,6 +113,7 @@ function parse(json: typeof raw): CompetitionsConfig {
       : null,
     relegation: l.relegation,
     styleModifiers: l.styleModifiers,
+    tieBreakers: parseTieBreakers(l.id, l.tieBreakers),
   }));
   for (const league of leagues) {
     if (league.relegation && !leagues.some((l) => l.id === league.relegation?.to)) {
