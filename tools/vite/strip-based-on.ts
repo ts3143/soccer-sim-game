@@ -1,9 +1,9 @@
 import type { Plugin } from "vite";
 
 /**
- * Removes every `based_on` field (the real club a fictional club mirrors) from the
- * club data when Vite bundles it, so real club names never ship to the browser
- * (SPEC §6.1). The data file in the repo keeps the field as a dev reference.
+ * Bundles only the club data the game uses: the `leagues` and `clubs` lists, with every
+ * `based_on` field (the real club a fictional club mirrors) removed, so real club names
+ * never ship to the browser (SPEC §6.1). The data file in the repo is unchanged.
  */
 export function stripBasedOn(): Plugin {
   return {
@@ -11,8 +11,9 @@ export function stripBasedOn(): Plugin {
     enforce: "pre",
     transform(code, id) {
       if (!id.split("?")[0]?.endsWith("/data/clubs_2026_27.json")) return null;
-      const data = JSON.parse(code) as unknown;
-      return { code: JSON.stringify(removeBasedOn(data)), map: null };
+      const data = JSON.parse(code) as { leagues: unknown; clubs: unknown };
+      const shipped = { leagues: data.leagues, clubs: removeBasedOn(data.clubs) };
+      return { code: JSON.stringify(shipped), map: null };
     },
   };
 }
