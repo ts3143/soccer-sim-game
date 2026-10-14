@@ -60,6 +60,13 @@
           "eliminators": "single match: 5th hosts 8th, 6th hosts 7th; extra time and penalties if level",
           "semis": "two-legged: 3rd vs lowest-seeded eliminator winner, 4th vs highest-seeded eliminator winner; higher seed hosts the second leg; extra time and penalties after the second leg",
           "final": "single match at a neutral venue, extra time and penalties",
+          "schedule": {
+            "eliminators": "first midweek slot after the final league round",
+            "semiFirstLegs": "the following weekend slot",
+            "semiSecondLegs": "the midweek slot after that",
+            "finalNear": "05-24",
+            "_finalNote": "Final on the weekend slot nearest 05-24 (around 23-25 May)."
+          },
           "promotedPlaces": 1,
           "_source": "Mirrors the real 2026/27 EFL format (expanded from 4 to 6 clubs)."
         }
@@ -84,6 +91,7 @@
       "promotion": null,
       "relegation": null,
       "_relegationNote": "Only simulated German tier in the MVP: no relegation until a German second tier exists.",
+      "_boardNote": "Lowest board target is 'finish above the bottom 3' (instead of 'avoid relegation') while GER1 has no relegation.",
       "styleModifiers": {
         "chanceQuality": 1.05,
         "foulRate": 1.05,
@@ -124,6 +132,11 @@
         "GER1"
       ],
       "format": "single-leg knockout, extra time and penalties if level; 18 clubs, so the 4 lowest-placed clubs from last season play a preliminary round to reach 16",
+      "preliminary": {
+        "clubs": 4,
+        "selection": "lowest finish in last season's GER1 table",
+        "firstSeasonSelection": "lowest strength in clubs_2026_27.json (no previous table)"
+      },
       "rounds": [
         "Preliminary (4 clubs -> 2)",
         "Last 16",
@@ -149,6 +162,11 @@
       "deadlineDay": "01-31"
     }
   ],
+  "renewals": {
+    "_note": "Renewals (user and AI) only inside the windows; no end-of-season re-sign phase. A contract ending 06-30 must be renewed by the winter deadline (01-31), or the player leaves as a free agent on 07-01. Inbox: a warning when the winter window opens listing every player in his final expiryWarningMonths, and a reminder before deadline day.",
+    "endOfSeasonResignPhase": false,
+    "expiryWarningMonths": 6
+  },
   "keyDates": {
     "summerDevelopmentUpdate": "07-01",
     "youthIntake": "07-01",
@@ -159,8 +177,11 @@
   "matchSlots": "Two per week: weekend (Sat) and midweek (Wed). League rounds take weekend slots; extra league rounds and cup ties take midweek slots. Germany plays no matches during its winter break; England plays through it.",
   "rosterRules": {
     "maxSenior": 25,
+    "startingSeniors": { "min": 22, "max": 24 },
     "academyMaxAge": 18,
     "mustPromoteLoanOrReleaseBy": 19,
-    "minSeniorForMatch": 16
+    "academyMatchdayMinAge": 16,
+    "minSeniorForMatch": 16,
+    "_minSeniorForMatchNote": "If fewer than minSeniorForMatch seniors are fit, academy players aged academyMatchdayMinAge+ fill the bench."
   }
 }

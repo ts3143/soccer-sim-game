@@ -1,6 +1,6 @@
 # Soccer Sim Game — Game Specification
 
-This is the build spec for Claude Code. It consolidates every decision from the design doc (37 logged decisions, scoped Oct 13 2026) into one place, organised by system, with contradictions resolved.
+This is the build spec for Claude Code. It consolidates every decision from the design doc (37 logged decisions, scoped Oct 13 2026) into one place, organised by system, with contradictions resolved. Updated Oct 14 2026 with the 15 kickoff-review decisions (logged in `PROGRESS.md` → Deviations from spec).
 
 **Tags:** `[MVP]` ships in the first playable version. `[v1.1]` is the next layer. `[Later]` is roadmap. Untagged text applies to the MVP.
 **Defaults:** items marked `[DEFAULT]` were not explicitly decided by T; they are sensible defaults listed in `OPEN_QUESTIONS.md` for confirmation. Build them as written unless told otherwise.
@@ -26,12 +26,13 @@ A web-based soccer management sim in the mold of the ZenGM games (Basketball GM,
   - **ENG1** English top flight, 20 clubs, 38 rounds.
   - **ENG2** English second tier, 24 clubs, 46 rounds.
   - **GER1** German top flight, 18 clubs, 34 rounds.
-- About 1,800 senior players at start (about 25 senior + 4–6 academy per club), plus a seeded free-agent pool.
+- About 1,800 club players at start, academies included (22–24 senior + 4–6 academy per club), plus a seeded free-agent pool on top.
 - **Promotion/relegation:** ENG1 bottom 3 go down to ENG2. ENG2 top 2 go up automatically; **3rd–8th play-offs** for the third place, mirroring the real 2026/27 format: one-off eliminators (5th hosts 8th, 6th hosts 7th), two-legged semi-finals (3rd vs lowest-seeded eliminator winner, 4th vs highest-seeded), single-match final at a neutral venue. Extra time and penalties where ties are level.
+  - Play-off dates: eliminators in the first midweek slot after ENG2's final round; semi-final first legs the following weekend, second legs the midweek after; final around 23–25 May (the weekend slot nearest 24 May).
 - **No relegation from the lowest simulated tier.** That means none from ENG2, and none from GER1 in the MVP because no German second tier exists yet.
 - **Domestic cups:** one per country, single-leg knockout, extra time and penalties if level.
   - English cup: ENG2 clubs enter round 1 (24 → 12), ENG1 joins in round 2 (32 clubs), then last 16, quarter-finals, semis, final.
-  - German cup: 4 lowest-placed GER1 clubs from last season play a preliminary round; then a 16-club knockout.
+  - German cup: 4 lowest-placed GER1 clubs from last season play a preliminary round; then a 16-club knockout. In season 1 (no previous table) the 4 lowest-`strength` clubs play it.
 - **No European competition in the MVP.** Cup winners receive prize money only.
 
 ### 2.2 Full world `[Later]`
@@ -58,7 +59,8 @@ A web-based soccer management sim in the mold of the ZenGM games (Basketball GM,
 | Regular season (second half) | Feb–May | League run-in, play-offs, cup finals |
 | End of season | late May–June | Awards; promotion/relegation; retirements; FFP check; contracts expire 30 June (those players become free agents) |
 
-- **Renewals (user and AI) only during the summer and winter windows.** Final-year players are harder to re-sign.
+- **Renewals (user and AI) only during the summer and winter windows.** Final-year players are harder to re-sign. There is **no end-of-season re-sign phase**: a player whose contract ends 30 June must be renewed by 31 January, or he leaves as a free agent on 1 July. AI clubs follow the same rule.
+  - Made visible to the user: an inbox warning when the January window opens, listing every player in his final six months; a reminder before deadline day; contract-expiry badges on the Squad page.
 - **Free agents can be signed at any time**, inside or outside windows.
 - **Board can sack the user mid-season** when confidence collapses (see 6.5).
 
@@ -86,6 +88,7 @@ Name, nationality (+ optional second nationality, ~8%), birth date, birthplace, 
 - **10 position groups:** GK, CB, FB, WB, DM, CM, WM, AM, W, ST. Left/right variants share a formula; preferred foot affects fit (small wrong-foot penalty at FB/WB/WM; none for W, since inverted wingers are normal).
 - **Every player has an OVR for all 10 groups.** Listed position = best one. Playing out of position uses that slot's OVR. No role sub-types.
 - Starting weights (heavy 3 / medium 2 / light 1): `ratings_positions.json`. Hand-set now, refit by regression against Value Added in `[v1.1]`.
+- **OVR scaling:** a position's OVR = the weighted mean of its ratings, mapped through **fixed per-position scaling constants** (fitted once in M1 so the player population matches the OVR bands; stored in `ratings_positions.json`). They are never recomputed per save and change only through a deliberate refit (planned for `[v1.1]` together with the weight refit).
 - **OVR bands** (internal labels, ZenGM's): 85+ All-time great · 75+ MVP candidate · 65+ All-League candidate · 55+ Starter · 45+ Role player · below 45 Bad player.
 - Stored: all position OVRs and POT, recomputed at each development update.
 
@@ -118,19 +121,26 @@ Two progression updates per season: **summer (1 July)** and **winter (1 January)
 - **Hidden curve type:** Normal 70% · Early bloomer 10% (peak ~2 years earlier, earlier decline) · Late bloomer 10% (peak ~2 years later) · Ageless 10% (decline delayed and slower).
 - **Medium** random noise on every update (breakout seasons and stalls happen).
 
-### 5.3 Development multiplier (dominant up to ~23, fading to nothing by ~27)
+### 5.3 Development multiplier (growth only; full effect up to 23, blending to neutral by 27)
 ```
-dev = coaching × (0.4 + 0.6 × minutesFactor × challengeFactor) + performanceAdj
-Δrating = ageCurve(group, age, curveType) × dev × noise
-growth is softened near the ceiling: × gap / (gap + 8), where gap = ceiling − OVR
+dev    = coaching × (0.4 + 0.6 × minutesFactor × challengeFactor) + performanceAdj
+blend  = clamp((age − 23) / 4, 0, 1)          // 0 at 23 or younger, 1 at 27 or older
+devEff = dev × (1 − blend) + 1.0 × blend      // blends linearly to neutral (1.0)
+
+per rating, with a = ageCurve(group, age, curveType):
+  growth  (a > 0):  Δrating = a × devEff × noise × gap / (gap + 8)   // gap = ceiling − OVR
+  decline (a ≤ 0):  Δrating = a × medicalFactor × noise             // age × Medical dial; dev never applies
+  mental group:     Δrating += mentalMinutesBonus × minutesFactor    // small, positive, at any age
 ```
+- The dev multiplier applies to **growth only**. Decline is driven by **age × the Medical dial** (`medicalFactor` slightly below 1 for a high dial). Minutes, coaching and form can't speed decline up or slow it down, so a benched veteran never declines slower than a starter (unit-tested in M3).
+- **mentalMinutesBonus** is a small tuned coefficient on the mental age-curve group (`oiq`, `diq`, `wrk`, `ant`).
 - **coaching:** Coaching dial of the club where he actually plays (incl. loan clubs), mapped to 0.9–1.1.
 - **minutesFactor:** share of available minutes in all competitions in the half-season, with diminishing returns. Zero minutes still gives the 0.4 training base.
 - **challengeFactor:** compares the strength of the level he played at (minutes-weighted average team OVR of opponents/competitions) with his own OVR. Peaks when the level is at or slightly above his OVR; small when he is far too good for the level (blocks the weak-loan exploit) or badly out of his depth.
 - **performanceAdj:** average match rating vs positional expectation, capped at ±0.15.
 - **Academy players** (no matches) develop on coaching + Youth academy dial only.
 - **Ceiling decay:** ages 19–23, if he plays under ~15% of available minutes in a season, his hidden ceiling drops 1–3 points (slightly randomised). This creates lost prospects.
-- **Veterans:** minutes keep feeding mental ratings at any age; decline is age-driven; the Medical dial slightly slows it.
+- **Veterans:** minutes keep feeding mental ratings at any age (the mental minutes bonus above); decline is age-driven; the Medical dial slightly slows it.
 
 ### 5.4 Calibration targets
 Well-played 18–21-year-olds gain roughly **+4 to +8 OVR per year**; benched ones 0 to +2; players 33+ lose roughly **4–7 per year**; most retire 33–37, goalkeepers later. Full targets: `data/config/calibration_targets.json`.
@@ -143,7 +153,7 @@ Age-driven probability that rises sharply from 33 (later for GKs), higher for lo
 ## 6. Clubs, finances and board
 
 ### 6.1 Club data
-Fixed identity from `data/clubs_2026_27.json`: name, short name, 3-letter abbreviation, city, country, capacity, colors (primary/secondary/tertiary), market size (1–100), reputation (1–100), revenue (scaled €M projection for 2026/27), strength (target starting-XI OVR), crest (generated SVG). The `based_on` field is a **dev reference only and must never appear in the UI.**
+Fixed identity from `data/clubs_2026_27.json`: name, short name, 3-letter abbreviation, city, country, capacity, colors (primary/secondary/tertiary), market size (1–100), reputation (1–100), revenue (scaled €M projection for 2026/27), strength (target starting-XI OVR), crest (generated SVG). The `based_on` field is a **dev reference only and must never appear in the UI.** It is stripped at build time: it never ships in the app bundle and is never written to a save. The data file and the repo keep it.
 
 Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), cash, budget dials, ticket price, tactics, board confidence.
 
@@ -169,7 +179,7 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 - Negative cash freezes transfers but is not game over.
 
 ### 6.5 Board
-- Preseason **expectation** from squad strength vs league: ENG1/GER1 = title / top 4 / mid-table / avoid relegation; ENG2 = promotion / play-offs / mid-table.
+- Preseason **expectation** from squad strength vs league: ENG1 = title / top 4 / mid-table / avoid relegation; GER1 = title / top 4 / mid-table / finish above the bottom 3 (GER1 has no relegation in the MVP); ENG2 = promotion / play-offs / mid-table.
 - **Board confidence** = results vs expectation + finances + hype. Too low → fired, including mid-season.
 - `[DEFAULT]` When fired: a "You're fired" screen offering 1–3 jobs at clubs with lower reputation (fictional vacancies), or start a new league. No other staff entities exist in the MVP.
 - `[Later]` Owner types (rich benefactor vs self-sustaining).
@@ -181,7 +191,9 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 
 ### 7.1 Squad rules
 - Max **25 senior players**; academy unlimited. Academy = players aged ≤18 who have not been promoted; by 19 they must be promoted, loaned or released.
+- Clubs start with **22–24 seniors** (cap stays 25), so there is room to sign in the first window.
 - `[DEFAULT]` Academy players aged 16+ may be picked for a matchday squad (their minutes count for development) without counting toward the 25.
+- If fewer than **16 seniors** are fit (`minSeniorForMatch`), academy players aged 16+ fill the bench. Same rule as the default above.
 - Matchday squad: 11 starters + up to 9 substitutes; 5 substitutions per match.
 
 ### 7.2 Youth academy (replaces the draft)
@@ -215,7 +227,7 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 ### 7.6 Contracts
 - Length 1–5 years; first pro contract 3 years. Wages per year. No hard max wage (FFP and budget limit spending). No release clauses for now.
 - ZenGM-style negotiation: the player asks a wage per contract length, adjusted by mood; the user picks a length/wage or walks away. One modal for renewals, transfers and free agents.
-- Renewals only in the summer and winter windows; expiry 30 June.
+- Renewals only in the summer and winter windows; expiry 30 June. A player in his final year must be renewed by 31 January or he leaves on 1 July (see 3.1).
 
 ### 7.7 Rest of World `[v1.1]`
 - RoW = every player outside the simulated leagues. Pool of ~300–500 players across regions, each at a fictional club with a league-level tag (strong/mid/weak) that sets development in place of minutes.
@@ -244,11 +256,13 @@ Computed from the starting XI by slot (config: `formations_tactics.json`): Passi
 | Shot outcome | Attack vs Goalkeeping |
 | Crosses and set pieces | Aerial + Set Pieces vs Aerial |
 
-- **Team OVR** = regression of the seven ratings onto goal difference, shown 0–100. Until enough sim data exists, use a hand-weighted placeholder; club `strength` in the club data means the mean slot OVR of the club's best XI in its default formation.
+- **Set Pieces** = the designated taker's delivery quality (`stp`) only. Aerial ability counts once in the set-piece matchup, through the Aerial rating.
+- **Team OVR** = regression of the seven ratings onto goal difference, shown 0–100. Until enough sim data exists, use a hand-weighted placeholder; club `strength` in the club data means the mean slot OVR of the club's best XI in its default formation (see 8.3).
 - Home advantage is a small engine coefficient tuned to the calibration targets.
 
 ### 8.3 Tactics
 - **Formations:** presets only. MVP: 4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2. Defined for later: 4-1-4-1, 3-4-3, 5-4-1. Each preset defines 11 slots with position groups and sides.
+- **Default formation:** at league creation each club gets a seeded default formation from the 5 MVP presets (selection weights in `formations_tactics.json`). Its squad is generated around it, it is saved as the club's starting tactics, and the club's `strength` is measured in it.
 - **Three sliders, 5 steps each (−2…+2):** Mentality (defensive ↔ attacking), Pressing intensity, Directness (short ↔ direct). Each has a trade-off (see config). No defensive-line or width sliders. Team ratings update live as sliders move.
 - AI clubs choose formation and sliders to suit their squad; the user has an **Auto** option.
 - Coaching is a budget dial affecting development only; tactics are the user's.
@@ -279,6 +293,7 @@ Single-leg cup ties, play-off eliminators and play-off finals: extra time (2 × 
 
 ### 8.8 League style modifiers
 Small per-league coefficients on inputs only (`competitions_mvp.json`): ENG2 ~10–15% fewer goals (chance quality), slightly more fouls, more direct/aerial AI tactics; GER1 slightly higher-scoring; ENG1 slightly fewer fouls.
+- **Calibration:** the engine is tuned with all style modifiers neutral (1.0). Each league is then checked against target × its modifier (mapping in `calibration_targets.json` → `leagueChecks`). ENG2 landing ~2.5 goals per match is correct.
 
 ---
 
@@ -322,6 +337,7 @@ Mirror ZenGM's layout: a **top-bar Play button** (sim options + phase steps) and
 | Tools | Settings, Manage Leagues (create, switch, delete saves) |
 
 Screen details:
+- **Squad:** contract-expiry badges on players whose contracts end this 30 June (see 3.1).
 - **Tactics:** formation dropdown preloads the 11 slots into a table; players are drag-and-drop ordered into slots and bench (ZenGM-style); slot OVR shown per player; the 3 sliders; live team ratings; Auto toggle. No pitch view.
 - **Watch live:** before kick-off, temporary one-match changes to the saved lineup (incl. one-click Auto rotation). During: live text feed, score and clock, live stats, energy bars, subs, sliders, pause button; pausing opens an adjustment screen; half-time screen.
 - **Player profile:** bio, ratings table + **radar chart** (8 grouped axes, see config), OVR/POT history chart, career stats, contract, mood (with ZenGM-style breakdown popup), condition and injury, transfer history.
@@ -335,14 +351,14 @@ Screen details:
 ## 12. Data model and storage
 
 - **One IndexedDB database per league save** + an **in-memory cache** for current-season data (ZenGM pattern). IndexedDB is hit only for uncommon reads (past seasons).
-- Fixed data (`data/`) ships as JSON and is copied into each new save.
+- Fixed data (`data/`) ships as JSON and is copied into each new save, minus `based_on` (stripped at build time; see 6.1).
 
 | Store | Holds |
 | --- | --- |
 | `meta` | Season, phase, current date, user club, settings, world-size config, league modifiers, RNG state |
 | `competitions` | Leagues, cups, play-offs: format, tiers, promotion/relegation links, prize money |
-| `clubs` | Fixed identity + current tactics, budget dials, ticket price |
-| `clubSeasons` | Per club per season: league, finish, W/D/L, revenue/expense breakdown, hype, reputation, board expectation/confidence, FFP ratio |
+| `clubs` | Fixed identity (without `based_on`) + current tactics (starting from the default formation), budget dials, ticket price, **current cash** |
+| `clubSeasons` | Per club per season: league, finish, W/D/L, revenue/expense breakdown, **season-end cash snapshot**, hype, reputation, board expectation/confidence, FFP ratio |
 | `players` | Bio; ratings history (array per development update); position OVRs + POT; hidden ceiling, curve type, hidden traits; mood traits; contract; status (club, academy, loan, free agent, retired); injury; condition; transfer history |
 | `playerStats` | Per player per club per competition per season |
 | `fixtures` | Date, slot, competition, round, home/away, result reference |
@@ -353,7 +369,7 @@ Screen details:
 | `awards` | Season awards, champions, cup winners, records (with name snapshots) |
 
 - **Stored:** position OVRs + POT. **Derived on the fly:** team ratings/OVR, standings, per-90s, market value. **Match-only:** in-match energy.
-- **Retention:** full match records kept **2 seasons** in the MVP (setting), except the user's club matches, kept forever. The default scales down with world size later (e.g. current season only for other clubs once all 10 leagues are on). Season stat rows are kept forever.
+- **Retention:** full match records kept **2 seasons** in the MVP (setting), except the user's club matches, kept forever. The default scales down with world size later (e.g. current season only for other clubs once all 10 leagues are on). Season stat rows are kept forever unless the player is pruned (below).
 - **Pruning:** retired players with no awards, low peak OVR and no notable spell at the user's club are deleted a few seasons after retiring, with their stat rows; transactions and awards keep name snapshots.
 - Conventions: integer IDs; money in whole € per year; ISO date strings; every season-scoped row tagged with `season`.
 - Saves are **local only** (no accounts, no cloud sync). `[Later]` export/import.
@@ -375,12 +391,13 @@ Screen details:
 
 ## 14. Calibration and performance
 - All engine, development, finance and stability targets: `data/config/calibration_targets.json`. The harness is the gate for Milestones 2–4.
+- Engine targets are met with all league style modifiers neutral; each league is then checked against target × its modifier (see 8.8).
 - Performance budget `[DEFAULT]`: one headless match < 5 ms; a full MVP season in-browser < 60 s on a mid-range laptop including season processing; save < 100 MB after 10 seasons.
 
 ---
 
 ## 15. Roadmap summary
-- **v1.1:** Rest of World market and exits; scouting fog (Scouting dial, fuzzy displayed ratings, reveal hidden traits); squad role promises; pre-contracts; advanced stats (Value Added, on-pitch xG difference, PPDA) then OVR weight refit; Watch List; Compare Players.
+- **v1.1:** Rest of World market and exits; scouting fog (Scouting dial, fuzzy displayed ratings, reveal hidden traits); squad role promises; pre-contracts; advanced stats (Value Added, on-pitch xG difference, PPDA) then OVR weight and scaling refit; Watch List; Compare Players.
 - **Later:** all 10 leagues + world-size setting; European competitions + guest clubs; owner types; God Mode; export/import; custom rosters; Manage Teams; dark mode; more formations; 36-team league phase; extra domestic cups; international breaks and national teams; offline (service worker).
 - **Ideas, undecided:** ZenGM-style skill badges next to player names (no gameplay effect).
 

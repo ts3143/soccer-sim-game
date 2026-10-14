@@ -1,5 +1,5 @@
 {
-  "_note": "Starting values only. Ratings order is fixed: player ratings history is stored as arrays in this order. Position weights are hand-set (heavy=3, medium=2, light=1, unlisted=0) and get refit against Value Added in v1.1. OVR for a position = weighted mean of the listed ratings, then rescaled so the league-wide distribution matches the OVR bands.",
+  "_note": "Starting values only. Ratings order is fixed: player ratings history is stored as arrays in this order. Position weights are hand-set (heavy=3, medium=2, light=1, unlisted=0) and get refit against Value Added in v1.1. OVR for a position = weighted mean of the listed ratings, mapped through the fixed per-position constants in ovrScaling.",
   "ratings": [
     { "code": "hgt", "name": "Height", "group": "Physical", "fixed": true },
     { "code": "str", "name": "Strength", "group": "Physical" },
@@ -58,6 +58,22 @@
   "wrongFootPenalty": {
     "_note": "Applied to slot OVR when a player's preferred foot is on the opposite side of a sided slot. Wingers (W) are exempt: inverted wingers are normal.",
     "FB": 2, "WB": 2, "WM": 2, "W": 0
+  },
+  "ovrScaling": {
+    "_note": "OVR = offset + scale * weightedMean, per position. Fixed constants: fitted once in M1 so the generated population matches the OVR bands, then stored here. Never recomputed per save; they change only through a deliberate refit (planned for v1.1 with the weight refit). Identity values until fitted.",
+    "status": "unfitted",
+    "positions": {
+      "GK": { "scale": 1.0, "offset": 0 },
+      "CB": { "scale": 1.0, "offset": 0 },
+      "FB": { "scale": 1.0, "offset": 0 },
+      "WB": { "scale": 1.0, "offset": 0 },
+      "DM": { "scale": 1.0, "offset": 0 },
+      "CM": { "scale": 1.0, "offset": 0 },
+      "WM": { "scale": 1.0, "offset": 0 },
+      "AM": { "scale": 1.0, "offset": 0 },
+      "W": { "scale": 1.0, "offset": 0 },
+      "ST": { "scale": 1.0, "offset": 0 }
+    }
   },
   "ovrBands": [
     { "min": 85, "label": "All-time great" },
