@@ -5,7 +5,7 @@ Claude Code updates this file at the end of each milestone.
 | Milestone | Status | Notes |
 | --- | --- | --- |
 | M0 Scaffold and plumbing | **Accepted** (T, 2026-10-14) | All acceptance checks pass locally and on the Cloudflare preview; T tested in Chrome and Safari. See "M0 notes" below. |
-| M1 Data, generation and new league | Built, in review | All checks pass locally (unit tests, `pnpm generate --check`, headless Chrome). Awaiting T's local test. See "M1 notes" below. |
+| M1 Data, generation and new league | Built, in review | All checks pass locally (unit tests, `pnpm generate --check`, headless Chrome); T tested locally in Chrome and Safari (2026-10-14). Awaiting the Cloudflare preview check. See "M1 notes" below. |
 | M2 Match engine + calibration harness | Not started | |
 | M3 Season loop | Not started | |
 | M4 Economy and market | Not started | |
@@ -99,4 +99,4 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - **M3 (performance):** generation is dominated by age-curve lookups in the POT arcs. Precompute the curves if development updates need the time.
 
 ## Open issues
-- Firefox not tested yet (Chrome: automated + T; Safari: T).
+- Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.
