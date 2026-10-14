@@ -10,6 +10,22 @@
 import type { Position } from "./config/ratings";
 
 // ---------------------------------------------------------------------------
+// Save list (global database)
+
+/** One league save, as listed in Manage Leagues. */
+export interface LeagueSummary {
+  lid: number;
+  name: string;
+  /** ISO date-time. */
+  createdAt: string;
+  /** ISO date-time. */
+  lastPlayedAt: string;
+  /** The user's club and the current season, for the save list. */
+  clubName: string;
+  season: number;
+}
+
+// ---------------------------------------------------------------------------
 // meta (key-value rows)
 
 /** Season phases (SPEC §3.1). There is no re-sign phase: renewals happen in windows. */
