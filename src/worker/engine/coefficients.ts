@@ -99,7 +99,99 @@ export const COEFFICIENTS = {
   },
 
   /** Physical ratings lose this share at zero energy; technical and mental half as much. */
-  energy: { physicalLoss: 0.15, otherLoss: 0.075 },
+  energy: {
+    physicalLoss: 0.15,
+    otherLoss: 0.075,
+    /** Energy lost per match minute for an average player (before modifiers). */
+    drainPerMinute: 0.0042,
+    /** Endurance: drain × (enduranceBase − enduranceSpan × end/100). */
+    enduranceBase: 1.3,
+    enduranceSpan: 0.6,
+    /** Work rate: drain × (1 + workRate × (wrk − 50) / 50). */
+    workRate: 0.15,
+    /** Pressing slider: drain × (1 + pressing × step). */
+    pressing: 0.08,
+    floor: 0.15,
+    /** Team ratings and pickers are refreshed from energy this often (seconds of clock). */
+    refreshEvery: 180,
+  },
+
+  fouls: {
+    /** Per contested phase: chance the defending side commits a foul. */
+    buildUp: 0.035,
+    progression: 0.055,
+    chance: 0.075,
+    /** Foul chance × (1 + this × pressing step) for the defending side. */
+    pressingPerStep: 0.1,
+    /** Foul chance × (1 + this × hotheads on the pitch). */
+    hotheadTeam: 0.12,
+    /** Dead time after a foul (free kick), seconds. */
+    dead: 22,
+  },
+  cards: {
+    /** Chance a foul is booked, by phase (fouls stopping attacks are booked more). */
+    yellow: { buildUp: 0.12, progression: 0.2, chance: 0.24 },
+    hothead: 1.6,
+    /** Straight red per foul, and for a professional foul in the final third. */
+    red: 0.0035,
+    redInChance: 0.012,
+    /** A booked player fouls less afterwards. */
+    bookedFoulFactor: 0.55,
+  },
+  setPiece: {
+    /** Corner or crossed free kick → attempt on goal: (Aerial and Set Pieces) vs Aerial. */
+    base: -0.55,
+    setPiecesShare: 0.4,
+    /** Header xG from a set piece, × the open-play header base. */
+    xgFactor: 1.05,
+    /** Cleared set pieces fall back to the attackers this often. */
+    secondBall: 0.28,
+    /** Corners won: from saved shots, blocked shots and failed final-third play. */
+    cornerFromSave: 0.3,
+    cornerFromBlock: 0.38,
+    cornerFromChanceLoss: 0.13,
+    cornerDead: 26,
+    /** Free kicks in the final third (fouls in the chance phase). */
+    penaltyShare: 0.16,
+    directShot: 0.3,
+    crossed: 0.5,
+    freeKickXg: 0.06,
+    freeKickBlocked: 0.38,
+  },
+  penalty: {
+    /** Goal chance = base + slope × (pen − 65)/10 − slope × (keeper − 63)/10. */
+    base: 0.78,
+    slope: 0.03,
+    xg: 0.78,
+    /** Shoot-outs: sudden-death kicks are a little harder. */
+    shootoutBase: 0.76,
+    suddenDeath: 0.03,
+  },
+  injuries: {
+    /** Injuries per player-minute at full energy, before modifiers (~0.28 per team-match). */
+    perMinute: 0.00029,
+    /** Risk × (1 + tired × (1 − energy)); × (1 + sharp × how far below 0.75 energy). */
+    tired: 1.2,
+    sharp: 3,
+    injuryProne: 2,
+    /** Medical dial 0–100 → risk × (1.15 − 0.3 × dial/100). */
+    medicalBase: 1.15,
+    medicalSpan: 0.3,
+  },
+  ai: {
+    /** Minute ranges for planned substitution windows (uniform within). */
+    firstWindow: [58, 66],
+    secondWindow: [70, 78],
+    /** Late fresh legs: chance to use leftover subs around this minute. */
+    lateWindow: [84, 88],
+    lateUseChance: 0.6,
+    /** A tired player is replaced when a fresh substitute is within this many OVR points. */
+    freshLegsMargin: 3,
+    /** Minutes from which teams chase a deficit or protect a lead. */
+    chaseFrom: 65,
+    protectFrom: 75,
+    checkEvery: 300,
+  },
 };
 
 export type Coefficients = typeof COEFFICIENTS;

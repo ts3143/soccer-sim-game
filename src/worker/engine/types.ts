@@ -82,7 +82,27 @@ export type MatchEvent =
       pid: number;
       assistPid: number | null;
       penalty: boolean;
-    };
+    }
+  | { type: "foul"; clock: number; side: TeamSide; pid: number; victimPid: number | null }
+  | {
+      type: "card";
+      clock: number;
+      side: TeamSide;
+      pid: number;
+      card: "yellow" | "secondYellow" | "red";
+    }
+  | { type: "corner"; clock: number; side: TeamSide }
+  | { type: "penaltyAwarded"; clock: number; side: TeamSide; pid: number | null }
+  | {
+      type: "sub";
+      clock: number;
+      side: TeamSide;
+      outPid: number;
+      inPid: number;
+      reason: "injury" | "fatigue" | "tactical" | "redCardKeeper";
+    }
+  | { type: "injury"; clock: number; side: TeamSide; pid: number; days: number; replaced: boolean }
+  | { type: "shootoutKick"; side: TeamSide; pid: number; scored: boolean };
 
 export interface PlayerMatchStats {
   pid: number;
@@ -99,6 +119,14 @@ export interface PlayerMatchStats {
   passes: number;
   passesCompleted: number;
   keyPasses: number;
+  fouls: number;
+  foulsWon: number;
+  yellowCards: number;
+  redCards: number;
+  /** Days out if injured in this match, else 0. */
+  injuryDays: number;
+  /** In-match energy (0–1) when he left the pitch or at full time. */
+  energyEnd: number;
 }
 
 export interface TeamMatchStats {
@@ -110,6 +138,15 @@ export interface TeamMatchStats {
   /** Share of in-play time with the ball, 0–1. */
   possession: number;
   possessions: number;
+  corners: number;
+  fouls: number;
+  yellowCards: number;
+  redCards: number;
+  penaltiesAwarded: number;
+  penaltiesScored: number;
+  subsUsed: number;
+  windowsUsed: number;
+  injuries: number;
 }
 
 export interface MatchResult {
@@ -118,9 +155,11 @@ export interface MatchResult {
   extraTime: boolean;
   /** Shoot-out score (home-away) if there was one. */
   penalties: string | null;
+  /** Knockout winner (after aggregate, extra time and penalties); null if not a knockout or a draw. */
+  winner: TeamSide | null;
   teams: [TeamMatchStats, TeamMatchStats];
   players: PlayerMatchStats[];
-  /** Goals with scorer and assister (scoring summary). */
+  /** Goals, cards, substitutions and injuries (the match record's key events). */
   keyEvents: MatchEvent[];
   /** Match length in seconds, including added time. */
   duration: number;

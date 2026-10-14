@@ -18,7 +18,12 @@ export interface FormationsConfig {
   formations: Formation[];
   /** Selection weights for each club's seeded default formation (MVP presets only). */
   defaultFormationWeights: Record<string, number>;
+  /** Real rule: subs in normal time, in at most `substitutionWindows` stoppages during play. */
   maxSubstitutions: number;
+  substitutionWindows: number;
+  /** Extra time adds this many subs and windows. */
+  extraTimeSubs: number;
+  extraTimeWindows: number;
   benchSize: number;
 }
 
@@ -54,6 +59,9 @@ function parse(json: typeof raw): FormationsConfig {
     formations,
     defaultFormationWeights: weights,
     maxSubstitutions: json.substitutions.maxPerMatch,
+    substitutionWindows: json.substitutions.windows,
+    extraTimeSubs: json.substitutions.extraTime.extraSubs,
+    extraTimeWindows: json.substitutions.extraTime.extraWindows,
     benchSize: json.substitutions.benchSize,
   };
 }

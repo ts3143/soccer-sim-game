@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { competitionsConfig } from "../../src/common/config/competitions";
 import type { Club, Player } from "../../src/common/schema";
 import { Random } from "../../src/worker/core/random";
+import { aiSliders } from "../../src/worker/engine/aiTactics";
 import { simulateMatch } from "../../src/worker/engine/match";
 import { teamInput } from "../../src/worker/engine/prepare";
 import type { EngineTeamInput, MatchResult } from "../../src/worker/engine/types";
@@ -60,11 +61,13 @@ for (let i = 0; i < MATCHES; i++) {
   const league = fixtures.weighted(leagueWeights, (l) => l.w).id;
   const clubs = clubsByLeague.get(league) ?? [];
   const [home, away] = fixtures.shuffle(clubs).slice(0, 2) as [Club, Club];
+  const homeTeam = inputs.get(home.cid) as EngineTeamInput;
+  const awayTeam = inputs.get(away.cid) as EngineTeamInput;
   results.push(
     simulateMatch({
       seed: `${SEED}/match:${i}`,
-      home: inputs.get(home.cid) as EngineTeamInput,
-      away: inputs.get(away.cid) as EngineTeamInput,
+      home: { ...homeTeam, sliders: aiSliders(homeTeam, awayTeam, true, NEUTRAL.directness) },
+      away: { ...awayTeam, sliders: aiSliders(awayTeam, homeTeam, false, NEUTRAL.directness) },
       neutralVenue: false,
       style: NEUTRAL,
       knockout: null,
@@ -92,6 +95,18 @@ const measured: Record<string, number> = {
   onTargetShare: sum((r) => r.teams[0].shotsOnTarget + r.teams[1].shotsOnTarget) / totalShots,
   xgPerShot: sum((r) => r.teams[0].xg + r.teams[1].xg) / totalShots,
   conversionRate: sum(goals) / totalShots,
+  yellowCards: sum((r) => r.teams[0].yellowCards + r.teams[1].yellowCards) / n,
+  redCards: sum((r) => r.teams[0].redCards + r.teams[1].redCards) / n,
+  penaltiesAwarded: sum((r) => r.teams[0].penaltiesAwarded + r.teams[1].penaltiesAwarded) / n,
+  penaltyConversion:
+    sum((r) => r.teams[0].penaltiesScored + r.teams[1].penaltiesScored) /
+    Math.max(
+      1,
+      sum((r) => r.teams[0].penaltiesAwarded + r.teams[1].penaltiesAwarded),
+    ),
+  corners: sum((r) => r.teams[0].corners + r.teams[1].corners) / n,
+  fouls: sum((r) => r.teams[0].fouls + r.teams[1].fouls) / n,
+  subsUsedPerTeam: sum((r) => r.teams[0].subsUsed + r.teams[1].subsUsed) / (2 * n),
 };
 const possessionInRange =
   teamMatches.filter((t) => t.possession >= 0.3 && t.possession <= 0.7).length / teamMatches.length;
@@ -130,6 +145,13 @@ console.log(`\nSpeed: ${msPerMatch.toFixed(2)} ms per match (budget < 5 ms)`);
 console.log(
   `Possessions per match: ${(sum((r) => r.teams[0].possessions + r.teams[1].possessions) / n).toFixed(1)}, ` +
     `passes per team: ${(sum((r) => r.teams[0].passes + r.teams[1].passes) / (2 * n)).toFixed(0)}`,
+);
+const starters = results.flatMap((r) =>
+  r.players.filter((p) => p.startedInSlot !== null && p.minutes >= 90),
+);
+console.log(
+  `Injuries per team-match: ${(sum((r) => r.teams[0].injuries + r.teams[1].injuries) / (2 * n)).toFixed(2)}, ` +
+    `full-match starters' energy at full time: ${(starters.reduce((t, p) => t + p.energyEnd, 0) / Math.max(1, starters.length)).toFixed(2)}`,
 );
 console.log(
   failed === 0
