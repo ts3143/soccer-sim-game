@@ -28,6 +28,14 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 14 | Stat-row retention vs pruning | Kept forever unless the player is pruned |
 | 15 | Renewal deadline (no re-sign phase) | Keep as specified; renew by 31 Jan or he leaves 1 Jul; AI same; January inbox warning, deadline reminder, Squad expiry badges |
 
+## A3. M2 planning, answered by T (Oct 14 2026)
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Substitution rule | 5 in normal time, at most 3 windows (half-time free); extra time adds a 6th sub and a 4th window; no replacement once used up |
+| 2 | Season targets in M2? | Reported in M2 (round-robins with best XIs), gated in M3 with the real calendar |
+| 3 | Where engine coefficients live | One code module, overridable by the calibration harness in memory; `data/config` keeps spec-level rules |
+| 4 | How M2 is tested | A developer-only Match lab page; work in ~1 h chunks with a check-in after each |
+
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.
 1. **Hidden traits** (Injury Prone, Hothead) are generated and affect the sim from the MVP but are never shown until scouting arrives in v1.1.

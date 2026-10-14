@@ -46,5 +46,11 @@
     "setPieces": "the designated set-piece taker's delivery quality (stp) only; aerial ability counts once in the set-piece matchup, via the aerial rating",
     "goalkeeping": "the GK's OVR"
   },
-  "substitutions": { "maxPerMatch": 5, "benchSize": 9 }
+  "substitutions": {
+    "_note": "Real rule (confirmed by T, M2 planning): up to 5 subs in normal time in at most 3 windows during play; half-time subs don't use a window. Extra time adds 1 sub and 1 window; subs just before extra time and at its half-time don't use a window. No replacement once subs or windows are used up.",
+    "maxPerMatch": 5,
+    "windows": 3,
+    "extraTime": { "extraSubs": 1, "extraWindows": 1 },
+    "benchSize": 9
+  }
 }

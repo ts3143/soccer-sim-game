@@ -194,7 +194,8 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 - Clubs start with **22–24 seniors** (cap stays 25), so there is room to sign in the first window.
 - `[DEFAULT]` Academy players aged 16+ may be picked for a matchday squad (their minutes count for development) without counting toward the 25.
 - If fewer than **16 seniors** are fit (`minSeniorForMatch`), academy players aged 16+ fill the bench. Same rule as the default above.
-- Matchday squad: 11 starters + up to 9 substitutes; 5 substitutions per match.
+- Matchday squad: 11 starters + up to 9 substitutes.
+- **Substitutions** follow the real rule: up to **5 in normal time, in at most 3 windows** during play (subs at half-time don't use a window). **Extra time adds a 6th sub and a 4th window** (subs just before extra time and at its half-time don't use a window). Once the subs or windows are used up, an injured player can't be replaced and his team plays on with 10. No concussion substitutes.
 
 ### 7.2 Youth academy (replaces the draft)
 - Every club gets **3–6 youths aged 15–16 each preseason**; count and quality scale with the Youth academy dial and reputation.
@@ -281,7 +282,7 @@ Computed from the starting XI by slot (config: `formations_tactics.json`): Passi
 - Energy is match-only and never saved; condition is saved.
 
 ### 8.5 Substitutions and in-game AI
-- 5 substitutions per team.
+- Substitutions per §7.1 (5 in 3 windows; +1 sub and +1 window in extra time). The AI bundles changes into windows, e.g. a double change around 60–65', another around 75', keeping the last window for an injury or a late chase.
 - AI in-game rules (all AI clubs, and the user's club when on Auto): protect a late lead, chase the game when behind, fatigue subs around minutes 60–75, replace injured players.
 
 ### 8.6 Knockouts

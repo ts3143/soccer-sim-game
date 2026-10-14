@@ -45,10 +45,12 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 **Build**
 - Team ratings from XI + sliders + formation (Set Pieces = the taker's delivery only; Aerial counts once in the set-piece matchup).
 - Possession chain, xG, events, cards, fouls, penalties, corners, set pieces, injuries in match, energy drain and effective ratings.
-- Substitutions (5) and AI in-game rules; extra time and penalties.
+- Substitutions (5 in 3 windows; +1 sub and +1 window in extra time) and AI in-game rules; extra time and penalties.
 - Match ratings; box score, scoring summary, key events, team stats.
 - **Resumable API:** `start → step(n possessions) → applyChanges(subs/sliders/formation) → … → finish`.
-- `pnpm calibrate`: sims many matches/seasons headlessly in Node and prints a pass/fail report against `calibration_targets.json`: neutral-engine targets, then per-league checks (target × modifier).
+- `pnpm calibrate`: sims many matches/seasons headlessly in Node and prints a pass/fail report against `calibration_targets.json`: neutral-engine targets, then per-league checks (target × modifier). Season targets (champion points, top scorer, …) are reported for information; they are gated in M3, with the real calendar, rotation and fatigue.
+- Engine coefficients live in one code module (`src/worker/engine/coefficients.ts`) and can be overridden in memory by the harness for tuning runs; `data/config` keeps the spec-level rules.
+- Match lab page (developer-only, replaced in M6): sim a match between any two clubs of a saved league and see the box score; step through it with pause/resume; sim 1,000 matches in the browser against the targets.
 
 **Accept**
 - Per-match calibration targets pass over ≥ 10,000 simulated matches with all style modifiers neutral; each league passes its target × modifier checks (`leagueChecks`).
