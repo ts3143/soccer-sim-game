@@ -5,7 +5,7 @@ Claude Code updates this file at the end of each milestone.
 | Milestone | Status | Notes |
 | --- | --- | --- |
 | M0 Scaffold and plumbing | **Accepted** (T, 2026-10-14) | All acceptance checks pass locally and on the Cloudflare preview; T tested in Chrome and Safari. See "M0 notes" below. |
-| M1 Data, generation and new league | Built, in review | All checks pass locally (unit tests, `pnpm generate --check`, headless Chrome); T tested locally in Chrome and Safari (2026-10-14). Awaiting the Cloudflare preview check. See "M1 notes" below. |
+| M1 Data, generation and new league | **Accepted** (T, 2026-10-14) | All checks pass locally, in CI and on the Cloudflare preview (18/18 headless Chrome); T tested in Chrome and Safari. See "M1 notes" below. |
 | M2 Match engine + calibration harness | Not started | |
 | M3 Season loop | Not started | |
 | M4 Economy and market | Not started | |
@@ -78,7 +78,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - Worst best-XI gap to `strength`: 0.36.
 - 75+: 2.7% of seniors. 50–65: 63.7%.
 - Squad cost 50.0–64.6% of revenue. 24.1% left-footed. 13.5% of seniors start in their final contract year.
-- Generation takes 1.8 s in Node and about 2.3 s in the browser, including writing the save.
+- Generation takes 0.7 s in Node and about 1.3 s in the browser, including writing the save (after computing age curves once per group instead of per rating; the world is byte-for-byte identical).
 
 **Verified locally**
 - 71 unit tests, including OVR, generator, development (benched 33-year-old vs starter), POT, assignment, cache keys, a save round trip, and the M0 → M1 upgrade.
@@ -96,7 +96,8 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 **For later milestones**
 - **M4 (wages):** per-player wages run about 2× real-world levels (top €67M/yr, median €2.7M). Club wage bills are realistic, but the whole 50–65% budget goes to ~23 players, where real clubs split it with transfer amortisation and bigger squads. Options: a lower wage share plus opening amortisation. T to decide at M4.
 - **M3 (youth):** opening academies hold 17 POT-75+ prospects across ~4 age groups (ENG1 9, GER1 5, ENG2 3), a little rich against "~1 wonderkid per league per season". Tune with the youth intake.
-- **M3 (performance):** generation is dominated by age-curve lookups in the POT arcs. Precompute the curves if development updates need the time.
+- **M3 (performance):** POT arcs still dominate generation time. If development updates need the time, precompute the age curves as lookup tables.
+- **CI:** GitHub runners are ~3× slower than a local Mac. World-generating tests carry explicit 60 s timeouts; long runs belong in `pnpm calibrate`, not `pnpm test`.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.
