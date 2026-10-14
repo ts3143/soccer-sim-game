@@ -54,7 +54,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 
 **Accept**
 - Per-match calibration targets pass over ≥ 10,000 simulated matches with all style modifiers neutral; each league passes its target × modifier checks (`leagueChecks`).
-- Stronger teams win more, in line with the parity target; sliders change outcomes in the intended direction (unit tests).
+- Stronger teams win more; sliders change outcomes in the intended direction (unit tests). The parity target (top-6 losing to bottom-6) is reported here and gated in M3 (T, 2026-10-14).
 - A paused-and-resumed match with no changes produces the identical result to an uninterrupted one with the same seed.
 - One headless match < 5 ms.
 
@@ -71,7 +71,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 
 **Accept**
 - A 20-season headless run completes without errors; season and development calibration targets pass; player count stays within ±10%.
-- Top-club starters' minutes share within target; at least 3 distinct ENG1 champions in 20 seasons.
+- Top-club starters' minutes share within target; at least 3 distinct ENG1 champions in 20 seasons; parity (top-6 losing to bottom-6) within target, with rotation, fatigue and injuries in place.
 - Development unit tests: a benched 33-year-old doesn't decline slower than a starter; the dev multiplier never changes decline; the multiplier is neutral from 27.
 
 ---

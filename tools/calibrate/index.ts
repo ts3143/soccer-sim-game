@@ -3,8 +3,8 @@
  *
  * Gates (M2): every per-match target in data/config/calibration_targets.json on a
  * neutral sample (league styles at 1.0); each league's style-scaled checks (leagueChecks)
- * over round-robin seasons; the parity target in ENG1; under 5 ms per match. Season
- * targets are reported for information (gated in M3 with the real calendar). Prints the
+ * over round-robin seasons; under 5 ms per match. Season targets, parity included, are
+ * reported for information (gated in M3 with the real calendar, rotation and fatigue). Prints the
  * Team OVR fit and the match-rating centring values. With --check, exits 1 on a failure.
  */
 import { readFileSync } from "node:fs";
@@ -127,9 +127,7 @@ for (const config of competitionsConfig.leagues) {
   seasonsByLeague.set(config.id, season);
 }
 
-console.log(
-  "\nSeason numbers (average per season; information only until M3, parity gated in ENG1)",
-);
+console.log("\nSeason numbers (average per season; information only: gated in M3)");
 console.log("  league  champion  bottom  top scorer  top assists  top-6 lose to bottom-6");
 for (const [id, s] of seasonsByLeague) {
   console.log(
@@ -144,7 +142,13 @@ if (eng1) {
   line("bottomPointsENG1", eng1.bottomPoints, seasonTarget("bottomPointsENG1"), false);
   line("topScorerGoals", eng1.topScorerGoals, seasonTarget("topScorerGoals"), false);
   line("topAssists", eng1.topAssists, seasonTarget("topAssists"), false);
-  line("top6LoseToBottom6Pct", eng1.top6LoseToBottom6Pct, seasonTarget("top6LoseToBottom6Pct"));
+  // Parity is gated in M3 (T, 2026-10-14), once rotation, fatigue and injuries exist.
+  line(
+    "top6LoseToBottom6Pct",
+    eng1.top6LoseToBottom6Pct,
+    seasonTarget("top6LoseToBottom6Pct"),
+    false,
+  );
 }
 
 // ---------------------------------------------------------------------------
