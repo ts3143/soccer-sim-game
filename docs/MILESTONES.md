@@ -62,15 +62,18 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 
 ## M3 — Season loop (headless)
 **Build**
-- Calendar and fixture generation (weekend/midweek slots, ENG2 midweek rounds, GER1 winter break), standings, tie-breakers.
+- Calendar and fixture generation (weekend/midweek slots, ENG2 midweek rounds, GER1 winter break), standings, tie-breakers (per league, from config).
 - Cups (draws, byes, ET/pens; in season 1 the German cup preliminary round uses the 4 lowest-`strength` clubs), Championship play-offs (6 clubs: midweek eliminators after the final round, two-legged semis over a weekend + midweek, final around 23–25 May), promotion/relegation.
 - Condition, recovery by days elapsed, injuries tied to condition and Medical dial.
 - Rotation/lineup AI with mid-term view; if fewer than 16 seniors are fit, academy players aged 16+ fill the bench.
 - Development updates (summer, winter), using the development core built in M1: dev multiplier on growth only, blending to neutral between 23 and 27; decline = age × Medical dial; small mental minutes bonus at any age. Aging, ceiling decay, retirement, youth intake, academy promotion/release, pruning (a pruned player's stat rows go with him).
 - Phase machine and dated events; Play-menu actions as worker functions.
+- End-of-season awards and history rows (Player of the Year, Golden Boot, Team of the Season per league; champions, promotions/relegations, cup winners), saved in `awards`; their pages come in M5.
+- **Temporary squad upkeep until M4:** contracts roll over instead of expiring, and each preseason AI clubs top up to 22 seniors, first by promoting academy players, then by signing the best-fitting free agents. M4 replaces it with renewals, transfers and the free-agent market.
+- Season lab page (developer-only, replaced in M5): the Play-menu actions, tables, results, cups and play-offs, leaders, injuries, awards, and a full-season timer.
 
 **Accept**
-- A 20-season headless run completes without errors; season and development calibration targets pass; player count stays within ±10%.
+- A 20-season headless run completes without errors; season and development calibration targets pass; player count stays within ±10%. Promoted-club survival and the finance checks are gated in M4, once transfers and finances exist (T, 2026-10-14).
 - Top-club starters' minutes share within target; at least 3 distinct ENG1 champions in 20 seasons; parity (top-6 losing to bottom-6) within target, with rotation, fatigue and injuries in place.
 - Development unit tests: a benched 33-year-old doesn't decline slower than a starter; the dev multiplier never changes decline; the multiplier is neutral from 27.
 

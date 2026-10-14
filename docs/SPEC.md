@@ -29,6 +29,7 @@ A web-based soccer management sim in the mold of the ZenGM games (Basketball GM,
 - About 1,800 club players at start, academies included (22–24 senior + 4–6 academy per club), plus a seeded free-agent pool on top.
 - **Promotion/relegation:** ENG1 bottom 3 go down to ENG2. ENG2 top 2 go up automatically; **3rd–8th play-offs** for the third place, mirroring the real 2026/27 format: one-off eliminators (5th hosts 8th, 6th hosts 7th), two-legged semi-finals (3rd vs lowest-seeded eliminator winner, 4th vs highest-seeded), single-match final at a neutral venue. Extra time and penalties where ties are level.
   - Play-off dates: eliminators in the first midweek slot after ENG2's final round; semi-final first legs the following weekend, second legs the midweek after; final around 23–25 May (the weekend slot nearest 24 May).
+- **League tables** are ordered by points, then goal difference, goals scored, head-to-head points, head-to-head goal difference, and finally a seeded draw. Each league sets its own tie-breaker order in config (`tieBreakers` in `competitions_mvp.json`), so a league can use different rules later.
 - **No relegation from the lowest simulated tier.** That means none from ENG2, and none from GER1 in the MVP because no German second tier exists yet.
 - **Domestic cups:** one per country, single-leg knockout, extra time and penalties if level.
   - English cup: ENG2 clubs enter round 1 (24 → 12), ENG1 joins in round 2 (32 clubs), then last 16, quarter-finals, semis, final.

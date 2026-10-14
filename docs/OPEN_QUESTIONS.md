@@ -37,6 +37,14 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 4 | How M2 is tested | A developer-only Match lab page; work in ~1 h chunks with a check-in after each |
 | 5 | Who manages the user's club in a match | Simulated: the AI makes the in-game changes and picks the pre-match tactics. Watched: the user. No Auto option. |
 
+## A4. M3 planning, answered by T (Oct 14 2026)
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Keeping squads full before M4 (no contracts or transfers yet) | Temporary upkeep: contracts roll over; each preseason AI clubs top up to 22 seniors from their academy, then from free agents. M4 replaces it. |
+| 2 | Which 20-season world checks M3 gates | Player count, distinct champions, parity, season and development targets. Promoted-club survival and the finance checks move to M4. |
+| 3 | League tie-breakers | Points, goal difference, goals scored, head-to-head points, head-to-head goal difference, seeded draw. Set per league in config so each league can change them. |
+| 4 | Awards (in the spec, in no milestone) | Worked out and saved at season end in M3; pages in M5. |
+
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.
 1. **Hidden traits** (Injury Prone, Hothead) are generated and affect the sim from the MVP but are never shown until scouting arrives in v1.1.
