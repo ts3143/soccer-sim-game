@@ -33,6 +33,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-14 | Review #13 | Confirmed: if fewer than 16 seniors are fit, academy players aged 16+ fill the bench (same rule as default B6). | `minSeniorForMatch` was in config but not in the spec. | SPEC §7.1; `competitions_mvp.json` → `rosterRules`; MILESTONES M3 |
 | 2026-10-14 | Review #14 | Season stat rows are kept forever unless the player is pruned. | "Kept forever" contradicted pruning, which deletes stat rows. | SPEC §12; MILESTONES M3 |
 | 2026-10-14 | Review #15 | Confirmed as specified: renewals only in the windows, no end-of-season re-sign phase; expiring players must be renewed by 31 January or leave on 1 July; AI follows the same rule. Made visible: January inbox warning listing every player in his final six months, a reminder before deadline day, contract-expiry badges on the Squad page. | Big difference from ZenGM's re-sign phase, so it needed confirming and surfacing in the UI. | SPEC §3.1, §7.6, §11; `competitions_mvp.json` → `renewals`; MILESTONES M4, M5 |
+| 2026-10-14 | M1 plan | The development core (age curves, dev multiplier, growth/decline) moves from M3 into M1; M3 wires it into the season and calibrates it. M1 also adds a developer-only generation inspector page and `pnpm generate --check`. Name and birthplace files come from Wikidata (CC0). | POT (an M1 deliverable) is computed from simulated career arcs, which need the development formula. The page lets T test M1 in the browser. | MILESTONES M1, M3 |
 
 ## M0 notes (2026-10-14)
 **Built**
