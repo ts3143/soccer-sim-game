@@ -1,5 +1,5 @@
 /**
- * M1 generation inspector. Temporary developer page: the game UI replaces it in M5.
+ * Developer inspector (M1 generation, M2 match lab). Temporary page: the game UI replaces it in M5.
  * Create, open and delete league saves, and check what the generator produced.
  */
 import { useEffect, useState } from "react";
@@ -27,7 +27,8 @@ export function App() {
       <header className="mb-4">
         <h1 className="h3 mb-1">Soccer Sim Game</h1>
         <p className="text-body-secondary mb-0">
-          M1 generation inspector. A temporary developer page; the game screens arrive in M5.
+          Developer inspector: M1 generation and M2 match lab. A temporary page; the game screens
+          arrive in M5.
         </p>
       </header>
       {error && <div className="alert alert-danger">Could not start the game worker: {error}</div>}

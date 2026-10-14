@@ -32,4 +32,4 @@ jobs:
       - run: pnpm test
       - run: pnpm build # includes the real-club-name bundle check
       - run: pnpm generate --check
-      - run: pnpm calibrate
+      - run: pnpm calibrate --check # M2 engine calibration gates

@@ -45,14 +45,16 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 **Build**
 - Team ratings from XI + sliders + formation (Set Pieces = the taker's delivery only; Aerial counts once in the set-piece matchup).
 - Possession chain, xG, events, cards, fouls, penalties, corners, set pieces, injuries in match, energy drain and effective ratings.
-- Substitutions (5) and AI in-game rules; extra time and penalties.
+- Substitutions (5 in 3 windows; +1 sub and +1 window in extra time) and AI in-game rules; extra time and penalties.
 - Match ratings; box score, scoring summary, key events, team stats.
 - **Resumable API:** `start → step(n possessions) → applyChanges(subs/sliders/formation) → … → finish`.
-- `pnpm calibrate`: sims many matches/seasons headlessly in Node and prints a pass/fail report against `calibration_targets.json`: neutral-engine targets, then per-league checks (target × modifier).
+- `pnpm calibrate`: sims many matches/seasons headlessly in Node and prints a pass/fail report against `calibration_targets.json`: neutral-engine targets, then per-league checks (target × modifier). Season targets (champion points, top scorer, …) are reported for information; they are gated in M3, with the real calendar, rotation and fatigue.
+- Engine coefficients live in one code module (`src/worker/engine/coefficients.ts`) and can be overridden in memory by the harness for tuning runs; `data/config` keeps the spec-level rules.
+- Match lab page (developer-only, replaced in M6): sim a match between any two clubs of a saved league and see the box score; step through it with pause/resume; sim 1,000 matches in the browser against the targets.
 
 **Accept**
 - Per-match calibration targets pass over ≥ 10,000 simulated matches with all style modifiers neutral; each league passes its target × modifier checks (`leagueChecks`).
-- Stronger teams win more, in line with the parity target; sliders change outcomes in the intended direction (unit tests).
+- Stronger teams win more; sliders change outcomes in the intended direction (unit tests). The parity target (top-6 losing to bottom-6) is reported here and gated in M3 (T, 2026-10-14).
 - A paused-and-resumed match with no changes produces the identical result to an uninterrupted one with the same seed.
 - One headless match < 5 ms.
 
@@ -69,7 +71,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 
 **Accept**
 - A 20-season headless run completes without errors; season and development calibration targets pass; player count stays within ±10%.
-- Top-club starters' minutes share within target; at least 3 distinct ENG1 champions in 20 seasons.
+- Top-club starters' minutes share within target; at least 3 distinct ENG1 champions in 20 seasons; parity (top-6 losing to bottom-6) within target, with rotation, fatigue and injuries in place.
 - Development unit tests: a benched 33-year-old doesn't decline slower than a starter; the dev multiplier never changes decline; the multiplier is neutral from 27.
 
 ---
@@ -102,7 +104,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 
 ## M6 — Management UI
 **Build**
-- Tactics page (formation dropdown, drag-and-drop slots and bench, sliders, live team ratings, Auto).
+- Tactics page (formation dropdown, drag-and-drop slots and bench, sliders, live team ratings; no Auto toggle: they apply to matches the user watches).
 - Watch live: pre-match temporary changes, live feed, stats, energy bars, subs, sliders, pause/adjust, half-time screen.
 - Transfer Market (Search, Your listed players, Incoming offers, Loans), Free Agents, Contract negotiation modal.
 - Youth Academy; Finances/Facilities (own club); Inbox; Settings; Manage Leagues; "You're fired" flow.
