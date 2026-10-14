@@ -1,5 +1,5 @@
 /**
- * Calibration harness: `pnpm calibrate [--matches N] [--seasons S] [--seed X] [--check]`.
+ * Calibration harness: `pnpm calibrate [--matches N] [--seasons S] [--worlds W] [--seed X] [--check]`.
  *
  * Gates (M2): every per-match target in data/config/calibration_targets.json on a
  * neutral sample (league styles at 1.0); each league's style-scaled checks (leagueChecks)
@@ -74,7 +74,7 @@ const sample = leagues.flatMap((league, w) =>
   league.neutralSample(Math.round(MATCHES / WORLDS), `${SEED}-w${w}`),
 );
 const msPerMatch = (performance.now() - started) / sample.length;
-const neutral = perMatch(sample);
+const neutral = perMatch(sample.map((m) => m.result));
 
 console.log(`Soccer Sim Game: calibration (seed "${SEED}")\n`);
 console.log(
@@ -101,7 +101,7 @@ for (const config of competitionsConfig.leagues) {
     league.seasons(config.id, SEASONS, `${SEED}-w${w}`),
   );
   const all = seasons.flat();
-  const metrics = perMatch(all);
+  const metrics = perMatch(all.map((m) => m.result));
   const style = config.styleModifiers;
   console.log(
     `\n${config.id} (${config.name}): ${seasons.length} round-robin seasons (${SEASONS} in each of ${WORLDS} worlds), ${all.length.toLocaleString("en-GB")} matches; chance quality ${style.chanceQuality}, foul rate ${style.foulRate}`,

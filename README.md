@@ -2,7 +2,7 @@
 
 A free, browser-based soccer management sim in the spirit of the ZenGM games. Build a club across endless seasons: develop academy prospects through minutes, rotate a fatigued squad, trade in two transfer windows, and fight promotion and relegation.
 
-Status: in development (milestone M1, data, generation and new league). See `docs/SPEC.md` for the design, `docs/MILESTONES.md` for the build plan and `docs/PROGRESS.md` for progress.
+Status: in development (milestone M2, match engine and calibration harness). See `docs/SPEC.md` for the design, `docs/MILESTONES.md` for the build plan and `docs/PROGRESS.md` for progress.
 
 Runs entirely in your browser. Saves stay on your device.
 
@@ -26,7 +26,9 @@ pnpm install
 | `pnpm lint` | ESLint + Prettier check + type check |
 | `pnpm format` | Format code with Prettier |
 | `pnpm generate [--seed X] [--check]` | Generate a new league headlessly and report the M1 checks |
-| `pnpm calibrate` | Headless calibration harness (stub until M2) |
+| `pnpm calibrate [--matches N] [--seasons S] [--worlds W] [--seed X] [--check]` | Headless calibration harness: simulates matches and seasons and reports pass/fail against `data/config/calibration_targets.json` (`--check` exits 1 on a failure) |
+
+The developer page has two tabs per saved league: **Generation** (M1: the generated world, its checks, clubs and squads) and **Match lab** (M2: simulate or watch a match between any two clubs, or simulate 1,000 matches against the targets). Both are temporary; the game screens arrive in M5 and M6.
 
 Layout: `src/ui` (React tabs, UI only), `src/worker` (game core, runs in a SharedWorker), `src/common` (types and the UI↔worker protocol shared by both), `tools/` (harness, generators), `data/` (fixed inputs).
 

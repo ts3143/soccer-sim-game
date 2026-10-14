@@ -6,7 +6,7 @@ Claude Code updates this file at the end of each milestone.
 | --- | --- | --- |
 | M0 Scaffold and plumbing | **Accepted** (T, 2026-10-14) | All acceptance checks pass locally and on the Cloudflare preview; T tested in Chrome and Safari. See "M0 notes" below. |
 | M1 Data, generation and new league | **Accepted** (T, 2026-10-14) | All checks pass locally, in CI and on the Cloudflare preview (18/18 headless Chrome); T tested in Chrome and Safari. See "M1 notes" below. |
-| M2 Match engine + calibration harness | In progress | Engine built and tuned (chunks 1–4); every M2 gate passes (parity moved to M3 by T); Match lab page next. See "M2 notes" below. |
+| M2 Match engine + calibration harness | Built, in review | Every M2 gate passes locally (parity moved to M3 by T); Match lab page 11/11 in headless Chrome. Waiting for T's browser test, then PR. See "M2 notes" below. |
 | M3 Season loop | Not started | |
 | M4 Economy and market | Not started | |
 | M5 Core UI | Not started | |
@@ -102,7 +102,27 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - **M3 (performance):** POT arcs still dominate generation time. If development updates need the time, precompute the age curves as lookup tables.
 - **CI:** GitHub runners are ~3× slower than a local Mac. World-generating tests carry explicit 60 s timeouts; long runs belong in `pnpm calibrate`, not `pnpm test`.
 
-## M2 notes (2026-10-14, in progress)
+## M2 notes (2026-10-14)
+**Built**
+- Match engine in `src/worker/engine/`, run possession by possession: build-up or long ball → progression → chance → shot with xG. It covers fouls and cards, penalties, corners and set pieces, energy drain, in-match injuries, extra time, shoot-outs, aggregates and neutral venues.
+- Substitutions follow the real rule: 5 subs in 3 windows, half-time free; extra time adds 1 sub and 1 window. AI in-game rules: planned windows, chasing or protecting a result, pushing for a winner, replacing an injured player or a sent-off keeper.
+- AI pre-match tactics (mentality, pressing, directness) from the two teams' ratings and the league style.
+- Match ratings centred by position. Full box score: team stats, key events, per-player stats.
+- Resumable API: `startMatch → stepMatch(n) → applyChanges(subs/sliders/formation) → … → matchResult`; `simulateMatch` runs it in one go. `prepareMatch` turns saved clubs into match input (`watchedBy` makes the user's club manual).
+- Calibration harness `pnpm calibrate [--matches N] [--seasons S] [--worlds W] [--seed X] [--check]`. Default run: a neutral sample of 10,000 matches over 3 generated worlds, then round-robin seasons per league. It also prints the Team OVR fit and the rating-centring values. CI runs it with `--check`.
+- Match lab tab on the developer page (replaced in M6). Simulate any two clubs; Watch one possession every 120 ms, with Play/Pause, +1 possession and To the end; simulate 1,000 matches in the browser and compare them with all 19 per-match targets.
+
+**Verified locally**
+- 99 unit tests. They cover team ratings, stronger teams winning more, sliders working in the intended direction, the substitution rule, cards, extra time and shoot-outs, applying changes mid-match, and determinism (a match paused and resumed with no changes equals an uninterrupted one).
+- `pnpm calibrate --check`: all gated checks pass, at 0.83 ms per match.
+- Headless Chrome on the production build: Match lab 11/11 and M1 18/18. The Match lab checks:
+  - box score with ratings;
+  - same seed gives the same match;
+  - pausing stops the clock;
+  - a watched match, paused and resumed, is identical to the instant one;
+  - 1,000 matches in the browser at 0.86 ms per match, 19/19 targets in band;
+  - no real club names and no console errors.
+
 **Calibration status** (`pnpm calibrate --seasons 4`, 3 worlds, 12 seasons per league):
 - All 19 per-match targets pass on the neutral sample (~10,000 matches).
 - ENG1, ENG2 and GER1 pass every style-scaled check (goals, xG/shot, conversion × chance quality; fouls, yellows, reds × foul rate).
@@ -125,6 +145,17 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - Fouls per phase: 0.04 / 0.063 / 0.086. Penalty share 0.038.
 - Reds: 0.0019 per foul, 0.0038 in the final third.
 - Rating centring by position: GK 6.39 … AM 6.86.
+
+**Judgment calls (not spec deviations)**
+- Injured players: an AI-managed club replaces him if the substitution rule allows; otherwise he goes off and the club plays with 10. On a club the user is watching, he plays on at his energy floor until the user makes the change (M6 adds the prompt).
+- The Match lab uses the league's style when both clubs are in the same league, and a neutral style otherwise. Its 1,000-match batch is always neutral, so it can be compared with the targets directly.
+- The possession target ("95% of team-matches between 30% and 70%") is checked as a share of team-matches.
+- Clean sheets count for GK, CB, FB and WB players with 60+ minutes.
+
+**For later milestones**
+- **M3:** gate parity and the season targets with the real calendar, rotation, fatigue and injury lists. Bring top assists (22) into band. In-match injuries run at about 0.5 per team per match; tune them with the injury lists.
+- **M5:** Team OVR still uses placeholder weights. The harness fits real weights (R² 0.18–0.31, defence weighted most); adopt them before M5 shows Team OVR.
+- **M6:** the Watch screen replaces the Match lab. `applyChanges` and the event feed are ready for it.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

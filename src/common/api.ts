@@ -7,6 +7,7 @@
  * Arguments and results must be structured-cloneable (plain data).
  */
 import type { Position } from "./config/ratings";
+import type { MatchEvent, MatchResult, Period } from "./match";
 import type { Foot, LeagueSummary } from "./schema";
 
 export type WorkerKind = "shared" | "dedicated";
@@ -112,6 +113,68 @@ export interface SquadView {
   players: SquadPlayerRow[];
 }
 
+// ---------------------------------------------------------------------------
+// M2 Match lab (developer-only page)
+
+export interface LabMatchSetup {
+  lid: number;
+  homeCid: number;
+  awayCid: number;
+  seed: string;
+}
+
+export interface LabTeam {
+  cid: number;
+  name: string;
+  code: string;
+  abbr: string;
+  formation: string;
+  sliders: { mentality: number; pressing: number; directness: number };
+}
+
+export interface LabMatch {
+  seed: string;
+  home: LabTeam;
+  away: LabTeam;
+  /** Player names and positions for the box score and feed. */
+  players: Record<number, { name: string; shirtNumber: number | null }>;
+  result: MatchResult;
+}
+
+export interface LabLiveStart {
+  id: number;
+  seed: string;
+  home: LabTeam;
+  away: LabTeam;
+  players: Record<number, { name: string; shirtNumber: number | null }>;
+}
+
+export interface LabLiveStep {
+  events: MatchEvent[];
+  clock: number;
+  period: Period;
+  score: [number, number];
+  finished: boolean;
+  result: MatchResult | null;
+  /** When finished: whether stepping gave the identical result to an instant sim. */
+  identicalToInstant: boolean | null;
+}
+
+export interface LabBatchRow {
+  metric: string;
+  value: number;
+  target: number;
+  low: number;
+  high: number;
+  pass: boolean;
+}
+
+export interface LabBatch {
+  matches: number;
+  msPerMatch: number;
+  rows: LabBatchRow[];
+}
+
 export interface WorkerApi {
   getStatus(): WorkerStatus;
   listLeagues(): LeagueSummary[];
@@ -120,6 +183,10 @@ export interface WorkerApi {
   deleteLeague(lid: number): void;
   getLeagueOverview(lid: number): LeagueOverview;
   getSquad(lid: number, cid: number): SquadView;
+  simulateLabMatch(setup: LabMatchSetup): LabMatch;
+  startLabMatch(setup: LabMatchSetup): LabLiveStart;
+  stepLabMatch(id: number, possessions: number): LabLiveStep;
+  runLabBatch(lid: number, matches: number): LabBatch;
 }
 
 export interface UiEvents {

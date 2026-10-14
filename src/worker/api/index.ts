@@ -3,6 +3,7 @@ import type { ApiHandlers, RpcHost } from "../../common/rpc";
 import { listLeagues } from "../db/globalDb";
 import { createLeague, deleteLeague } from "../league/session";
 import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector";
+import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
 
 /** The worker's implementation of WorkerApi. The compiler checks it against the contract. */
 export function createHandlers(
@@ -31,5 +32,9 @@ export function createHandlers(
 
     getLeagueOverview,
     getSquad,
+    simulateLabMatch,
+    startLabMatch,
+    stepLabMatch,
+    runLabBatch,
   };
 }
