@@ -4,7 +4,7 @@ Claude Code updates this file at the end of each milestone.
 
 | Milestone | Status | Notes |
 | --- | --- | --- |
-| M0 Scaffold and plumbing | Built, in review | Local checks pass; awaiting T's local test, then PR + Cloudflare deploy. See "M0 notes" below. |
+| M0 Scaffold and plumbing | Built, in review | Local checks pass; T tested locally in Chrome and Safari (2026-10-14). Awaiting the Cloudflare deploy check. See "M0 notes" below. |
 | M1 Data, generation and new league | Not started | |
 | M2 Match engine + calibration harness | Not started | |
 | M3 Season loop | Not started | |
@@ -59,4 +59,4 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - Deployed check on Cloudflare Pages (needs T's dashboard step), then T's sign-off.
 
 ## Open issues
-- Only Chrome has been tested so far. Safari and Firefox get a manual check during T's local test or on the preview deploy.
+- Firefox not tested yet (Chrome: automated + T; Safari: T).
