@@ -79,7 +79,7 @@ export function aiSliders(
   const me = teamProfile(own, c);
   const them = teamProfile(opponent, c);
   const edge = me.overall - them.overall + (home ? 1.5 : -1.5);
-  const mentality = edge >= 9 ? 2 : edge >= 4 ? 1 : edge <= -9 ? -2 : edge <= -4 ? -1 : 0;
+  const mentality = edge >= 14 ? 2 : edge >= 6 ? 1 : edge <= -14 ? -2 : edge <= -6 ? -1 : 0;
   const pressing = clampStep((me.ratings.pressing - me.ratings.passing) / 5);
   const directness = clampStep((me.longBall - me.ratings.passing) / 6 + 2 * leagueDirectness);
   return { mentality, pressing, directness };

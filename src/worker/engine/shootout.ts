@@ -43,8 +43,7 @@ export function playShootout(s: MatchState): [number, number] {
     const keeperSkill = keeper ? avg(keeper.eff, "gko", "gkr") : 20;
     const p = clamp(
       c.penalty.shootoutBase +
-        (c.penalty.slope * ((taker.eff[R.pen] as number) - 65)) / 10 -
-        (c.penalty.slope * (keeperSkill - 63)) / 10 -
+        (c.penalty.slope * ((taker.eff[R.pen] as number) - keeperSkill)) / 10 -
         (suddenDeath ? c.penalty.suddenDeath : 0),
       0.45,
       0.95,

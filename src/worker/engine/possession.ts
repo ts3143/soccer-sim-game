@@ -137,7 +137,9 @@ function foul(s: MatchState, att: TeamState, def: TeamState, phase: Phase): bool
   const hothead = fouler.input.hothead ? c.cards.hothead : 1;
   if (rng.bool((phase === "chance" ? c.cards.redInChance : c.cards.red) * hothead)) {
     sendOff(s, def, fouler, "red");
-  } else if (rng.bool(c.cards.yellow[phase] * hothead)) {
+  } else if (
+    rng.bool(c.cards.yellow[phase] * hothead * (fouler.booked ? c.cards.bookedYellowFactor : 1))
+  ) {
     if (fouler.booked) {
       sendOff(s, def, fouler, "secondYellow");
     } else {
@@ -173,7 +175,7 @@ function xgFor(s: MatchState, att: TeamState, def: TeamState, base: number, skil
     base *
       Math.exp(c.xg.spread * s.rng.normal() - (c.xg.spread * c.xg.spread) / 2) *
       Math.exp((-c.xg.pressure * (def.ratings.defence - att.ratings.attack)) / 10) *
-      Math.exp((c.xg.shooter * (skill - 60)) / 10) *
+      Math.exp((c.xg.shooter * (skill - att.ratings.attack)) / 10) *
       s.input.style.chanceQuality,
     c.xg.min,
     c.xg.max,
@@ -261,7 +263,7 @@ function resolveShot(
   const pGoal =
     pGoalOverride ??
     clamp(
-      shot.xg * Math.exp((-c.keeper.k * (def.ratings.goalkeeping - c.keeper.reference)) / 10),
+      shot.xg * Math.exp((-c.keeper.k * (def.ratings.goalkeeping - att.ratings.attack)) / 10),
       0.005,
       0.95,
     );
@@ -343,9 +345,7 @@ function takePenalty(s: MatchState, att: TeamState, def: TeamState): ShotOutcome
   const keeper = keeperOf(def);
   const keeperSkill = keeper ? avg(keeper.eff, "gko", "gkr") : 20;
   const pGoal = clamp(
-    c.penalty.base +
-      (c.penalty.slope * ((taker.eff[R.pen] as number) - 65)) / 10 -
-      (c.penalty.slope * (keeperSkill - 63)) / 10,
+    c.penalty.base + (c.penalty.slope * ((taker.eff[R.pen] as number) - keeperSkill)) / 10,
     0.55,
     0.95,
   );

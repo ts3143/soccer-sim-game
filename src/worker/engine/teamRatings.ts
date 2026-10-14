@@ -66,8 +66,8 @@ const RECIPES = {
   },
 } satisfies Record<string, Recipe>;
 
-type RecipeName = keyof typeof RECIPES;
-const RECIPE_NAMES = Object.keys(RECIPES) as RecipeName[];
+export type RecipeName = keyof typeof RECIPES;
+export const RECIPE_NAMES = Object.keys(RECIPES) as RecipeName[];
 
 /** How far up the pitch a position plays (for "front six"). */
 const ADVANCEMENT: Record<Position, number> = {
@@ -76,6 +76,21 @@ const ADVANCEMENT: Record<Position, number> = {
 
 /** Formation effect: rating points per 100% more weight than the average formation puts there. */
 const FORMATION_SCALE = 10;
+
+/**
+ * Puts each team rating on the player-OVR scale: rating = (raw − offset) / scale, so a
+ * rating of 70 means "plays like an XI averaging 70" in that function at any level of
+ * football (otherwise the recipes' mixes drift apart as quality rises, and better
+ * leagues would score less). Fitted once by tools/fit-team-ratings.ts.
+ */
+export const RATING_SCALE: Record<RecipeName | "setPieces", { offset: number; scale: number }> = {
+  passing: { offset: 0.84, scale: 0.855 },
+  attack: { offset: 1.17, scale: 0.884 },
+  pressing: { offset: 0.18, scale: 0.907 },
+  defence: { offset: -0.28, scale: 1.016 },
+  aerial: { offset: 21.47, scale: 0.458 },
+  setPieces: { offset: 29.6, scale: 0.514 },
+};
 
 function slotWeights(formation: Formation, recipe: Recipe): number[] {
   if (recipe.slots === "frontSix") {
@@ -150,18 +165,12 @@ function slotPenalty(slot: FormationSlot, foot: Foot): number {
   return wrongFootPenalty(slot.position, slot.side, foot);
 }
 
-/**
- * Team ratings for the players in `slots` (null = empty, e.g. after a red card).
- * `setPieceTaker` is the designated taker's effective ratings.
- */
-export function computeTeamRatings(
+/** Raw recipe values before scaling, formation effect and sliders (for fitting RATING_SCALE). */
+export function rawRecipeQualities(
   plan: FormationPlan,
   slots: readonly (SlotOccupant | null)[],
-  setPieceTaker: readonly number[] | null,
-  sliders: SliderSettings,
-  c: Coefficients,
-): TeamRatings {
-  const out = {} as TeamRatings;
+): Record<RecipeName, number> {
+  const out = {} as Record<RecipeName, number>;
   for (const name of RECIPE_NAMES) {
     const weights = plan.weights[name];
     let sum = 0;
@@ -179,16 +188,38 @@ export function computeTeamRatings(
     }
     // An empty slot counts at half the quality of the players present.
     const mean = weightPresent > 0 ? sum / weightPresent : 0;
-    const quality =
+    out[name] =
       weightTotal > 0 ? (sum + 0.5 * mean * (weightTotal - weightPresent)) / weightTotal : 0;
+  }
+  return out;
+}
+
+const scaled = (raw: number, name: RecipeName | "setPieces") =>
+  (raw - RATING_SCALE[name].offset) / RATING_SCALE[name].scale;
+
+/**
+ * Team ratings for the players in `slots` (null = empty, e.g. after a red card).
+ * `setPieceTaker` is the designated taker's effective ratings.
+ */
+export function computeTeamRatings(
+  plan: FormationPlan,
+  slots: readonly (SlotOccupant | null)[],
+  setPieceTaker: readonly number[] | null,
+  sliders: SliderSettings,
+  c: Coefficients,
+): TeamRatings {
+  const out = {} as TeamRatings;
+  const raw = rawRecipeQualities(plan, slots);
+  for (const name of RECIPE_NAMES) {
+    const weightTotal = plan.weights[name].reduce((sum, w) => sum + w, 0);
     const formationEffect = FORMATION_SCALE * (weightTotal / REFERENCE_WEIGHT[name] - 1);
-    out[name] = quality + formationEffect;
+    out[name] = scaled(raw[name], name) + formationEffect;
   }
 
   const gkIndex = plan.formation.slots.findIndex((s) => s.position === "GK");
   const keeper = slots[gkIndex];
   out.goalkeeping = keeper ? rawPositionOvr(keeper.ratings, "GK") : 20;
-  out.setPieces = setPieceTaker ? (setPieceTaker[STP] as number) : 40;
+  out.setPieces = scaled(setPieceTaker ? (setPieceTaker[STP] as number) : 40, "setPieces");
 
   out.attack += c.sliders.mentalityAttack * sliders.mentality;
   out.defence -= c.sliders.mentalityDefence * sliders.mentality;

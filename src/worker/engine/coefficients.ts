@@ -10,9 +10,9 @@
  */
 export const COEFFICIENTS = {
   /** Log-odds bonus for the home side on each contested step (0 at neutral venues). */
-  homeAdvantage: 0.12,
+  homeAdvantage: 0.09,
   /** Log-odds per 10 points of team-rating difference, per chain step. */
-  slope: 0.38,
+  slope: 0.24,
 
   buildUp: {
     /** Short build-up from the defensive third: Passing vs Pressing. */
@@ -21,9 +21,9 @@ export const COEFFICIENTS = {
     longBallShare: 0.14,
     longBallPerDirectness: 0.09,
     /** Long ball: long passing + aerial/speed of the front vs the opposing defence. */
-    longBallBase: 0.1,
+    longBallBase: -0.25,
     /** A successful long ball lands straight in the final third this often. */
-    longBallToFinalThird: 0.3,
+    longBallToFinalThird: 0.22,
     /** Short-passing bonus per step of directness towards short (−). */
     shortBonusPerStep: 0.08,
   },
@@ -33,7 +33,7 @@ export const COEFFICIENTS = {
   },
   chance: {
     /** Final third → shot: Attack vs Defence. */
-    base: -0.45,
+    base: -1.08,
     /** A blocked shot falls back to the attackers (another chance) this often. */
     reboundRetained: 0.33,
   },
@@ -47,22 +47,25 @@ export const COEFFICIENTS = {
 
   xg: {
     /** Base xG by shot type before pressure, shooter and league chance quality. */
-    central: 0.15,
-    header: 0.085,
-    dribble: 0.12,
-    longShot: 0.035,
+    central: 0.158,
+    header: 0.09,
+    dribble: 0.124,
+    longShot: 0.037,
     rebound: 0.2,
     /** Log-normal spread of chance quality within a type. */
     spread: 0.55,
     /** Defensive pressure: xG × exp(−k × (Defence − Attack) / 10). */
     pressure: 0.12,
-    /** Shooter: xG × exp(k × (skill − 60) / 10). */
+    /**
+     * Shooter vs his own team's attack (how good a finisher he is for this side):
+     * xG × exp(k × (skill − Attack) / 10). The matchup itself is the pressure term.
+     */
     shooter: 0.1,
     min: 0.01,
     max: 0.9,
   },
-  /** Goal probability = xG × exp(−k × (keeper − reference) / 10). */
-  keeper: { k: 0.1, reference: 63 },
+  /** Keeper vs the attack he faces: goal probability = xG × exp(−k × (Goalkeeping − Attack) / 10). */
+  keeper: { k: 0.1 },
   /** Of shots that miss: share saved, blocked (rest off target), before type adjustments. */
   shotOutcome: { saved: 0.25, blocked: 0.28, longShotBlockedBonus: 0.08, headerBlockedFactor: 0.4 },
 
@@ -83,14 +86,14 @@ export const COEFFICIENTS = {
 
   /** In-play seconds per phase, and dead-ball seconds after each outcome. */
   time: {
-    buildUp: 13,
+    buildUp: 15,
     longBall: 6,
-    progression: 12,
-    chance: 9,
+    progression: 14,
+    chance: 10,
     failedPhase: 7,
     /** Possessions take this much longer per step towards short passing (−directness). */
     perDirectness: 0.08,
-    deadAfterTurnover: 4,
+    deadAfterTurnover: 9,
     deadAfterGoal: 55,
     deadAfterShotOff: 24,
     deadAfterSave: 12,
@@ -132,9 +135,9 @@ export const COEFFICIENTS = {
 
   fouls: {
     /** Per contested phase: chance the defending side commits a foul. */
-    buildUp: 0.035,
-    progression: 0.055,
-    chance: 0.075,
+    buildUp: 0.04,
+    progression: 0.063,
+    chance: 0.086,
     /** Foul chance × (1 + this × pressing step) for the defending side. */
     pressingPerStep: 0.1,
     /** Foul chance × (1 + this × hotheads on the pitch). */
@@ -147,10 +150,11 @@ export const COEFFICIENTS = {
     yellow: { buildUp: 0.12, progression: 0.2, chance: 0.24 },
     hothead: 1.6,
     /** Straight red per foul, and for a professional foul in the final third. */
-    red: 0.0035,
-    redInChance: 0.012,
-    /** A booked player fouls less afterwards. */
-    bookedFoulFactor: 0.55,
+    red: 0.0022,
+    redInChance: 0.0045,
+    /** A booked player fouls less afterwards, and is booked less readily (referees' leeway). */
+    bookedFoulFactor: 0.4,
+    bookedYellowFactor: 0.45,
   },
   setPiece: {
     /** Corner or crossed free kick → attempt on goal: (Aerial and Set Pieces) vs Aerial. */
@@ -166,14 +170,14 @@ export const COEFFICIENTS = {
     cornerFromChanceLoss: 0.13,
     cornerDead: 26,
     /** Free kicks in the final third (fouls in the chance phase). */
-    penaltyShare: 0.16,
+    penaltyShare: 0.038,
     directShot: 0.3,
     crossed: 0.5,
     freeKickXg: 0.06,
     freeKickBlocked: 0.38,
   },
   penalty: {
-    /** Goal chance = base + slope × (pen − 65)/10 − slope × (keeper − 63)/10. */
+    /** Goal chance = base + slope × (taker's pen − keeper's gko/gkr) / 10. */
     base: 0.78,
     slope: 0.03,
     xg: 0.78,

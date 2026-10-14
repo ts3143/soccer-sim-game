@@ -6,6 +6,7 @@ import {
   computeTeamRatings,
   effectiveRatings,
   formationPlan,
+  RATING_SCALE,
   type SlotOccupant,
 } from "./teamRatings";
 
@@ -73,7 +74,11 @@ describe("team ratings", () => {
 
   it("use the GK's OVR and the taker's set-piece rating", () => {
     const r = ratings("4-3-3", team(65));
-    expect(r.setPieces).toBe(60);
+    // On the OVR scale via RATING_SCALE (the taker's stp is 60 here).
+    expect(r.setPieces).toBeCloseTo(
+      (60 - RATING_SCALE.setPieces.offset) / RATING_SCALE.setPieces.scale,
+      6,
+    );
     expect(r.goalkeeping).toBeGreaterThan(40);
   });
 });
