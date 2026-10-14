@@ -103,8 +103,6 @@ export interface TeamState {
   all: PlayerState[];
   sliders: SliderSettings;
   ratings: TeamRatings;
-  /** Front players' long-ball target quality (aerial and pace) and the team's long passing. */
-  longBall: number;
   setPieceTaker: PlayerState | null;
   penaltyTaker: PlayerState | null;
   pickers: Record<PickerKind, Picker>;
@@ -120,6 +118,8 @@ export interface TeamState {
   nextAiCheck: number;
   /** Set when something forces a decision at the next stoppage (injury, red card). */
   needsAttention: boolean;
+  /** Pre-match strength edge over the opponent (team-rating points; > 0 = stronger). */
+  edge: number;
 }
 
 export interface MatchState {
@@ -368,7 +368,6 @@ export function initTeam(
     all: [...slots, ...bench],
     sliders: { ...input.sliders },
     ratings: undefined as unknown as TeamRatings,
-    longBall: 0,
     setPieceTaker: null,
     penaltyTaker: null,
     pickers: undefined as unknown as Record<PickerKind, Picker>,
@@ -385,6 +384,7 @@ export function initTeam(
     },
     nextAiCheck: 55 * 60,
     needsAttention: false,
+    edge: 0,
   };
   refreshTeam(team, c);
   return team;
@@ -436,26 +436,22 @@ export function refreshTeam(team: TeamState, c: Coefficients): void {
     dribble: c.chanceMix.dribble * Math.sqrt(total(team.pickers.dribble)),
     longShot: c.chanceMix.longShot * Math.sqrt(total(team.pickers.longShot)),
   };
-  const front = players.filter((p) => {
-    const position = team.plan.formation.slots[p.slot ?? 0]?.position;
-    return position === "ST" || position === "W" || position === "AM" || position === "WM";
-  });
-  const target = front.length
-    ? front.reduce((s, p) => s + avg(p.eff, "hgt", "jmp", "hdr", "spd", "str"), 0) / front.length
-    : 30;
-  const passers =
-    players.reduce((s, p) => s + (p.eff[R.lpa] as number), 0) / Math.max(1, players.length);
-  team.longBall = 0.5 * target + 0.5 * passers;
 }
+
+const overall = (r: TeamRatings) => (r.passing + r.attack + r.defence + r.pressing) / 4;
 
 export function initState(input: MatchInput, rng: Random, c: Coefficients): MatchState {
   const firstKickoff: TeamSide = rng.bool() ? 0 : 1;
+  const home = initTeam(input.home, 0, rng, c);
+  const away = initTeam(input.away, 1, rng, c);
+  home.edge = overall(home.ratings) - overall(away.ratings);
+  away.edge = -home.edge;
   const added = rng.int(c.addedTime.firstHalf[0] as number, c.addedTime.firstHalf[1] as number);
   return {
     input,
     c,
     rng,
-    teams: [initTeam(input.home, 0, rng, c), initTeam(input.away, 1, rng, c)],
+    teams: [home, away],
     period: "first",
     clock: 0,
     periodEnd: 45 * 60 + added * 60,

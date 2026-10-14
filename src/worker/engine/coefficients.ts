@@ -12,7 +12,7 @@ export const COEFFICIENTS = {
   /** Log-odds bonus for the home side on each contested step (0 at neutral venues). */
   homeAdvantage: 0.09,
   /** Log-odds per 10 points of team-rating difference, per chain step. */
-  slope: 0.24,
+  slope: 0.22,
 
   buildUp: {
     /** Short build-up from the defensive third: Passing vs Pressing. */
@@ -34,6 +34,8 @@ export const COEFFICIENTS = {
   chance: {
     /** Final third → shot: Attack vs Defence. */
     base: -1.08,
+    /** Direct play makes quicker but scrappier chances: log-odds per directness step. */
+    directPenalty: 0.07,
     /** A blocked shot falls back to the attackers (another chance) this often. */
     reboundRetained: 0.33,
   },
@@ -47,15 +49,15 @@ export const COEFFICIENTS = {
 
   xg: {
     /** Base xG by shot type before pressure, shooter and league chance quality. */
-    central: 0.158,
-    header: 0.09,
-    dribble: 0.124,
-    longShot: 0.037,
+    central: 0.153,
+    header: 0.087,
+    dribble: 0.12,
+    longShot: 0.036,
     rebound: 0.2,
     /** Log-normal spread of chance quality within a type. */
     spread: 0.55,
     /** Defensive pressure: xG × exp(−k × (Defence − Attack) / 10). */
-    pressure: 0.12,
+    pressure: 0.09,
     /**
      * Shooter vs his own team's attack (how good a finisher he is for this side):
      * xG × exp(k × (skill − Attack) / 10). The matchup itself is the pressure term.
@@ -65,7 +67,7 @@ export const COEFFICIENTS = {
     max: 0.9,
   },
   /** Keeper vs the attack he faces: goal probability = xG × exp(−k × (Goalkeeping − Attack) / 10). */
-  keeper: { k: 0.1 },
+  keeper: { k: 0.085 },
   /** Of shots that miss: share saved, blocked (rest off target), before type adjustments. */
   shotOutcome: { saved: 0.25, blocked: 0.28, longShotBlockedBonus: 0.08, headerBlockedFactor: 0.4 },
 
@@ -150,8 +152,8 @@ export const COEFFICIENTS = {
     yellow: { buildUp: 0.12, progression: 0.2, chance: 0.24 },
     hothead: 1.6,
     /** Straight red per foul, and for a professional foul in the final third. */
-    red: 0.0022,
-    redInChance: 0.0045,
+    red: 0.0019,
+    redInChance: 0.0038,
     /** A booked player fouls less afterwards, and is booked less readily (referees' leeway). */
     bookedFoulFactor: 0.4,
     bookedYellowFactor: 0.45,
@@ -229,16 +231,16 @@ export const COEFFICIENTS = {
     loss: -0.25,
     /** Raw score that's average for each position (centring), calibrated by the harness. */
     expected: {
-      GK: 6.6,
-      CB: 6.6,
-      FB: 6.6,
-      WB: 6.6,
-      DM: 6.6,
-      CM: 6.6,
-      WM: 6.6,
-      AM: 6.6,
-      W: 6.6,
-      ST: 6.6,
+      GK: 6.39,
+      CB: 6.59,
+      FB: 6.43,
+      WB: 6.47,
+      DM: 6.62,
+      CM: 6.72,
+      WM: 6.55,
+      AM: 6.86,
+      W: 6.59,
+      ST: 6.68,
     },
     /** Minutes for a full-weight rating; fewer pull the rating toward 6.6. */
     fullWeightMinutes: 60,
@@ -255,6 +257,9 @@ export const COEFFICIENTS = {
     /** Minutes from which teams chase a deficit or protect a lead. */
     chaseFrom: 65,
     protectFrom: 75,
+    /** Level late on: a side at least this much stronger pushes for the winner. */
+    pushForWinFrom: 70,
+    pushForWinEdge: 3,
     checkEvery: 300,
   },
 };

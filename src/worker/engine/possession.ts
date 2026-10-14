@@ -440,7 +440,9 @@ export function runPossession(s: MatchState): { inPlay: number; dead: number } {
       inPlay += c.time.longBall;
       const p = sigmoid(
         c.buildUp.longBallBase +
-          k * (att.longBall - def.ratings.defence) +
+          k *
+            (0.5 * (att.ratings.aerial + att.ratings.passing) -
+              0.5 * (def.ratings.aerial + def.ratings.defence)) +
           home +
           c.sliders.pressingExposure * def.sliders.pressing,
       );
@@ -506,7 +508,12 @@ export function runPossession(s: MatchState): { inPlay: number; dead: number } {
       }
       const kind = chooseChance(rng, att, c.chanceMix.crossPerDirectness);
       const succeeds = rng.bool(
-        sigmoid(c.chance.base + k * (att.ratings.attack - def.ratings.defence) + home),
+        sigmoid(
+          c.chance.base +
+            k * (att.ratings.attack - def.ratings.defence) +
+            home -
+            c.chance.directPenalty * Math.max(0, directness),
+        ),
       );
       const shot = openPlay(s, att, def, kind, succeeds);
       if (!shot) {

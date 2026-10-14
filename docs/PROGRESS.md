@@ -6,7 +6,7 @@ Claude Code updates this file at the end of each milestone.
 | --- | --- | --- |
 | M0 Scaffold and plumbing | **Accepted** (T, 2026-10-14) | All acceptance checks pass locally and on the Cloudflare preview; T tested in Chrome and Safari. See "M0 notes" below. |
 | M1 Data, generation and new league | **Accepted** (T, 2026-10-14) | All checks pass locally, in CI and on the Cloudflare preview (18/18 headless Chrome); T tested in Chrome and Safari. See "M1 notes" below. |
-| M2 Match engine + calibration harness | Not started | |
+| M2 Match engine + calibration harness | In progress | Engine built and tuned (chunks 1–4); parity decision pending with T; Match lab page next. See "M2 notes" below. |
 | M3 Season loop | Not started | |
 | M4 Economy and market | Not started | |
 | M5 Core UI | Not started | |
@@ -100,6 +100,30 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - **M3 (youth):** opening academies hold 17 POT-75+ prospects across ~4 age groups (ENG1 9, GER1 5, ENG2 3), a little rich against "~1 wonderkid per league per season". Tune with the youth intake.
 - **M3 (performance):** POT arcs still dominate generation time. If development updates need the time, precompute the age curves as lookup tables.
 - **CI:** GitHub runners are ~3× slower than a local Mac. World-generating tests carry explicit 60 s timeouts; long runs belong in `pnpm calibrate`, not `pnpm test`.
+
+## M2 notes (2026-10-14, in progress)
+**Calibration status** (`pnpm calibrate --seasons 4`, 3 worlds, 12 seasons per league):
+- All 19 per-match targets pass on the neutral sample (~10,000 matches).
+- ENG1, ENG2 and GER1 pass every style-scaled check (goals, xG/shot, conversion × chance quality; fouls, yellows, reds × foul rate).
+- Speed: 0.84 ms per match.
+- Gated failure: ENG1 top-6 losing to bottom-6 is 11.6% (band 13–22%). ENG2 is at 17.6% and GER1 at 14.1%.
+- Season numbers (information until M3): ENG1 champion 82.8 pts, bottom club 28.7, top scorer 27.6 goals; top assists 22 (target 11–20, high).
+
+**Structural changes found while tuning**
+- **Team ratings are on the player-OVR scale.** `RATING_SCALE` is fitted by `tools/fit-team-ratings.ts`. Without it, the recipes drift apart as quality rises, and better leagues scored less.
+- **Shooter, keeper and penalty factors are relative** to the teams on the pitch, not to fixed reference numbers.
+- **Long balls compare team ratings** (aerial and passing vs aerial and defence) instead of raw height and pace. The AI's directness uses the same ratings.
+- **Booked players foul less and get a little leeway** from referees. This fixes the excess of second yellows.
+- **AI tactics:** underdogs go defensive only when clearly outmatched; level late on, the stronger side pushes for the winner.
+- **Direct play** makes quicker but scrappier chances (`chance.directPenalty`).
+- **The harness averages over 3 generated worlds,** so one world's random formation draw doesn't decide calibration.
+
+**Key tuned coefficients** (`src/worker/engine/coefficients.ts`):
+- Strength and home: rating slope 0.22 per 10 points; home advantage 0.09 log-odds.
+- Chance creation: base −1.08; xG bases central 0.153, header 0.087, dribble 0.12, long shot 0.036; xG pressure 0.09; keeper 0.085.
+- Fouls per phase: 0.04 / 0.063 / 0.086. Penalty share 0.038.
+- Reds: 0.0019 per foul, 0.0038 in the final third.
+- Rating centring by position: GK 6.39 … AM 6.86.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

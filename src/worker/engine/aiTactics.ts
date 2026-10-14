@@ -4,7 +4,7 @@
  * against this opponent:
  *   mentality   attacking when clearly stronger (home counts a little), defensive when weaker
  *   pressing    from the squad's legs: pressing quality relative to its passing
- *   directness  from the squad's profile (long-ball outlet vs short passing), nudged by
+ *   directness  from the squad's profile (aerial strength vs passing), nudged by
  *               the league's style (ENG2 plays more direct)
  * M3 adds fixture importance and rotation.
  */
@@ -25,7 +25,6 @@ const clampStep = (x: number) => Math.max(-2, Math.min(2, Math.round(x)));
 
 export interface Profile {
   ratings: TeamRatings;
-  longBall: number;
   overall: number;
 }
 
@@ -53,18 +52,8 @@ export function teamProfile(
     sliders,
     c,
   );
-  // Long-ball outlet: the front players' height, jumping and pace.
-  const outlets: number[] = [];
-  formation.slots.forEach((slot, i) => {
-    const r = eff[i];
-    if (r && ["ST", "W", "AM", "WM"].includes(slot.position)) {
-      outlets.push(((r[R.hgt] as number) + (r[R.jmp] as number) + (r[R.spd] as number)) / 3);
-    }
-  });
-  const target = outlets.reduce((sum, v) => sum + v, 0) / Math.max(1, outlets.length);
   return {
     ratings,
-    longBall: target,
     overall: (ratings.passing + ratings.attack + ratings.defence + ratings.pressing) / 4,
   };
 }
@@ -79,8 +68,8 @@ export function aiSliders(
   const me = teamProfile(own, c);
   const them = teamProfile(opponent, c);
   const edge = me.overall - them.overall + (home ? 1.5 : -1.5);
-  const mentality = edge >= 14 ? 2 : edge >= 6 ? 1 : edge <= -14 ? -2 : edge <= -6 ? -1 : 0;
+  const mentality = edge >= 16 ? 2 : edge >= 9 ? 1 : edge <= -16 ? -2 : edge <= -9 ? -1 : 0;
   const pressing = clampStep((me.ratings.pressing - me.ratings.passing) / 5);
-  const directness = clampStep((me.longBall - me.ratings.passing) / 6 + 2 * leagueDirectness);
+  const directness = clampStep((me.ratings.aerial - me.ratings.passing) / 4 + 2 * leagueDirectness);
   return { mentality, pressing, directness };
 }

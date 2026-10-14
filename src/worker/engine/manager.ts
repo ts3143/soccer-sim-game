@@ -304,6 +304,9 @@ function aiDecisions(s: MatchState, team: TeamState, free: boolean): boolean {
     pressing = Math.max(pressing, 1);
   } else if (diff > 0 && minute >= c.ai.protectFrom) {
     mentality = diff === 1 && minute >= 85 ? -2 : -1;
+  } else if (diff === 0 && minute >= c.ai.pushForWinFrom && team.edge >= c.ai.pushForWinEdge) {
+    // Level late on, the stronger side goes for the winner.
+    mentality = Math.max(mentality + 1, 1);
   }
   mentality = clamp(mentality, -2, 2);
   if (mentality !== team.sliders.mentality || pressing !== team.sliders.pressing) {

@@ -29,7 +29,9 @@ const args = process.argv.slice(2);
 const option = (name: string, fallback: string) =>
   args.includes(name) ? (args[args.indexOf(name) + 1] ?? fallback) : fallback;
 const MATCHES = Number(option("--matches", "10000"));
-const SEASONS = Number(option("--seasons", "3"));
+const SEASONS = Number(option("--seasons", "2"));
+/** Several generated worlds, so one world's random formation draw doesn't decide calibration. */
+const WORLDS = Number(option("--worlds", "3"));
 const SEED = option("--seed", "calibrate");
 const CHECK = args.includes("--check");
 
@@ -51,24 +53,33 @@ const line = (name: string, value: number, band: Band, gated = true) => {
   );
 };
 
-const world = generateWorld({
-  seed: SEED,
-  name: "calibrate",
-  userCid: 0,
-  createdAt: "2026-07-01T00:00:00.000Z",
-});
-const league = new League(world);
+const leagues = Array.from(
+  { length: WORLDS },
+  (_, w) =>
+    new League(
+      generateWorld({
+        seed: `${SEED}-w${w}`,
+        name: "calibrate",
+        userCid: 0,
+        createdAt: "2026-07-01T00:00:00.000Z",
+      }),
+    ),
+);
 
 // ---------------------------------------------------------------------------
 // 1. Neutral sample
 
 const started = performance.now();
-const sample = league.neutralSample(MATCHES, SEED);
-const msPerMatch = (performance.now() - started) / MATCHES;
+const sample = leagues.flatMap((league, w) =>
+  league.neutralSample(Math.round(MATCHES / WORLDS), `${SEED}-w${w}`),
+);
+const msPerMatch = (performance.now() - started) / sample.length;
 const neutral = perMatch(sample);
 
 console.log(`Soccer Sim Game: calibration (seed "${SEED}")\n`);
-console.log(`Neutral sample: ${MATCHES.toLocaleString("en-GB")} matches, league styles at 1.0`);
+console.log(
+  `Neutral sample: ${sample.length.toLocaleString("en-GB")} matches across ${WORLDS} generated worlds, league styles at 1.0`,
+);
 console.log("  metric               measured   target   band          result");
 for (const [name, spec] of Object.entries(targets.perMatch)) {
   if (name === "possessionRange") {
@@ -86,12 +97,14 @@ for (const [name, spec] of Object.entries(targets.perMatch)) {
 
 const seasonsByLeague = new Map<string, SeasonMetrics>();
 for (const config of competitionsConfig.leagues) {
-  const seasons = league.seasons(config.id, SEASONS, SEED);
+  const seasons = leagues.flatMap((league, w) =>
+    league.seasons(config.id, SEASONS, `${SEED}-w${w}`),
+  );
   const all = seasons.flat();
   const metrics = perMatch(all);
   const style = config.styleModifiers;
   console.log(
-    `\n${config.id} (${config.name}): ${SEASONS} round-robin seasons, ${all.length.toLocaleString("en-GB")} matches; chance quality ${style.chanceQuality}, foul rate ${style.foulRate}`,
+    `\n${config.id} (${config.name}): ${seasons.length} round-robin seasons (${SEASONS} in each of ${WORLDS} worlds), ${all.length.toLocaleString("en-GB")} matches; chance quality ${style.chanceQuality}, foul rate ${style.foulRate}`,
   );
   console.log("  metric               measured   target   band          result");
   const scaled = [
