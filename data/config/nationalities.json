@@ -1,0 +1,19 @@
+{
+  "_note": "Nationality mix for generated players, by league (percent weights; normalised at runtime). Youth intake uses the club's country at 'homeShare' and the league mix for the rest, with bigger clubs (higher reputation) shifting toward the foreign share. Name files live in data/names/<code>.json (first names and surnames with frequency weights) and are built in Milestone 1 from public-domain or permissively licensed sources; record each file's source in data/names/SOURCES.md.",
+  "leagueMix": {
+    "ENG1": { "ENG": 35, "FRA": 6, "ESP": 5, "BRA": 5, "POR": 4, "NED": 4, "BEL": 3, "GER": 3, "ARG": 3, "DEN": 3, "SCO": 3, "IRL": 2, "WAL": 2, "NOR": 2, "SWE": 2, "CIV": 1, "SEN": 1, "NGA": 1, "GHA": 2, "USA": 1, "COL": 1, "URU": 1, "ITA": 1, "SUI": 1, "CRO": 1, "SRB": 1, "JPN": 1, "KOR": 1, "MAR": 1, "CMR": 1, "AUT": 1, "POL": 1 },
+    "ENG2": { "ENG": 55, "IRL": 6, "SCO": 5, "WAL": 4, "NIR": 2, "NED": 2, "FRA": 2, "BEL": 2, "DEN": 2, "NOR": 2, "SWE": 2, "USA": 2, "JAM": 2, "NGA": 2, "GHA": 2, "AUS": 1, "ESP": 1, "POR": 1, "GER": 1, "POL": 1, "AUT": 1, "ISL": 1, "SEN": 1 },
+    "GER1": { "GER": 45, "AUT": 5, "SUI": 4, "FRA": 4, "NED": 3, "DEN": 3, "CRO": 2, "BEL": 2, "POL": 2, "USA": 2, "JPN": 2, "KOR": 2, "ESP": 2, "POR": 1, "BRA": 2, "SWE": 2, "NOR": 2, "CZE": 2, "HUN": 1, "SRB": 1, "BIH": 1, "TUR": 2, "GHA": 1, "CIV": 1, "NGA": 1, "SEN": 1, "MAR": 1, "CMR": 1, "ENG": 1, "SVK": 1 }
+  },
+  "youthIntake": {
+    "homeShareSmallClub": 0.85,
+    "homeShareBigClub": 0.6,
+    "_homeShareNote": "Linear by reputation between small (rep <= 40) and big (rep >= 85)."
+  },
+  "dualNationalityChance": 0.08,
+  "preferredFoot": {
+    "rightShare": 0.75,
+    "leftShareBySlotSide": { "L": 0.6, "C": 0.2, "R": 0.12 },
+    "_note": "When generating a player for a sided position, use these left-foot probabilities; overall population stays ~25% left."
+  }
+}

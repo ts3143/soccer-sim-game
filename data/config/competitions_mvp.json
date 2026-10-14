@@ -1,0 +1,166 @@
+{
+  "_note": "MVP world. Leagues are data-driven: adding a country later means adding entries here, not code. Dates are templates for season Y/Y+1; the scheduler places matches on weekend and midweek slots between these bounds.",
+  "seasonStart": "2026-07-01",
+  "countries": [
+    {
+      "id": "ENG",
+      "name": "England",
+      "winterBreak": null
+    },
+    {
+      "id": "GER",
+      "name": "Germany",
+      "winterBreak": {
+        "from": "12-21",
+        "to": "01-09"
+      }
+    }
+  ],
+  "leagues": [
+    {
+      "id": "ENG1",
+      "country": "ENG",
+      "tier": 1,
+      "name": "English top flight",
+      "clubs": 20,
+      "rounds": 38,
+      "firstMatch": "08-15",
+      "lastMatch": "05-23",
+      "promotion": null,
+      "relegation": {
+        "places": 3,
+        "to": "ENG2"
+      },
+      "styleModifiers": {
+        "chanceQuality": 1.0,
+        "foulRate": 0.95,
+        "directness": 0.0
+      }
+    },
+    {
+      "id": "ENG2",
+      "country": "ENG",
+      "tier": 2,
+      "name": "English second tier",
+      "clubs": 24,
+      "rounds": 46,
+      "firstMatch": "08-08",
+      "lastMatch": "05-02",
+      "promotion": {
+        "automatic": 2,
+        "playoff": {
+          "positions": [
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "eliminators": "single match: 5th hosts 8th, 6th hosts 7th; extra time and penalties if level",
+          "semis": "two-legged: 3rd vs lowest-seeded eliminator winner, 4th vs highest-seeded eliminator winner; higher seed hosts the second leg; extra time and penalties after the second leg",
+          "final": "single match at a neutral venue, extra time and penalties",
+          "promotedPlaces": 1,
+          "_source": "Mirrors the real 2026/27 EFL format (expanded from 4 to 6 clubs)."
+        }
+      },
+      "relegation": null,
+      "_relegationNote": "Lowest simulated tier: no relegation in the MVP.",
+      "styleModifiers": {
+        "chanceQuality": 0.88,
+        "foulRate": 1.08,
+        "directness": 0.5
+      }
+    },
+    {
+      "id": "GER1",
+      "country": "GER",
+      "tier": 1,
+      "name": "German top flight",
+      "clubs": 18,
+      "rounds": 34,
+      "firstMatch": "08-28",
+      "lastMatch": "05-22",
+      "promotion": null,
+      "relegation": null,
+      "_relegationNote": "Only simulated German tier in the MVP: no relegation until a German second tier exists.",
+      "styleModifiers": {
+        "chanceQuality": 1.05,
+        "foulRate": 1.05,
+        "directness": 0.0
+      }
+    }
+  ],
+  "cups": [
+    {
+      "id": "ENGCUP",
+      "country": "ENG",
+      "name": "English cup",
+      "entrants": [
+        "ENG1",
+        "ENG2"
+      ],
+      "format": "single-leg knockout, extra time and penalties if level, random draw each round",
+      "entry": {
+        "ENG2": "round 1 (24 clubs -> 12)",
+        "ENG1": "round 2 (12 + 20 = 32)"
+      },
+      "rounds": [
+        "R1",
+        "R2 (last 32)",
+        "R3 (last 16)",
+        "Quarter-finals",
+        "Semi-finals",
+        "Final"
+      ],
+      "finalDate": "05-16",
+      "prizeMoney": "per round, scaled; winner largest"
+    },
+    {
+      "id": "GERCUP",
+      "country": "GER",
+      "name": "German cup",
+      "entrants": [
+        "GER1"
+      ],
+      "format": "single-leg knockout, extra time and penalties if level; 18 clubs, so the 4 lowest-placed clubs from last season play a preliminary round to reach 16",
+      "rounds": [
+        "Preliminary (4 clubs -> 2)",
+        "Last 16",
+        "Quarter-finals",
+        "Semi-finals",
+        "Final"
+      ],
+      "finalDate": "05-22",
+      "prizeMoney": "per round, scaled; winner largest"
+    }
+  ],
+  "windows": [
+    {
+      "id": "summer",
+      "opens": "07-01",
+      "closes": "08-31",
+      "deadlineDay": "08-31"
+    },
+    {
+      "id": "winter",
+      "opens": "01-01",
+      "closes": "01-31",
+      "deadlineDay": "01-31"
+    }
+  ],
+  "keyDates": {
+    "summerDevelopmentUpdate": "07-01",
+    "youthIntake": "07-01",
+    "winterDevelopmentUpdate": "01-01",
+    "contractsExpire": "06-30",
+    "endOfSeasonProcessing": "06-01"
+  },
+  "matchSlots": "Two per week: weekend (Sat) and midweek (Wed). League rounds take weekend slots; extra league rounds and cup ties take midweek slots. Germany plays no matches during its winter break; England plays through it.",
+  "rosterRules": {
+    "maxSenior": 25,
+    "academyMaxAge": 18,
+    "mustPromoteLoanOrReleaseBy": 19,
+    "minSeniorForMatch": 16
+  }
+}

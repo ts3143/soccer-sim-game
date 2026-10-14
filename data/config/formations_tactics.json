@@ -1,0 +1,46 @@
+{
+  "_note": "Preset formations. Each slot = position group + side (L/C/R). Slot order is the display order in the Tactics table (GK first). mvp=true ships in the MVP; the rest are defined for later.",
+  "formations": [
+    { "id": "4-4-2", "mvp": true, "slots": [
+      ["GK","C"], ["FB","R"], ["CB","C"], ["CB","C"], ["FB","L"],
+      ["WM","R"], ["CM","C"], ["CM","C"], ["WM","L"], ["ST","C"], ["ST","C"] ] },
+    { "id": "4-3-3", "mvp": true, "slots": [
+      ["GK","C"], ["FB","R"], ["CB","C"], ["CB","C"], ["FB","L"],
+      ["CM","C"], ["DM","C"], ["CM","C"], ["W","R"], ["ST","C"], ["W","L"] ] },
+    { "id": "4-2-3-1", "mvp": true, "slots": [
+      ["GK","C"], ["FB","R"], ["CB","C"], ["CB","C"], ["FB","L"],
+      ["DM","C"], ["DM","C"], ["W","R"], ["AM","C"], ["W","L"], ["ST","C"] ] },
+    { "id": "3-5-2", "mvp": true, "slots": [
+      ["GK","C"], ["CB","C"], ["CB","C"], ["CB","C"],
+      ["WB","R"], ["CM","C"], ["DM","C"], ["CM","C"], ["WB","L"], ["ST","C"], ["ST","C"] ] },
+    { "id": "5-3-2", "mvp": true, "slots": [
+      ["GK","C"], ["WB","R"], ["CB","C"], ["CB","C"], ["CB","C"], ["WB","L"],
+      ["CM","C"], ["DM","C"], ["CM","C"], ["ST","C"], ["ST","C"] ] },
+    { "id": "4-1-4-1", "mvp": false, "slots": [
+      ["GK","C"], ["FB","R"], ["CB","C"], ["CB","C"], ["FB","L"],
+      ["DM","C"], ["WM","R"], ["CM","C"], ["CM","C"], ["WM","L"], ["ST","C"] ] },
+    { "id": "3-4-3", "mvp": false, "slots": [
+      ["GK","C"], ["CB","C"], ["CB","C"], ["CB","C"],
+      ["WB","R"], ["CM","C"], ["CM","C"], ["WB","L"], ["W","R"], ["ST","C"], ["W","L"] ] },
+    { "id": "5-4-1", "mvp": false, "slots": [
+      ["GK","C"], ["WB","R"], ["CB","C"], ["CB","C"], ["CB","C"], ["WB","L"],
+      ["WM","R"], ["CM","C"], ["CM","C"], ["WM","L"], ["ST","C"] ] }
+  ],
+  "sliders": {
+    "_note": "Each slider has 5 steps: -2, -1, 0, +1, +2. 0 is neutral. Team ratings update live as sliders move.",
+    "mentality": { "low": "Defensive", "high": "Attacking", "effect": "Raises Attack and lowers Defence; more shots for and against." },
+    "pressing": { "low": "Low block", "high": "High press", "effect": "Raises Pressing; increases energy drain, fouls, and exposure to long balls and fast forwards." },
+    "directness": { "low": "Short", "high": "Direct", "effect": "Short leans on short passing and dribbling (more possession); direct leans on long passing, speed and heading (quicker chances, more turnovers)." }
+  },
+  "teamRatings": {
+    "_note": "Computed from the starting XI by slot, with slider effects applied. Engine matchups: build-up = Passing vs Pressing; progression = Passing vs Defence; chance creation = Attack vs Defence; shot outcome = Attack vs Goalkeeping; crosses and set pieces = Aerial + Set Pieces vs Aerial.",
+    "passing": "spa, lpa, drb across the XI, weighted toward CB, DM, CM",
+    "attack": "oiq, drb, crs, spa, fin, lsh, hdr across AM, W, ST, WB, WM",
+    "pressing": "wrk, spd, end, ant across the front six",
+    "defence": "tkl, diq, ant, str across the back line and DM",
+    "aerial": "hgt, jmp, hdr across the XI",
+    "setPieces": "best set-piece taker's stp plus team aerial",
+    "goalkeeping": "the GK's OVR"
+  },
+  "substitutions": { "maxPerMatch": 5, "benchSize": 9 }
+}

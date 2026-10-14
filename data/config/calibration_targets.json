@@ -1,0 +1,55 @@
+{
+  "_note": "Targets for the headless calibration harness (tools/calibrate). League-wide averages over many simulated seasons. 'tol' is the acceptable band; outside it the harness fails. Per-league style modifiers (competitions_mvp.json) shift these slightly: ENG2 ~10-15% fewer goals and slightly more fouls; GER1 slightly more goals.",
+  "perMatch": {
+    "goals": { "target": 2.8, "tol": [2.65, 2.95] },
+    "homeWinPct": { "target": 0.43, "tol": [0.40, 0.46] },
+    "drawPct": { "target": 0.25, "tol": [0.22, 0.28] },
+    "awayWinPct": { "target": 0.32, "tol": [0.29, 0.35] },
+    "nilNilPct": { "target": 0.07, "tol": [0.05, 0.09] },
+    "fourPlusGoalsPct": { "target": 0.30, "tol": [0.26, 0.34] },
+    "shotsTotal": { "target": 25, "tol": [23, 27] },
+    "onTargetShare": { "target": 0.33, "tol": [0.30, 0.37] },
+    "xgPerShot": { "target": 0.11, "tol": [0.10, 0.12] },
+    "conversionRate": { "target": 0.11, "tol": [0.10, 0.12] },
+    "yellowCards": { "target": 4.0, "tol": [3.5, 4.5] },
+    "redCards": { "target": 0.14, "tol": [0.08, 0.20] },
+    "penaltiesAwarded": { "target": 0.25, "tol": [0.18, 0.32] },
+    "penaltyConversion": { "target": 0.78, "tol": [0.72, 0.84] },
+    "corners": { "target": 10, "tol": [9, 11.5] },
+    "fouls": { "target": 21, "tol": [18, 24] },
+    "subsUsedPerTeam": { "target": 4, "tol": [3.3, 4.8] },
+    "possessionRange": "95% of team-match possessions between 30% and 70%",
+    "avgMatchRating": { "target": 6.6, "tol": [6.4, 6.8], "note": "0-10 scale; typical range 5.0-8.5, 9+ rare" }
+  },
+  "perSeason": {
+    "championPointsENG1": { "target": 90, "tol": [82, 100] },
+    "bottomPointsENG1": { "target": 28, "tol": [18, 36] },
+    "topScorerGoals": { "target": 28, "tol": [22, 38] },
+    "topAssists": { "target": 15, "tol": [11, 20] },
+    "injuredPerSquadAtOnce": { "target": 3, "tol": [2, 4.5] },
+    "typicalInjuryWeeks": "most 1-3 weeks; ~10% 4+ weeks; rare season-ending",
+    "top6LoseToBottom6Pct": { "target": 0.17, "tol": [0.13, 0.22] },
+    "topClubStarterMinutesShare": { "target": 0.80, "tol": [0.72, 0.88], "note": "share of available minutes for a top club's 11 most-used players" }
+  },
+  "development": {
+    "wellPlayed18to21OvrGainPerYear": { "target": 6, "tol": [4, 8] },
+    "benched18to21OvrGainPerYear": { "target": 1, "tol": [0, 2] },
+    "age33plusOvrLossPerYear": { "target": 5.5, "tol": [4, 7] },
+    "retirementAge": "most 33-37; goalkeepers later",
+    "exceedDisplayedPotPct": { "target": 0.25, "tol": [0.18, 0.32] },
+    "wonderkidsPerLeaguePerSeason": { "target": 1, "tol": [0.5, 1.8], "note": "youth intake with POT 75+" }
+  },
+  "worldStability20Seasons": {
+    "note": "Sanity checks over a 20-season headless run",
+    "clubsInNegativeCashShare": "< 15% at any season end",
+    "medianSquadCostRatio": "50-68% of revenue",
+    "playerCountDrift": "total active players stays within +/- 10% of start",
+    "differentChampionsENG1": "at least 3 distinct champions in 20 seasons",
+    "promotedClubsSurvivalRate": "roughly 35-60% of promoted clubs avoid relegation"
+  },
+  "performanceBudget": {
+    "simOneMatchHeadless": "< 5 ms",
+    "simFullMvpSeasonInBrowser": "< 60 s on a mid-range laptop, including all season processing",
+    "saveSizeAfter10Seasons": "< 100 MB"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "_note": "Starting values only. Ratings order is fixed: player ratings history is stored as arrays in this order. Position weights are hand-set (heavy=3, medium=2, light=1, unlisted=0) and get refit against Value Added in v1.1. OVR for a position = weighted mean of the listed ratings, then rescaled so the league-wide distribution matches the OVR bands.",
+  "ratings": [
+    { "code": "hgt", "name": "Height", "group": "Physical", "fixed": true },
+    { "code": "str", "name": "Strength", "group": "Physical" },
+    { "code": "spd", "name": "Speed", "group": "Physical" },
+    { "code": "jmp", "name": "Jumping", "group": "Physical" },
+    { "code": "end", "name": "Endurance", "group": "Physical" },
+    { "code": "oiq", "name": "Offensive IQ", "group": "Mental" },
+    { "code": "diq", "name": "Defensive IQ", "group": "Mental" },
+    { "code": "wrk", "name": "Work rate", "group": "Mental" },
+    { "code": "fin", "name": "Finishing", "group": "Attacking" },
+    { "code": "lsh", "name": "Long shots", "group": "Attacking" },
+    { "code": "hdr", "name": "Heading", "group": "Attacking" },
+    { "code": "drb", "name": "Dribbling (incl. first touch)", "group": "Attacking" },
+    { "code": "spa", "name": "Short passing", "group": "Passing" },
+    { "code": "lpa", "name": "Long passing", "group": "Passing" },
+    { "code": "crs", "name": "Crossing", "group": "Passing" },
+    { "code": "tkl", "name": "Tackling", "group": "Defending" },
+    { "code": "ant", "name": "Anticipation (reading and cutting out passes)", "group": "Defending" },
+    { "code": "stp", "name": "Set pieces", "group": "Specialist" },
+    { "code": "pen", "name": "Penalties", "group": "Specialist" },
+    { "code": "gkr", "name": "GK reflexes", "group": "Goalkeeping" },
+    { "code": "gko", "name": "GK one-on-ones", "group": "Goalkeeping" },
+    { "code": "gkh", "name": "GK handling", "group": "Goalkeeping" }
+  ],
+  "ageCurveGroups": {
+    "physical": ["str", "spd", "jmp", "end"],
+    "technical": ["fin", "lsh", "hdr", "drb", "spa", "lpa", "crs", "tkl", "stp", "pen"],
+    "mental": ["oiq", "diq", "wrk", "ant"],
+    "goalkeeping": ["gkr", "gko", "gkh"],
+    "fixed": ["hgt"]
+  },
+  "radarAxes": {
+    "_note": "8 grouped axes for the player-profile radar chart; each axis = mean of its ratings.",
+    "Pace": ["spd", "end"],
+    "Physical": ["str", "jmp", "hgt"],
+    "Shooting": ["fin", "lsh"],
+    "Passing": ["spa", "lpa", "crs"],
+    "Dribbling": ["drb", "oiq"],
+    "Defending": ["tkl", "diq", "ant", "wrk"],
+    "Aerial": ["hdr", "jmp", "hgt"],
+    "Goalkeeping": ["gkr", "gko", "gkh"]
+  },
+  "positions": {
+    "GK": { "name": "Goalkeeper", "weights": { "gkr": 3, "gko": 3, "gkh": 3, "hgt": 2, "jmp": 2, "spa": 1, "lpa": 1 } },
+    "CB": { "name": "Centre-back", "weights": { "tkl": 3, "diq": 3, "hdr": 3, "str": 3, "ant": 2, "hgt": 2, "jmp": 2, "spd": 2, "spa": 1 } },
+    "FB": { "name": "Full-back", "weights": { "spd": 3, "tkl": 3, "diq": 3, "end": 3, "crs": 2, "drb": 2, "wrk": 2, "ant": 2, "spa": 1, "oiq": 1 } },
+    "WB": { "name": "Wing-back", "weights": { "spd": 3, "end": 3, "crs": 3, "wrk": 3, "tkl": 2, "drb": 2, "diq": 2, "oiq": 1, "spa": 1 } },
+    "DM": { "name": "Defensive midfielder", "weights": { "diq": 3, "tkl": 3, "ant": 3, "spa": 3, "end": 2, "str": 2, "lpa": 2, "wrk": 2 } },
+    "CM": { "name": "Central midfielder", "weights": { "spa": 3, "end": 3, "oiq": 3, "lpa": 2, "wrk": 2, "diq": 2, "tkl": 2, "ant": 2, "lsh": 1, "drb": 1 } },
+    "WM": { "name": "Wide midfielder", "weights": { "crs": 3, "end": 3, "wrk": 3, "spa": 3, "spd": 2, "drb": 2, "tkl": 2, "oiq": 1, "diq": 1 } },
+    "AM": { "name": "Attacking midfielder", "weights": { "oiq": 3, "spa": 3, "drb": 3, "lsh": 2, "fin": 2, "stp": 1, "wrk": 1 } },
+    "W": { "name": "Winger", "weights": { "spd": 3, "drb": 3, "crs": 2, "fin": 2, "oiq": 2, "end": 1, "wrk": 1 } },
+    "ST": { "name": "Striker", "weights": { "fin": 3, "oiq": 3, "hdr": 2, "spd": 2, "str": 2, "drb": 1, "jmp": 1, "wrk": 1 } }
+  },
+  "sidedPositions": ["FB", "WB", "WM", "W"],
+  "wrongFootPenalty": {
+    "_note": "Applied to slot OVR when a player's preferred foot is on the opposite side of a sided slot. Wingers (W) are exempt: inverted wingers are normal.",
+    "FB": 2, "WB": 2, "WM": 2, "W": 0
+  },
+  "ovrBands": [
+    { "min": 85, "label": "All-time great" },
+    { "min": 75, "label": "MVP candidate" },
+    { "min": 65, "label": "All-League candidate" },
+    { "min": 55, "label": "Starter" },
+    { "min": 45, "label": "Role player" },
+    { "min": 0, "label": "Bad player" }
+  ]
+}

@@ -1,0 +1,1641 @@
+{
+  "season": "2026/27",
+  "notes": "Fictional club names on real cities. Values are relational, not exact: market/reputation 1-100; revenue_m is a scaled 2026/27 projection in EUR M; strength is the target starting-XI OVR used to generate opening squads. based_on is a dev reference only and must not ship in the game UI.",
+  "leagues": [
+    {
+      "id": "ENG1",
+      "name": "English top flight",
+      "country": "ENG",
+      "tier": 1,
+      "clubs": 20
+    },
+    {
+      "id": "ENG2",
+      "name": "English second tier",
+      "country": "ENG",
+      "tier": 2,
+      "clubs": 24
+    },
+    {
+      "id": "GER1",
+      "name": "German top flight",
+      "country": "GER",
+      "tier": 1,
+      "clubs": 18
+    }
+  ],
+  "clubs": [
+    {
+      "id": "isl",
+      "league": "ENG1",
+      "based_on": "Arsenal",
+      "name": "Islington Cannons",
+      "short": "Cannons",
+      "abbr": "ISL",
+      "city": "London",
+      "country": "ENG",
+      "capacity": 60704,
+      "colors": {
+        "primary": "#EF0107",
+        "secondary": "#FFFFFF",
+        "tertiary": "#063672"
+      },
+      "market": 90,
+      "reputation": 90,
+      "revenue_m": 830,
+      "strength": 75,
+      "crest": {
+        "shape": "shield",
+        "motif": "cannon",
+        "initials": "ISL",
+        "svg": "data/crests/isl.svg"
+      }
+    },
+    {
+      "id": "ast",
+      "league": "ENG1",
+      "based_on": "Aston Villa",
+      "name": "Aston Lions",
+      "short": "Lions",
+      "abbr": "AST",
+      "city": "Birmingham",
+      "country": "ENG",
+      "capacity": 42640,
+      "colors": {
+        "primary": "#670E36",
+        "secondary": "#95BFE5",
+        "tertiary": "#FEE505"
+      },
+      "market": 76,
+      "reputation": 76,
+      "revenue_m": 450,
+      "strength": 69,
+      "crest": {
+        "shape": "shield",
+        "motif": "lion",
+        "initials": "AST",
+        "svg": "data/crests/ast.svg"
+      }
+    },
+    {
+      "id": "dor",
+      "league": "ENG1",
+      "based_on": "AFC Bournemouth",
+      "name": "Dorset Cherries",
+      "short": "Cherries",
+      "abbr": "DOR",
+      "city": "Bournemouth",
+      "country": "ENG",
+      "capacity": 11307,
+      "colors": {
+        "primary": "#DA291C",
+        "secondary": "#000000",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 48,
+      "reputation": 56,
+      "revenue_m": 200,
+      "strength": 64,
+      "crest": {
+        "shape": "round",
+        "motif": "cherry",
+        "initials": "DOR",
+        "svg": "data/crests/dor.svg"
+      }
+    },
+    {
+      "id": "wlb",
+      "league": "ENG1",
+      "based_on": "Brentford",
+      "name": "West London Bees",
+      "short": "Bees",
+      "abbr": "WLB",
+      "city": "London",
+      "country": "ENG",
+      "capacity": 17250,
+      "colors": {
+        "primary": "#E30613",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 62,
+      "reputation": 58,
+      "revenue_m": 200,
+      "strength": 64,
+      "crest": {
+        "shape": "round",
+        "motif": "bee",
+        "initials": "WLB",
+        "svg": "data/crests/wlb.svg"
+      }
+    },
+    {
+      "id": "sus",
+      "league": "ENG1",
+      "based_on": "Brighton & Hove Albion",
+      "name": "Sussex Seagulls",
+      "short": "Seagulls",
+      "abbr": "SUS",
+      "city": "Brighton",
+      "country": "ENG",
+      "capacity": 31876,
+      "colors": {
+        "primary": "#0057B8",
+        "secondary": "#FFFFFF",
+        "tertiary": "#FFCD00"
+      },
+      "market": 64,
+      "reputation": 66,
+      "revenue_m": 260,
+      "strength": 66,
+      "crest": {
+        "shape": "round",
+        "motif": "gull",
+        "initials": "SUS",
+        "svg": "data/crests/sus.svg"
+      }
+    },
+    {
+      "id": "ken",
+      "league": "ENG1",
+      "based_on": "Chelsea",
+      "name": "Kensington Blues",
+      "short": "Blues",
+      "abbr": "KEN",
+      "city": "London",
+      "country": "ENG",
+      "capacity": 40343,
+      "colors": {
+        "primary": "#034694",
+        "secondary": "#FFFFFF",
+        "tertiary": "#DBA111"
+      },
+      "market": 90,
+      "reputation": 88,
+      "revenue_m": 580,
+      "strength": 72,
+      "crest": {
+        "shape": "round",
+        "motif": "lion",
+        "initials": "KEN",
+        "svg": "data/crests/ken.svg"
+      }
+    },
+    {
+      "id": "war",
+      "league": "ENG1",
+      "based_on": "Coventry City",
+      "name": "Warwickshire Sky Blues",
+      "short": "Sky Blues",
+      "abbr": "WAR",
+      "city": "Coventry",
+      "country": "ENG",
+      "capacity": 32609,
+      "colors": {
+        "primary": "#5BC2E7",
+        "secondary": "#FFFFFF",
+        "tertiary": "#1D2A4D"
+      },
+      "market": 58,
+      "reputation": 50,
+      "revenue_m": 180,
+      "strength": 61,
+      "crest": {
+        "shape": "shield",
+        "motif": "elephant",
+        "initials": "WAR",
+        "svg": "data/crests/war.svg"
+      }
+    },
+    {
+      "id": "sle",
+      "league": "ENG1",
+      "based_on": "Crystal Palace",
+      "name": "South London Eagles",
+      "short": "Eagles",
+      "abbr": "SLE",
+      "city": "London",
+      "country": "ENG",
+      "capacity": 25486,
+      "colors": {
+        "primary": "#1B458F",
+        "secondary": "#C4122E",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 70,
+      "reputation": 62,
+      "revenue_m": 230,
+      "strength": 65,
+      "crest": {
+        "shape": "shield",
+        "motif": "eagle",
+        "initials": "SLE",
+        "svg": "data/crests/sle.svg"
+      }
+    },
+    {
+      "id": "mer",
+      "league": "ENG1",
+      "based_on": "Everton",
+      "name": "Mersey Blues",
+      "short": "Toffees",
+      "abbr": "MER",
+      "city": "Liverpool",
+      "country": "ENG",
+      "capacity": 52888,
+      "colors": {
+        "primary": "#003399",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 74,
+      "reputation": 68,
+      "revenue_m": 230,
+      "strength": 64,
+      "crest": {
+        "shape": "shield",
+        "motif": "tower",
+        "initials": "MER",
+        "svg": "data/crests/mer.svg"
+      }
+    },
+    {
+      "id": "riv",
+      "league": "ENG1",
+      "based_on": "Fulham",
+      "name": "Riverside Cottagers",
+      "short": "Cottagers",
+      "abbr": "RIV",
+      "city": "London",
+      "country": "ENG",
+      "capacity": 29600,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#000000",
+        "tertiary": "#CC0000"
+      },
+      "market": 68,
+      "reputation": 58,
+      "revenue_m": 230,
+      "strength": 64,
+      "crest": {
+        "shape": "shield",
+        "motif": "cottage",
+        "initials": "RIV",
+        "svg": "data/crests/riv.svg"
+      }
+    },
+    {
+      "id": "hum",
+      "league": "ENG1",
+      "based_on": "Hull City",
+      "name": "Humber Tigers",
+      "short": "Tigers",
+      "abbr": "HUM",
+      "city": "Hull",
+      "country": "ENG",
+      "capacity": 25586,
+      "colors": {
+        "primary": "#F5A12D",
+        "secondary": "#000000",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 54,
+      "reputation": 46,
+      "revenue_m": 170,
+      "strength": 60,
+      "crest": {
+        "shape": "round",
+        "motif": "tiger",
+        "initials": "HUM",
+        "svg": "data/crests/hum.svg"
+      }
+    },
+    {
+      "id": "suf",
+      "league": "ENG1",
+      "based_on": "Ipswich Town",
+      "name": "Suffolk Town",
+      "short": "Tractors",
+      "abbr": "SUF",
+      "city": "Ipswich",
+      "country": "ENG",
+      "capacity": 30000,
+      "colors": {
+        "primary": "#1C4A9F",
+        "secondary": "#FFFFFF",
+        "tertiary": "#DE2C37"
+      },
+      "market": 52,
+      "reputation": 50,
+      "revenue_m": 180,
+      "strength": 61,
+      "crest": {
+        "shape": "shield",
+        "motif": "horse",
+        "initials": "SUF",
+        "svg": "data/crests/suf.svg"
+      }
+    },
+    {
+      "id": "yor",
+      "league": "ENG1",
+      "based_on": "Leeds United",
+      "name": "Yorkshire Whites",
+      "short": "Whites",
+      "abbr": "YOR",
+      "city": "Leeds",
+      "country": "ENG",
+      "capacity": 37645,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#1D428A",
+        "tertiary": "#FFCD00"
+      },
+      "market": 74,
+      "reputation": 64,
+      "revenue_m": 220,
+      "strength": 63,
+      "crest": {
+        "shape": "shield",
+        "motif": "rose",
+        "initials": "YOR",
+        "svg": "data/crests/yor.svg"
+      }
+    },
+    {
+      "id": "msr",
+      "league": "ENG1",
+      "based_on": "Liverpool",
+      "name": "Merseyside Reds",
+      "short": "Reds",
+      "abbr": "MSR",
+      "city": "Liverpool",
+      "country": "ENG",
+      "capacity": 61276,
+      "colors": {
+        "primary": "#C8102E",
+        "secondary": "#FFFFFF",
+        "tertiary": "#00B2A9"
+      },
+      "market": 82,
+      "reputation": 94,
+      "revenue_m": 840,
+      "strength": 76,
+      "crest": {
+        "shape": "shield",
+        "motif": "bird",
+        "initials": "MSR",
+        "svg": "data/crests/msr.svg"
+      }
+    },
+    {
+      "id": "msk",
+      "league": "ENG1",
+      "based_on": "Manchester City",
+      "name": "Manchester Sky",
+      "short": "Citizens",
+      "abbr": "MSK",
+      "city": "Manchester",
+      "country": "ENG",
+      "capacity": 61470,
+      "colors": {
+        "primary": "#6CABDD",
+        "secondary": "#FFFFFF",
+        "tertiary": "#1C2C5B"
+      },
+      "market": 86,
+      "reputation": 92,
+      "revenue_m": 830,
+      "strength": 76,
+      "crest": {
+        "shape": "round",
+        "motif": "eagle",
+        "initials": "MSK",
+        "svg": "data/crests/msk.svg"
+      }
+    },
+    {
+      "id": "mdv",
+      "league": "ENG1",
+      "based_on": "Manchester United",
+      "name": "Manchester Devils",
+      "short": "Devils",
+      "abbr": "MDV",
+      "city": "Manchester",
+      "country": "ENG",
+      "capacity": 74197,
+      "colors": {
+        "primary": "#DA291C",
+        "secondary": "#000000",
+        "tertiary": "#FBE122"
+      },
+      "market": 88,
+      "reputation": 92,
+      "revenue_m": 780,
+      "strength": 70,
+      "crest": {
+        "shape": "shield",
+        "motif": "devil",
+        "initials": "MDV",
+        "svg": "data/crests/mdv.svg"
+      }
+    },
+    {
+      "id": "tyn",
+      "league": "ENG1",
+      "based_on": "Newcastle United",
+      "name": "Tyneside Magpies",
+      "short": "Magpies",
+      "abbr": "TYN",
+      "city": "Newcastle",
+      "country": "ENG",
+      "capacity": 52258,
+      "colors": {
+        "primary": "#241F20",
+        "secondary": "#FFFFFF",
+        "tertiary": "#41B6E6"
+      },
+      "market": 74,
+      "reputation": 78,
+      "revenue_m": 400,
+      "strength": 70,
+      "crest": {
+        "shape": "round",
+        "motif": "magpie",
+        "initials": "TYN",
+        "svg": "data/crests/tyn.svg"
+      }
+    },
+    {
+      "id": "tre",
+      "league": "ENG1",
+      "based_on": "Nottingham Forest",
+      "name": "Trent Foresters",
+      "short": "Foresters",
+      "abbr": "TRE",
+      "city": "Nottingham",
+      "country": "ENG",
+      "capacity": 30404,
+      "colors": {
+        "primary": "#DD0000",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 64,
+      "reputation": 62,
+      "revenue_m": 220,
+      "strength": 65,
+      "crest": {
+        "shape": "round",
+        "motif": "tree",
+        "initials": "TRE",
+        "svg": "data/crests/tre.svg"
+      }
+    },
+    {
+      "id": "wea",
+      "league": "ENG1",
+      "based_on": "Sunderland",
+      "name": "Wearside Black Cats",
+      "short": "Black Cats",
+      "abbr": "WEA",
+      "city": "Sunderland",
+      "country": "ENG",
+      "capacity": 48707,
+      "colors": {
+        "primary": "#EB172B",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 66,
+      "reputation": 58,
+      "revenue_m": 190,
+      "strength": 62,
+      "crest": {
+        "shape": "shield",
+        "motif": "cat",
+        "initials": "WEA",
+        "svg": "data/crests/wea.svg"
+      }
+    },
+    {
+      "id": "har",
+      "league": "ENG1",
+      "based_on": "Tottenham Hotspur",
+      "name": "Haringey Cockerels",
+      "short": "Cockerels",
+      "abbr": "HAR",
+      "city": "London",
+      "country": "ENG",
+      "capacity": 62850,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#132257",
+        "tertiary": "#000000"
+      },
+      "market": 88,
+      "reputation": 82,
+      "revenue_m": 670,
+      "strength": 69,
+      "crest": {
+        "shape": "shield",
+        "motif": "cockerel",
+        "initials": "HAR",
+        "svg": "data/crests/har.svg"
+      }
+    },
+    {
+      "id": "scb",
+      "league": "ENG2",
+      "based_on": "Birmingham City",
+      "name": "Second City Blues",
+      "short": "Blues",
+      "abbr": "SCB",
+      "city": "Birmingham",
+      "country": "ENG",
+      "capacity": 29409,
+      "colors": {
+        "primary": "#0000FF",
+        "secondary": "#FFFFFF",
+        "tertiary": "#E2001A"
+      },
+      "market": 70,
+      "reputation": 46,
+      "revenue_m": 75,
+      "strength": 57,
+      "crest": {
+        "shape": "round",
+        "motif": "globe",
+        "initials": "SCB",
+        "svg": "data/crests/scb.svg"
+      }
+    },
+    {
+      "id": "lan",
+      "league": "ENG2",
+      "based_on": "Blackburn Rovers",
+      "name": "Lancashire Rovers",
+      "short": "Rovers",
+      "abbr": "LAN",
+      "city": "Blackburn",
+      "country": "ENG",
+      "capacity": 31367,
+      "colors": {
+        "primary": "#009EE0",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 50,
+      "reputation": 46,
+      "revenue_m": 45,
+      "strength": 54,
+      "crest": {
+        "shape": "shield",
+        "motif": "rose",
+        "initials": "LAN",
+        "svg": "data/crests/lan.svg"
+      }
+    },
+    {
+      "id": "bol",
+      "league": "ENG2",
+      "based_on": "Bolton Wanderers",
+      "name": "Bolton Trotters",
+      "short": "Trotters",
+      "abbr": "BOL",
+      "city": "Bolton",
+      "country": "ENG",
+      "capacity": 28723,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#263C7E",
+        "tertiary": "#E2001A"
+      },
+      "market": 54,
+      "reputation": 40,
+      "revenue_m": 40,
+      "strength": 53,
+      "crest": {
+        "shape": "round",
+        "motif": "elephant",
+        "initials": "BOL",
+        "svg": "data/crests/bol.svg"
+      }
+    },
+    {
+      "id": "bri",
+      "league": "ENG2",
+      "based_on": "Bristol City",
+      "name": "Bristol Robins",
+      "short": "Robins",
+      "abbr": "BRI",
+      "city": "Bristol",
+      "country": "ENG",
+      "capacity": 26462,
+      "colors": {
+        "primary": "#E21A23",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 64,
+      "reputation": 40,
+      "revenue_m": 45,
+      "strength": 54,
+      "crest": {
+        "shape": "round",
+        "motif": "robin",
+        "initials": "BRI",
+        "svg": "data/crests/bri.svg"
+      }
+    },
+    {
+      "id": "pen",
+      "league": "ENG2",
+      "based_on": "Burnley",
+      "name": "Pennine Clarets",
+      "short": "Clarets",
+      "abbr": "PEN",
+      "city": "Burnley",
+      "country": "ENG",
+      "capacity": 21990,
+      "colors": {
+        "primary": "#6C1D45",
+        "secondary": "#99D6EA",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 44,
+      "reputation": 50,
+      "revenue_m": 110,
+      "strength": 59,
+      "crest": {
+        "shape": "shield",
+        "motif": "bee",
+        "initials": "PEN",
+        "svg": "data/crests/pen.svg"
+      }
+    },
+    {
+      "id": "wbb",
+      "league": "ENG2",
+      "based_on": "Cardiff City",
+      "name": "Welsh Bluebirds",
+      "short": "Bluebirds",
+      "abbr": "WBB",
+      "city": "Cardiff",
+      "country": "WAL",
+      "capacity": 33280,
+      "colors": {
+        "primary": "#0070B5",
+        "secondary": "#FFFFFF",
+        "tertiary": "#E2001A"
+      },
+      "market": 60,
+      "reputation": 44,
+      "revenue_m": 45,
+      "strength": 52,
+      "crest": {
+        "shape": "round",
+        "motif": "bluebird",
+        "initials": "WBB",
+        "svg": "data/crests/wbb.svg"
+      }
+    },
+    {
+      "id": "val",
+      "league": "ENG2",
+      "based_on": "Charlton Athletic",
+      "name": "Valley Addicks",
+      "short": "Addicks",
+      "abbr": "VAL",
+      "city": "London",
+      "country": "ENG",
+      "capacity": 27111,
+      "colors": {
+        "primary": "#D4021D",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 58,
+      "reputation": 38,
+      "revenue_m": 35,
+      "strength": 52,
+      "crest": {
+        "shape": "round",
+        "motif": "sword",
+        "initials": "VAL",
+        "svg": "data/crests/val.svg"
+      }
+    },
+    {
+      "id": "emr",
+      "league": "ENG2",
+      "based_on": "Derby County",
+      "name": "East Midlands Rams",
+      "short": "Rams",
+      "abbr": "EMR",
+      "city": "Derby",
+      "country": "ENG",
+      "capacity": 33597,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#000000",
+        "tertiary": "#C8A964"
+      },
+      "market": 60,
+      "reputation": 46,
+      "revenue_m": 45,
+      "strength": 53,
+      "crest": {
+        "shape": "round",
+        "motif": "ram",
+        "initials": "EMR",
+        "svg": "data/crests/emr.svg"
+      }
+    },
+    {
+      "id": "lin",
+      "league": "ENG2",
+      "based_on": "Lincoln City",
+      "name": "Lincolnshire Imps",
+      "short": "Imps",
+      "abbr": "LIN",
+      "city": "Lincoln",
+      "country": "ENG",
+      "capacity": 11400,
+      "colors": {
+        "primary": "#D71920",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 40,
+      "reputation": 32,
+      "revenue_m": 20,
+      "strength": 50,
+      "crest": {
+        "shape": "shield",
+        "motif": "imp",
+        "initials": "LIN",
+        "svg": "data/crests/lin.svg"
+      }
+    },
+    {
+      "id": "tee",
+      "league": "ENG2",
+      "based_on": "Middlesbrough",
+      "name": "Teesside Boro",
+      "short": "Boro",
+      "abbr": "TEE",
+      "city": "Middlesbrough",
+      "country": "ENG",
+      "capacity": 34742,
+      "colors": {
+        "primary": "#E11B22",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 58,
+      "reputation": 48,
+      "revenue_m": 55,
+      "strength": 57,
+      "crest": {
+        "shape": "shield",
+        "motif": "lion",
+        "initials": "TEE",
+        "svg": "data/crests/tee.svg"
+      }
+    },
+    {
+      "id": "ber",
+      "league": "ENG2",
+      "based_on": "Millwall",
+      "name": "Bermondsey Lions",
+      "short": "Lions",
+      "abbr": "BER",
+      "city": "London",
+      "country": "ENG",
+      "capacity": 20146,
+      "colors": {
+        "primary": "#001D5E",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 58,
+      "reputation": 38,
+      "revenue_m": 35,
+      "strength": 53,
+      "crest": {
+        "shape": "shield",
+        "motif": "lion",
+        "initials": "BER",
+        "svg": "data/crests/ber.svg"
+      }
+    },
+    {
+      "id": "nor",
+      "league": "ENG2",
+      "based_on": "Norwich City",
+      "name": "Norfolk Canaries",
+      "short": "Canaries",
+      "abbr": "NOR",
+      "city": "Norwich",
+      "country": "ENG",
+      "capacity": 27359,
+      "colors": {
+        "primary": "#FFF200",
+        "secondary": "#00A650",
+        "tertiary": "#000000"
+      },
+      "market": 54,
+      "reputation": 48,
+      "revenue_m": 55,
+      "strength": 56,
+      "crest": {
+        "shape": "round",
+        "motif": "canary",
+        "initials": "NOR",
+        "svg": "data/crests/nor.svg"
+      }
+    },
+    {
+      "id": "pom",
+      "league": "ENG2",
+      "based_on": "Portsmouth",
+      "name": "Pompey Blues",
+      "short": "Pompey",
+      "abbr": "POM",
+      "city": "Portsmouth",
+      "country": "ENG",
+      "capacity": 20867,
+      "colors": {
+        "primary": "#001489",
+        "secondary": "#FFFFFF",
+        "tertiary": "#E2001A"
+      },
+      "market": 58,
+      "reputation": 42,
+      "revenue_m": 40,
+      "strength": 52,
+      "crest": {
+        "shape": "shield",
+        "motif": "star",
+        "initials": "POM",
+        "svg": "data/crests/pom.svg"
+      }
+    },
+    {
+      "id": "pre",
+      "league": "ENG2",
+      "based_on": "Preston North End",
+      "name": "Preston Lilywhites",
+      "short": "Lilywhites",
+      "abbr": "PRE",
+      "city": "Preston",
+      "country": "ENG",
+      "capacity": 23408,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#001F5B",
+        "tertiary": "#000000"
+      },
+      "market": 50,
+      "reputation": 38,
+      "revenue_m": 35,
+      "strength": 52,
+      "crest": {
+        "shape": "shield",
+        "motif": "lamb",
+        "initials": "PRE",
+        "svg": "data/crests/pre.svg"
+      }
+    },
+    {
+      "id": "shb",
+      "league": "ENG2",
+      "based_on": "Queens Park Rangers",
+      "name": "Shepherd's Bush Hoops",
+      "short": "Hoops",
+      "abbr": "SHB",
+      "city": "London",
+      "country": "ENG",
+      "capacity": 18439,
+      "colors": {
+        "primary": "#1D5BA4",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 60,
+      "reputation": 40,
+      "revenue_m": 40,
+      "strength": 53,
+      "crest": {
+        "shape": "round",
+        "motif": "hoops",
+        "initials": "SHB",
+        "svg": "data/crests/shb.svg"
+      }
+    },
+    {
+      "id": "she",
+      "league": "ENG2",
+      "based_on": "Sheffield United",
+      "name": "Sheffield Blades",
+      "short": "Blades",
+      "abbr": "SHE",
+      "city": "Sheffield",
+      "country": "ENG",
+      "capacity": 32050,
+      "colors": {
+        "primary": "#EE2737",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 64,
+      "reputation": 50,
+      "revenue_m": 60,
+      "strength": 57,
+      "crest": {
+        "shape": "shield",
+        "motif": "blades",
+        "initials": "SHE",
+        "svg": "data/crests/she.svg"
+      }
+    },
+    {
+      "id": "sol",
+      "league": "ENG2",
+      "based_on": "Southampton",
+      "name": "Solent Saints",
+      "short": "Saints",
+      "abbr": "SOL",
+      "city": "Southampton",
+      "country": "ENG",
+      "capacity": 32384,
+      "colors": {
+        "primary": "#D71920",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 60,
+      "reputation": 54,
+      "revenue_m": 80,
+      "strength": 59,
+      "crest": {
+        "shape": "round",
+        "motif": "halo",
+        "initials": "SOL",
+        "svg": "data/crests/sol.svg"
+      }
+    },
+    {
+      "id": "stk",
+      "league": "ENG2",
+      "based_on": "Stoke City",
+      "name": "Stoke Potters",
+      "short": "Potters",
+      "abbr": "STK",
+      "city": "Stoke-on-Trent",
+      "country": "ENG",
+      "capacity": 30089,
+      "colors": {
+        "primary": "#E03A3E",
+        "secondary": "#FFFFFF",
+        "tertiary": "#1B449C"
+      },
+      "market": 56,
+      "reputation": 44,
+      "revenue_m": 50,
+      "strength": 54,
+      "crest": {
+        "shape": "shield",
+        "motif": "knot",
+        "initials": "STK",
+        "svg": "data/crests/stk.svg"
+      }
+    },
+    {
+      "id": "swa",
+      "league": "ENG2",
+      "based_on": "Swansea City",
+      "name": "Swansea Jacks",
+      "short": "Jacks",
+      "abbr": "SWA",
+      "city": "Swansea",
+      "country": "WAL",
+      "capacity": 21088,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#000000",
+        "tertiary": "#E2001A"
+      },
+      "market": 50,
+      "reputation": 44,
+      "revenue_m": 40,
+      "strength": 54,
+      "crest": {
+        "shape": "round",
+        "motif": "swan",
+        "initials": "SWA",
+        "svg": "data/crests/swa.svg"
+      }
+    },
+    {
+      "id": "her",
+      "league": "ENG2",
+      "based_on": "Watford",
+      "name": "Hertfordshire Hornets",
+      "short": "Hornets",
+      "abbr": "HER",
+      "city": "Watford",
+      "country": "ENG",
+      "capacity": 22200,
+      "colors": {
+        "primary": "#FBEE23",
+        "secondary": "#000000",
+        "tertiary": "#ED2127"
+      },
+      "market": 52,
+      "reputation": 44,
+      "revenue_m": 50,
+      "strength": 54,
+      "crest": {
+        "shape": "round",
+        "motif": "hornet",
+        "initials": "HER",
+        "svg": "data/crests/her.svg"
+      }
+    },
+    {
+      "id": "bcb",
+      "league": "ENG2",
+      "based_on": "West Bromwich Albion",
+      "name": "Black Country Baggies",
+      "short": "Baggies",
+      "abbr": "BCB",
+      "city": "West Bromwich",
+      "country": "ENG",
+      "capacity": 26850,
+      "colors": {
+        "primary": "#122F67",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 62,
+      "reputation": 48,
+      "revenue_m": 55,
+      "strength": 56,
+      "crest": {
+        "shape": "shield",
+        "motif": "thrush",
+        "initials": "BCB",
+        "svg": "data/crests/bcb.svg"
+      }
+    },
+    {
+      "id": "eli",
+      "league": "ENG2",
+      "based_on": "West Ham United",
+      "name": "East London Irons",
+      "short": "Irons",
+      "abbr": "ELI",
+      "city": "London",
+      "country": "ENG",
+      "capacity": 62500,
+      "colors": {
+        "primary": "#7A263A",
+        "secondary": "#1BB1E7",
+        "tertiary": "#F3D459"
+      },
+      "market": 80,
+      "reputation": 66,
+      "revenue_m": 160,
+      "strength": 61,
+      "crest": {
+        "shape": "shield",
+        "motif": "hammers",
+        "initials": "ELI",
+        "svg": "data/crests/eli.svg"
+      }
+    },
+    {
+      "id": "wol",
+      "league": "ENG2",
+      "based_on": "Wolverhampton Wanderers",
+      "name": "Wolverhampton Pack",
+      "short": "Wolves",
+      "abbr": "WOL",
+      "city": "Wolverhampton",
+      "country": "ENG",
+      "capacity": 31750,
+      "colors": {
+        "primary": "#FDB913",
+        "secondary": "#231F20",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 64,
+      "reputation": 58,
+      "revenue_m": 120,
+      "strength": 60,
+      "crest": {
+        "shape": "round",
+        "motif": "wolf",
+        "initials": "WOL",
+        "svg": "data/crests/wol.svg"
+      }
+    },
+    {
+      "id": "nwd",
+      "league": "ENG2",
+      "based_on": "Wrexham",
+      "name": "North Wales Dragons",
+      "short": "Dragons",
+      "abbr": "NWD",
+      "city": "Wrexham",
+      "country": "WAL",
+      "capacity": 10771,
+      "colors": {
+        "primary": "#D50032",
+        "secondary": "#FFFFFF",
+        "tertiary": "#00843D"
+      },
+      "market": 40,
+      "reputation": 44,
+      "revenue_m": 45,
+      "strength": 54,
+      "crest": {
+        "shape": "shield",
+        "motif": "dragon",
+        "initials": "NWD",
+        "svg": "data/crests/nwd.svg"
+      }
+    },
+    {
+      "id": "aug",
+      "league": "GER1",
+      "based_on": "FC Augsburg",
+      "name": "Augsburg Panther",
+      "short": "Panther",
+      "abbr": "AUG",
+      "city": "Augsburg",
+      "country": "GER",
+      "capacity": 30660,
+      "colors": {
+        "primary": "#BA3733",
+        "secondary": "#46714D",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 54,
+      "reputation": 52,
+      "revenue_m": 130,
+      "strength": 61,
+      "crest": {
+        "shape": "round",
+        "motif": "panther",
+        "initials": "AUG",
+        "svg": "data/crests/aug.svg"
+      }
+    },
+    {
+      "id": "rhw",
+      "league": "GER1",
+      "based_on": "Bayer 04 Leverkusen",
+      "name": "Rheinland Werkself",
+      "short": "Werkself",
+      "abbr": "RHW",
+      "city": "Leverkusen",
+      "country": "GER",
+      "capacity": 30210,
+      "colors": {
+        "primary": "#E32221",
+        "secondary": "#000000",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 60,
+      "reputation": 82,
+      "revenue_m": 330,
+      "strength": 70,
+      "crest": {
+        "shape": "round",
+        "motif": "cross",
+        "initials": "RHW",
+        "svg": "data/crests/rhw.svg"
+      }
+    },
+    {
+      "id": "mun",
+      "league": "GER1",
+      "based_on": "FC Bayern München",
+      "name": "München Rot 1900",
+      "short": "Rekordmeister",
+      "abbr": "MUN",
+      "city": "Munich",
+      "country": "GER",
+      "capacity": 75024,
+      "colors": {
+        "primary": "#DC052D",
+        "secondary": "#FFFFFF",
+        "tertiary": "#0066B2"
+      },
+      "market": 92,
+      "reputation": 95,
+      "revenue_m": 860,
+      "strength": 76,
+      "crest": {
+        "shape": "round",
+        "motif": "diamonds",
+        "initials": "MUN",
+        "svg": "data/crests/mun.svg"
+      }
+    },
+    {
+      "id": "bor",
+      "league": "GER1",
+      "based_on": "Borussia Dortmund",
+      "name": "Borsigplatz 09",
+      "short": "Schwarzgelben",
+      "abbr": "BOR",
+      "city": "Dortmund",
+      "country": "GER",
+      "capacity": 81365,
+      "colors": {
+        "primary": "#FDE100",
+        "secondary": "#000000",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 84,
+      "reputation": 86,
+      "revenue_m": 530,
+      "strength": 71,
+      "crest": {
+        "shape": "round",
+        "motif": "monogram",
+        "initials": "BOR",
+        "svg": "data/crests/bor.svg"
+      }
+    },
+    {
+      "id": "fra",
+      "league": "GER1",
+      "based_on": "Eintracht Frankfurt",
+      "name": "Frankfurt Adler",
+      "short": "Adler",
+      "abbr": "FRA",
+      "city": "Frankfurt",
+      "country": "GER",
+      "capacity": 58000,
+      "colors": {
+        "primary": "#E1000F",
+        "secondary": "#000000",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 78,
+      "reputation": 74,
+      "revenue_m": 290,
+      "strength": 66,
+      "crest": {
+        "shape": "shield",
+        "motif": "eagle",
+        "initials": "FRA",
+        "svg": "data/crests/fra.svg"
+      }
+    },
+    {
+      "id": "bre",
+      "league": "GER1",
+      "based_on": "SC Freiburg",
+      "name": "Breisgau SC",
+      "short": "Breisgauer",
+      "abbr": "BRE",
+      "city": "Freiburg",
+      "country": "GER",
+      "capacity": 34700,
+      "colors": {
+        "primary": "#E30613",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 52,
+      "reputation": 64,
+      "revenue_m": 180,
+      "strength": 65,
+      "crest": {
+        "shape": "shield",
+        "motif": "raven",
+        "initials": "BRE",
+        "svg": "data/crests/bre.svg"
+      }
+    },
+    {
+      "id": "ham",
+      "league": "GER1",
+      "based_on": "Hamburger SV",
+      "name": "Hamburg Rauten",
+      "short": "Rothosen",
+      "abbr": "HAM",
+      "city": "Hamburg",
+      "country": "GER",
+      "capacity": 57000,
+      "colors": {
+        "primary": "#0A3F86",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 80,
+      "reputation": 64,
+      "revenue_m": 160,
+      "strength": 61,
+      "crest": {
+        "shape": "diamond",
+        "motif": "diamond",
+        "initials": "HAM",
+        "svg": "data/crests/ham.svg"
+      }
+    },
+    {
+      "id": "kra",
+      "league": "GER1",
+      "based_on": "TSG Hoffenheim",
+      "name": "Kraichgau 1899",
+      "short": "Kraichgauer",
+      "abbr": "KRA",
+      "city": "Sinsheim",
+      "country": "GER",
+      "capacity": 30150,
+      "colors": {
+        "primary": "#1961B5",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 44,
+      "reputation": 58,
+      "revenue_m": 170,
+      "strength": 64,
+      "crest": {
+        "shape": "shield",
+        "motif": "monogram",
+        "initials": "KRA",
+        "svg": "data/crests/kra.svg"
+      }
+    },
+    {
+      "id": "dom",
+      "league": "GER1",
+      "based_on": "1. FC Köln",
+      "name": "Domstadt Geissboecke",
+      "short": "Geissboecke",
+      "abbr": "DOM",
+      "city": "Cologne",
+      "country": "GER",
+      "capacity": 50000,
+      "colors": {
+        "primary": "#ED1C24",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 78,
+      "reputation": 60,
+      "revenue_m": 170,
+      "strength": 61,
+      "crest": {
+        "shape": "round",
+        "motif": "goat",
+        "initials": "DOM",
+        "svg": "data/crests/dom.svg"
+      }
+    },
+    {
+      "id": "sac",
+      "league": "GER1",
+      "based_on": "RB Leipzig",
+      "name": "Sachsen Bullen",
+      "short": "Bullen",
+      "abbr": "SAC",
+      "city": "Leipzig",
+      "country": "GER",
+      "capacity": 47069,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#DD0741",
+        "tertiary": "#001F47"
+      },
+      "market": 66,
+      "reputation": 78,
+      "revenue_m": 480,
+      "strength": 69,
+      "crest": {
+        "shape": "round",
+        "motif": "bull",
+        "initials": "SAC",
+        "svg": "data/crests/sac.svg"
+      }
+    },
+    {
+      "id": "rhe",
+      "league": "GER1",
+      "based_on": "1. FSV Mainz 05",
+      "name": "Rheinhessen 05",
+      "short": "Nullfuenfer",
+      "abbr": "RHE",
+      "city": "Mainz",
+      "country": "GER",
+      "capacity": 33305,
+      "colors": {
+        "primary": "#C3141E",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 54,
+      "reputation": 58,
+      "revenue_m": 150,
+      "strength": 62,
+      "crest": {
+        "shape": "round",
+        "motif": "wheel",
+        "initials": "RHE",
+        "svg": "data/crests/rhe.svg"
+      }
+    },
+    {
+      "id": "nie",
+      "league": "GER1",
+      "based_on": "Borussia Moenchengladbach",
+      "name": "Niederrhein Fohlen",
+      "short": "Fohlen",
+      "abbr": "NIE",
+      "city": "Moenchengladbach",
+      "country": "GER",
+      "capacity": 54042,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#000000",
+        "tertiary": "#00A13F"
+      },
+      "market": 66,
+      "reputation": 66,
+      "revenue_m": 200,
+      "strength": 63,
+      "crest": {
+        "shape": "diamond",
+        "motif": "foal",
+        "initials": "NIE",
+        "svg": "data/crests/nie.svg"
+      }
+    },
+    {
+      "id": "ost",
+      "league": "GER1",
+      "based_on": "SC Paderborn 07",
+      "name": "Ostwestfalen 07",
+      "short": "Paderborner",
+      "abbr": "OST",
+      "city": "Paderborn",
+      "country": "GER",
+      "capacity": 15000,
+      "colors": {
+        "primary": "#005CA9",
+        "secondary": "#000000",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 42,
+      "reputation": 42,
+      "revenue_m": 75,
+      "strength": 57,
+      "crest": {
+        "shape": "shield",
+        "motif": "monogram",
+        "initials": "OST",
+        "svg": "data/crests/ost.svg"
+      }
+    },
+    {
+      "id": "gel",
+      "league": "GER1",
+      "based_on": "FC Schalke 04",
+      "name": "Gelsenkirchen Knappen",
+      "short": "Koenigsblauen",
+      "abbr": "GEL",
+      "city": "Gelsenkirchen",
+      "country": "GER",
+      "capacity": 62271,
+      "colors": {
+        "primary": "#004D9D",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 78,
+      "reputation": 66,
+      "revenue_m": 190,
+      "strength": 60,
+      "crest": {
+        "shape": "round",
+        "motif": "pick",
+        "initials": "GEL",
+        "svg": "data/crests/gel.svg"
+      }
+    },
+    {
+      "id": "spi",
+      "league": "GER1",
+      "based_on": "SV 07 Elversberg",
+      "name": "Spiesen 07",
+      "short": "Elversberger",
+      "abbr": "SPI",
+      "city": "Spiesen-Elversberg",
+      "country": "GER",
+      "capacity": 10000,
+      "colors": {
+        "primary": "#000000",
+        "secondary": "#FFFFFF",
+        "tertiary": "#7F7F7F"
+      },
+      "market": 30,
+      "reputation": 36,
+      "revenue_m": 55,
+      "strength": 57,
+      "crest": {
+        "shape": "shield",
+        "motif": "monogram",
+        "initials": "SPI",
+        "svg": "data/crests/spi.svg"
+      }
+    },
+    {
+      "id": "scw",
+      "league": "GER1",
+      "based_on": "VfB Stuttgart",
+      "name": "Schwaben 1893",
+      "short": "Schwaben",
+      "abbr": "SCW",
+      "city": "Stuttgart",
+      "country": "GER",
+      "capacity": 60058,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#E32219",
+        "tertiary": "#000000"
+      },
+      "market": 76,
+      "reputation": 72,
+      "revenue_m": 280,
+      "strength": 67,
+      "crest": {
+        "shape": "shield",
+        "motif": "antlers",
+        "initials": "SCW",
+        "svg": "data/crests/scw.svg"
+      }
+    },
+    {
+      "id": "koe",
+      "league": "GER1",
+      "based_on": "1. FC Union Berlin",
+      "name": "Koepenick Eisern",
+      "short": "Eisernen",
+      "abbr": "KOE",
+      "city": "Berlin",
+      "country": "GER",
+      "capacity": 22012,
+      "colors": {
+        "primary": "#EB1923",
+        "secondary": "#FFFFFF",
+        "tertiary": "#FFD800"
+      },
+      "market": 72,
+      "reputation": 58,
+      "revenue_m": 150,
+      "strength": 61,
+      "crest": {
+        "shape": "round",
+        "motif": "iron",
+        "initials": "KOE",
+        "svg": "data/crests/koe.svg"
+      }
+    },
+    {
+      "id": "han",
+      "league": "GER1",
+      "based_on": "SV Werder Bremen",
+      "name": "Hanseaten Bremen",
+      "short": "Werderaner",
+      "abbr": "HAN",
+      "city": "Bremen",
+      "country": "GER",
+      "capacity": 42100,
+      "colors": {
+        "primary": "#1D9053",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 66,
+      "reputation": 64,
+      "revenue_m": 170,
+      "strength": 62,
+      "crest": {
+        "shape": "diamond",
+        "motif": "monogram",
+        "initials": "HAN",
+        "svg": "data/crests/han.svg"
+      }
+    }
+  ]
+}
