@@ -10,8 +10,11 @@ beforeAll(() => {
   globalThis.indexedDB = new IDBFactory();
 });
 
+// Each test generates and saves a whole world: seconds locally, more on CI.
+const SLOW = { timeout: 60_000 };
+
 describe("league saves", () => {
-  it("creates a full save that reopens with every acceptance check passing", async () => {
+  it("creates a full save that reopens with every acceptance check passing", SLOW, async () => {
     const league = await createLeague({ name: "Test league", seed: "session-test", userCid: 0 });
     expect(league).toMatchObject({ lid: 1, name: "Test league", season: 2026 });
     expect((await listLeagues()).map((l) => l.lid)).toEqual([1]);
@@ -35,14 +38,14 @@ describe("league saves", () => {
     expect(cache.get("meta", "rng")).toBeTruthy();
   });
 
-  it("serves a squad with the best XI first", async () => {
+  it("serves a squad with the best XI first", SLOW, async () => {
     const squad = await getSquad(1, 0);
     expect(squad.players.slice(0, 11).every((p) => p.xiSlot !== null)).toBe(true);
     expect(squad.players.slice(11).every((p) => p.xiSlot === null)).toBe(true);
     expect(squad.players.some((p) => p.status === "academy")).toBe(true);
   });
 
-  it("gives a random seed when none is entered, and deletes saves", async () => {
+  it("gives a random seed when none is entered, and deletes saves", SLOW, async () => {
     const second = await createLeague({ name: " ", seed: "", userCid: 5 });
     expect(second.lid).toBe(2);
     expect(second.name).toBe("League 2");

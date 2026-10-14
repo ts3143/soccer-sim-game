@@ -18,7 +18,8 @@ describe("generateWorld", () => {
     expect(checks.filter((c) => !c.pass)).toEqual([]);
   });
 
-  it("is identical for the same seed and different for another", () => {
+  // Generating a world takes seconds (more on slower CI machines): allow up to a minute.
+  it("is identical for the same seed and different for another", { timeout: 60_000 }, () => {
     const again = generateWorld(options);
     expect(JSON.stringify(again)).toBe(JSON.stringify(world));
     const other = generateWorld({ ...options, seed: "another-seed" });

@@ -156,11 +156,18 @@ export function developHalfSeason(
   const declineNoise = Math.max(0, rng.normal(1, DEV.declineNoiseSd));
   const mentalBonus =
     input.academyYouth === null ? DEV.mentalMinutesBonus * minutesFactor(input.minutesShare) : 0;
+  // Half-season age-curve value, once per group rather than once per rating.
+  const halfCurve = {
+    physical: ageCurve("physical", input.age, input.curve) / 2,
+    technical: ageCurve("technical", input.age, input.curve) / 2,
+    mental: ageCurve("mental", input.age, input.curve) / 2,
+    goalkeeping: ageCurve("goalkeeping", input.age, input.curve) / 2,
+  };
 
   return ratings.map((value, i) => {
     const group = GROUP_OF[i] as AgeCurveGroup;
     if (group === "fixed") return value;
-    const a = ageCurve(group, input.age, input.curve) / 2;
+    const a = halfCurve[group];
     let delta = a > 0 ? a * devEff * growthNoise * softening : a * input.medical * declineNoise;
     if (group === "mental") delta += mentalBonus;
     delta += rng.normal(0, DEV.ratingNoiseSd);
