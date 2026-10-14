@@ -6,6 +6,8 @@
  * worker implements ApiHandlers<WorkerApi>, so any mismatch is a compile error.
  * Arguments and results must be structured-cloneable (plain data).
  */
+import type { Position } from "./config/ratings";
+import type { Foot, LeagueSummary } from "./schema";
 
 export type WorkerKind = "shared" | "dedicated";
 
@@ -16,16 +18,112 @@ export interface WorkerStatus {
   connectedTabs: number;
 }
 
+/** A club the user can pick on the New league screen. */
+export interface ClubChoice {
+  cid: number;
+  code: string;
+  name: string;
+  leagueId: string;
+  leagueName: string;
+  strength: number;
+}
+
+export interface NewLeagueInput {
+  name: string;
+  /** Empty: the worker picks a random seed. */
+  seed: string;
+  userCid: number;
+}
+
+export interface CheckResult {
+  name: string;
+  pass: boolean;
+  detail: string;
+}
+
+export interface ClubOverviewRow {
+  cid: number;
+  code: string;
+  name: string;
+  leagueId: string;
+  formation: string;
+  strengthTarget: number;
+  /** Mean slot OVR of the best XI, recomputed from the saved players. */
+  xiStrength: number;
+  seniors: number;
+  academy: number;
+  averageAge: number;
+  /** Whole euros per year. */
+  wageBill: number;
+  revenue: number;
+  squadCostRatio: number;
+  topOvr: number;
+  colors: { primary: string; secondary: string; tertiary: string };
+}
+
+/** M1 generation inspector: a summary of one saved league. */
+export interface LeagueOverview {
+  lid: number;
+  name: string;
+  seed: string;
+  season: number;
+  date: string;
+  userCid: number;
+  leagues: { id: string; name: string }[];
+  counts: { clubs: number; seniors: number; academy: number; freeAgents: number };
+  /** Senior club players per OVR value, ascending. */
+  ovrCounts: { ovr: number; count: number }[];
+  bands: { label: string; min: number; max: number; count: number }[];
+  clubs: ClubOverviewRow[];
+  checks: CheckResult[];
+}
+
+export interface SquadPlayerRow {
+  pid: number;
+  name: string;
+  shirtNumber: number | null;
+  position: Position;
+  secondaryPositions: Position[];
+  age: number;
+  nationality: string;
+  nationality2: string | null;
+  foot: Foot;
+  heightCm: number;
+  ovr: number;
+  pot: number;
+  /** Whole euros per year; null for academy players. */
+  wage: number | null;
+  contractExpires: string | null;
+  status: "club" | "academy";
+  /** Best-XI slot, e.g. "FB R"; null if not in the XI. */
+  xiSlot: string | null;
+  slotOvr: number | null;
+}
+
+export interface SquadView {
+  cid: number;
+  code: string;
+  name: string;
+  leagueId: string;
+  formation: string;
+  strengthTarget: number;
+  xiStrength: number;
+  colors: { primary: string; secondary: string; tertiary: string };
+  players: SquadPlayerRow[];
+}
+
 export interface WorkerApi {
   getStatus(): WorkerStatus;
-  /** M0 plumbing demo: a counter persisted in IndexedDB through the cache. */
-  getDemoCounter(): number;
-  incrementDemoCounter(by: number): number;
-  /** M0 plumbing demo: the first `count` rolls (1–100) for a seed. */
-  rngPreview(seed: string, count: number): number[];
+  listLeagues(): LeagueSummary[];
+  getClubChoices(): ClubChoice[];
+  createLeague(input: NewLeagueInput): LeagueSummary;
+  deleteLeague(lid: number): void;
+  getLeagueOverview(lid: number): LeagueOverview;
+  getSquad(lid: number, cid: number): SquadView;
 }
 
 export interface UiEvents {
-  demoCounterChanged: { value: number };
+  /** The save list changed (a league was created or deleted, in any tab). */
+  leaguesChanged: { leagues: LeagueSummary[] };
   tabsChanged: { connectedTabs: number };
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { clubDefinitions } from "../../src/common/config/clubs";
 import { generateWorld } from "../../src/worker/generate/world";
 import { realClubNamesToCheck } from "../real-club-names";
-import { evaluateWorld } from "./checks";
+import { evaluateWorld } from "../../src/worker/generate/checks";
 
 const options = {
   seed: "world-test",
@@ -14,11 +14,7 @@ const world = generateWorld(options);
 
 describe("generateWorld", () => {
   it("passes every M1 acceptance check", () => {
-    const checks = evaluateWorld(world, {
-      deterministic: true, // checked separately below
-      realNames: realClubNamesToCheck(),
-      clubCount: clubDefinitions.length,
-    });
+    const checks = evaluateWorld(world, { realNames: realClubNamesToCheck().names });
     expect(checks.filter((c) => !c.pass)).toEqual([]);
   });
 

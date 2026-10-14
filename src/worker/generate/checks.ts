@@ -1,16 +1,32 @@
 /**
- * M1 acceptance checks on a generated world (used by `pnpm generate --check` and tests).
- * Thresholds that turn the spec's wording into numbers ("few 75+, many 50–65") are
- * judgment calls, documented in PROGRESS.md.
+ * M1 acceptance checks on a generated world: used by `pnpm generate --check`, the tests
+ * and the inspector page. Thresholds that turn the spec's wording into numbers ("few
+ * 75+, many 50–65") are judgment calls, documented in PROGRESS.md.
  */
-import { STARTING_SQUAD_COST } from "../../src/worker/generate/contracts";
-import { FREE_AGENT_POOL_SIZE } from "../../src/worker/generate/freeAgents";
-import type { World } from "../../src/worker/generate/world";
+import { clubDefinitions } from "../../common/config/clubs";
+import type { Club, ClubSeason, Player } from "../../common/schema";
+import { STARTING_SQUAD_COST } from "./contracts";
+import { FREE_AGENT_POOL_SIZE } from "./freeAgents";
 
 export interface Check {
   name: string;
   pass: boolean;
   detail: string;
+}
+
+export interface WorldLike {
+  clubs: Club[];
+  clubSeasons: ClubSeason[];
+  players: Player[];
+  /** Per club: best-XI mean slot OVR in its default formation. */
+  xiStrength: Map<number, number>;
+}
+
+export interface CheckContext {
+  /** Result of generating twice from the same seed (Node only). */
+  deterministic?: boolean;
+  /** Real club names to look for (Node only: the browser never has them). */
+  realNames?: string[];
 }
 
 export const THRESHOLDS = {
@@ -24,10 +40,9 @@ export const THRESHOLDS = {
   squadCostSlack: 0.005,
 };
 
-export function evaluateWorld(
-  world: World,
-  context: { deterministic: boolean; realNames: string[]; clubCount: number },
-): Check[] {
+const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
+
+export function evaluateWorld(world: WorldLike, context: CheckContext = {}): Check[] {
   const seniors = world.players.filter((p) => p.status === "club");
   const academy = world.players.filter((p) => p.status === "academy");
   const freeAgents = world.players.filter((p) => p.status === "freeAgent");
@@ -40,16 +55,23 @@ export function evaluateWorld(
   const core = seniors.filter((p) => p.ovr >= 50 && p.ovr <= 65).length / seniors.length;
   const ratios = world.clubSeasons.map((s) => s.squadCostRatio ?? NaN);
   const left = world.players.filter((p) => p.foot === "L").length / world.players.length;
-  const serialized = JSON.stringify({ ...world, xiStrength: [...world.xiStrength] });
-  const leaked = ["based_on", ...context.realNames].filter((name) => serialized.includes(name));
+  const serialized = JSON.stringify({
+    clubs: world.clubs,
+    clubSeasons: world.clubSeasons,
+    players: world.players,
+  });
+  const realNames = context.realNames ?? [];
+  const leaked = [
+    ...(/"based_on"\s*:/.test(serialized) ? ["the based_on field"] : []),
+    ...realNames.filter((name) => serialized.includes(name)),
+  ];
   const seniorsPerClub = world.clubs.map((c) => seniors.filter((p) => p.cid === c.cid).length);
   const academyPerClub = world.clubs.map((c) => academy.filter((p) => p.cid === c.cid).length);
-  const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 
-  return [
+  const checks: Check[] = [
     {
       name: "62 clubs",
-      pass: world.clubs.length === context.clubCount && context.clubCount === 62,
+      pass: world.clubs.length === clubDefinitions.length && clubDefinitions.length === 62,
       detail: `${world.clubs.length}`,
     },
     {
@@ -99,15 +121,23 @@ export function evaluateWorld(
       detail: pct(left),
     },
     {
-      name: "no real club names in the save",
+      name:
+        realNames.length > 0 ? "no real club names in the save" : "no based_on field in the save",
       pass: leaked.length === 0,
       detail:
-        leaked.length === 0 ? `${context.realNames.length + 1} names checked` : leaked.join(", "),
+        leaked.length > 0
+          ? leaked.join(", ")
+          : realNames.length > 0
+            ? `${realNames.length} names and the field checked`
+            : "checked",
     },
-    {
+  ];
+  if (context.deterministic !== undefined) {
+    checks.push({
       name: "same seed gives an identical world",
       pass: context.deterministic,
       detail: context.deterministic ? "identical" : "differs",
-    },
-  ];
+    });
+  }
+  return checks;
 }

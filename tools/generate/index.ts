@@ -4,14 +4,13 @@
  * if any check fails.
  */
 import { createHash } from "node:crypto";
-import { clubDefinitions } from "../../src/common/config/clubs";
 import { competitionsConfig } from "../../src/common/config/competitions";
 import { ratingsConfig } from "../../src/common/config/ratings";
 import { exactAge } from "../../src/common/dates";
 import type { Player } from "../../src/common/schema";
 import { generateWorld, type World } from "../../src/worker/generate/world";
 import { realClubNamesToCheck } from "../real-club-names";
-import { evaluateWorld, type Check } from "./checks";
+import { evaluateWorld, type Check } from "../../src/worker/generate/checks";
 
 const args = process.argv.slice(2);
 const seed = args.includes("--seed") ? (args[args.indexOf("--seed") + 1] ?? "report") : "report";
@@ -89,8 +88,7 @@ for (const league of competitionsConfig.leagues) {
 
 const checks: Check[] = evaluateWorld(world, {
   deterministic,
-  realNames: realClubNamesToCheck(),
-  clubCount: clubDefinitions.length,
+  realNames: realClubNamesToCheck().names,
 });
 console.log("\nChecks:");
 for (const check of checks)
