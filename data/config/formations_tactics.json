@@ -26,6 +26,10 @@
       ["GK","C"], ["WB","R"], ["CB","C"], ["CB","C"], ["CB","C"], ["WB","L"],
       ["WM","R"], ["CM","C"], ["CM","C"], ["WM","L"], ["ST","C"] ] }
   ],
+  "defaultFormation": {
+    "_note": "At league creation each club gets a seeded default formation drawn from the mvp presets with these weights. Its squad is generated around it, it is saved as the club's starting tactics, and the club's strength (clubs_2026_27.json) is measured in it.",
+    "presetWeights": { "4-4-2": 1, "4-3-3": 1, "4-2-3-1": 1, "3-5-2": 1, "5-3-2": 1 }
+  },
   "sliders": {
     "_note": "Each slider has 5 steps: -2, -1, 0, +1, +2. 0 is neutral. Team ratings update live as sliders move.",
     "mentality": { "low": "Defensive", "high": "Attacking", "effect": "Raises Attack and lowers Defence; more shots for and against." },
@@ -39,7 +43,7 @@
     "pressing": "wrk, spd, end, ant across the front six",
     "defence": "tkl, diq, ant, str across the back line and DM",
     "aerial": "hgt, jmp, hdr across the XI",
-    "setPieces": "best set-piece taker's stp plus team aerial",
+    "setPieces": "the designated set-piece taker's delivery quality (stp) only; aerial ability counts once in the set-piece matchup, via the aerial rating",
     "goalkeeping": "the GK's OVR"
   },
   "substitutions": { "maxPerMatch": 5, "benchSize": 9 }

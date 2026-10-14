@@ -1,5 +1,10 @@
 {
-  "_note": "Targets for the headless calibration harness (tools/calibrate). League-wide averages over many simulated seasons. 'tol' is the acceptable band; outside it the harness fails. Per-league style modifiers (competitions_mvp.json) shift these slightly: ENG2 ~10-15% fewer goals and slightly more fouls; GER1 slightly more goals.",
+  "_note": "Targets for the headless calibration harness (tools/calibrate). League-wide averages over many simulated seasons. 'tol' is the acceptable band; outside it the harness fails. These targets apply to the neutral engine: tune with all style modifiers at 1.0. Then each league is checked with its own modifiers (competitions_mvp.json) against target x modifier, per leagueChecks below (ENG2 at chanceQuality 0.88 landing ~2.5 goals per match is correct).",
+  "leagueChecks": {
+    "_note": "Per-league gate, run with each league's styleModifiers. For the metrics listed under a modifier, target and tol are multiplied by that league's modifier value. Other perMatch metrics are reported per league but gated only on the neutral run. directness is an AI-tactics bias, not a metric scale.",
+    "chanceQuality": ["goals", "xgPerShot", "conversionRate"],
+    "foulRate": ["fouls", "yellowCards", "redCards"]
+  },
   "perMatch": {
     "goals": { "target": 2.8, "tol": [2.65, 2.95] },
     "homeWinPct": { "target": 0.43, "tol": [0.40, 0.46] },

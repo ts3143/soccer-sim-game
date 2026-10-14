@@ -1,0 +1,8 @@
+dist
+coverage
+pnpm-lock.yaml
+# Fixed inputs and T's docs: never reformat them.
+data
+docs
+*.md
+tools/club_generation

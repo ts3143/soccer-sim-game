@@ -8,6 +8,26 @@
 | A3 | Game and repo name? | **soccer-sim-game** (display name "Soccer Sim Game") |
 | A4 | OVR band labels? | **Keep ZenGM's**; internal labels, low priority |
 
+## A2. Kickoff review, answered by T (Oct 14 2026)
+All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | "~1,800 senior players" vs 62 × 25 = 1,550 | All club players incl. academies; free agents on top |
+| 2 | Clubs starting at the 25 cap | Start with 22–24 seniors; cap stays 25 |
+| 3 | No default formation in club data | Seeded default from the 5 MVP presets; squad built around it; saved as starting tactics; `strength` measured in it |
+| 4 | OVR rescaling per save? | Fixed per-position constants, fitted once in M1; refit only deliberately (v1.1) |
+| 5 | `based_on` in the shipped build | Stripped from the build and saves; data file and repo unchanged |
+| 6 | Where cash is stored | Current cash on the club; season-end snapshot in `clubSeasons` |
+| 7 | Calibration targets vs style modifiers | Tune with modifiers neutral; check each league against target × modifier |
+| 8 | Aerial counted twice at set pieces | Set Pieces = taker's delivery only; Aerial counts once |
+| 9 | Development formula and decline | Dev on growth only, blends to neutral 23→27; decline = age × Medical; small mental minutes bonus at any age |
+| 10 | GER1 "avoid relegation" target | Lowest target is "finish above the bottom 3" |
+| 11 | German cup preliminary round in season 1 | The 4 lowest-`strength` clubs |
+| 12 | Play-off dates | Midweek eliminators; semis weekend + midweek; final around 23–25 May |
+| 13 | `minSeniorForMatch: 16` | If fewer than 16 seniors are fit, academy 16+ fill the bench (same rule as B6) |
+| 14 | Stat-row retention vs pruning | Kept forever unless the player is pruned |
+| 15 | Renewal deadline (no re-sign phase) | Keep as specified; renew by 31 Jan or he leaves 1 Jul; AI same; January inbox warning, deadline reminder, Squad expiry badges |
+
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.
 1. **Hidden traits** (Injury Prone, Hothead) are generated and affect the sim from the MVP but are never shown until scouting arrives in v1.1.

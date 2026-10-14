@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+*.local
+.DS_Store
+
+# Local previews written by tools/club_generation
+clubs_tables.md
+crest_preview.html

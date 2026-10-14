@@ -21,32 +21,35 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 ## M1 — Data, generation and new league
 **Build**
 - Shared schema/types for every store in SPEC §12.
-- Load `clubs_2026_27.json`, competition/formation/rating configs.
+- Load `clubs_2026_27.json`, competition/formation/rating configs. Strip `based_on` at build time so it never reaches the app bundle or a save (the data file keeps it).
 - Name files per nationality in `data/names/` from public-domain or permissively licensed sources; document sources in `data/names/SOURCES.md`.
 - Player generator: bio, 22 ratings by archetype, height/weight, preferred foot, all 10 position OVRs, hidden ceiling, curve type, hidden traits, mood traits.
-- Squad generator: ~25 senior + 4–6 academy per club, position balance for the default formation, tuned so each club's best-XI OVR hits its `strength` (±1). Contracts and wages so each club starts at ~50–65% squad cost ratio.
+- Fit the fixed per-position OVR scaling constants once and store them in `ratings_positions.json` → `ovrScaling`.
+- Squad generator: 22–24 senior + 4–6 academy per club. Each club gets a seeded default formation from the 5 MVP presets; its squad is built around it and saved as its starting tactics; tuned so the best-XI OVR in that formation hits `strength` (±1). Contracts and wages so each club starts at ~50–65% squad cost ratio.
 - Seeded free-agent pool.
 - POT via cheap simulated arcs.
 - New league creation writes a full save.
 
 **Accept**
-- New league: 62 clubs, ~1,800 senior players, plausible OVR distribution (few 75+, many 50–65).
-- Every club's best-XI OVR within ±1 of `strength`; hierarchy matches club data.
+- New league: 62 clubs, ~1,800 club players including academies (22–24 senior + 4–6 academy per club, i.e. 1,612–1,860), free agents on top; plausible OVR distribution (few 75+, many 50–65).
+- Every club's best-XI OVR in its default formation within ±1 of `strength`; hierarchy matches club data.
+- OVR is a pure function of ratings + config (scaling constants stored, never recomputed per save).
+- `based_on` is absent from the production bundle and from saved data (automated check).
 - Generation is deterministic for a given seed. Unit tests on OVR and generator.
 
 ---
 
 ## M2 — Match engine (headless) + calibration harness
 **Build**
-- Team ratings from XI + sliders + formation.
+- Team ratings from XI + sliders + formation (Set Pieces = the taker's delivery only; Aerial counts once in the set-piece matchup).
 - Possession chain, xG, events, cards, fouls, penalties, corners, set pieces, injuries in match, energy drain and effective ratings.
 - Substitutions (5) and AI in-game rules; extra time and penalties.
 - Match ratings; box score, scoring summary, key events, team stats.
 - **Resumable API:** `start → step(n possessions) → applyChanges(subs/sliders/formation) → … → finish`.
-- `pnpm calibrate`: sims many matches/seasons headlessly in Node and prints a pass/fail report against `calibration_targets.json`.
+- `pnpm calibrate`: sims many matches/seasons headlessly in Node and prints a pass/fail report against `calibration_targets.json`: neutral-engine targets, then per-league checks (target × modifier).
 
 **Accept**
-- Per-match calibration targets pass over ≥ 10,000 simulated matches.
+- Per-match calibration targets pass over ≥ 10,000 simulated matches with all style modifiers neutral; each league passes its target × modifier checks (`leagueChecks`).
 - Stronger teams win more, in line with the parity target; sliders change outcomes in the intended direction (unit tests).
 - A paused-and-resumed match with no changes produces the identical result to an uninterrupted one with the same seed.
 - One headless match < 5 ms.
@@ -56,36 +59,38 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 ## M3 — Season loop (headless)
 **Build**
 - Calendar and fixture generation (weekend/midweek slots, ENG2 midweek rounds, GER1 winter break), standings, tie-breakers.
-- Cups (draws, byes, ET/pens), Championship play-offs (6 clubs: eliminators, two-legged semis, final), promotion/relegation.
+- Cups (draws, byes, ET/pens; in season 1 the German cup preliminary round uses the 4 lowest-`strength` clubs), Championship play-offs (6 clubs: midweek eliminators after the final round, two-legged semis over a weekend + midweek, final around 23–25 May), promotion/relegation.
 - Condition, recovery by days elapsed, injuries tied to condition and Medical dial.
-- Rotation/lineup AI with mid-term view.
-- Development updates (summer, winter), aging, ceiling decay, retirement, youth intake, academy promotion/release, pruning.
+- Rotation/lineup AI with mid-term view; if fewer than 16 seniors are fit, academy players aged 16+ fill the bench.
+- Development updates (summer, winter): dev multiplier on growth only, blending to neutral between 23 and 27; decline = age × Medical dial; small mental minutes bonus at any age. Aging, ceiling decay, retirement, youth intake, academy promotion/release, pruning (a pruned player's stat rows go with him).
 - Phase machine and dated events; Play-menu actions as worker functions.
 
 **Accept**
 - A 20-season headless run completes without errors; season and development calibration targets pass; player count stays within ±10%.
 - Top-club starters' minutes share within target; at least 3 distinct ENG1 champions in 20 seasons.
+- Development unit tests: a benched 33-year-old doesn't decline slower than a starter; the dev multiplier never changes decline; the multiplier is neutral from 27.
 
 ---
 
 ## M4 — Economy and market (headless)
 **Build**
-- Revenue streams, budget dials, cash flow, board expectations and confidence, firing.
+- Revenue streams, budget dials, cash flow (current cash on the club, season-end snapshot in `clubSeasons`), board expectations (per-league targets in config; GER1's lowest is "finish above the bottom 3") and confidence, firing.
 - FFP squad cost ratio, warning → one-window transfer ban.
-- Mood, contracts, negotiation; renewals in windows.
+- Mood, contracts, negotiation; renewals only in windows, no end-of-season re-sign phase (contracts ending 30 June must be renewed by 31 January; AI follows the same rule). Inbox: a warning when the January window opens listing every player in his final six months, and a reminder before deadline day.
 - Transfers (two-step), AI strategy and valuation, AI-to-AI deals, bids for user players, market value; loans; free-agent pool dynamics.
 
 **Accept**
 - 20-season run: world-stability checks in `calibration_targets.json` pass (negative-cash share, squad cost ratios, promoted-club survival, etc.).
 - Wage/fee levels stay plausible relative to revenue; no runaway inflation or deflation.
 - Exploit checks: can't buy a star by offering several average players' worth; weak-loan development exploit doesn't work.
+- Contracts not renewed by 31 January (user or AI) expire on 30 June and the players become free agents on 1 July; the January inbox warning and deadline-day reminder fire.
 
 ---
 
 ## M5 — Core UI
 **Build**
 - App shell mirroring ZenGM: top bar with Play menu, sidebar sections, team dropdown on team pages.
-- New league screen; Dashboard; Standings; Cups; Weekly Schedule; Squad; Player profile (incl. radar chart and OVR/POT history); Box score / Game log; League Leaders; Player Ratings; Player Stats; Team Stats; Injuries; History (league and team); Transactions; Power Rankings; Finances overview of all clubs.
+- New league screen; Dashboard; Standings; Cups; Weekly Schedule; Squad (with contract-expiry badges); Player profile (incl. radar chart and OVR/POT history); Box score / Game log; League Leaders; Player Ratings; Player Stats; Team Stats; Injuries; History (league and team); Transactions; Power Rankings; Finances overview of all clubs.
 
 **Accept**
 - A full season can be played start to finish using only the Play menu, and every listed page renders correct data.
