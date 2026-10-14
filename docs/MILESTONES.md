@@ -104,7 +104,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 
 ## M6 — Management UI
 **Build**
-- Tactics page (formation dropdown, drag-and-drop slots and bench, sliders, live team ratings, Auto).
+- Tactics page (formation dropdown, drag-and-drop slots and bench, sliders, live team ratings; no Auto toggle: they apply to matches the user watches).
 - Watch live: pre-match temporary changes, live feed, stats, energy bars, subs, sliders, pause/adjust, half-time screen.
 - Transfer Market (Search, Your listed players, Incoming offers, Loans), Free Agents, Contract negotiation modal.
 - Youth Academy; Finances/Facilities (own club); Inbox; Settings; Manage Leagues; "You're fired" flow.

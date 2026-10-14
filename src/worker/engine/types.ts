@@ -30,8 +30,11 @@ export interface EngineTeamInput {
   /** Everyone in the lineup and on the bench. */
   players: EnginePlayer[];
   sliders: SliderSettings;
-  /** The AI makes in-game changes (AI clubs always; the user's club on Auto). */
-  autoManage: boolean;
+  /**
+   * The AI makes this team's in-game changes: true for every club in a simulated match,
+   * false for the user's club in a match he watches (he makes them, via applyChanges).
+   */
+  aiInGame: boolean;
   /** Medical budget dial (0–100): lowers injury risk. */
   medicalDial: number;
 }

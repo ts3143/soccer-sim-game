@@ -10,7 +10,7 @@ import type { Position } from "../../common/config/ratings";
 import type { Club, Player } from "../../common/schema";
 import { bestXi } from "../core/lineup";
 import { aiSliders } from "./aiTactics";
-import type { EnginePlayer, EngineTeamInput, KnockoutRules, MatchInput } from "./types";
+import type { EnginePlayer, EngineTeamInput, KnockoutRules, MatchInput, TeamSide } from "./types";
 
 export function enginePlayer(player: Player): EnginePlayer {
   const ratings = player.ratingsHistory[player.ratingsHistory.length - 1]?.ratings;
@@ -60,7 +60,7 @@ export function teamInput(club: Club, squad: readonly Player[]): EngineTeamInput
     bench,
     players: available.filter((p) => inSquad.has(p.pid)).map(enginePlayer),
     sliders: { ...club.tactics.sliders },
-    autoManage: club.tactics.auto,
+    aiInGame: true,
     medicalDial: club.budget.medical,
   };
 }
@@ -71,9 +71,15 @@ export interface MatchSetup {
   neutralVenue?: boolean;
   knockout?: KnockoutRules | null;
   feed?: boolean;
+  /**
+   * The side whose club the user is watching and managing, or null for a simulated
+   * match. That club keeps its saved tactics and the user makes its in-game changes;
+   * every other club (and the user's in a simulated match) is managed by the AI.
+   */
+  watchedBy?: TeamSide | null;
 }
 
-/** A full match input; clubs on Auto get the AI's pre-match sliders for this opponent. */
+/** A full match input, with AI pre-match sliders for every club the AI manages. */
 export function prepareMatch(
   home: { club: Club; squad: readonly Player[] },
   away: { club: Club; squad: readonly Player[] },
@@ -82,12 +88,11 @@ export function prepareMatch(
   const homeTeam = teamInput(home.club, home.squad);
   const awayTeam = teamInput(away.club, away.squad);
   const neutral = setup.neutralVenue ?? false;
-  if (homeTeam.autoManage) {
-    homeTeam.sliders = aiSliders(homeTeam, awayTeam, !neutral, setup.style.directness);
-  }
-  if (awayTeam.autoManage) {
-    awayTeam.sliders = aiSliders(awayTeam, homeTeam, false, setup.style.directness);
-  }
+  const watched = setup.watchedBy ?? null;
+  if (watched !== 0) homeTeam.sliders = aiSliders(homeTeam, awayTeam, !neutral, setup.style.directness);
+  else homeTeam.aiInGame = false;
+  if (watched !== 1) awayTeam.sliders = aiSliders(awayTeam, homeTeam, false, setup.style.directness);
+  else awayTeam.aiInGame = false;
   return {
     seed: setup.seed,
     home: homeTeam,

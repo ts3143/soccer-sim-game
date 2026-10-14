@@ -88,7 +88,7 @@ function clubRow(rng: Random, def: ClubDefinition, cid: number, formation: strin
     leagueId: def.league,
     revenueAnchor: def.revenue,
     strengthTarget: def.strength,
-    tactics: { formation, sliders: { mentality: 0, pressing: 0, directness: 0 }, auto: true },
+    tactics: { formation, sliders: { mentality: 0, pressing: 0, directness: 0 } },
     budget: {
       coaching: NEUTRAL_DIAL,
       youth: NEUTRAL_DIAL,

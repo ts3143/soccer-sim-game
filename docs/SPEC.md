@@ -265,7 +265,7 @@ Computed from the starting XI by slot (config: `formations_tactics.json`): Passi
 - **Formations:** presets only. MVP: 4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2. Defined for later: 4-1-4-1, 3-4-3, 5-4-1. Each preset defines 11 slots with position groups and sides.
 - **Default formation:** at league creation each club gets a seeded default formation from the 5 MVP presets (selection weights in `formations_tactics.json`). Its squad is generated around it, it is saved as the club's starting tactics, and the club's `strength` is measured in it.
 - **Three sliders, 5 steps each (−2…+2):** Mentality (defensive ↔ attacking), Pressing intensity, Directness (short ↔ direct). Each has a trade-off (see config). No defensive-line or width sliders. Team ratings update live as sliders move.
-- AI clubs choose formation and sliders to suit their squad; the user has an **Auto** option.
+- AI clubs choose formation and sliders to suit their squad. **Who decides is set by whether the user watches** (no Auto option): for a match the user watches, he sets his club's pre-match tactics; for a simulated match, the AI picks them for his club too, with the same logic as for AI clubs.
 - Coaching is a budget dial affecting development only; tactics are the user's.
 
 ### 8.4 Fatigue
@@ -283,7 +283,7 @@ Computed from the starting XI by slot (config: `formations_tactics.json`): Passi
 
 ### 8.5 Substitutions and in-game AI
 - Substitutions per §7.1 (5 in 3 windows; +1 sub and +1 window in extra time). The AI bundles changes into windows, e.g. a double change around 60–65', another around 75', keeping the last window for an injury or a late chase.
-- AI in-game rules (all AI clubs, and the user's club when on Auto): protect a late lead, chase the game when behind, fatigue subs around minutes 60–75, replace injured players.
+- **In-game changes:** in a simulated match the AI makes them for every club, the user's included; in a match the user watches, the user makes them for his club (no Auto option). AI in-game rules: protect a late lead, chase the game when behind, fatigue subs around minutes 60–75, replace injured players.
 
 ### 8.6 Knockouts
 Single-leg cup ties, play-off eliminators and play-off finals: extra time (2 × 15 min, with energy carrying over) then penalties (`pen` vs GK `gko`/`gkr`). Two-legged ties: aggregate, then extra time and penalties in the second leg (no away-goals rule).
@@ -300,7 +300,7 @@ Small per-league coefficients on inputs only (`competitions_mvp.json`): ENG2 ~10
 
 ## 9. Rotation and lineup AI
 - AI picks its XI by **OVR × condition**, with a **mid-term view**: it weighs match importance (late cup rounds, key league games, title/relegation/promotion stakes) and upcoming fixture congestion rather than optimising each match.
-- The user's **Auto lineup** uses the same logic. Manual picks show condition and an injury-risk warning.
+- Simulated matches use the same logic for the user's club. For a match he watches, the user picks the lineup; his picks show condition and an injury-risk warning.
 - Calibration target: top-club starters play ~75–85% of available minutes.
 
 ---
@@ -339,7 +339,7 @@ Mirror ZenGM's layout: a **top-bar Play button** (sim options + phase steps) and
 
 Screen details:
 - **Squad:** contract-expiry badges on players whose contracts end this 30 June (see 3.1).
-- **Tactics:** formation dropdown preloads the 11 slots into a table; players are drag-and-drop ordered into slots and bench (ZenGM-style); slot OVR shown per player; the 3 sliders; live team ratings; Auto toggle. No pitch view.
+- **Tactics:** formation dropdown preloads the 11 slots into a table; players are drag-and-drop ordered into slots and bench (ZenGM-style); slot OVR shown per player; the 3 sliders; live team ratings. No Auto toggle: these tactics apply to the matches the user watches. No pitch view.
 - **Watch live:** before kick-off, temporary one-match changes to the saved lineup (incl. one-click Auto rotation). During: live text feed, score and clock, live stats, energy bars, subs, sliders, pause button; pausing opens an adjustment screen; half-time screen.
 - **Player profile:** bio, ratings table + **radar chart** (8 grouped axes, see config), OVR/POT history chart, career stats, contract, mood (with ZenGM-style breakdown popup), condition and injury, transfer history.
 - **Finances (own club):** revenue/expense breakdown, cash over seasons, FFP gauge, budget dials, ticket price, transfer/wage budgets and shift control.

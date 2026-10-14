@@ -189,14 +189,23 @@ function goalDifference(s: MatchState, team: TeamState): number {
  */
 export function manageStoppage(s: MatchState, free: boolean): void {
   for (const team of s.teams) {
-    const due = team.input.autoManage && (free || s.clock >= team.nextAiCheck);
+    const due = team.input.aiInGame && (free || s.clock >= team.nextAiCheck);
     if (!team.needsAttention && !due) continue;
     const subsBefore = team.stats.subsUsed;
     let changed = false;
 
-    // Injured players: replace if the rules allow, else he goes off and they play with 10.
+    // Injured players. AI-managed: replace if the rules allow, else he goes off and they
+    // play with 10. Watched by the user: he decides; until then the player limps on.
     for (const p of onPitch(team)) {
       if (!p.injured) continue;
+      if (!team.input.aiInGame) {
+        if (p.energy > s.c.energy.floor) {
+          emit(s, { type: "injury", clock: s.clock, side: team.side, pid: p.input.pid, days: p.stats.injuryDays, replaced: false }, true);
+          p.energy = s.c.energy.floor;
+          changed = true;
+        }
+        continue;
+      }
       const slotIndex = p.slot as number;
       const replacement = canSubstitute(team, free) ? bestFor(team, slotIndex) : null;
       emit(
@@ -225,7 +234,7 @@ export function manageStoppage(s: MatchState, free: boolean): void {
     const gkIndex = team.plan.formation.slots.findIndex((slot) => slot.position === "GK");
     if (team.slots[gkIndex] === null) {
       const outfield = onPitch(team);
-      const reserve = canSubstitute(team, free) ? bestFor(team, gkIndex) : null;
+      const reserve = team.input.aiInGame && canSubstitute(team, free) ? bestFor(team, gkIndex) : null;
       const sacrifice = outfield.reduce<PlayerState | null>(
         (worst, p) =>
           !worst ||

@@ -95,11 +95,13 @@ export interface SliderSettings {
   directness: number;
 }
 
+/**
+ * A club's saved tactics. AI clubs' are picked by the AI before each match; the user's
+ * apply to the matches he watches (simulated matches: the AI manages his club too).
+ */
 export interface Tactics {
   formation: string;
   sliders: SliderSettings;
-  /** Let the AI pick lineup and tactics (always true for AI clubs). */
-  auto: boolean;
 }
 
 /** Budget dial levels, 0–100; 50 is a typical club. Coaching/Youth/Medical/Facilities (MVP). */
