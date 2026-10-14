@@ -4,7 +4,7 @@ Claude Code updates this file at the end of each milestone.
 
 | Milestone | Status | Notes |
 | --- | --- | --- |
-| M0 Scaffold and plumbing | Built, in review | Local checks pass; T tested locally in Chrome and Safari (2026-10-14). Awaiting the Cloudflare deploy check. See "M0 notes" below. |
+| M0 Scaffold and plumbing | **Accepted** (T, 2026-10-14) | All acceptance checks pass locally and on the Cloudflare preview; T tested in Chrome and Safari. See "M0 notes" below. |
 | M1 Data, generation and new league | Not started | |
 | M2 Match engine + calibration harness | Not started | |
 | M3 Season loop | Not started | |
@@ -59,8 +59,8 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - Cloudflare Pages project `soccer-sim-game` connected to the GitHub repo (T, 2026-10-14): production branch `main` → https://soccer-sim-game.pages.dev; branch previews at `https://<branch>.soccer-sim-game.pages.dev`. Build command `pnpm build`, output `dist`, no framework preset.
 - The Pages build image defaults to pnpm 10, so the project sets `PNPM_VERSION=12.11.2`. **Bump it whenever `packageManager` in `package.json` changes.** Node comes from `.nvmrc`.
 
-**Pending for acceptance**
-- Deployed check on the branch preview, then T's sign-off and merge.
+**Acceptance**
+- Deployed check on the branch preview (https://m0-scaffold.soccer-sim-game.pages.dev): 15/15 headless Chrome checks passed; T confirmed. Accepted by T on 2026-10-14.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T).
