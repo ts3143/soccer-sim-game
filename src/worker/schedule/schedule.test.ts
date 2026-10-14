@@ -64,6 +64,32 @@ describe("season calendar (20 seasons)", () => {
         if (rounds.some((r) => r.slot === "midweek"))
           expect(cal.spareWeekends[league.id]).toEqual([]);
       }
+      for (const league of competitionsConfig.leagues.filter((l) => l.promotion)) {
+        // Play-offs: after the last league round, in order, never on one of its cup dates,
+        // the final on the weekend nearest 24 May.
+        const po = cal.playoffs[league.id] ?? [];
+        expect(po.map((r) => `${r.round}${r.leg ?? ""}`)).toEqual([
+          "Eliminators",
+          "Semi-finals1",
+          "Semi-finals2",
+          "Final",
+        ]);
+        expect(po.map((r) => r.slot)).toEqual(["midweek", "weekend", "midweek", "weekend"]);
+        let previous = cal.leagues[league.id]?.at(-1)?.date ?? "";
+        const cupDates = new Set(
+          competitionsConfig.cups
+            .filter((c) => c.entrants.includes(league.id))
+            .flatMap((c) => (cal.cups[c.id] ?? []).map((r) => r.date)),
+        );
+        for (const r of po) {
+          expect(r.date > previous).toBe(true);
+          expect(weekday(r.date)).toBe(SLOT_WEEKDAY[r.slot]);
+          expect(cupDates.has(r.date)).toBe(false);
+          previous = r.date;
+        }
+        const finalDay = po.at(-1)?.date.slice(5) ?? "";
+        expect(finalDay >= "05-21" && finalDay <= "05-27").toBe(true);
+      }
       for (const cup of competitionsConfig.cups) {
         const rounds = cal.cups[cup.id] ?? [];
         expect(rounds.map((r) => r.round)).toEqual(cup.rounds);
@@ -157,7 +183,9 @@ describe("league table and tie-breakers", () => {
     round: "1",
     homeCid: home,
     awayCid: away,
-    result: { homeGoals: hg, awayGoals: ag, extraTime: false, penalties: null },
+    neutral: false,
+    leg: null,
+    result: { homeGoals: hg, awayGoals: ag, extraTime: false, penalties: null, winnerCid: null },
   });
   const table = (
     cids: number[],

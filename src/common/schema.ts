@@ -264,16 +264,26 @@ export interface Fixture {
   season: number;
   date: string;
   slot: "weekend" | "midweek";
+  /** League ID, cup ID or play-off ID (e.g. "ENG1", "ENGCUP", "ENG2-PO"). */
   competition: string;
+  /** League round number ("1", "2", …) or the knockout round's name. */
   round: string;
   homeCid: number;
   awayCid: number;
+  /** Finals are played at a neutral venue (no home advantage). */
+  neutral: boolean;
+  /** 1 or 2 in a two-legged tie; null otherwise. */
+  leg: 1 | 2 | null;
   /** Set once played. */
   result: {
+    /** Goals including extra time. */
     homeGoals: number;
     awayGoals: number;
     extraTime: boolean;
+    /** Shoot-out score, home-away. */
     penalties: string | null;
+    /** Knockout ties: the club that goes through (after the second leg in two-legged ties). */
+    winnerCid: number | null;
   } | null;
 }
 

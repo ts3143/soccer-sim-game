@@ -173,5 +173,28 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - No matches on 24 or 25 December.
 - The second half of the round-robin is the first half with venues swapped, starting from its second round. A straight mirror gave some clubs three home or away matches in a row at the turn of the season.
 
+**Chunk 2: cups, play-offs, promotion and relegation** (`src/worker/season/`)
+- `createSeason` builds a season from the clubs' current leagues: every league fixture, plus the first round of each cup. As matches are played, `progress` draws each cup round when the previous one finishes and creates the play-off stages one after another.
+- English cup: ENG2 clubs enter round 1 and ENG1 joins in round 2 (32 clubs). German cup: a preliminary round for the 4 lowest-placed GER1 clubs (lowest `strength` in season 1), then the last 16.
+- ENG2 play-offs, 3rd–8th:
+  - eliminators: 5th hosts 8th, 6th hosts 7th;
+  - two-legged semi-finals: 3rd plays the lowest-seeded eliminator winner, 4th the highest; the higher seed hosts the second leg;
+  - final at a neutral venue.
+- Extra time and penalties apply in every knockout match and after second legs; the engine works out aggregates.
+- `seasonOutcome` returns the tables, champions, cup and play-off winners and the moves between leagues; `applyMoves` and `finishesOf` set up the next season.
+- `pnpm season [--seasons N] [--seed X]` prints each season: tables, both cups round by round, the play-off bracket, and who went up and down. One season is about 1,300 matches and takes 1.2 s in Node, world generation included.
+- The season state is plain data. A test saves it as JSON mid-season, resumes it, and gets identical results.
+- The config loader now reads cup entry rounds and the preliminary round from the existing config text (no data change). It refuses a config whose cup bracket doesn't reach one final, or whose promotion and relegation counts don't match.
+- 7 new season tests (full 2026/27 season plus season 2) and play-off date tests over 20 seasons. 140 tests in all.
+
+**Judgment calls (chunk 2)**
+- Cup finals and the play-off final are at a neutral venue. Other cup ties, semi-finals included, are at the ground of the club drawn first.
+- Cup ties between clubs of different leagues use neutral style modifiers; a tie between two clubs of the same league uses that league's style. Play-offs use the league's style.
+- Each cup round is drawn as soon as the previous round is complete. A round with an odd number of clubs gives one club a bye (the current config never needs one).
+- Ranking for the German preliminary round: last season's finish. A club that was in a lower league last season, or has no finish (season 1), counts as lowest; ties go to the weaker club.
+- A play-off date that falls on a cup date moves to the next free slot of the same kind. It never happens with the current calendar.
+- The config check also accepts a 4-club play-off format for future leagues.
+- **Observed, for M4:** without transfers, promoted clubs mostly go straight back down (in a 3-season run: 0 of 3 survived after season 1, 1 of 3 after season 2). Their survival rate is gated in M4 (T, 2026-10-14).
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

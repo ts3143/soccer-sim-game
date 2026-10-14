@@ -65,6 +65,8 @@ export function leagueFixtures(
       round,
       homeCid: order[home] as number,
       awayCid: order[away] as number,
+      neutral: false,
+      leg: null,
       result: null,
     }));
   });

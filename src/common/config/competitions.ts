@@ -38,7 +38,16 @@ export interface LeagueConfig {
   /** MM-DD templates for season Y/Y+1. */
   firstMatch: string;
   lastMatch: string;
-  promotion: { automatic: number; playoffPositions: number[]; promotedPlaces: number } | null;
+  promotion: {
+    /** League the promoted clubs go up to (the one relegating into this league). */
+    to: string;
+    automatic: number;
+    /** Table positions in the play-offs, best first (e.g. 3–8). */
+    playoffPositions: number[];
+    promotedPlaces: number;
+    /** MM-DD template: the play-off final is on the weekend nearest it. */
+    playoffFinalNear: string;
+  } | null;
   relegation: { places: number; to: string } | null;
   styleModifiers: StyleModifiers;
   /** Table order after points; each league sets its own (T, 2026-10-14). */
@@ -52,6 +61,13 @@ export interface CupConfig {
   entrants: string[];
   rounds: string[];
   finalDate: string;
+  /** Round (0-based) each entrant league's clubs join in; 0 when not listed. */
+  entryRound: Record<string, number>;
+  /**
+   * A qualifying round 0 for the `clubs` lowest-placed clubs of last season's table (in
+   * the first season: lowest `strength`); every other entrant joins in round 1.
+   */
+  preliminary: { clubs: number } | null;
 }
 
 export interface RosterRules {
@@ -94,6 +110,41 @@ export function parseTieBreakers(league: string, list: readonly string[]): TieBr
   return out;
 }
 
+/**
+ * Clubs entering each round of a cup (0-based), from the entrant leagues' sizes: the
+ * preliminary round's clubs, or each league's clubs at its entry round.
+ */
+export function cupEntryCounts(cup: CupConfig, leagues: readonly LeagueConfig[]): number[] {
+  const counts = cup.rounds.map(() => 0);
+  const total = leagues
+    .filter((l) => cup.entrants.includes(l.id))
+    .reduce((sum, l) => sum + l.clubs, 0);
+  if (cup.preliminary) {
+    counts[0] = cup.preliminary.clubs;
+    counts[1] = (counts[1] ?? 0) + total - cup.preliminary.clubs;
+    return counts;
+  }
+  for (const league of leagues.filter((l) => cup.entrants.includes(l.id))) {
+    const round = cup.entryRound[league.id] ?? 0;
+    counts[round] = (counts[round] ?? 0) + league.clubs;
+  }
+  return counts;
+}
+
+/** Throws unless the cup's rounds halve down to exactly one final (byes allowed). */
+function checkCupBracket(cup: CupConfig, leagues: readonly LeagueConfig[]): void {
+  const entering = cupEntryCounts(cup, leagues);
+  let alive = 0;
+  cup.rounds.forEach((_, round) => {
+    alive += entering[round] ?? 0;
+    if (alive < 2)
+      throw new Error(`competitions_mvp.json: ${cup.id} round ${round + 1} has ${alive} clubs`);
+    alive = Math.ceil(alive / 2);
+  });
+  if (alive !== 1)
+    throw new Error(`competitions_mvp.json: ${cup.id} ends with ${alive} clubs, not one winner`);
+}
+
 function parse(json: typeof raw): CompetitionsConfig {
   const leagues = json.leagues.map((l): LeagueConfig => ({
     id: l.id,
@@ -106,9 +157,11 @@ function parse(json: typeof raw): CompetitionsConfig {
     lastMatch: l.lastMatch,
     promotion: l.promotion
       ? {
+          to: json.leagues.find((x) => x.relegation?.to === l.id)?.id ?? "",
           automatic: l.promotion.automatic,
           playoffPositions: l.promotion.playoff.positions,
           promotedPlaces: l.promotion.playoff.promotedPlaces,
+          playoffFinalNear: l.promotion.playoff.schedule.finalNear,
         }
       : null,
     relegation: l.relegation,
@@ -116,23 +169,53 @@ function parse(json: typeof raw): CompetitionsConfig {
     tieBreakers: parseTieBreakers(l.id, l.tieBreakers),
   }));
   for (const league of leagues) {
-    if (league.relegation && !leagues.some((l) => l.id === league.relegation?.to)) {
-      throw new Error(`competitions_mvp.json: ${league.id} relegates to unknown league`);
+    const relegation = league.relegation;
+    if (!relegation) continue;
+    const below = leagues.find((l) => l.id === relegation.to);
+    if (!below) throw new Error(`competitions_mvp.json: ${league.id} relegates to unknown league`);
+    const up = below.promotion ? below.promotion.automatic + below.promotion.promotedPlaces : 0;
+    if (up !== relegation.places) {
+      throw new Error(
+        `competitions_mvp.json: ${league.id} relegates ${relegation.places} but ${below.id} promotes ${up}`,
+      );
     }
   }
-  return {
-    seasonStart: json.seasonStart,
-    firstSeason: Number(json.seasonStart.slice(0, 4)),
-    countries: json.countries,
-    leagues,
-    cups: json.cups.map((c) => ({
+  for (const league of leagues) {
+    const positions = league.promotion?.playoffPositions ?? [];
+    if (league.promotion && ![0, 4, 6].includes(positions.length)) {
+      throw new Error(`competitions_mvp.json: ${league.id} play-offs need 4 or 6 clubs`);
+    }
+    if (league.promotion && !league.promotion.to) {
+      throw new Error(
+        `competitions_mvp.json: ${league.id} promotes but no league relegates into it`,
+      );
+    }
+  }
+  const cups = json.cups.map((c): CupConfig => {
+    const entryRound: Record<string, number> = {};
+    for (const [leagueId, text] of Object.entries<string>(c.entry ?? {})) {
+      const round = /^round (\d+)/i.exec(text)?.[1];
+      if (!round) throw new Error(`competitions_mvp.json: ${c.id} entry "${text}" names no round`);
+      entryRound[leagueId] = Number(round) - 1;
+    }
+    return {
       id: c.id,
       country: c.country,
       name: c.name,
       entrants: c.entrants,
       rounds: c.rounds,
       finalDate: c.finalDate,
-    })),
+      entryRound,
+      preliminary: c.preliminary ? { clubs: c.preliminary.clubs } : null,
+    };
+  });
+  for (const cup of cups) checkCupBracket(cup, leagues);
+  return {
+    seasonStart: json.seasonStart,
+    firstSeason: Number(json.seasonStart.slice(0, 4)),
+    countries: json.countries,
+    leagues,
+    cups,
     windows: json.windows,
     keyDates: json.keyDates,
     rosterRules: json.rosterRules,

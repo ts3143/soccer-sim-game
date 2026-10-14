@@ -18,6 +18,7 @@
     "format": "prettier --write .",
     "calendar": "tsx tools/calendar.ts",
     "calibrate": "tsx tools/calibrate/index.ts",
+    "season": "tsx tools/season.ts",
     "generate": "tsx tools/generate/index.ts"
   },
   "dependencies": {
