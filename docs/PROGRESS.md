@@ -5,7 +5,7 @@ Claude Code updates this file at the end of each milestone.
 | Milestone | Status | Notes |
 | --- | --- | --- |
 | M0 Scaffold and plumbing | **Accepted** (T, 2026-10-14) | All acceptance checks pass locally and on the Cloudflare preview; T tested in Chrome and Safari. See "M0 notes" below. |
-| M1 Data, generation and new league | Not started | |
+| M1 Data, generation and new league | Built, in review | All checks pass locally (unit tests, `pnpm generate --check`, headless Chrome). Awaiting T's local test. See "M1 notes" below. |
 | M2 Match engine + calibration harness | Not started | |
 | M3 Season loop | Not started | |
 | M4 Economy and market | Not started | |
@@ -62,6 +62,41 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 
 **Acceptance**
 - Deployed check on the branch preview (https://m0-scaffold.soccer-sim-game.pages.dev): 15/15 headless Chrome checks passed; T confirmed. Accepted by T on 2026-10-14.
+
+## M1 notes (2026-10-14)
+**Built**
+- Save schema for all 12 stores of SPEC §12 (league DB v2, with indexes) and a save list (global DB v2, which also removes the M0 demo save). The cache now handles compound keys (club-seasons are keyed by `[cid, season]`).
+- Typed, validated config loaders. `based_on` is blocked three ways: the club loader copies only game fields; the build ships only `leagues` and `clubs` without `based_on`, in both the main and worker bundles; `pnpm build` fails if the field, or any of the 53 real names that aren't also cities or people's names, appears in `dist/`. The save is checked the same way.
+- Names: 41 nationality files from Wikidata (CC0), `data/names/SOURCES.md`, re-runnable `tools/names/build-names.ts`.
+- OVR: weighted means plus fixed per-position scaling, fitted once by `tools/fit-ovr-scaling.ts` and stored in `ratings_positions.json` (scale 0.95–1.11, offset −7.9 to +4.3).
+- Development core (pulled forward from M3, approved), POT (20 arcs, 75th percentile, minutes expected from the player's standing at his club), best-XI slot assignment (exact Hungarian method).
+- Generators: players (position rating profiles, height/weight, foot by side, traits, curve type, ceiling by age); squads (seeded default formation, 3 GKs, a backup per slot with 15% at a neighbouring position, tuned to `strength`); contracts and wages; 120 free agents; academies; the whole world as a pure function of the seed.
+- League create/open/delete in the worker; a generation inspector page (developer-only, replaced in M5); `pnpm generate --check` (also in CI).
+
+**Results** (seed "report")
+- 1,737 club players (1,422 senior, 315 academy), plus 120 free agents.
+- Worst best-XI gap to `strength`: 0.36.
+- 75+: 2.7% of seniors. 50–65: 63.7%.
+- Squad cost 50.0–64.6% of revenue. 24.1% left-footed. 13.5% of seniors start in their final contract year.
+- Generation takes 1.8 s in Node and about 2.3 s in the browser, including writing the save.
+
+**Verified locally**
+- 71 unit tests, including OVR, generator, development (benched 33-year-old vs starter), POT, assignment, cache keys, a save round trip, and the M0 → M1 upgrade.
+- `pnpm generate --check`: 11/11.
+- Headless Chrome on the production build: 18/18. Covered: create, reopen after reload, per-league tables, squads, live updates across two tabs, deleting a save, random seeds, deep link, no real club names on the page, no console errors. Seed "browser" produces exactly the XI that Node generates.
+
+**Judgment calls (not spec deviations)**
+- "Few 75+" checked as 1–6% of senior players, "many 50–65" as ≥ 50%.
+- 120 free agents; Injury Prone 10%, Hothead 8%; mood traits 0/1/2 at 35/45/20%; equal default-formation weights.
+- Opening squad cost is all wages (no past transfer amortisation), as approved.
+- Budget dials start at 50 (typical) for every club; ticket price and opening cash are provisional until M4.
+- Development and POT coefficients are provisional until the M3 calibration.
+- A player's listed position is whatever he's best at, which can differ from the role he was generated for (e.g. a wing-back starting at wide midfield).
+
+**For later milestones**
+- **M4 (wages):** per-player wages run about 2× real-world levels (top €67M/yr, median €2.7M). Club wage bills are realistic, but the whole 50–65% budget goes to ~23 players, where real clubs split it with transfer amortisation and bigger squads. Options: a lower wage share plus opening amortisation. T to decide at M4.
+- **M3 (youth):** opening academies hold 17 POT-75+ prospects across ~4 age groups (ENG1 9, GER1 5, ENG2 3), a little rich against "~1 wonderkid per league per season". Tune with the youth intake.
+- **M3 (performance):** generation is dominated by age-curve lookups in the POT arcs. Precompute the curves if development updates need the time.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T).

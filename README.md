@@ -2,7 +2,7 @@
 
 A free, browser-based soccer management sim in the spirit of the ZenGM games. Build a club across endless seasons: develop academy prospects through minutes, rotate a fatigued squad, trade in two transfer windows, and fight promotion and relegation.
 
-Status: in development (milestone M0, scaffold and plumbing). See `docs/SPEC.md` for the design, `docs/MILESTONES.md` for the build plan and `docs/PROGRESS.md` for progress.
+Status: in development (milestone M1, data, generation and new league). See `docs/SPEC.md` for the design, `docs/MILESTONES.md` for the build plan and `docs/PROGRESS.md` for progress.
 
 Runs entirely in your browser. Saves stay on your device.
 
@@ -20,11 +20,12 @@ pnpm install
 | Command | What it does |
 | --- | --- |
 | `pnpm dev` | Local dev server with hot reload |
-| `pnpm build` | Type check, then production build into `dist/` |
+| `pnpm build` | Type check, production build into `dist/`, then check no real club names shipped |
 | `pnpm preview` | Serve the production build locally |
 | `pnpm test` | Unit tests (Vitest) |
 | `pnpm lint` | ESLint + Prettier check + type check |
 | `pnpm format` | Format code with Prettier |
+| `pnpm generate [--seed X] [--check]` | Generate a new league headlessly and report the M1 checks |
 | `pnpm calibrate` | Headless calibration harness (stub until M2) |
 
 Layout: `src/ui` (React tabs, UI only), `src/worker` (game core, runs in a SharedWorker), `src/common` (types and the UI↔worker protocol shared by both), `tools/` (harness, generators), `data/` (fixed inputs).
