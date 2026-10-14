@@ -35,7 +35,7 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 2 | Season targets in M2? | Reported in M2 (round-robins with best XIs), gated in M3 with the real calendar |
 | 3 | Where engine coefficients live | One code module, overridable by the calibration harness in memory; `data/config` keeps spec-level rules |
 | 4 | How M2 is tested | A developer-only Match lab page; work in ~1 h chunks with a check-in after each |
-| 5 | Who manages the user's club in a match | Simulated: the AI (in-game changes, and pre-match tactics: reading to confirm). Watched: the user. No Auto option. |
+| 5 | Who manages the user's club in a match | Simulated: the AI makes the in-game changes and picks the pre-match tactics. Watched: the user. No Auto option. |
 
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.
