@@ -55,8 +55,12 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - Persistent storage is requested by a button rather than on page load, because Firefox shows a permission prompt. For the real game: request it when a league is created (M1/M5).
 - pnpm 12 blocks dependency install scripts by default; `esbuild` (used by `tsx`) is allowed in `pnpm-workspace.yaml`.
 
+**Hosting**
+- Cloudflare Pages project `soccer-sim-game` connected to the GitHub repo (T, 2026-10-14): production branch `main` → https://soccer-sim-game.pages.dev; branch previews at `https://<branch>.soccer-sim-game.pages.dev`. Build command `pnpm build`, output `dist`, no framework preset.
+- The Pages build image defaults to pnpm 10, so the project sets `PNPM_VERSION=12.11.2`. **Bump it whenever `packageManager` in `package.json` changes.** Node comes from `.nvmrc`.
+
 **Pending for acceptance**
-- Deployed check on Cloudflare Pages (needs T's dashboard step), then T's sign-off.
+- Deployed check on the branch preview, then T's sign-off and merge.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T).

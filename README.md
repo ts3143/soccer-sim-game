@@ -6,6 +6,8 @@ Status: in development (milestone M0, scaffold and plumbing). See `docs/SPEC.md`
 
 Runs entirely in your browser. Saves stay on your device.
 
+Hosted on Cloudflare Pages: production at https://soccer-sim-game.pages.dev (from `main`); every other branch gets a preview at `https://<branch>.soccer-sim-game.pages.dev`.
+
 ## Development
 
 Requires Node 24 (see `.nvmrc`) and pnpm, which Node's corepack provides:
