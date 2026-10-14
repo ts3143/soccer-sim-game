@@ -6,7 +6,7 @@ Claude Code updates this file at the end of each milestone.
 | --- | --- | --- |
 | M0 Scaffold and plumbing | **Accepted** (T, 2026-10-14) | All acceptance checks pass locally and on the Cloudflare preview; T tested in Chrome and Safari. See "M0 notes" below. |
 | M1 Data, generation and new league | **Accepted** (T, 2026-10-14) | All checks pass locally, in CI and on the Cloudflare preview (18/18 headless Chrome); T tested in Chrome and Safari. See "M1 notes" below. |
-| M2 Match engine + calibration harness | Built, in review | Every M2 gate passes locally (parity moved to M3 by T); Match lab page 11/11 in headless Chrome. Waiting for T's browser test, then PR. See "M2 notes" below. |
+| M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
 | M3 Season loop | Not started | |
 | M4 Economy and market | Not started | |
 | M5 Core UI | Not started | |
