@@ -3,13 +3,14 @@ import "fake-indexeddb/auto";
 import { openDB, type DBSchema } from "idb";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Cache } from "./cache";
-import { createLeague, listLeagues } from "./globalDb";
+import { listLeagues, registerLeague } from "./globalDb";
 import { openLeagueDb } from "./leagueDb";
 
-/** A meta-style store (out-of-line keys) plus a players-style store (key path), as M1 will have. */
+/** The three key styles a league save uses: out-of-line, key path, compound key path. */
 interface TestSchema extends DBSchema {
   meta: { key: string; value: unknown };
   players: { key: number; value: { pid: number; name: string } };
+  clubSeasons: { key: [number, number]; value: { cid: number; season: number; points: number } };
 }
 
 const openTestDb = () =>
@@ -17,13 +18,16 @@ const openTestDb = () =>
     upgrade(db) {
       db.createObjectStore("meta");
       db.createObjectStore("players", { keyPath: "pid" });
+      db.createObjectStore("clubSeasons", { keyPath: ["cid", "season"] });
     },
   });
+
+const ALL = ["meta", "players", "clubSeasons"] as const;
 
 /** Simulates a page reload: close the database and load a fresh cache from it. */
 async function reload(cache: Cache<TestSchema>): Promise<Cache<TestSchema>> {
   cache.db.close();
-  return Cache.open(await openTestDb(), ["meta", "players"]);
+  return Cache.open(await openTestDb(), ALL);
 }
 
 beforeEach(() => {
@@ -33,14 +37,14 @@ beforeEach(() => {
 
 describe("Cache", () => {
   it("serves writes from memory before any flush", async () => {
-    const cache = await Cache.open(await openTestDb(), ["meta", "players"]);
+    const cache = await Cache.open(await openTestDb(), ALL);
     cache.put("meta", 7, "counter");
     expect(cache.get("meta", "counter")).toBe(7);
     expect(cache.hasUnsavedChanges).toBe(true);
   });
 
   it("persists flushed rows across a reload, for both key styles", async () => {
-    let cache = await Cache.open(await openTestDb(), ["meta", "players"]);
+    let cache = await Cache.open(await openTestDb(), ALL);
     cache.put("meta", { season: 2026 }, "game");
     cache.put("players", { pid: 1, name: "A" });
     cache.put("players", { pid: 2, name: "B" });
@@ -53,14 +57,14 @@ describe("Cache", () => {
   });
 
   it("does not persist unflushed changes", async () => {
-    let cache = await Cache.open(await openTestDb(), ["meta", "players"]);
+    let cache = await Cache.open(await openTestDb(), ALL);
     cache.put("meta", 1, "counter");
     cache = await reload(cache);
     expect(cache.get("meta", "counter")).toBeUndefined();
   });
 
   it("persists deletes", async () => {
-    let cache = await Cache.open(await openTestDb(), ["meta", "players"]);
+    let cache = await Cache.open(await openTestDb(), ALL);
     cache.put("players", { pid: 1, name: "A" });
     await cache.flush();
     cache.delete("players", 1);
@@ -70,7 +74,7 @@ describe("Cache", () => {
   });
 
   it("keeps writes made during a flush for the next flush", async () => {
-    let cache = await Cache.open(await openTestDb(), ["meta", "players"]);
+    let cache = await Cache.open(await openTestDb(), ALL);
     cache.put("meta", 1, "counter");
     const flushing = cache.flush();
     cache.put("meta", 2, "counter");
@@ -79,6 +83,21 @@ describe("Cache", () => {
     await cache.flush();
     cache = await reload(cache);
     expect(cache.get("meta", "counter")).toBe(2);
+  });
+
+  it("handles compound keys like a club-season's [cid, season]", async () => {
+    let cache = await Cache.open(await openTestDb(), ALL);
+    cache.put("clubSeasons", { cid: 3, season: 2026, points: 0 });
+    cache.put("clubSeasons", { cid: 3, season: 2027, points: 5 });
+    cache.put("clubSeasons", { cid: 3, season: 2026, points: 12 });
+    await cache.flush();
+    cache = await reload(cache);
+    expect(cache.get("clubSeasons", [3, 2026])?.points).toBe(12);
+    expect(cache.getAll("clubSeasons")).toHaveLength(2);
+    cache.delete("clubSeasons", [3, 2027]);
+    await cache.flush();
+    cache = await reload(cache);
+    expect(cache.get("clubSeasons", [3, 2027])).toBeUndefined();
   });
 
   it("requires a key for stores without a key path", async () => {
@@ -90,9 +109,15 @@ describe("Cache", () => {
 
 describe("league databases", () => {
   it("registers leagues with increasing integer IDs", async () => {
-    const now = "2026-10-14T12:00:00.000Z";
-    expect((await createLeague("First", now)).lid).toBe(1);
-    expect((await createLeague("Second", now)).lid).toBe(2);
+    const entry = (name: string) => ({
+      name,
+      createdAt: "2026-10-14T12:00:00.000Z",
+      lastPlayedAt: "2026-10-14T12:00:00.000Z",
+      clubName: "Islington Cannons",
+      season: 2026,
+    });
+    expect((await registerLeague(entry("First"))).lid).toBe(1);
+    expect((await registerLeague(entry("Second"))).lid).toBe(2);
     expect((await listLeagues()).map((l) => l.name)).toEqual(["First", "Second"]);
   });
 

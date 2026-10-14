@@ -1,0 +1,18 @@
+/* Chart tokens (dataviz reference palette, light mode; the MVP has no dark mode). */
+.ovr-histogram {
+  --viz-series-1: #2a78d6;
+  --viz-grid: #e7e6e2;
+  --viz-guide: #9a9993;
+  --viz-tooltip-bg: #0b0b0b;
+}
+.ovr-histogram .viz-axis {
+  font-size: 11px;
+  fill: #52514e;
+}
+.ovr-histogram .viz-tooltip {
+  font-size: 12px;
+  fill: #ffffff;
+}
+tr[role="button"] {
+  cursor: pointer;
+}

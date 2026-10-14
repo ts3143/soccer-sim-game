@@ -1,9 +1,8 @@
 import type { UiEvents, WorkerApi, WorkerKind } from "../../common/api";
 import type { ApiHandlers, RpcHost } from "../../common/rpc";
-import { Random } from "../core/random";
-import { getDemoCounter, incrementDemoCounter } from "./demo";
-
-const MAX_RNG_PREVIEW = 20;
+import { listLeagues } from "../db/globalDb";
+import { createLeague, deleteLeague } from "../league/session";
+import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector";
 
 /** The worker's implementation of WorkerApi. The compiler checks it against the contract. */
 export function createHandlers(
@@ -11,21 +10,26 @@ export function createHandlers(
   kind: WorkerKind,
   startedAt: string,
 ): ApiHandlers<WorkerApi> {
+  const announceLeagues = async () =>
+    host.broadcast("leaguesChanged", { leagues: await listLeagues() });
+
   return {
     getStatus: () => ({ kind, startedAt, connectedTabs: host.endpointCount }),
+    listLeagues,
+    getClubChoices,
 
-    getDemoCounter,
-
-    async incrementDemoCounter(by) {
-      const value = await incrementDemoCounter(by);
-      host.broadcast("demoCounterChanged", { value });
-      return value;
+    async createLeague(input) {
+      const league = await createLeague(input);
+      await announceLeagues();
+      return league;
     },
 
-    rngPreview(seed, count) {
-      const rng = Random.fromSeed(seed);
-      const n = Math.max(0, Math.min(MAX_RNG_PREVIEW, Math.floor(count)));
-      return Array.from({ length: n }, () => rng.int(1, 100));
+    async deleteLeague(lid) {
+      await deleteLeague(lid);
+      await announceLeagues();
     },
+
+    getLeagueOverview,
+    getSquad,
   };
 }

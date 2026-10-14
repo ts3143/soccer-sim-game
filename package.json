@@ -10,13 +10,14 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && tsx tools/check-bundle.ts",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint . && prettier --check . && tsc -b",
     "format": "prettier --write .",
-    "calibrate": "tsx tools/calibrate/index.ts"
+    "calibrate": "tsx tools/calibrate/index.ts",
+    "generate": "tsx tools/generate/index.ts"
   },
   "dependencies": {
     "bootstrap": "5.3.8",

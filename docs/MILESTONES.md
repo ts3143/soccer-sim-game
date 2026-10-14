@@ -27,15 +27,17 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 - Fit the fixed per-position OVR scaling constants once and store them in `ratings_positions.json` → `ovrScaling`.
 - Squad generator: 22–24 senior + 4–6 academy per club. Each club gets a seeded default formation from the 5 MVP presets; its squad is built around it and saved as its starting tactics; tuned so the best-XI OVR in that formation hits `strength` (±1). Contracts and wages so each club starts at ~50–65% squad cost ratio.
 - Seeded free-agent pool.
-- POT via cheap simulated arcs.
+- Development core (pure functions): age curves per rating group and curve type, the dev multiplier, growth/decline per SPEC §5.3. Pulled forward from M3 because POT depends on it; M3 wires it into the season and calibrates it.
+- POT via cheap simulated arcs (provisional until M3 calibration).
 - New league creation writes a full save.
+- Generation inspector page (developer-only, replaced in M5) and `pnpm generate --check`, a headless report of the acceptance checks that CI also runs.
 
 **Accept**
 - New league: 62 clubs, ~1,800 club players including academies (22–24 senior + 4–6 academy per club, i.e. 1,612–1,860), free agents on top; plausible OVR distribution (few 75+, many 50–65).
 - Every club's best-XI OVR in its default formation within ±1 of `strength`; hierarchy matches club data.
 - OVR is a pure function of ratings + config (scaling constants stored, never recomputed per save).
 - `based_on` is absent from the production bundle and from saved data (automated check).
-- Generation is deterministic for a given seed. Unit tests on OVR and generator.
+- Generation is deterministic for a given seed. Unit tests on OVR, generator and the development core (incl. a benched 33-year-old doesn't decline slower than a starter).
 
 ---
 
@@ -62,7 +64,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 - Cups (draws, byes, ET/pens; in season 1 the German cup preliminary round uses the 4 lowest-`strength` clubs), Championship play-offs (6 clubs: midweek eliminators after the final round, two-legged semis over a weekend + midweek, final around 23–25 May), promotion/relegation.
 - Condition, recovery by days elapsed, injuries tied to condition and Medical dial.
 - Rotation/lineup AI with mid-term view; if fewer than 16 seniors are fit, academy players aged 16+ fill the bench.
-- Development updates (summer, winter): dev multiplier on growth only, blending to neutral between 23 and 27; decline = age × Medical dial; small mental minutes bonus at any age. Aging, ceiling decay, retirement, youth intake, academy promotion/release, pruning (a pruned player's stat rows go with him).
+- Development updates (summer, winter), using the development core built in M1: dev multiplier on growth only, blending to neutral between 23 and 27; decline = age × Medical dial; small mental minutes bonus at any age. Aging, ceiling decay, retirement, youth intake, academy promotion/release, pruning (a pruned player's stat rows go with him).
 - Phase machine and dated events; Play-menu actions as worker functions.
 
 **Accept**
