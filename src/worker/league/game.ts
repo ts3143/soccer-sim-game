@@ -27,7 +27,7 @@ import type { MatchResult } from "../../common/match";
 import type { GameState, PlayOption, PlayReport, SeasonEvent } from "../../common/api";
 import { updateLeagueSummary } from "../db/globalDb";
 import { seasonDate } from "../schedule/calendar";
-import { fullStrengthPlay } from "../season/play";
+import { resetForPreseason, squadPlay } from "../season/squads";
 import {
   applyMoves,
   createSeason,
@@ -226,9 +226,10 @@ function processDays(
   const state = loadSeason(session);
   const stored = meta<SeasonMeta>(session, "season");
   const clubs = session.cache.getAll("clubs");
+  // The cached player objects: the squad AI updates condition and injuries in place.
   const players = session.cache.getAll("players");
-  // Stand-in squads until rotation and fatigue (M3 chunk 4) choose each matchday's XI.
-  const engine = fullStrengthPlay(clubs, players);
+  const squads = squadPlay(state, clubs, players);
+  const engine = squads.play;
   const events = seasonEvents(game.season);
   const report: PlayReport = {
     from: game.date,
@@ -270,6 +271,7 @@ function processDays(
     report.events.push(...events.filter((e) => e.date > game.date && e.date <= limit));
     game.date = limit;
   }
+  for (const p of players) if (squads.changed.has(p.pid)) session.cache.put("players", p);
   updateClubSeasons(session, state, game.phase === "endOfSeason");
   saveSeason(session, state, stored.movesApplied);
   session.cache.put("meta", game, "game");
@@ -355,6 +357,10 @@ async function advanceToPreseason(session: LeagueSession): Promise<PlayReport> {
   game.season = season;
   game.phase = "preseason";
   game.date = `${season}-07-01`;
+  // Preseason: everyone back to full condition (SPEC §3.1); long injuries carry on.
+  for (const p of cache.getAll("players")) {
+    if (resetForPreseason(p, game.date)) cache.put("players", p);
+  }
   cache.put("meta", game, "game");
   cache.delete("meta", "season");
   ensureSeason(session);

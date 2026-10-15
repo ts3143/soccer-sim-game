@@ -84,6 +84,11 @@ describe("the season loop in a save", () => {
       Array.from({ length: 20 }, (_, i) => i + 1),
     );
     expect(eng1.every((c) => c.won + c.drawn + c.lost === 38)).toBe(true);
+    // Condition and injuries are saved with the players.
+    const { db } = await openLeague(1);
+    const players = await db.getAll("players");
+    expect(players.filter((p) => p.conditionDate).length).toBeGreaterThan(600);
+    expect(players.some((p) => p.injury !== null)).toBe(true);
   });
 
   it("gives the same season when stopped, reloaded and continued", SLOW, async () => {

@@ -257,8 +257,13 @@ export interface Player {
   loan: { parentCid: number; until: string; wageShare: number } | null;
   contract: Contract | null;
   injury: Injury | null;
-  /** Between-match condition, 0–100. */
+  /**
+   * Between-match condition, 0–100, as of `conditionDate`. It recovers with rest from
+   * then on (src/worker/season/squads.ts works out today's value).
+   */
   condition: number;
+  /** Date `condition` was set (his last match); null = full condition. Absent in pre-M3 saves. */
+  conditionDate?: string | null;
   transfers: TransferRecord[];
   /** ISO date he became a free agent (null otherwise). */
   freeAgentSince: string | null;

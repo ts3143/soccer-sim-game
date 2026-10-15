@@ -215,6 +215,7 @@ export function generatePlayer(
     contract: null,
     injury: null,
     condition: 100,
+    conditionDate: null,
     transfers: [],
     freeAgentSince: spec.status === "freeAgent" ? seasonStart : null,
     retiredSeason: null,

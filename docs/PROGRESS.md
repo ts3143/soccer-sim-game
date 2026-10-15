@@ -223,5 +223,44 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - Play-offs keep their own player-stats competition (`ENG2-PO`), separate from the league.
 - **Test speed:** fake-indexeddb, used by the unit tests, rewrites a row in time proportional to the store's size, so saving after many short steps is slow in tests. The stop-and-resume test therefore reloads once, early. Real browsers use proper indexes; chunk 9 measures saving in Chrome against the 60-second season budget.
 
+**Chunk 4: condition, injuries, rotation** (`src/worker/season/squads.ts`, `coefficients.ts`)
+- **Condition** is saved with the date it was set (the player's last match) and recovers with rest: the gap to 100% shrinks by exp(−rate × days). Recovery is faster with endurance and the Medical dial, and slower past 29.
+  - A full 90 minutes leaves a player at about 65–70%. He's about 90% four days later and about 96% a week later.
+  - Only players who play are rewritten, which keeps saves small. Everyone is reset to 100% in preseason; long injuries carry on.
+- **Injuries** come from the match engine, which is already tied to energy (which starts at condition) and the Medical dial. They're saved as `injury.until`, with a type by length (knock, muscle strain, ligament, serious). Injured players are never picked.
+- **Matchday squad AI** (SPEC §9), used for every club in simulated matches, the user's included. It assigns players to slots by slot OVR minus penalties:
+  - tiredness, weighted down in big matches and up when a bigger match comes within 4 days;
+  - rest for the regular starters in matches that matter less than an ordinary league match;
+  - a large penalty below 55% condition.
+  The bench gets area minimums, then the best of the rest.
+- **Importance:**
+  - an ordinary league match is 1;
+  - from 70% of the league season, 1.25 with something at stake (within 6 points of the title, promotion, play-off or drop line) and 0.85 with nothing to play for;
+  - cup: early rounds 0.65, quarter-finals 0.9, semi-finals 1.2, finals 1.5;
+  - play-offs 1.5.
+- With fewer than 16 fit seniors, the best academy players aged 16+ fill the matchday squad up to 20.
+- `pnpm season` now plays with the squad AI and prints the squad numbers. `--quiet` prints only the averages.
+- 7 new squad tests:
+  - recovery: rest, Medical dial, endurance, age;
+  - match updates and the preseason reset;
+  - injured players excluded;
+  - more rotation in small games, less in big ones, more before a big match;
+  - the academy rule;
+  - importance.
+  154 tests in all.
+
+**First numbers** (6 seasons each on two seeds; development not in yet):
+- top clubs' minutes share 0.81 and 0.83 ✓ (0.72–0.88);
+- injured per squad at once 1.8 and 1.9 (2–4.5, low);
+- injury lengths: 25% under a week, 63% 1–3 weeks, 12% 4+ weeks, 2% season-ending ✓;
+- parity ENG1 12% and 9% (13–22%, low), ENG2 15% ✓, GER1 13% and 10%;
+- ENG1 champion 83 and 89 ✓, bottom 26 and 28 ✓, top scorer 33 and 29 ✓, top assists 18 and 23.
+Tuning is chunks 7–8.
+
+**Judgment calls (chunk 4)**
+- Injuries happen in matches only, as in ZenGM. To reach ~3 injured per squad, either the in-match rate goes up or between-match (training) injuries are added. Question for T at the chunk 4 check-in.
+- When fewer than 16 seniors are fit, academy players fill the matchday squad up to 20, not just up to 16.
+- The squad AI keeps the club's saved formation; formation changes by the AI are not in the MVP spec.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.
