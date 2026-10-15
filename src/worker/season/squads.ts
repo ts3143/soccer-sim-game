@@ -148,7 +148,8 @@ export function trainingInjuries(
     for (const p of squad) {
       if (isInjured(p, day)) continue;
       const dial = medical.get(p.cid as number) ?? 50;
-      const energy = currentCondition(p, day, dial, c) / 100;
+      const fresh = !p.conditionDate || p.condition >= 100;
+      const energy = fresh ? 1 : currentCondition(p, day, dial, c) / 100;
       const below = Math.max(0, 0.75 - energy) / 0.25;
       const risk =
         c.training.perDay *

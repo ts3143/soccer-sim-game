@@ -292,7 +292,13 @@ export function developmentUpdate(
       ovr: p.ovr,
       pot: p.ovr,
     });
-    updatePot(p, date, ctx, world.seed);
+    // POT from career arcs once a year (1 July); on 1 January it only rises to meet OVR.
+    if (summer) updatePot(p, date, ctx, world.seed);
+    else {
+      p.pot = Math.max(p.pot, p.ovr);
+      const entry = p.ratingsHistory.at(-1);
+      if (entry) entry.pot = p.pot;
+    }
     p.devTally = {
       minutes: 0,
       appearances: 0,

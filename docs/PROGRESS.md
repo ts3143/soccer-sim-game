@@ -7,7 +7,7 @@ Claude Code updates this file at the end of each milestone.
 | M0 Scaffold and plumbing | **Accepted** (T, 2026-10-14) | All acceptance checks pass locally and on the Cloudflare preview; T tested in Chrome and Safari. See "M0 notes" below. |
 | M1 Data, generation and new league | **Accepted** (T, 2026-10-14) | All checks pass locally, in CI and on the Cloudflare preview (18/18 headless Chrome); T tested in Chrome and Safari. See "M1 notes" below. |
 | M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
-| M3 Season loop | In progress | Plan approved (9 chunks); chunk 1 (calendar and league fixtures) under way. |
+| M3 Season loop | In progress | Chunks 1–6 built (calendar, competitions, saving, squads, development, 20-season harness); tuning next. See "M3 notes" below. |
 | M4 Economy and market | Not started | |
 | M5 Core UI | Not started | |
 | M6 Management UI | Not started | |
@@ -311,6 +311,37 @@ Season sim time rose by about 0.5 s per season in Node.
 - POT is recomputed at both updates; from age 29, POT = OVR.
 - The squad top-up also covers the user's club while there's no transfer market (M4).
 - Free agents develop as if at a typical club with no minutes.
+
+**Chunk 6: 20-season harness** (`tools/calibrate/world.ts`, `world-report.ts`)
+- `pnpm calibrate --world [--seasons 20] [--worlds 3] [--seed X] [--check]` plays W generated worlds for S seasons, each in its own process, with the real season loop. The engine harness stays the default (`pnpm calibrate`, now `tools/calibrate/engine.ts`). `pnpm season` prints from the same per-world module.
+- **Gated:**
+  - per season: champion and bottom points, top scorer and assists (ENG1), injured per squad, injury lengths, parity, top clubs' minutes share;
+  - development: well-played and benched 18–21s, decline from 33, wonderkids, displayed POT beaten, retirement ages;
+  - stability: player count drift and distinct ENG1 champions.
+  Promoted clubs' survival is reported only (gated in M4).
+- **Readings of the text targets** (judgment calls):
+  - "most injuries 1–3 weeks; ~10% 4+ weeks; rare season-ending" = at least 50% at 7–21 days, 5–20% at 28+ days, at most 5% at 120+ days;
+  - "most retire 33–37; goalkeepers later" = at least 50% of retirements (players 30+) at 33–37, and keepers' mean age above outfielders';
+  - "exceed displayed POT" = seniors aged 17–21 in the first 5 seasons whose later peak OVR beats the POT shown then (gated from 12 seasons).
+- Speed: 3.0 s per season per process. 3 worlds × 20 seasons take 60 s wall time locally, so roughly 3 minutes on CI. POT is now recalculated once a year (1 July); on 1 January it only rises to meet OVR.
+- 1 new smoke test (2 seasons, every metric finite, results survive JSON). 166 tests in all.
+
+**First full run** (3 worlds × 20 seasons, untuned): 11 of 17 gated checks pass.
+- **Pass:**
+  - champion 84.2, bottom 28.2, top scorer 30.4;
+  - injured 2.65 at once, parity 13.3%, minutes share 0.82, injury lengths;
+  - benched 18–21s +1.3;
+  - retirements 89% at 33–37 (keepers 36.5 v 34.8);
+  - at least 4 different ENG1 champions per world.
+- **Fail:**
+  - top assists 21.6 (11–20);
+  - well-played 18–21s +2.5 a year (4–8);
+  - players 33+ −3.9 (4–7);
+  - wonderkids 5.1 per league per season (0.5–1.8);
+  - displayed POT beaten 3.8% (18–32%);
+  - player count +43% from the start, although only 4.2% after season 4 (decision pending with T).
+- Promoted survival 57% (M4 target 35–60%).
+- `calibrate --world --check` joins CI once tuning passes (chunk 8).
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.
