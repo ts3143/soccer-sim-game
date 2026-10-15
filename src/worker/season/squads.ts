@@ -367,8 +367,34 @@ export function squadPlay(
   const changed = new Set<number>();
   const injuries: number[] = [];
 
+  // Club strength for the weak-opponent rule: mean OVR of the 11 best fit seniors, per day.
+  const strengthCache = new Map<string, number>();
+  const strength = (cid: number, date: string): number => {
+    const key = `${cid}/${date}`;
+    let value = strengthCache.get(key);
+    if (value === undefined) {
+      const best = (squads.get(cid) ?? [])
+        .filter((p) => p.status === "club" && !isInjured(p, date))
+        .map((p) => p.ovr)
+        .sort((a, b) => b - a)
+        .slice(0, 11);
+      value = best.reduce((sum, x) => sum + x, 0) / Math.max(1, best.length);
+      strengthCache.set(key, value);
+    }
+    return value;
+  };
+  const weakOpponentFactor = (fixture: Fixture, cid: number): number => {
+    const w = c.importance.weakOpponent;
+    if (w.factor === 1 || state.leagueClubs[fixture.competition] === undefined) return 1;
+    const opponent = fixture.homeCid === cid ? fixture.awayCid : fixture.homeCid;
+    const gap = strength(cid, fixture.date) - strength(opponent, fixture.date);
+    const share = Math.min(1, Math.max(0, (gap - w.from) / (w.full - w.from)));
+    return 1 + (w.factor - 1) * share;
+  };
+
   const context = (fixture: Fixture, cid: number): MatchdayContext => {
-    const importance = matchImportance(state, fixture, cid, tables, config, c);
+    const importance =
+      matchImportance(state, fixture, cid, tables, config, c) * weakOpponentFactor(fixture, cid);
     const horizon = addDays(fixture.date, c.selection.congestionDays);
     const next = state.fixtures
       .filter(

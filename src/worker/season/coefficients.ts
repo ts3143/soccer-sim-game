@@ -46,6 +46,12 @@ export const SQUAD_COEFFICIENTS = {
     stakesPoints: 6,
     stakes: 1.25,
     nothingToPlayFor: 0.85,
+    /**
+     * League matches against a much weaker side matter less (big clubs rotate against
+     * small ones): × factor once the club's top-11 OVR is `full` points above the
+     * opponent's, phasing in from `from`.
+     */
+    weakOpponent: { from: 4, full: 10, factor: 0.85 },
   },
 };
 

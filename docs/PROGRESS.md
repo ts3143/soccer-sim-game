@@ -7,7 +7,7 @@ Claude Code updates this file at the end of each milestone.
 | M0 Scaffold and plumbing | **Accepted** (T, 2026-10-14) | All acceptance checks pass locally and on the Cloudflare preview; T tested in Chrome and Safari. See "M0 notes" below. |
 | M1 Data, generation and new league | **Accepted** (T, 2026-10-14) | All checks pass locally, in CI and on the Cloudflare preview (18/18 headless Chrome); T tested in Chrome and Safari. See "M1 notes" below. |
 | M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
-| M3 Season loop | In progress | Chunks 1–6 built (calendar, competitions, saving, squads, development, 20-season harness); tuning next. See "M3 notes" below. |
+| M3 Season loop | In progress | Chunks 1–8 built and tuned: 16 of 17 season-loop checks pass (well-played 18–21 growth +3.8, target 4–8). Season lab page (chunk 9) next. See "M3 notes" below. |
 | M4 Economy and market | Not started | |
 | M5 Core UI | Not started | |
 | M6 Management UI | Not started | |
@@ -40,6 +40,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-14 | M3 plan | League tie-breakers defined: points, goal difference, goals scored, head-to-head points, head-to-head goal difference, seeded draw; each league sets its own order in config. Awards are worked out and saved at season end in M3 (pages in M5). Until M4, contracts roll over and AI clubs top up to 22 seniors each preseason from their academy, then from free agents. Promoted-club survival and the finance checks of the 20-season run are gated in M4. M3 adds a developer-only Season lab page. | The spec named tie-breakers without defining them, and no milestone owned awards. Without contracts and transfers (M4), a 20-season run would empty squads. Promoted clubs can't strengthen without transfers. | SPEC §2.1; `competitions_mvp.json` → `tieBreakers`; MILESTONES M3 |
 | 2026-10-15 | M3 chunk 4 | Injuries also happen in training between matches, with the same risk formula once per day (that day's condition, Medical dial, Injury Prone). | With in-match injuries only, squads averaged ~1.9 injured at once against a target of 2–4.5. Raising the in-match rate would have meant unrealistic numbers of injury substitutions; in real football about half of injuries happen in training. | SPEC §8.4; MILESTONES M3 |
 | 2026-10-15 | M3 chunk 5–6 | The opening world starts in the shape the season loop settles at: 9–12 academy players per club, aged 15–17 (was 4–6, aged 15–18), and ~190 just-released 18-year-olds added to the free-agent pool. Club players ~2,100 (M1 check now 1,922–2,232). | With the spec's youth intake (3–6 a year, 2–3 years in the academy), active players rose ~35% over the first seasons before levelling off, failing the ±10% stability target. T chose to match the opening world to the steady state (option B). | SPEC §2.1; MILESTONES M1; `generate/squad.ts`, `generate/freeAgents.ts`, `generate/checks.ts` |
+| 2026-10-15 | M3 chunk 7 | Development training base lowered from 0.4 to 0.2: dev = coaching × (0.2 + 0.8 × minutesFactor × challengeFactor) + performanceAdj (academy players: coaching × (0.2 + 0.8 × youth factor)). | With 0.4, a young regular (≥50% of minutes) grew only ~1.7× as fast as a benched one, so +4 to +8 a year for regulars and 0 to +2 for benched players couldn't both hold. | SPEC §5.3; `DEV.trainingBase` |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -343,6 +344,42 @@ Season sim time rose by about 0.5 s per season in Node.
   - player count +43% from the start, although only 4.2% after season 4 (decision pending with T).
 - Promoted survival 57% (M4 target 35–60%).
 - `calibrate --world --check` joins CI once tuning passes (chunk 8).
+
+**Chunks 7–8: tuning** (T's decisions B and training base 0.2 applied; all values are code coefficients)
+- **Development** (`core/development.ts` `DEV`):
+  - training base 0.2;
+  - young-player growth ×3 up to 22, fading to ×1 by 26 (players in senior football only);
+  - academy growth ×0.5;
+  - decline ×1.5 from 33, phasing in from 31;
+  - ceiling softness 8 and mental minutes bonus 0.35, both unchanged.
+- **Ceilings** (`generate/player.ts` `CEILING_HEADROOM`): one rule for every generated player, headroom ~ normal(1.1 × (27 − age), 0.2 × mean + 1.5).
+  - Was 2.2 per year with a 0.45 share, sized for the old, slower growth. With faster growth it let the world inflate (75+ share 2.5% → 14% in 10 seasons).
+- **Youth intake** (`generate/youth.ts`): base quality 25 (was 28). "Talent" link: a youth's quality noise also adds 8 ceiling points per standard deviation, so the youngsters who earn minutes first are the ones with room to grow.
+- **POT** (`core/potential.ts`):
+  - career arcs now model ceiling decay, as the season loop does;
+  - expected minutes refitted to what the rotation AI actually gives (players 10 points below their club's XI play ~5%, not ~19%).
+  Before this, only ~4% of young players beat their displayed POT; now 32%.
+- **Engine** (`engine/coefficients.ts`): assist shares by chance kind. A set-piece header is the taker's assist only half the time (flick-ons and second balls); this alone took top assists from ~21 to ~16. The assist skill power is now a coefficient, left at 2. The M2 per-match gates still pass (average rating 6.55).
+- **Squad AI:** a league match against a clearly weaker side counts × 0.85 (big clubs rotate against small ones). The effect on parity is small.
+- **Turnover fix:** free agents unsigned for 12 months now move on on 1 July. The 1 June check let them stay nearly two years.
+- **Harness:**
+  - `--overrides JSON` for in-memory tuning runs (A3 #3);
+  - average OVR by age band and the 75+ share, for information.
+
+**Result** (`pnpm calibrate --world`, 3 worlds × 20 seasons, defaults): 16 of 17 gated checks pass.
+- champion 83.9, bottom 28.0, top scorer 32.5, top assists 18.6;
+- injured at once 2.62, parity 13.8%, minutes share 0.83, injury lengths;
+- benched 18–21s +1.43, 33+ −5.66, wonderkids 1.75 per league, displayed POT beaten 31.9%, retirements 93% at 33–37 (keepers 36.8 v 34.9);
+- player count drift 8.3%, at least 4 different ENG1 champions;
+- **fail: well-played 18–21s +3.81 a year (target 4–8).**
+
+For information:
+- promoted clubs' survival 66% (M4 target 35–60%);
+- senior mean OVR 57.0 → 54.7 over 20 seasons;
+- 75+ share 2.6% → 6.4%;
+- by age, the last season's 21–23s (57.2) are better than its 27–29s (56.1): players peak earlier than in real football.
+
+**Why the last check is hard:** players who play aged 18–21 are, by selection, the ones closest to their ceilings. Settings that push them past +4 a year also raise the wonderkid count above 1.8 and inflate the top end. A grid over talent headroom, average headroom and youth quality, and a run with growth spread into the mid-20s, all traded one failing check for another. Question for T.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

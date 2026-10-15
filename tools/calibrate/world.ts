@@ -250,7 +250,26 @@ export function simulateWorld(
     });
     const young = changes.filter((c) => c.age >= 18 && c.age < 22);
     const intake = players.filter((p) => p.pid >= intakeFrom);
+    const seniorsNow = players.filter((p) => p.status === "club");
+    const nextStart = `${season + 1}-07-01`;
+    const bandMean = (lo: number, hi: number) =>
+      mean(
+        seniorsNow
+          .filter((p) => {
+            const age = exactAge(p.birthDate, nextStart);
+            return age >= lo && age < hi;
+          })
+          .map((p) => p.ovr),
+      );
     Object.assign(metrics, {
+      ovrAge18to20: bandMean(18, 21),
+      ovrAge21to23: bandMean(21, 24),
+      ovrAge24to26: bandMean(24, 27),
+      ovrAge27to29: bandMean(27, 30),
+      ovrAge30to32: bandMean(30, 33),
+      ovrAge33plus: bandMean(33, 50),
+      seniorMeanOvr: mean(seniorsNow.map((p) => p.ovr)),
+      elite75Share: seniorsNow.filter((p) => p.ovr >= 75).length / Math.max(1, seniorsNow.length),
       wellPlayed18to21OvrGainPerYear: mean(young.filter((c) => c.share >= 0.5).map((c) => c.delta)),
       benched18to21OvrGainPerYear: mean(young.filter((c) => c.share < 0.15).map((c) => c.delta)),
       age33plusOvrLossPerYear: -mean(changes.filter((c) => c.age >= 33).map((c) => c.delta)),

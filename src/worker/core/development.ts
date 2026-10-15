@@ -4,7 +4,8 @@
  * M3 runs it at the summer and winter updates and calibrates the coefficients
  * against data/config/calibration_targets.json.
  *
- *   dev    = coaching × (0.4 + 0.6 × minutesFactor × challengeFactor) + performanceAdj
+ *   dev    = coaching × (base + (1 − base) × minutesFactor × challengeFactor) + performanceAdj
+ *            (base = 0.2, the training base)
  *   devEff = dev blended linearly to neutral (1.0) between ages 23 and 27
  *   growth  (ageCurve > 0): Δ = a × devEff × noise × gap / (gap + 8)
  *   decline (ageCurve ≤ 0): Δ = a × medicalFactor × noise         (dev never applies)
@@ -27,7 +28,7 @@ const AGE_CURVES: Record<Exclude<AgeCurveGroup, "fixed">, readonly [number, numb
   goalkeeping: [[16, 6], [20, 5], [24, 3.5], [27, 2], [29, 0.8], [31, 0], [33, -1.5], [35, -3.5], [38, -6]],
 }; // prettier-ignore
 
-/** Coefficients (provisional, tuned in M3). */
+/** Coefficients (tuned in M3 with `pnpm calibrate --world`; see PROGRESS.md M3 notes). */
 export const DEV = {
   /** Years the curve is shifted: early bloomers behave older, late bloomers younger. */
   curveShift: { normal: 0, early: 2, late: -2, ageless: 0 } as Record<CurveType, number>,
@@ -40,6 +41,23 @@ export const DEV = {
   /** Growth softening near the ceiling: × gap / (gap + ceilingSoftness). */
   ceilingSoftness: 8,
   mentalMinutesBonus: 0.35,
+  /**
+   * The dev multiplier's training base: what a player with no minutes still gets (SPEC §5.3;
+   * T 2026-10-15, was 0.4).
+   */
+  trainingBase: 0.2,
+  /**
+   * Extra growth for young players (M3 calibration): growth × `scale` up to `fullBelow`,
+   * fading linearly to × 1 at `noneFrom`. Front-loads growth without lifting older players.
+   */
+  youngGrowth: { scale: 3, fullBelow: 22, noneFrom: 26 },
+  /** Growth multiplier for academy players (coaching + Youth dial only, SPEC §5.3). */
+  academyGrowth: 0.5,
+  /**
+   * Scales decline (age-curve value ≤ 0) by `scale` from age `fullFrom`, phasing in
+   * linearly from 1 at `from`: steeper decline in the mid-30s without ageing the early 30s.
+   */
+  decline: { scale: 1.5, from: 31, fullFrom: 33 },
   /** Per-update player-wide noise (breakouts and stalls) and per-rating noise. */
   growthNoiseSd: 0.45,
   declineNoiseSd: 0.25,
@@ -119,15 +137,18 @@ export interface DevelopmentInput {
 
 /** The dev multiplier before blending (SPEC §5.3). */
 export function devMultiplier(input: DevelopmentInput): number {
-  if (input.academyYouth !== null) return input.coaching * (0.4 + 0.6 * input.academyYouth);
+  const base = DEV.trainingBase;
+  if (input.academyYouth !== null) return input.coaching * (base + (1 - base) * input.academyYouth);
   const performance = Math.max(
     -DEV.performanceAdjCap,
     Math.min(DEV.performanceAdjCap, input.performanceAdj),
   );
   return (
     input.coaching *
-      (0.4 +
-        0.6 * minutesFactor(input.minutesShare) * challengeFactor(input.levelStrength, input.ovr)) +
+      (base +
+        (1 - base) *
+          minutesFactor(input.minutesShare) *
+          challengeFactor(input.levelStrength, input.ovr)) +
     performance
   );
 }
@@ -149,7 +170,19 @@ export function developHalfSeason(
   input: DevelopmentInput,
   rng: Random,
 ): number[] {
-  const devEff = effectiveDev(devMultiplier(input), input.age);
+  const young = DEV.youngGrowth;
+  const youngShare = Math.min(
+    1,
+    Math.max(0, (young.noneFrom - input.age) / (young.noneFrom - young.fullBelow)),
+  );
+  // Academy players develop on their own multiplier; the young-growth boost is for players
+  // in senior football (or free agents), whose growth depends on minutes.
+  const boost =
+    input.academyYouth !== null ? DEV.academyGrowth : 1 + (young.scale - 1) * youngShare;
+  const devEff = effectiveDev(devMultiplier(input), input.age) * boost;
+  const d = DEV.decline;
+  const declineShare = Math.min(1, Math.max(0, (input.age - d.from) / (d.fullFrom - d.from)));
+  const declineScale = 1 + (d.scale - 1) * declineShare;
   const gap = Math.max(0, input.ceiling - input.ovr);
   const softening = gap / (gap + DEV.ceilingSoftness);
   const growthNoise = Math.max(-0.5, rng.normal(1, DEV.growthNoiseSd));
@@ -168,7 +201,10 @@ export function developHalfSeason(
     const group = GROUP_OF[i] as AgeCurveGroup;
     if (group === "fixed") return value;
     const a = halfCurve[group];
-    let delta = a > 0 ? a * devEff * growthNoise * softening : a * input.medical * declineNoise;
+    let delta =
+      a > 0
+        ? a * devEff * growthNoise * softening
+        : a * declineScale * input.medical * declineNoise;
     if (group === "mental") delta += mentalBonus;
     delta += rng.normal(0, DEV.ratingNoiseSd);
     return Math.min(100, Math.max(0, value + delta));

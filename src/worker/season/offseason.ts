@@ -20,7 +20,7 @@ import type { AwardRow, Club, Player, TransactionRow } from "../../common/schema
 import { coachingFactor, developHalfSeason, medicalFactor, youthFactor } from "../core/development";
 import { bestXi } from "../core/lineup";
 import { bestPosition, positionOvrs, secondaryPositions } from "../core/ovr";
-import { estimatePotential, type PotentialClubContext } from "../core/potential";
+import { CEILING_DECAY, estimatePotential, type PotentialClubContext } from "../core/potential";
 import { Random } from "../core/random";
 import { roundWage, WAGE_STEEPNESS, wageAgeFactor } from "../generate/contracts";
 import { generateAcademyPlayer } from "../generate/youth";
@@ -36,7 +36,6 @@ export const TURNOVER = {
   performancePerPoint: 0.15,
   /** POT is recomputed from career arcs below this age; from it, POT = OVR (as in ZenGM). */
   potArcsBelowAge: 29,
-  ceilingDecay: { fromAge: 19, toAge: 23, belowShare: 0.15, min: 1, max: 3 },
   /** Retirement chance by age (outfield); goalkeepers use age − gkShift. */
   retirement: {
     byAge: [
@@ -263,7 +262,7 @@ export function developmentUpdate(
 
     if (summer) {
       // Ceiling decay: a 19–23-year-old who played under ~15% of the season's minutes.
-      const d = t.ceilingDecay;
+      const d = CEILING_DECAY;
       const seasonAvailable = club ? memo(seasonMinutes, club.cid, `${season}-06-30`) : 0;
       const seasonShare = seasonAvailable > 0 ? tally.seasonMinutes / seasonAvailable : 0;
       if (

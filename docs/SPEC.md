@@ -124,7 +124,7 @@ Two progression updates per season: **summer (1 July)** and **winter (1 January)
 
 ### 5.3 Development multiplier (growth only; full effect up to 23, blending to neutral by 27)
 ```
-dev    = coaching × (0.4 + 0.6 × minutesFactor × challengeFactor) + performanceAdj
+dev    = coaching × (0.2 + 0.8 × minutesFactor × challengeFactor) + performanceAdj
 blend  = clamp((age − 23) / 4, 0, 1)          // 0 at 23 or younger, 1 at 27 or older
 devEff = dev × (1 − blend) + 1.0 × blend      // blends linearly to neutral (1.0)
 
@@ -136,7 +136,7 @@ per rating, with a = ageCurve(group, age, curveType):
 - The dev multiplier applies to **growth only**. Decline is driven by **age × the Medical dial** (`medicalFactor` slightly below 1 for a high dial). Minutes, coaching and form can't speed decline up or slow it down, so a benched veteran never declines slower than a starter (unit-tested in M3).
 - **mentalMinutesBonus** is a small tuned coefficient on the mental age-curve group (`oiq`, `diq`, `wrk`, `ant`).
 - **coaching:** Coaching dial of the club where he actually plays (incl. loan clubs), mapped to 0.9–1.1.
-- **minutesFactor:** share of available minutes in all competitions in the half-season, with diminishing returns. Zero minutes still gives the 0.4 training base.
+- **minutesFactor:** share of available minutes in all competitions in the half-season, with diminishing returns. Zero minutes still gives the 0.2 training base (T, 2026-10-15; was 0.4, which held a young regular's growth to about 1.7× a benched player's, too little for the +4–8 vs 0–2 targets).
 - **challengeFactor:** compares the strength of the level he played at (minutes-weighted average team OVR of opponents/competitions) with his own OVR. Peaks when the level is at or slightly above his OVR; small when he is far too good for the level (blocks the weak-loan exploit) or badly out of his depth.
 - **performanceAdj:** average match rating vs positional expectation, capped at ±0.15.
 - **Academy players** (no matches) develop on coaching + Youth academy dial only.

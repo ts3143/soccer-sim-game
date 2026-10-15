@@ -27,7 +27,7 @@ pnpm install
 | `pnpm format` | Format code with Prettier |
 | `pnpm generate [--seed X] [--check]` | Generate a new league headlessly and report the M1 checks |
 | `pnpm calibrate [--matches N] [--seasons S] [--worlds W] [--seed X] [--check]` | Match-engine calibration: per-match targets on a neutral sample and each league's style checks, pass/fail against `data/config/calibration_targets.json` (`--check` exits 1 on a failure) |
-| `pnpm calibrate --world [--seasons 20] [--worlds 3] [--seed X] [--check]` | Season-loop calibration: whole worlds played for 20 seasons (in parallel), checked against the season, development and stability targets |
+| `pnpm calibrate --world [--seasons 20] [--worlds 3] [--seed X] [--overrides JSON] [--check]` | Season-loop calibration: whole worlds played for 20 seasons (in parallel), checked against the season, development and stability targets. `--overrides '{"dev":{...}}'` tries coefficient changes in memory |
 | `pnpm season [--seasons N] [--seed X] [--quiet]` | Plays seasons headlessly and prints tables, cups, play-offs, promotion and relegation, and the season numbers |
 | `pnpm calendar [--season Y]` | Prints a season's match calendar (league rounds, cup rounds, play-offs) |
 

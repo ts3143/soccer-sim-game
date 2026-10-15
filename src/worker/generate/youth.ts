@@ -18,16 +18,22 @@ export const ACADEMY_POSITIONS: [Position, number][] = [
  * Target OVR of an academy player:
  *   base + perReputation × reputation + perYear × (age − 16) + perYouthDial × (dial − 50) + noise
  * clamped to [min, max] (and, in the opening squads, below the club's strength − 3).
- * Provisional values, tuned with the calibration harness (wonderkids per league).
+ * Tuned in M3 with the calibration harness (wonderkids per league, long-run quality).
  */
 export const YOUTH_QUALITY = {
-  base: 28,
+  base: 25,
   perReputation: 0.22,
   perYear: 4.5,
   perYouthDial: 0.06,
   sd: 5,
   min: 25,
   max: 60,
+  /**
+   * Talent: extra ceiling headroom per standard deviation a youth's quality is above the
+   * expected level for his club and age. The best youngsters, who earn minutes first, are
+   * also the ones with most room to grow.
+   */
+  talentHeadroom: 8,
 };
 
 export interface AcademyClub {
@@ -53,15 +59,16 @@ export function generateAcademyPlayer(
   const side: Side = ratingsConfig.sidedPositions.includes(position)
     ? rng.choice(["L", "R"] as const)
     : "C";
+  const talent = rng.normal(0, 1);
   const raw =
     q.base +
     q.perReputation * club.reputation +
     q.perYear * (age - 16) +
     q.perYouthDial * (club.youthDial - 50) +
-    rng.normal(0, q.sd);
+    talent * q.sd;
   const quality = Math.min(club.maxQuality ?? q.max, q.max, Math.max(q.min, raw));
   const leagueMix = nationalitiesConfig.leagueMix[club.leagueId] ?? {};
-  return generatePlayer(
+  const player = generatePlayer(
     rng,
     {
       position,
@@ -76,4 +83,9 @@ export function generateAcademyPlayer(
     season,
     seasonStart,
   );
+  if (q.talentHeadroom !== 0) {
+    const ceiling = player.hidden.ceiling + talent * q.talentHeadroom;
+    player.hidden.ceiling = Math.min(98, Math.max(player.ovr, Math.round(ceiling)));
+  }
+  return player;
 }

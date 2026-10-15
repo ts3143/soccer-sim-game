@@ -245,6 +245,16 @@ export const COEFFICIENTS = {
     /** Minutes for a full-weight rating; fewer pull the rating toward 6.6. */
     fullWeightMinutes: 60,
   },
+  /**
+   * Who the engine picks for an action: position weight × (skill / 50) ^ skillPower. Assists
+   * use a flatter power so they spread across the creative players (M3: top assists).
+   */
+  pickers: { skillPower: 2, assistSkillPower: 2 },
+  /**
+   * Chance that a shot has an assister, by chance kind (open-play crosses always do).
+   * setPiece: the taker of a corner or crossed free kick, for the header that follows.
+   */
+  assistShare: { central: 1, dribble: 0.3, other: 0.4, setPiece: 0.5 },
   ai: {
     /** Minute ranges for planned substitution windows (uniform within). */
     firstWindow: [58, 66],

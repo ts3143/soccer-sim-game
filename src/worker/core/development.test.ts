@@ -67,8 +67,8 @@ describe("age curves", () => {
 });
 
 describe("dev multiplier", () => {
-  it("has a 0.4 training base with no minutes and rises with minutes", () => {
-    expect(devMultiplier({ ...base, minutesShare: 0 })).toBeCloseTo(0.4, 6);
+  it("has a 0.2 training base with no minutes and rises with minutes", () => {
+    expect(devMultiplier({ ...base, minutesShare: 0 })).toBeCloseTo(0.2, 6); // T, 2026-10-15
     expect(devMultiplier({ ...base, minutesShare: 0.9 })).toBeGreaterThan(0.9);
     expect(minutesFactor(0.5)).toBeGreaterThan(0.5); // diminishing returns
   });

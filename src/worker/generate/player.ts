@@ -149,10 +149,18 @@ const MOOD_TRAITS: MoodTrait[] = ["fame", "loyalty", "money", "winning"];
 /** Judgment calls (PROGRESS.md): trait rates and mood-trait counts. */
 export const TRAIT_RATES = { injuryProne: 0.1, hothead: 0.08, moodTraitCounts: [35, 45, 20] };
 
-/** Hidden ceiling headroom above current OVR, by age: large for teenagers, ~0 from 27. */
-function ceilingHeadroom(rng: Random, age: number): number {
-  const mean = Math.max(0, 2.2 * (27 - age));
-  return Math.max(0, rng.normal(mean, 0.45 * mean + 1.5));
+/**
+ * Hidden ceiling headroom above current OVR, by age: large for teenagers, ~0 from 27.
+ * headroom ~ normal(perYear × (27 − age), sdShare × mean + sdBase), at least 0. Shared by
+ * every generated player (opening squads, free agents, youth intake); tuned in M3 with
+ * development speed so the world's quality stays stable over decades.
+ */
+export const CEILING_HEADROOM = { perYear: 1.1, sdShare: 0.2, sdBase: 1.5 };
+
+export function ceilingHeadroom(rng: Random, age: number): number {
+  const h = CEILING_HEADROOM;
+  const mean = Math.max(0, h.perYear * (27 - age));
+  return Math.max(0, rng.normal(mean, h.sdShare * mean + h.sdBase));
 }
 
 export function generatePlayer(

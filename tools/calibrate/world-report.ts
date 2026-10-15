@@ -31,6 +31,7 @@ const SEASONS = Number(option("--seasons", "20"));
 const WORLDS = Number(option("--worlds", "3"));
 const SEED = option("--seed", "calibrate");
 const CHECK = args.includes("--check");
+const OVERRIDES = option("--overrides", "");
 const JOBS = Math.max(
   1,
   Math.min(WORLDS, Number(option("--jobs", String(availableParallelism())))),
@@ -51,6 +52,7 @@ function runWorld(seed: string): Promise<WorldRun> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, ["--import", "tsx", script, seed, String(SEASONS)], {
       stdio: ["ignore", "pipe", "inherit"],
+      env: { ...process.env, ...(OVERRIDES ? { CALIBRATE_OVERRIDES: OVERRIDES } : {}) },
     });
     let out = "";
     child.stdout.on("data", (chunk: Buffer) => (out += chunk.toString()));
@@ -79,7 +81,9 @@ async function runAll(): Promise<WorldRun[]> {
 
 const started = performance.now();
 console.log(`Soccer Sim Game: season-loop calibration (seed "${SEED}")`);
-console.log(`${WORLDS} worlds × ${SEASONS} seasons, ${JOBS} at a time\n`);
+console.log(`${WORLDS} worlds × ${SEASONS} seasons, ${JOBS} at a time`);
+if (OVERRIDES) console.log(`Coefficient overrides: ${OVERRIDES}`);
+console.log("");
 const runs = await runAll();
 const wall = (performance.now() - started) / 1000;
 
@@ -208,6 +212,16 @@ info("parity ENG2 / GER1", `${fmt(avg("parityENG2"))} / ${fmt(avg("parityGER1"))
 info("injuries per team per match", fmt(avg("injuriesPerTeamMatch")));
 info("training share of injuries", fmt(avg("trainingInjuryShare")));
 info("youth intake per season", avg("youthIntake").toFixed(0));
+const firstLast = (key: string) =>
+  `${fmt(runs.reduce((s, r) => s + (r.seasons[0]?.[key] ?? 0), 0) / runs.length)} → ${fmt(runs.reduce((s, r) => s + (r.seasons.at(-1)?.[key] ?? 0), 0) / runs.length)}`;
+info("senior mean OVR (after season 1 → last)", firstLast("seniorMeanOvr"));
+info("seniors rated 75+ (after season 1 → last)", firstLast("elite75Share"));
+info(
+  "senior OVR by age (after season 1 → last)",
+  ["18to20", "21to23", "24to26", "27to29", "30to32", "33plus"]
+    .map((band) => `${band.replace("to", "-").replace("plus", "+")}: ${firstLast(`ovrAge${band}`)}`)
+    .join("; "),
+);
 info(
   "active players (start → end, per world)",
   runs.map((r) => `${r.activeAtStart} → ${r.activeAfter.at(-1)}`).join(", "),
