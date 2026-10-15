@@ -8,7 +8,7 @@
  */
 import type { Position } from "./config/ratings";
 import type { MatchEvent, MatchResult, Period } from "./match";
-import type { Foot, LeagueSummary } from "./schema";
+import type { Fixture, Foot, LeagueSummary, Phase } from "./schema";
 
 export type WorkerKind = "shared" | "dedicated";
 
@@ -175,6 +175,46 @@ export interface LabBatch {
   rows: LabBatchRow[];
 }
 
+// ---------------------------------------------------------------------------
+// Season loop (M3): the Play menu
+
+/** Play-menu actions (SPEC §3.2), as the worker runs them. */
+export type PlayOption =
+  | "untilNextMatch"
+  | "oneWeek"
+  | "untilWindowCloses"
+  | "untilEndOfSeason"
+  | "proceedToPromotionRelegation"
+  | "advanceToPreseason";
+
+export type SeasonEventKind = "windowOpens" | "windowCloses" | "winterUpdate";
+
+export interface SeasonEvent {
+  date: string;
+  kind: SeasonEventKind;
+  /** Window ID for window events. */
+  window?: string;
+}
+
+export interface GameState {
+  season: number;
+  phase: Phase;
+  date: string;
+  /** The transfer window open on the game date, if any. */
+  window: { id: string; closes: string } | null;
+  options: PlayOption[];
+  /** The user's next fixture, if one is scheduled. */
+  nextUserFixture: Fixture | null;
+}
+
+export interface PlayReport {
+  from: string;
+  to: string;
+  matchesPlayed: number;
+  events: SeasonEvent[];
+  phase: Phase;
+}
+
 export interface WorkerApi {
   getStatus(): WorkerStatus;
   listLeagues(): LeagueSummary[];
@@ -187,10 +227,14 @@ export interface WorkerApi {
   startLabMatch(setup: LabMatchSetup): LabLiveStart;
   stepLabMatch(id: number, possessions: number): LabLiveStep;
   runLabBatch(lid: number, matches: number): LabBatch;
+  getGameState(lid: number): GameState;
+  playGame(lid: number, option: PlayOption): PlayReport;
 }
 
 export interface UiEvents {
   /** The save list changed (a league was created or deleted, in any tab). */
   leaguesChanged: { leagues: LeagueSummary[] };
   tabsChanged: { connectedTabs: number };
+  /** A league's game moved on (a Play action ran, in any tab). */
+  gameChanged: { lid: number; state: GameState };
 }

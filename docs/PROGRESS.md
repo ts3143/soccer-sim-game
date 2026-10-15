@@ -196,5 +196,32 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - The config check also accepts a 4-club play-off format for future leagues.
 - **Observed, for M4:** without transfers, promoted clubs mostly go straight back down (in a 3-season run: 0 of 3 survived after season 1, 1 of 3 after season 2). Their survival rate is gated in M4 (T, 2026-10-14).
 
+**Chunk 3: phase machine, Play actions, saving** (`src/worker/league/game.ts`)
+- Phases: preseason (1 July to the first match), regular season (every league, cup and play-off match), end of season (from the last match to 30 June). The end of season has two steps the user takes: "Proceed to promotion/relegation" (moves the date to 1 June) and "Advance to preseason" (1 July, a new season).
+- Play actions run in the worker: `untilNextMatch`, `oneWeek`, `untilWindowCloses`, `untilEndOfSeason`, `proceedToPromotionRelegation`, `advanceToPreseason`. They're reached through the new calls `getGameState` and `playGame`; a `gameChanged` event updates every open tab. Actions on one save run one at a time.
+- Dated events: both transfer windows opening and closing, and the winter development date (its work arrives in chunk 5). The game date is the last day processed; each action processes days in order and saves once at the end.
+- Saved per match:
+  - the fixture result;
+  - a match record (box score, key events, team and player stats, ratings; no play-by-play);
+  - per-competition player stats (31 totals, including a rating total for averages).
+- Club-season rows hold W/D/L, goals and points through the season, and the final position at the end.
+- The cache keeps only the current season of fixtures, match records and player stats in memory. A new season saves the old one, drops it from memory and prunes match records older than last season (the user's club's are kept forever).
+- Saves from before M3 get their season set up when opened. No database version bump was needed (no new stores or indexes).
+- Fixed: a cache loaded through an index was keying rows by the index value. Regression test added.
+- 7 new tests:
+  - a season played in one go;
+  - the same season stopped, reloaded and continued, identical down to every player stat;
+  - promotion and relegation, then the next season;
+  - match-record retention;
+  - an upgraded old save;
+  - partial cache loading.
+  147 tests in all.
+
+**Judgment calls (chunk 3)**
+- The `playoffs` phase is gone. The spec's phase table has no such phase, and ENG2's play-offs overlap the ENG1 run-in and both cup finals, so they run inside the regular season.
+- No separate "Start season" action: "Until next match" from preseason plays up to the user's first match. The M5 Play menu can label it as it likes.
+- Play-offs keep their own player-stats competition (`ENG2-PO`), separate from the league.
+- **Test speed:** fake-indexeddb, used by the unit tests, rewrites a row in time proportional to the store's size, so saving after many short steps is slow in tests. The stop-and-resume test therefore reloads once, early. Real browsers use proper indexes; chunk 9 measures saving in Chrome against the 60-second season budget.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

@@ -10,7 +10,11 @@ import { openLeagueDb } from "./leagueDb";
 interface TestSchema extends DBSchema {
   meta: { key: string; value: unknown };
   players: { key: number; value: { pid: number; name: string } };
-  clubSeasons: { key: [number, number]; value: { cid: number; season: number; points: number } };
+  clubSeasons: {
+    key: [number, number];
+    value: { cid: number; season: number; points: number };
+    indexes: { season: number };
+  };
 }
 
 const openTestDb = () =>
@@ -18,7 +22,10 @@ const openTestDb = () =>
     upgrade(db) {
       db.createObjectStore("meta");
       db.createObjectStore("players", { keyPath: "pid" });
-      db.createObjectStore("clubSeasons", { keyPath: ["cid", "season"] });
+      db.createObjectStore("clubSeasons", { keyPath: ["cid", "season"] }).createIndex(
+        "season",
+        "season",
+      );
     },
   });
 
@@ -36,6 +43,28 @@ beforeEach(() => {
 });
 
 describe("Cache", () => {
+  it("loads one season of a store by index, and evicts saved rows only", async () => {
+    let cache = await Cache.open(await openTestDb(), ALL);
+    for (const season of [1, 2]) {
+      for (const cid of [10, 11, 12]) cache.put("clubSeasons", { cid, season, points: season });
+    }
+    await cache.flush();
+    cache.db.close();
+    cache = await Cache.open(await openTestDb(), ALL, {
+      clubSeasons: { index: "season", value: 2 },
+    });
+    expect(cache.getAll("clubSeasons").map((r) => r.cid)).toEqual([10, 11, 12]);
+    expect(cache.get("clubSeasons", [11, 2])?.points).toBe(2);
+    expect(cache.get("clubSeasons", [11, 1])).toBeUndefined();
+
+    cache.put("clubSeasons", { cid: 10, season: 3, points: 0 });
+    expect(() => cache.evict("clubSeasons", (r) => r.season === 3)).toThrow(/flush/);
+    await cache.flush();
+    expect(cache.evict("clubSeasons", (r) => r.season === 2)).toBe(3);
+    expect(cache.getAll("clubSeasons")).toEqual([{ cid: 10, season: 3, points: 0 }]);
+    expect(await cache.db.count("clubSeasons")).toBe(7); // evicted rows stay saved
+  });
+
   it("serves writes from memory before any flush", async () => {
     const cache = await Cache.open(await openTestDb(), ALL);
     cache.put("meta", 7, "counter");

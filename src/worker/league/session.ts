@@ -5,12 +5,13 @@
 import type { IDBPDatabase } from "idb";
 import type { NewLeagueInput } from "../../common/api";
 import { clubDefinitions } from "../../common/config/clubs";
-import type { LeagueSummary } from "../../common/schema";
+import type { GameMeta, LeagueSummary } from "../../common/schema";
 import { Cache } from "../db/cache";
 import { listLeagues, registerLeague, unregisterLeague } from "../db/globalDb";
 import { deleteLeagueDb, openLeagueDb, writeWorld } from "../db/leagueDb";
 import type { LeagueDBSchema } from "../db/schema";
 import { generateWorld } from "../generate/world";
+import { ensureSeason } from "./game";
 
 export interface LeagueSession {
   lid: number;
@@ -18,8 +19,31 @@ export interface LeagueSession {
   cache: Cache<LeagueDBSchema>;
 }
 
-/** Stores loaded into memory when a league is opened. */
-const CACHED_STORES = ["meta", "competitions", "clubs", "clubSeasons", "players"] as const;
+/**
+ * Stores loaded into memory when a league is opened. The season-scoped ones (fixtures,
+ * match records, player stats) load the current season only; past seasons are read
+ * from IndexedDB when needed (SPEC §12).
+ */
+const CACHED_STORES = [
+  "meta",
+  "competitions",
+  "clubs",
+  "clubSeasons",
+  "players",
+  "fixtures",
+  "matches",
+  "playerStats",
+] as const;
+const SEASON_SCOPED = ["fixtures", "matches", "playerStats"] as const;
+
+async function openCache(db: IDBPDatabase<LeagueDBSchema>): Promise<Cache<LeagueDBSchema>> {
+  const game = (await db.get("meta", "game")) as GameMeta | undefined;
+  if (!game) throw new Error("This save has no game data");
+  const partial = Object.fromEntries(
+    SEASON_SCOPED.map((store) => [store, { index: "season", value: game.season }]),
+  );
+  return Cache.open(db, CACHED_STORES, partial);
+}
 
 let current: Promise<LeagueSession> | null = null;
 let currentLid: number | null = null;
@@ -52,6 +76,9 @@ export async function createLeague(input: NewLeagueInput): Promise<LeagueSummary
     await deleteLeagueDb(league.lid); // in case an old database with this ID survived
     const db = await openLeagueDb(league.lid);
     await writeWorld(db, world);
+    const cache = await openCache(db);
+    ensureSeason({ lid: league.lid, db, cache });
+    await cache.flush();
     db.close();
   } catch (error) {
     await unregisterLeague(league.lid);
@@ -76,7 +103,9 @@ export function openLeague(lid: number): Promise<LeagueSession> {
     if (previous) await close(previous);
     if (!(await listLeagues()).some((l) => l.lid === lid)) throw new RangeError(`No league ${lid}`);
     const db = await openLeagueDb(lid);
-    return { lid, db, cache: await Cache.open(db, CACHED_STORES) };
+    const session = { lid, db, cache: await openCache(db) };
+    ensureSeason(session); // saves from before M3 get their season set up here
+    return session;
   })().catch((error: unknown) => {
     current = null;
     currentLid = null;

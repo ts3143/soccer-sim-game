@@ -1,7 +1,8 @@
 import type { UiEvents, WorkerApi, WorkerKind } from "../../common/api";
 import type { ApiHandlers, RpcHost } from "../../common/rpc";
 import { listLeagues } from "../db/globalDb";
-import { createLeague, deleteLeague } from "../league/session";
+import { gameState, play } from "../league/game";
+import { createLeague, deleteLeague, openLeague } from "../league/session";
 import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector";
 import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
 
@@ -36,5 +37,16 @@ export function createHandlers(
     startLabMatch,
     stepLabMatch,
     runLabBatch,
+
+    async getGameState(lid) {
+      return gameState(await openLeague(lid));
+    },
+
+    async playGame(lid, option) {
+      const session = await openLeague(lid);
+      const report = await play(session, option);
+      host.broadcast("gameChanged", { lid, state: gameState(session) });
+      return report;
+    },
   };
 }

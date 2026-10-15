@@ -16,7 +16,7 @@ import {
   type LeagueConfig,
   type StyleModifiers,
 } from "../../common/config/competitions";
-import type { Club, Fixture } from "../../common/schema";
+import type { Club, Fixture, SeasonMeta } from "../../common/schema";
 import { Random } from "../core/random";
 import type { KnockoutRules, MatchResult } from "../engine/types";
 import { PLAYOFF_ROUNDS, seasonCalendar, type SeasonCalendar } from "../schedule/calendar";
@@ -59,6 +59,36 @@ export interface SeasonState {
   cupParticipants: Record<string, number[][]>;
   fixtures: Fixture[];
   nextFid: number;
+}
+
+/** The saved part of a season's state (fixtures are saved in their own store). */
+export function seasonMetaOf(state: SeasonState): Omit<SeasonMeta, "movesApplied"> {
+  return {
+    season: state.season,
+    leagueClubs: state.leagueClubs,
+    cupEntrants: state.cupEntrants,
+    cupParticipants: state.cupParticipants,
+  };
+}
+
+/** Rebuilds a season's state from its saved meta row and fixtures. */
+export function restoreSeason(
+  meta: Omit<SeasonMeta, "movesApplied">,
+  seed: string,
+  fixtures: Fixture[],
+  nextFid: number,
+  config: CompetitionsConfig = competitionsConfig,
+): SeasonState {
+  return {
+    season: meta.season,
+    seed,
+    calendar: seasonCalendar(meta.season, config),
+    leagueClubs: meta.leagueClubs,
+    cupEntrants: meta.cupEntrants,
+    cupParticipants: meta.cupParticipants,
+    fixtures: [...fixtures].sort((a, b) => a.fid - b.fid),
+    nextFid,
+  };
 }
 
 /** What the engine needs to know about a fixture besides the two squads. */

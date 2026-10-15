@@ -35,7 +35,8 @@ export interface WorldOptions {
 }
 
 export interface World {
-  meta: MetaRows;
+  /** Every meta row except the season state, which the season loop sets up. */
+  meta: Omit<MetaRows, "season">;
   competitions: CompetitionRow[];
   clubs: Club[];
   clubSeasons: ClubSeason[];
@@ -209,7 +210,7 @@ export function generateWorld(options: WorldOptions): World {
     if (entry) entry.pot = player.pot;
   }
 
-  const meta: MetaRows = {
+  const meta: World["meta"] = {
     game: {
       name: options.name,
       seed: options.seed,
