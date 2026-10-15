@@ -41,6 +41,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-15 | M3 chunk 4 | Injuries also happen in training between matches, with the same risk formula once per day (that day's condition, Medical dial, Injury Prone). | With in-match injuries only, squads averaged ~1.9 injured at once against a target of 2–4.5. Raising the in-match rate would have meant unrealistic numbers of injury substitutions; in real football about half of injuries happen in training. | SPEC §8.4; MILESTONES M3 |
 | 2026-10-15 | M3 chunk 5–6 | The opening world starts in the shape the season loop settles at: 9–12 academy players per club, aged 15–17 (was 4–6, aged 15–18), and ~190 just-released 18-year-olds added to the free-agent pool. Club players ~2,100 (M1 check now 1,922–2,232). | With the spec's youth intake (3–6 a year, 2–3 years in the academy), active players rose ~35% over the first seasons before levelling off, failing the ±10% stability target. T chose to match the opening world to the steady state (option B). | SPEC §2.1; MILESTONES M1; `generate/squad.ts`, `generate/freeAgents.ts`, `generate/checks.ts` |
 | 2026-10-15 | M3 chunk 7 | Development training base lowered from 0.4 to 0.2: dev = coaching × (0.2 + 0.8 × minutesFactor × challengeFactor) + performanceAdj (academy players: coaching × (0.2 + 0.8 × youth factor)). | With 0.4, a young regular (≥50% of minutes) grew only ~1.7× as fast as a benched one, so +4 to +8 a year for regulars and 0 to +2 for benched players couldn't both hold. | SPEC §5.3; `DEV.trainingBase` |
+| 2026-10-15 | M3 chunk 8 | The well-played 18–21 growth target (+4 to +8 a year) is reported in M3 and gated in M4, together with world-shape checks: a stable senior OVR distribution and a peak around 27–29. | After tuning, 16 of 17 season-loop checks passed; settings that pushed young regulars past +4 also broke the wonderkid rate and inflated the top end. Transfers and loans (M4) change who plays young. | MILESTONES M3, M4; `tools/calibrate/world-report.ts` |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -371,7 +372,7 @@ Season sim time rose by about 0.5 s per season in Node.
 - injured at once 2.62, parity 13.8%, minutes share 0.83, injury lengths;
 - benched 18–21s +1.43, 33+ −5.66, wonderkids 1.75 per league, displayed POT beaten 31.9%, retirements 93% at 33–37 (keepers 36.8 v 34.9);
 - player count drift 8.3%, at least 4 different ENG1 champions;
-- **fail: well-played 18–21s +3.81 a year (target 4–8).**
+- **well-played 18–21s +3.81 a year (target 4–8):** gated in M4, by T's decision C (2026-10-15).
 
 For information:
 - promoted clubs' survival 66% (M4 target 35–60%);
@@ -379,7 +380,7 @@ For information:
 - 75+ share 2.6% → 6.4%;
 - by age, the last season's 21–23s (57.2) are better than its 27–29s (56.1): players peak earlier than in real football.
 
-**Why the last check is hard:** players who play aged 18–21 are, by selection, the ones closest to their ceilings. Settings that push them past +4 a year also raise the wonderkid count above 1.8 and inflate the top end. A grid over talent headroom, average headroom and youth quality, and a run with growth spread into the mid-20s, all traded one failing check for another. Question for T.
+**Why the last check is hard:** players who play aged 18–21 are, by selection, the ones closest to their ceilings. Settings that push them past +4 a year also raise the wonderkid count above 1.8 and inflate the top end. A grid over talent headroom, average headroom and youth quality, and a run with growth spread into the mid-20s, all traded one failing check for another. T deferred this check and the world-shape side effects to M4 (decision C). The 20-season check now runs in CI.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

@@ -73,7 +73,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 - Season lab page (developer-only, replaced in M5): the Play-menu actions, tables, results, cups and play-offs, leaders, injuries, awards, and a full-season timer.
 
 **Accept**
-- A 20-season headless run completes without errors; season and development calibration targets pass; player count stays within ±10%. Promoted-club survival and the finance checks are gated in M4, once transfers and finances exist (T, 2026-10-14).
+- A 20-season headless run completes without errors; season and development calibration targets pass; player count stays within ±10%. Promoted-club survival and the finance checks are gated in M4, once transfers and finances exist (T, 2026-10-14). The well-played 18–21 growth target is gated in M4 too (T, 2026-10-15): transfers and loans change who gets minutes.
 - Top-club starters' minutes share within target; at least 3 distinct ENG1 champions in 20 seasons; parity (top-6 losing to bottom-6) within target, with rotation, fatigue and injuries in place.
 - Development unit tests: a benched 33-year-old doesn't decline slower than a starter; the dev multiplier never changes decline; the multiplier is neutral from 27.
 
@@ -88,6 +88,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 
 **Accept**
 - 20-season run: world-stability checks in `calibration_targets.json` pass (negative-cash share, squad cost ratios, promoted-club survival, etc.).
+- Development and world shape, deferred from M3 (T, 2026-10-15): well-played 18–21-year-olds gain +4 to +8 OVR a year; over 20 seasons the senior OVR distribution stays stable (mean, 75+ share) and players peak around 27–29, not earlier. (End of M3: +3.8 a year; mean 57.0 → 54.7; 75+ share 2.6% → 6.4%; 21–23-year-olds rated above 27–29-year-olds by the last season.)
 - Wage/fee levels stay plausible relative to revenue; no runaway inflation or deflation.
 - Exploit checks: can't buy a star by offering several average players' worth; weak-loan development exploit doesn't work.
 - Contracts not renewed by 31 January (user or AI) expire on 30 June and the players become free agents on 1 July; the January inbox warning and deadline-day reminder fire.

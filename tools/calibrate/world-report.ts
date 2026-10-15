@@ -9,8 +9,9 @@
  * - development: growth of well-played and benched 18–21s, decline from 33, retirement
  *   ages, how often young players beat their displayed POT, wonderkids per league;
  * - worldStability20Seasons: player count drift, distinct ENG1 champions.
- * Gated in M3 (T, 2026-10-14): all of the above. Reported only: promoted clubs' survival
- * and the finance checks (gated in M4).
+ * Gated in M3 (T, 2026-10-14): all of the above except young regulars' growth. Reported
+ * only: well-played 18–21 growth, promoted clubs' survival and the finance checks, and
+ * the world's shape (gated in M4, T 2026-10-15).
  */
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -131,8 +132,14 @@ row(
 );
 
 console.log("\nDevelopment");
+// Young regulars' growth is gated in M4, with transfers and loans (T, 2026-10-15).
+inBand(
+  "wellPlayed18to21 (M4)",
+  avg("wellPlayed18to21OvrGainPerYear"),
+  band("development", "wellPlayed18to21OvrGainPerYear"),
+  false,
+);
 for (const key of [
-  "wellPlayed18to21OvrGainPerYear",
   "benched18to21OvrGainPerYear",
   "age33plusOvrLossPerYear",
   "wonderkidsPerLeaguePerSeason",

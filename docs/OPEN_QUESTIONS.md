@@ -47,6 +47,7 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 5 | Injuries only in matches (ZenGM) or also in training? (asked Oct 15) | Also in training: same risk formula per day, tied to condition, the Medical dial and Injury Prone. |
 | 6 | Player count rose ~35% before settling: the opening world was smaller than the youth flow settles at (asked Oct 15) | B: start the world in its settled shape. 9–12 academy players per club (aged 15–17) and ~190 just-released 18-year-olds in the free-agent pool; the ±10% stability check stays as written. |
 | 7 | Development training base 0.4 caps a regular's growth at ~1.7× a benched player's; targets need more (asked Oct 15) | Lower the base to 0.2: dev = coaching × (0.2 + 0.8 × minutes × challenge) + performance. |
+| 8 | Well-played 18–21 growth stuck at +3.8 (target 4–8), with world-shape side effects (asked Oct 15) | C: defer that check and the side effects (peak age, top-end inflation, mean drift) to M4, where transfers and loans change who gets minutes. The other 16 checks gate M3 and CI. |
 
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.
