@@ -31,7 +31,7 @@ pnpm install
 | `pnpm season [--seasons N] [--seed X] [--quiet]` | Plays seasons headlessly and prints tables, cups, play-offs, promotion and relegation, and the season numbers |
 | `pnpm calendar [--season Y]` | Prints a season's match calendar (league rounds, cup rounds, play-offs) |
 
-The developer page has two tabs per saved league: **Generation** (M1: the generated world, its checks, clubs and squads) and **Match lab** (M2: simulate or watch a match between any two clubs, or simulate 1,000 matches against the targets). Both are temporary; the game screens arrive in M5 and M6.
+The developer page has three tabs per saved league: **Generation** (M1: the generated world, its checks, clubs and squads), **Match lab** (M2: simulate or watch a match between any two clubs, or simulate 1,000 matches against the targets) and **Season lab** (M3: play the season with the Play-menu actions; tables, results, cups, play-offs, injuries, academies, transactions and awards). All are temporary; the game screens arrive in M5 and M6.
 
 Layout: `src/ui` (React tabs, UI only), `src/worker` (game core, runs in a SharedWorker), `src/common` (types and the UI↔worker protocol shared by both), `tools/` (harness, generators), `data/` (fixed inputs).
 

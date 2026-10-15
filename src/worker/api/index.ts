@@ -5,6 +5,7 @@ import { gameState, play } from "../league/game";
 import { createLeague, deleteLeague, openLeague } from "../league/session";
 import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector";
 import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
+import { getSeasonLab } from "../views/seasonLab";
 
 /** The worker's implementation of WorkerApi. The compiler checks it against the contract. */
 export function createHandlers(
@@ -48,5 +49,7 @@ export function createHandlers(
       host.broadcast("gameChanged", { lid, state: gameState(session) });
       return report;
     },
+
+    getSeasonLab,
   };
 }

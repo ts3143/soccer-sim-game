@@ -7,7 +7,7 @@ Claude Code updates this file at the end of each milestone.
 | M0 Scaffold and plumbing | **Accepted** (T, 2026-10-14) | All acceptance checks pass locally and on the Cloudflare preview; T tested in Chrome and Safari. See "M0 notes" below. |
 | M1 Data, generation and new league | **Accepted** (T, 2026-10-14) | All checks pass locally, in CI and on the Cloudflare preview (18/18 headless Chrome); T tested in Chrome and Safari. See "M1 notes" below. |
 | M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
-| M3 Season loop | In progress | Chunks 1–8 built and tuned: 16 of 17 season-loop checks pass (well-played 18–21 growth +3.8, target 4–8). Season lab page (chunk 9) next. See "M3 notes" below. |
+| M3 Season loop | Built, in review | All M3 gates pass locally: `calibrate --world --check` (16 checks, now in CI), 166 unit tests, Season lab 19/19 in headless Chrome. Young regulars' growth and world shape gated in M4 (T). Waiting for T's browser test, then PR. See "M3 notes" below. |
 | M4 Economy and market | Not started | |
 | M5 Core UI | Not started | |
 | M6 Management UI | Not started | |
@@ -162,7 +162,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - **M5:** Team OVR still uses placeholder weights. The harness fits real weights (R² 0.18–0.31, defence weighted most); adopt them before M5 shows Team OVR.
 - **M6:** the Watch screen replaces the Match lab. `applyChanges` and the event feed are ready for it.
 
-## M3 notes (2026-10-14, in progress)
+## M3 notes (2026-10-14 to 2026-10-15)
 **Chunk 1: calendar, league fixtures, tables** (`src/worker/schedule/`)
 - `seasonCalendar(season)` dates every league round and cup round. Two slots a week: Saturday and Wednesday. Each config MM-DD date moves to the nearest slot, so the season keeps its shape whatever weekday a date falls on.
 - League fixtures are a double round-robin, with clubs shuffled by the season's own random stream. No club plays three home or three away matches in a row. The two meetings of a pair are at least 16 rounds apart (18 clubs) and 22 apart (24 clubs).
@@ -381,6 +381,39 @@ For information:
 - by age, the last season's 21–23s (57.2) are better than its 27–29s (56.1): players peak earlier than in real football.
 
 **Why the last check is hard:** players who play aged 18–21 are, by selection, the ones closest to their ceilings. Settings that push them past +4 a year also raise the wonderkid count above 1.8 and inflate the top end. A grid over talent headroom, average headroom and youth quality, and a run with growth spread into the mid-20s, all traded one failing check for another. T deferred this check and the world-shape side effects to M4 (decision C). The 20-season check now runs in CI.
+
+**Chunk 9: Season lab page** (`src/ui/inspector/SeasonLab.tsx`, `src/worker/views/seasonLab.ts`)
+- **Season lab** tab on the developer page (replaced in M5).
+  - The Play options for the phase, as buttons; the date, phase and open window; the user's next match.
+  - League tables with promotion, play-off and relegation zones.
+  - The latest matchday's results, both cups round by round, and the play-off bracket.
+  - Injuries (per squad, the user's club, the worst squads) and the best academy prospects.
+  - This season's transactions, and the honours and awards once the season ends.
+  - Each action shows what it did and how long it took. A whole season from 1 July is timed against the 60-second budget.
+  - Every open tab refreshes when the game moves on (`gameChanged`).
+- New worker call `getSeasonLab(lid)`.
+
+**Verified locally (end of M3)**
+- 166 unit tests; lint; build (no real club names in `dist/`); `generate --check`; `calibrate --check` (M2 engine gates); `calibrate --world --check` (16 season-loop gates, 3 worlds × 20 seasons, 67 s).
+- **Headless Chrome on the production build:** Season lab 19/19, Match lab 11/11, M1 18/18. The M1 squad-size check is now 31–36 rows, after decision B. The Season lab checks cover:
+  - preseason on 1 July with the window open;
+  - Until next match plays to the user's first match (15 Aug); One week moves to 22 Aug;
+  - a reload mid-season carries on from the same date;
+  - the rest of the season in 2.3 s, then awards, both cups and the play-offs complete;
+  - promotion and relegation with retirements logged; Advance to preseason opens 2027/28 with the youth intake;
+  - **a whole season, 1 July to the final, in 1.9 s in Chrome, saving included (budget 60 s);**
+  - a reload at the end of the season keeps it;
+  - no real club names and no console errors.
+- Saving in the browser is fast: the slowdown seen with fake-indexeddb in unit tests doesn't occur with Chrome's IndexedDB.
+
+**M3 judgment calls, all chunks:** see the chunk sections above. Coefficients are in `src/worker/core/development.ts` (`DEV`), `src/worker/generate/player.ts` (`CEILING_HEADROOM`), `src/worker/generate/youth.ts` (`YOUTH_QUALITY`), `src/worker/season/coefficients.ts`, `src/worker/season/offseason.ts` (`TURNOVER`) and `src/worker/engine/coefficients.ts`.
+
+**Carried to M4:**
+- young regulars' growth (+3.8 a year, target 4–8);
+- world shape: stable OVR distribution and a peak at 27–29;
+- promoted clubs' survival (66% now, target 35–60%);
+- the finance checks;
+- real contract expiry, replacing the M3 rollover and squad top-up.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

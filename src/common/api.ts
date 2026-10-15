@@ -215,6 +215,88 @@ export interface PlayReport {
   phase: Phase;
 }
 
+// ---------------------------------------------------------------------------
+// Season lab (M3 developer page; the game screens replace it in M5)
+
+export type TableZone = "champions" | "promoted" | "playoffs" | "relegated" | null;
+
+export interface SeasonLabTeam {
+  cid: number;
+  name: string;
+  abbr: string;
+  code: string;
+}
+
+export interface SeasonLabTableRow extends SeasonLabTeam {
+  position: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  points: number;
+  zone: TableZone;
+}
+
+export interface SeasonLabMatch {
+  fid: number;
+  date: string;
+  competition: string;
+  competitionName: string;
+  round: string;
+  leg: 1 | 2 | null;
+  neutral: boolean;
+  home: SeasonLabTeam;
+  away: SeasonLabTeam;
+  /** "2–1", "1–1 aet, 4–3 pens"; null if not played yet. */
+  score: string | null;
+  winnerCid: number | null;
+}
+
+export interface SeasonLabKnockout {
+  id: string;
+  name: string;
+  rounds: { name: string; date: string | null; matches: SeasonLabMatch[] }[];
+  winner: SeasonLabTeam | null;
+}
+
+export interface SeasonLabView {
+  lid: number;
+  state: GameState;
+  user: SeasonLabTeam & { leagueId: string };
+  nextUserMatch: SeasonLabMatch | null;
+  leagues: { id: string; name: string; rows: SeasonLabTableRow[] }[];
+  /** The last matchday played (all its matches). */
+  latest: { date: string; matches: SeasonLabMatch[] } | null;
+  cups: SeasonLabKnockout[];
+  playoffs: SeasonLabKnockout[];
+  injuries: {
+    total: number;
+    perSquad: number;
+    user: { name: string; position: string; type: string; until: string }[];
+    mostByClub: { team: SeasonLabTeam; count: number }[];
+  };
+  /** This season's awards and honours (from the final whistle). */
+  awards: {
+    competition: string;
+    competitionName: string;
+    type: string;
+    name: string;
+    club: string;
+  }[];
+  transactions: {
+    counts: Record<string, number>;
+    recent: { date: string; type: string; text: string }[];
+  };
+  academy: {
+    total: number;
+    intakeThisSeason: number;
+    topProspects: { name: string; club: string; age: number; ovr: number; pot: number }[];
+  };
+}
+
 export interface WorkerApi {
   getStatus(): WorkerStatus;
   listLeagues(): LeagueSummary[];
@@ -229,6 +311,7 @@ export interface WorkerApi {
   runLabBatch(lid: number, matches: number): LabBatch;
   getGameState(lid: number): GameState;
   playGame(lid: number, option: PlayOption): PlayReport;
+  getSeasonLab(lid: number): SeasonLabView;
 }
 
 export interface UiEvents {
