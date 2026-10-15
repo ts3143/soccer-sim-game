@@ -82,10 +82,20 @@ export function injuryType(days: number): string {
   return "Serious injury";
 }
 
-/** Updates a player after a match: condition from his energy at the end, and any injury. */
+/**
+ * Updates a player after a match: condition from his energy at the end, any injury, and
+ * his development tally (minutes and rating).
+ */
 export function applyMatch(p: Player, stats: PlayerMatchStats, date: string): void {
   p.condition = Math.round(stats.energyEnd * 1000) / 10;
   p.conditionDate = date;
+  const tally = p.devTally ?? { minutes: 0, appearances: 0, ratingTotal: 0, seasonMinutes: 0 };
+  p.devTally = {
+    minutes: tally.minutes + stats.minutes,
+    appearances: tally.appearances + 1,
+    ratingTotal: tally.ratingTotal + stats.rating,
+    seasonMinutes: tally.seasonMinutes + stats.minutes,
+  };
   if (stats.injuryDays > 0) {
     p.injury = { type: injuryType(stats.injuryDays), until: addDays(date, stats.injuryDays) };
   } else if (p.injury && p.injury.until <= date) {

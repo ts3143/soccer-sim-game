@@ -18,7 +18,7 @@ import { generateSquad } from "./squad";
 export const WORLD_VERSION = 1;
 const NEUTRAL_DIAL = 50;
 /** Context for free agents' POT: they'd likely land at a second-tier level. */
-const FREE_AGENT_CONTEXT: PotentialClubContext = {
+export const FREE_AGENT_CONTEXT: PotentialClubContext = {
   coachingDial: NEUTRAL_DIAL,
   medicalDial: NEUTRAL_DIAL,
   youthDial: NEUTRAL_DIAL,

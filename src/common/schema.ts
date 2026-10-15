@@ -226,6 +226,16 @@ export interface TransferRecord {
   type: "transfer" | "loan" | "freeAgent" | "academyPromotion" | "release";
 }
 
+/** What development needs from the matches since the last update (SPEC §5.3). */
+export interface DevTally {
+  /** This half-season: minutes, appearances and the sum of match ratings. */
+  minutes: number;
+  appearances: number;
+  ratingTotal: number;
+  /** The whole season so far (for ceiling decay at the summer update). */
+  seasonMinutes: number;
+}
+
 export interface Player {
   pid: number;
   firstName: string;
@@ -264,6 +274,8 @@ export interface Player {
   condition: number;
   /** Date `condition` was set (his last match); null = full condition. Absent in pre-M3 saves. */
   conditionDate?: string | null;
+  /** Minutes and ratings since the last development update (reset at each one). */
+  devTally?: DevTally;
   transfers: TransferRecord[];
   /** ISO date he became a free agent (null otherwise). */
   freeAgentSince: string | null;

@@ -33,7 +33,7 @@ const ADJACENT: Record<Position, Position[]> = {
 const ADJACENT_BACKUP_CHANCE = 0.15;
 
 /** Academy positions (weights). */
-const ACADEMY_POSITIONS: [Position, number][] = [
+export const ACADEMY_POSITIONS: [Position, number][] = [
   ["GK", 10], ["CB", 18], ["FB", 12], ["WB", 4], ["DM", 8],
   ["CM", 14], ["WM", 6], ["AM", 8], ["W", 10], ["ST", 10],
 ]; // prettier-ignore

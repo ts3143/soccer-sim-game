@@ -10,10 +10,10 @@ import type { Random } from "../core/random";
 
 export const STARTING_SQUAD_COST = { min: 0.5, max: 0.65 };
 /** Each +6 OVR above the XI level roughly doubles a wage. */
-const WAGE_STEEPNESS = 0.115;
+export const WAGE_STEEPNESS = 0.115;
 const MIN_WAGE = 30_000;
 
-function ageFactor(age: number): number {
+export function wageAgeFactor(age: number): number {
   if (age <= 20) return 0.45;
   if (age <= 23) return 0.75;
   if (age <= 30) return 1;
@@ -45,7 +45,7 @@ export function assignContracts(
   const target = rng.real(STARTING_SQUAD_COST.min, STARTING_SQUAD_COST.max);
   const bill = target * revenue;
   const weights = seniors.map(
-    (p) => Math.exp(WAGE_STEEPNESS * (p.ovr - strength)) * ageFactor(ages.get(p.pid) ?? 27),
+    (p) => Math.exp(WAGE_STEEPNESS * (p.ovr - strength)) * wageAgeFactor(ages.get(p.pid) ?? 27),
   );
   const totalWeight = weights.reduce((s, w) => s + w, 0);
   let totalWages = 0;

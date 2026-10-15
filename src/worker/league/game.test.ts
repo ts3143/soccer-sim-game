@@ -10,7 +10,7 @@ import type {
 } from "../../common/schema";
 import { listLeagues } from "../db/globalDb";
 import { openLeagueDb } from "../db/leagueDb";
-import { gameState, play, pruneMatchRecords } from "./game";
+import { gameState, play, pruneMatchRecords, pruneRetiredPlayers } from "./game";
 import { closeLeague, createLeague, openLeague } from "./session";
 
 beforeAll(() => {
@@ -84,6 +84,10 @@ describe("the season loop in a save", () => {
       Array.from({ length: 20 }, (_, i) => i + 1),
     );
     expect(eng1.every((c) => c.won + c.drawn + c.lost === 38)).toBe(true);
+    // The season's awards are saved at the final whistle.
+    const awardRows = await openLeague(1).then((s) => s.cache.getAll("awards"));
+    expect(awardRows.filter((a) => a.type === "champions")).toHaveLength(3);
+    expect(awardRows.filter((a) => a.type === "teamOfTheSeason")).toHaveLength(33);
     // Condition and injuries are saved with the players.
     const { db } = await openLeague(1);
     const players = await db.getAll("players");
@@ -129,13 +133,28 @@ describe("the season loop in a save", () => {
 
     const moves = await play(session, "proceedToPromotionRelegation");
     expect(moves.to).toBe("2027-06-01");
+    const retirements = session.cache.getAll("transactions").filter((t) => t.type === "retirement");
+    expect(retirements.length).toBeGreaterThan(30);
     expect(gameState(session).options).toEqual(["advanceToPreseason"]);
     for (const row of eng1Table.slice(-3)) {
       expect(session.cache.get("clubs", row.cid)?.leagueId).toBe("ENG2");
     }
 
+    const playersBefore = session.cache.getAll("players").length;
     const next = await play(session, "advanceToPreseason");
     expect(next).toMatchObject({ to: "2027-07-01", phase: "preseason" });
+    // Summer development, youth intake and academy decisions reached the save.
+    const all = session.cache.getAll("players");
+    expect(all.length).toBeGreaterThan(playersBefore + 180);
+    const active = all.filter((p) => p.status !== "retired");
+    expect(
+      active.every(
+        (p) => p.ratingsHistory.at(-1)?.date === "2027-07-01" || p.ratingsHistory.length === 1,
+      ),
+    ).toBe(true);
+    expect(active.filter((p) => p.ratingsHistory.length === 3).length).toBeGreaterThan(1500);
+    const types = new Set(session.cache.getAll("transactions").map((t) => t.type));
+    expect(types.has("academyPromotion") || types.has("release")).toBe(true);
     expect(gameState(session)).toMatchObject({ season: 2027, phase: "preseason" });
     expect((session.cache.get("meta", "season") as SeasonMeta).movesApplied).toBe(false);
     // Only the new season's fixtures are in memory; last season's stay saved.
@@ -167,6 +186,33 @@ describe("the season loop in a save", () => {
     expect(await pruneMatchRecords(db, 2027, userCid)).toBe(0); // 2026 is last season: kept
     expect(await pruneMatchRecords(db, 2028, userCid)).toBe(all.length - users);
     expect(await db.countFromIndex("matches", "season", 2026)).toBe(users);
+  });
+
+  it("prunes long-retired players nobody will look up, with their stat rows", SLOW, async () => {
+    const session = await openLeague(1);
+    const retired = session.cache.getAll("players").filter((p) => p.status === "retired");
+    const ordinary = retired.find((p) => Math.max(...p.ratingsHistory.map((r) => r.ovr)) < 70);
+    const star = retired.find((p) => p !== ordinary);
+    expect(ordinary && star).toBeTruthy();
+    if (!ordinary || !star) return;
+    for (const p of [ordinary, star]) session.cache.put("players", { ...p, retiredSeason: 2020 });
+    session.cache.put("awards", {
+      aid: 99_999,
+      season: 2026,
+      competition: "ENG1",
+      type: "goldenBoot",
+      pid: star.pid,
+      cid: null,
+      name: "x",
+    });
+    await session.cache.flush();
+    const statRows = await session.db.countFromIndex("playerStats", "pid", ordinary.pid);
+    expect(await pruneRetiredPlayers(session, 2027)).toBeGreaterThanOrEqual(1);
+    expect(session.cache.get("players", ordinary.pid)).toBeUndefined();
+    expect(await session.db.get("players", ordinary.pid)).toBeUndefined();
+    expect(await session.db.countFromIndex("playerStats", "pid", ordinary.pid)).toBe(0);
+    expect(statRows).toBeGreaterThanOrEqual(0);
+    expect(session.cache.get("players", star.pid)).toBeDefined(); // has an award: kept
   });
 
   it("sets up the season for a save made before M3", SLOW, async () => {

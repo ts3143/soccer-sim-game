@@ -270,5 +270,47 @@ Season sim time rose by about 0.5 s per season in Node.
 - When fewer than 16 seniors are fit, academy players fill the matchday squad up to 20, not just up to 16.
 - The squad AI keeps the club's saved formation; formation changes by the AI are not in the MVP spec.
 
+**Chunk 5: development and squad turnover** (`src/worker/season/offseason.ts`, `runner.ts`)
+- **Shared runner:** `runDays` is the day-by-day loop (training injuries → dated events → matches), used by the save (`game.ts` persists what it returns) and by the tools, so both run the same code.
+- **Development** on 1 January and 1 July for every player not retired, using the M1 core and a per-player tally of minutes and ratings since the last update:
+  - minutes share = his minutes / his club's match minutes in the half;
+  - level = the average best-XI OVR of his league;
+  - performanceAdj = (average rating − 6.6) × 0.15;
+  - academy players develop on the Youth dial.
+  Each update appends a ratings snapshot and recomputes POT from career arcs (POT = OVR from 29, as in ZenGM).
+- **Ceiling decay** (1 July): 19–23-year-olds under 15% of the season's minutes lose 1–3 hidden ceiling points.
+- **End of season** (1 June):
+  - retirement odds rise from 32 (2%) to 38 (90%); keepers retire two years later;
+  - ×1.6 under OVR 50, ×1.25 under 60, ×2 for free agents;
+  - free agents 30+ unsigned for a season retire; free agents 23 or under unsigned for 12 months leave the game.
+- **Preseason** (1 July):
+  - contracts roll over (temporary until M4);
+  - youth intake: 3–6 per club aged 15–16, by Youth dial and reputation, club-country nationality mix;
+  - academy players 18+ are promoted (3-year contract, wage on the club's scale) or released; outstanding 17-year-olds are promoted early;
+  - squad top-up to 22 seniors, academy first, then the free agent filling the thinnest area;
+  - condition reset.
+- **Awards** at the final whistle, per league: champions, Player of the Year (best average rating, 50%+ of league minutes), Golden Boot, Team of the Season (1-4-3-3 by listed position, 40%+ minutes). Also cup winners, play-off winners, promoted and relegated clubs.
+- **Transactions** are logged for retirements, academy promotions, releases and free-agent signings.
+- **Pruning:** retired 3+ seasons ago, peak OVR under 74, no award and under 50 appearances for the user's club: the player and his stat rows are deleted.
+- Transactions and awards are cached for the current season only, like fixtures.
+- 9 new tests (8 season-end, 1 pruning), and the save tests now cover awards, retirements, youth intake and development. 165 tests in all. The M1 development tests already covered the three M3 development checks.
+
+**First numbers** (untuned; 6 seasons on two seeds, then 10):
+- well-played 18–21s +2.4 OVR a year (target +4 to +8, low);
+- benched +1.2 ✓;
+- 33+ −4.1 ✓;
+- wonderkids (POT 75+) 4.2–4.4 per league per season (target 0.5–1.8, high);
+- retirement age mean 34, 70% between 33 and 37 ✓;
+- parity ENG1 12–13%, ENG2 17% ✓, GER1 11–14%;
+- top-clubs minutes share 0.79–0.80 ✓, injured at once 2.7 ✓.
+- **Player count:** active players rise from 1,863 to about 2,500 by season 4 and hold there (+35%). The spec's academy flow (3–6 youths a year, 2–3 years in the academy) settles at about 12 academy players per club, while the opening world generates 4–6. Young released players also make the free-agent pool about 300, against 120 at the start. Question for T at the chunk 5 check-in.
+- Speed: a season with development takes about 3.6 s in Node. Each development update takes 0.6 s, mostly POT arcs.
+
+**Judgment calls (chunk 5)**
+- Development level = the average best-XI OVR of the player's league, a stand-in for "opponents' average team OVR" until Team OVR weights are fitted (M5).
+- POT is recomputed at both updates; from age 29, POT = OVR.
+- The squad top-up also covers the user's club while there's no transfer market (M4).
+- Free agents develop as if at a typical club with no minutes.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

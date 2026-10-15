@@ -24,17 +24,22 @@ import {
   type SeasonMeta,
 } from "../../common/schema";
 import type { MatchResult } from "../../common/match";
-import type { GameState, PlayOption, PlayReport, SeasonEvent } from "../../common/api";
+import type { GameState, PlayOption, PlayReport } from "../../common/api";
 import { updateLeagueSummary } from "../db/globalDb";
 import { seasonDate } from "../schedule/calendar";
-import { resetForPreseason, squadPlay } from "../season/squads";
+import {
+  endOfSeasonTurnover,
+  type LoopWorld,
+  type NewTransaction,
+  seasonAwards,
+  summerTransition,
+} from "../season/offseason";
+import { runDays } from "../season/runner";
 import {
   applyMoves,
   createSeason,
   type LastFinish,
   leagueTableOf,
-  nextMatchDate,
-  playDate,
   restoreSeason,
   seasonMetaOf,
   seasonOutcome,
@@ -48,18 +53,6 @@ const meta = <T>(session: LeagueSession, key: string): T => {
   return row;
 };
 
-/** Dated events of a season (SPEC §3.1) besides matches: windows and the winter update. */
-export function seasonEvents(season: number, config = competitionsConfig): SeasonEvent[] {
-  const events: SeasonEvent[] = [];
-  for (const w of config.windows) {
-    events.push({ date: seasonDate(season, w.opens), kind: "windowOpens", window: w.id });
-    events.push({ date: seasonDate(season, w.closes), kind: "windowCloses", window: w.id });
-  }
-  const winter = config.keyDates.winterDevelopmentUpdate;
-  if (winter) events.push({ date: seasonDate(season, winter), kind: "winterUpdate" });
-  return events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-}
-
 /** The window open on `date` (opening day included, the day after deadline day not). */
 export function openWindow(date: string, season: number, config = competitionsConfig) {
   for (const w of config.windows) {
@@ -68,6 +61,34 @@ export function openWindow(date: string, season: number, config = competitionsCo
     if (date >= opens && date < closes) return { id: w.id, closes };
   }
   return null;
+}
+
+/** The save's clubs and players as the in-memory season code works on them (cache objects). */
+function loopWorld(session: LeagueSession, season: number): LoopWorld {
+  const game = meta<GameMeta>(session, "game");
+  const ids = { ...meta<IdCounters>(session, "ids") };
+  const reputation = new Map<number, number>();
+  for (const row of session.cache.getAll("clubSeasons")) {
+    if (row.season === season) reputation.set(row.cid, row.reputation);
+  }
+  return {
+    clubs: session.cache.getAll("clubs"),
+    players: session.cache.getAll("players"),
+    reputation,
+    userCid: game.userCid,
+    seed: game.seed,
+    nextPid: () => {
+      const pid = ids.pid++;
+      session.cache.put("meta", { ...meta<IdCounters>(session, "ids"), pid: ids.pid }, "ids");
+      return pid;
+    },
+  };
+}
+
+function saveTransactions(session: LeagueSession, rows: readonly NewTransaction[]): void {
+  const ids = { ...meta<IdCounters>(session, "ids") };
+  for (const row of rows) session.cache.put("transactions", { xid: ids.xid++, ...row });
+  session.cache.put("meta", ids, "ids");
 }
 
 function loadSeason(session: LeagueSession): SeasonState {
@@ -213,73 +234,69 @@ function updateClubSeasons(session: LeagueSession, state: SeasonState, final: bo
   }
 }
 
+/** End of the season's matches: final tables and the season's awards (SPEC §10.5). */
+function finishSeason(session: LeagueSession, state: SeasonState): void {
+  const outcome = seasonOutcome(state);
+  const lines = session.cache
+    .getAll("playerStats")
+    .filter((r) => r.season === state.season)
+    .map((r) => ({
+      pid: r.pid,
+      cid: r.cid,
+      competition: r.competition,
+      appearances: r.appearances,
+      minutes: r.minutes,
+      goals: r.goals,
+      assists: r.assists,
+      ratingTotal: r.ratingTotal,
+    }));
+  const awards = seasonAwards(
+    state,
+    outcome,
+    session.cache.getAll("clubs"),
+    session.cache.getAll("players"),
+    lines,
+  );
+  const ids = { ...meta<IdCounters>(session, "ids") };
+  for (const award of awards) session.cache.put("awards", { aid: ids.aid++, ...award });
+  session.cache.put("meta", ids, "ids");
+}
+
 /**
- * Processes days after the game date, in order, until `stop` says so, `limit` is
- * reached or the season's matches are over. Returns what happened.
+ * Processes days after the game date (src/worker/season/runner.ts) until `stop` says
+ * so, `limit` is reached or the season's matches are over, and saves the results.
  */
 function processDays(
   session: LeagueSession,
   limit: string | null,
-  stop: (day: { date: string; fixtures: Fixture[] }) => boolean,
+  stop: (day: string, fixtures: Fixture[]) => boolean,
 ): PlayReport {
   const game = { ...meta<GameMeta>(session, "game") };
   const state = loadSeason(session);
   const stored = meta<SeasonMeta>(session, "season");
-  const clubs = session.cache.getAll("clubs");
-  // The cached player objects: the squad AI updates condition and injuries in place.
-  const players = session.cache.getAll("players");
-  const squads = squadPlay(state, clubs, players);
-  const engine = squads.play;
-  const events = seasonEvents(game.season);
-  const report: PlayReport = {
-    from: game.date,
-    to: game.date,
-    matchesPlayed: 0,
-    events: [],
-    phase: game.phase,
-  };
-  const results = new Map<number, MatchResult>();
-  const play: Parameters<typeof playDate>[2] = (fixture, setup) => {
-    const result = engine(fixture, setup);
-    results.set(fixture.fid, result);
-    return result;
-  };
+  const world = loopWorld(session, game.season);
+  const from = game.date;
+  const days = runDays(world, state, from, { limit, stop });
 
-  for (;;) {
-    const nextMatch = nextMatchDate(state);
-    const nextEvent = events.find((e) => e.date > game.date)?.date ?? null;
-    const candidates = [nextMatch, nextEvent].filter((d): d is string => d !== null);
-    if (nextMatch === null) break; // the season's matches are over
-    const day = candidates.reduce((a, b) => (a < b ? a : b));
-    if (limit !== null && day > limit) break;
-
-    report.events.push(...events.filter((e) => e.date === day));
-    squads.train(game.date, day);
-    const before = state.fixtures.length;
-    const played = playDate(state, day, play);
-    for (const fixture of played)
-      recordMatch(session, fixture, results.get(fixture.fid) as MatchResult);
-    for (const fixture of state.fixtures.slice(before)) session.cache.put("fixtures", fixture);
-    if (played.length > 0 && game.phase === "preseason") game.phase = "regularSeason";
-    report.matchesPlayed += played.length;
-    game.date = day;
-    if (stop({ date: day, fixtures: played })) break;
-  }
-
-  if (nextMatchDate(state) === null) {
+  for (const { fixture, result } of days.played) recordMatch(session, fixture, result);
+  for (const fixture of days.created) session.cache.put("fixtures", fixture);
+  for (const p of world.players) if (days.changed.has(p.pid)) session.cache.put("players", p);
+  if (days.played.length > 0 && game.phase === "preseason") game.phase = "regularSeason";
+  game.date = days.date;
+  if (days.ended && game.phase !== "endOfSeason") {
     game.phase = "endOfSeason";
-  } else if (limit !== null && limit > game.date) {
-    report.events.push(...events.filter((e) => e.date > game.date && e.date <= limit));
-    squads.train(game.date, limit);
-    game.date = limit;
+    finishSeason(session, state);
   }
-  for (const p of players) if (squads.changed.has(p.pid)) session.cache.put("players", p);
   updateClubSeasons(session, state, game.phase === "endOfSeason");
   saveSeason(session, state, stored.movesApplied);
   session.cache.put("meta", game, "game");
-  report.to = game.date;
-  report.phase = game.phase;
-  return report;
+  return {
+    from,
+    to: game.date,
+    matchesPlayed: days.played.length,
+    events: days.events,
+    phase: game.phase,
+  };
 }
 
 /** 1 June: promotion and relegation (SPEC §3.1). */
@@ -296,6 +313,11 @@ function proceedToPromotionRelegation(session: LeagueSession): PlayReport {
     competitionsConfig.keyDates.endOfSeasonProcessing ?? "06-01",
   );
   if (processing > game.date) game.date = processing;
+  // Retirements and departures (SPEC §5.5).
+  const world = loopWorld(session, game.season);
+  const turnover = endOfSeasonTurnover(world, game.season, game.date);
+  for (const p of world.players) if (turnover.changed.has(p.pid)) session.cache.put("players", p);
+  saveTransactions(session, turnover.transactions);
   session.cache.put("meta", game, "game");
   saveSeason(session, state, true);
   return { from, to: game.date, matchesPlayed: 0, events: [], phase: game.phase };
@@ -325,6 +347,50 @@ export async function pruneMatchRecords(
   return deleted;
 }
 
+/** Peak OVR below this, no award and no notable spell at the user's club: pruned (SPEC §12). */
+const PRUNE = { afterSeasons: 3, peakOvrBelow: 74, userClubAppearances: 50 };
+
+/**
+ * Deletes long-retired players nobody will look up, with their stat rows (SPEC §12):
+ * retired at least 3 seasons ago, peak OVR under 74, no award, fewer than 50
+ * appearances for the user's club. Transactions and awards keep their name snapshots.
+ */
+export async function pruneRetiredPlayers(session: LeagueSession, season: number): Promise<number> {
+  const { cache, db } = session;
+  const userCid = meta<GameMeta>(session, "game").userCid;
+  const candidates = cache
+    .getAll("players")
+    .filter(
+      (p) =>
+        p.status === "retired" &&
+        p.retiredSeason !== null &&
+        p.retiredSeason <= season - PRUNE.afterSeasons &&
+        Math.max(...p.ratingsHistory.map((r) => r.ovr)) < PRUNE.peakOvrBelow,
+    );
+  if (candidates.length === 0) return 0;
+  const awarded = new Set((await db.getAll("awards")).map((a) => a.pid));
+  const pruned: number[] = [];
+  for (const p of candidates) {
+    if (awarded.has(p.pid)) continue;
+    const stats = await db.getAllFromIndex("playerStats", "pid", p.pid);
+    const forUser = stats.filter((r) => r.cid === userCid).reduce((n, r) => n + r.appearances, 0);
+    if (forUser >= PRUNE.userClubAppearances) continue;
+    pruned.push(p.pid);
+  }
+  for (const pid of pruned) cache.delete("players", pid);
+  await cache.flush();
+  const tx = db.transaction("playerStats", "readwrite");
+  for (const pid of pruned) {
+    let cursor = await tx.store.index("pid").openCursor(pid);
+    while (cursor) {
+      await cursor.delete();
+      cursor = await cursor.continue();
+    }
+  }
+  await tx.done;
+  return pruned.length;
+}
+
 /** 1 July: a new season starts (SPEC §3.1). */
 async function advanceToPreseason(session: LeagueSession): Promise<PlayReport> {
   const { cache, db } = session;
@@ -332,6 +398,14 @@ async function advanceToPreseason(session: LeagueSession): Promise<PlayReport> {
   const from = game.date;
   const old = game.season;
   const season = old + 1;
+
+  // 1 July: summer development for the season just played, then youth intake, academy
+  // decisions and the squad top-up (src/worker/season/offseason.ts).
+  const world = loopWorld(session, old);
+  const turnover = summerTransition(world, loadSeason(session));
+  for (const p of world.players) if (turnover.changed.has(p.pid)) cache.put("players", p);
+  for (const p of turnover.added) cache.put("players", p);
+  saveTransactions(session, turnover.transactions);
 
   for (const club of cache.getAll("clubs")) {
     const last = cache.get("clubSeasons", [club.cid, old]);
@@ -359,10 +433,6 @@ async function advanceToPreseason(session: LeagueSession): Promise<PlayReport> {
   game.season = season;
   game.phase = "preseason";
   game.date = `${season}-07-01`;
-  // Preseason: everyone back to full condition (SPEC §3.1); long injuries carry on.
-  for (const p of cache.getAll("players")) {
-    if (resetForPreseason(p, game.date)) cache.put("players", p);
-  }
   cache.put("meta", game, "game");
   cache.delete("meta", "season");
   ensureSeason(session);
@@ -372,8 +442,11 @@ async function advanceToPreseason(session: LeagueSession): Promise<PlayReport> {
   cache.evict("fixtures", (f) => f.season < season);
   cache.evict("matches", (m) => m.season < season);
   cache.evict("playerStats", (r) => r.season < season);
+  cache.evict("awards", (r) => r.season < season);
+  cache.evict("transactions", (r) => r.season < season);
 
   await pruneMatchRecords(db, season, game.userCid);
+  await pruneRetiredPlayers(session, season);
   return { from, to: game.date, matchesPlayed: 0, events: [], phase: game.phase };
 }
 
@@ -398,8 +471,8 @@ async function runPlay(session: LeagueSession, option: PlayOption): Promise<Play
   let report: PlayReport;
   switch (option) {
     case "untilNextMatch":
-      report = processDays(session, null, (day) =>
-        day.fixtures.some((f) => f.homeCid === userCid || f.awayCid === userCid),
+      report = processDays(session, null, (_day, fixtures) =>
+        fixtures.some((f) => f.homeCid === userCid || f.awayCid === userCid),
       );
       break;
     case "oneWeek":

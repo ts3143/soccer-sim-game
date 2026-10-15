@@ -21,8 +21,8 @@ export interface LeagueSession {
 
 /**
  * Stores loaded into memory when a league is opened. The season-scoped ones (fixtures,
- * match records, player stats) load the current season only; past seasons are read
- * from IndexedDB when needed (SPEC §12).
+ * match records, player stats, transactions, awards) load the current season only;
+ * past seasons are read from IndexedDB when needed (SPEC §12).
  */
 const CACHED_STORES = [
   "meta",
@@ -33,8 +33,10 @@ const CACHED_STORES = [
   "fixtures",
   "matches",
   "playerStats",
+  "transactions",
+  "awards",
 ] as const;
-const SEASON_SCOPED = ["fixtures", "matches", "playerStats"] as const;
+const SEASON_SCOPED = ["fixtures", "matches", "playerStats", "transactions", "awards"] as const;
 
 async function openCache(db: IDBPDatabase<LeagueDBSchema>): Promise<Cache<LeagueDBSchema>> {
   const game = (await db.get("meta", "game")) as GameMeta | undefined;
