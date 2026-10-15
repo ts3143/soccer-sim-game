@@ -123,7 +123,10 @@ for (let s = 0; s < SEASONS; s++) {
   const goalsBy = new Map<string, Map<number, [number, number]>>();
   let injuredSamples = 0;
   let injuredTotal = 0;
+  let previous = `${season}-07-01`;
   for (let date = nextMatchDate(state); date !== null; date = nextMatchDate(state)) {
+    squads.train(previous, date);
+    previous = date;
     playDate(state, date, play);
     for (const club of clubs) {
       injuredTotal += players.filter(
@@ -247,7 +250,8 @@ for (let s = 0; s < SEASONS; s++) {
   const metrics = {
     topClubStarterMinutesShare: shares.reduce((a, b) => a + b, 0) / shares.length,
     injuredPerSquadAtOnce: injuredTotal / Math.max(1, injuredSamples),
-    injuriesPerTeamMatch: lengths.length / (2 * state.fixtures.length),
+    injuriesPerTeamMatch: (lengths.length - squads.trainingCount()) / (2 * state.fixtures.length),
+    trainingInjuryShare: squads.trainingCount() / Math.max(1, lengths.length),
     injuryUnderOneWeek: share((d) => d < 7),
     injuryOneToThreeWeeks: share((d) => d >= 7 && d <= 21),
     injuryFourWeeksPlus: share((d) => d >= 28),

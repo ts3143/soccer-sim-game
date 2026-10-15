@@ -38,6 +38,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-14 | M2 chunk 2 | No Auto option. Simulated matches: the AI makes in-game changes for every club, the user's included, and picks his club's pre-match tactics too (confirmed by T). Watched matches: the user makes his club's in-game changes and sets its pre-match tactics. | The spec didn't say what happens to the user's club in simulated matches; T decided the AI handles them and the user manages the matches he watches. | SPEC §8.3, §8.5, §9, §11; MILESTONES M6 |
 | 2026-10-14 | M2 chunk 4 | The parity target (top-6 losing to bottom-6, 13–22%) moves from the M2 gate to M3, with the other season targets. M2 reports it (ENG1 11.6%). | M2's harness plays full-strength XIs every match with no rotation, fatigue or injury lists; those cause many real upsets and arrive in M3. Tuning parity harder in M2 pushed the ENG1 champion below 82 points. | MILESTONES M2, M3; `tools/calibrate` |
 | 2026-10-14 | M3 plan | League tie-breakers defined: points, goal difference, goals scored, head-to-head points, head-to-head goal difference, seeded draw; each league sets its own order in config. Awards are worked out and saved at season end in M3 (pages in M5). Until M4, contracts roll over and AI clubs top up to 22 seniors each preseason from their academy, then from free agents. Promoted-club survival and the finance checks of the 20-season run are gated in M4. M3 adds a developer-only Season lab page. | The spec named tie-breakers without defining them, and no milestone owned awards. Without contracts and transfers (M4), a 20-season run would empty squads. Promoted clubs can't strengthen without transfers. | SPEC §2.1; `competitions_mvp.json` → `tieBreakers`; MILESTONES M3 |
+| 2026-10-15 | M3 chunk 4 | Injuries also happen in training between matches, with the same risk formula once per day (that day's condition, Medical dial, Injury Prone). | With in-match injuries only, squads averaged ~1.9 injured at once against a target of 2–4.5. Raising the in-match rate would have meant unrealistic numbers of injury substitutions; in real football about half of injuries happen in training. | SPEC §8.4; MILESTONES M3 |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -257,8 +258,15 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - ENG1 champion 83 and 89 ✓, bottom 26 and 28 ✓, top scorer 33 and 29 ✓, top assists 18 and 23.
 Tuning is chunks 7–8.
 
+**Training injuries** (T, 2026-10-15, option B): `trainingInjuries` makes one draw per fit player per day, from 1 July to the last match, with the engine's injury-risk factors and length distribution. Each day has its own random stream, so the result never depends on how days are grouped into Play actions (tested). With a base of 0.0017 per player per day, 4 seasons give:
+- injured per squad at once 2.7 ✓ (was 1.9);
+- 40% of injuries in training;
+- injury lengths unchanged;
+- ENG1 champion 78.8 (lower, for tuning).
+Season sim time rose by about 0.5 s per season in Node.
+
 **Judgment calls (chunk 4)**
-- Injuries happen in matches only, as in ZenGM. To reach ~3 injured per squad, either the in-match rate goes up or between-match (training) injuries are added. Question for T at the chunk 4 check-in.
+- Injuries happened in matches only (ZenGM-like) at first. To reach ~3 injured per squad, T chose to add training injuries (2026-10-15; see Deviations).
 - When fewer than 16 seniors are fit, academy players fill the matchday squad up to 20, not just up to 16.
 - The squad AI keeps the club's saved formation; formation changes by the AI are not in the MVP spec.
 

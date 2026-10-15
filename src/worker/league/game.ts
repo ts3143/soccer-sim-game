@@ -254,6 +254,7 @@ function processDays(
     if (limit !== null && day > limit) break;
 
     report.events.push(...events.filter((e) => e.date === day));
+    squads.train(game.date, day);
     const before = state.fixtures.length;
     const played = playDate(state, day, play);
     for (const fixture of played)
@@ -269,6 +270,7 @@ function processDays(
     game.phase = "endOfSeason";
   } else if (limit !== null && limit > game.date) {
     report.events.push(...events.filter((e) => e.date > game.date && e.date <= limit));
+    squads.train(game.date, limit);
     game.date = limit;
   }
   for (const p of players) if (squads.changed.has(p.pid)) session.cache.put("players", p);

@@ -64,7 +64,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 **Build**
 - Calendar and fixture generation (weekend/midweek slots, ENG2 midweek rounds, GER1 winter break), standings, tie-breakers (per league, from config).
 - Cups (draws, byes, ET/pens; in season 1 the German cup preliminary round uses the 4 lowest-`strength` clubs), Championship play-offs (6 clubs: midweek eliminators after the final round, two-legged semis over a weekend + midweek, final around 23–25 May), promotion/relegation.
-- Condition, recovery by days elapsed, injuries tied to condition and Medical dial.
+- Condition, recovery by days elapsed, injuries tied to condition and Medical dial, in matches and in training (T, 2026-10-15).
 - Rotation/lineup AI with mid-term view; if fewer than 16 seniors are fit, academy players aged 16+ fill the bench.
 - Development updates (summer, winter), using the development core built in M1: dev multiplier on growth only, blending to neutral between 23 and 27; decline = age × Medical dial; small mental minutes bonus at any age. Aging, ceiling decay, retirement, youth intake, academy promotion/release, pruning (a pruned player's stat rows go with him).
 - Phase machine and dated events; Play-menu actions as worker functions.

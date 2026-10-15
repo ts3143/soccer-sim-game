@@ -11,6 +11,7 @@ import {
   matchImportance,
   pickMatchday,
   resetForPreseason,
+  trainingInjuries,
 } from "./squads";
 
 const world = generateWorld({
@@ -75,6 +76,47 @@ describe("condition", () => {
     p.injury = { type: "Serious injury", until: "2027-09-01" };
     resetForPreseason(p, "2027-07-01");
     expect(p.injury?.until).toBe("2027-09-01"); // long injuries carry on
+  });
+});
+
+describe("training injuries", () => {
+  const from = "2026-07-01";
+  const run = (to: string, start = from, players = structuredClone(world.players)) => ({
+    players,
+    injured: trainingInjuries(world.clubs, players, start, to, "squads-test"),
+  });
+
+  it("gives the same injuries however the days are grouped", () => {
+    const whole = run("2026-09-30");
+    const split = structuredClone(world.players);
+    const first = run("2026-08-10", from, split).injured;
+    const second = run("2026-09-30", "2026-08-10", split).injured;
+    expect([...first, ...second]).toEqual(whole.injured);
+    expect(whole.injured.length).toBeGreaterThan(50); // ~60 clubs over three months
+    for (const i of whole.injured) {
+      const p = whole.players.find((x) => x.pid === i.pid) as Player;
+      expect((p.injury?.until ?? "") > i.date).toBe(true);
+    }
+  });
+
+  it("hurts tired and injury-prone players more, and fewer with a high Medical dial", () => {
+    const count = (edit: (p: Player) => void, medical = 50) => {
+      const players = structuredClone(world.players).map((p) => {
+        edit(p);
+        return p;
+      });
+      const clubs = world.clubs.map((c) => ({ ...c, budget: { ...c.budget, medical } }));
+      return trainingInjuries(clubs, players, from, "2027-06-30", "squads-test").length;
+    };
+    const normal = count((p) => (p.hidden.injuryProne = false));
+    expect(count((p) => (p.hidden.injuryProne = true))).toBeGreaterThan(normal * 1.5);
+    expect(count((p) => (p.hidden.injuryProne = false), 100)).toBeLessThan(normal);
+    const tiredEveryDay = count((p) => {
+      p.hidden.injuryProne = false;
+      p.condition = 60;
+      p.conditionDate = "2027-06-30"; // never recovers inside the window
+    });
+    expect(tiredEveryDay).toBeGreaterThan(normal * 1.5);
   });
 });
 

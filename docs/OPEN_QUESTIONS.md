@@ -44,6 +44,7 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 2 | Which 20-season world checks M3 gates | Player count, distinct champions, parity, season and development targets. Promoted-club survival and the finance checks move to M4. |
 | 3 | League tie-breakers | Points, goal difference, goals scored, head-to-head points, head-to-head goal difference, seeded draw. Set per league in config so each league can change them. |
 | 4 | Awards (in the spec, in no milestone) | Worked out and saved at season end in M3; pages in M5. |
+| 5 | Injuries only in matches (ZenGM) or also in training? (asked Oct 15) | Also in training: same risk formula per day, tied to condition, the Medical dial and Injury Prone. |
 
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.

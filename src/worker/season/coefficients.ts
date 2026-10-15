@@ -17,6 +17,11 @@ export const SQUAD_COEFFICIENTS = {
     perYearOlder: 0.03,
     ageFloor: 0.75,
   },
+  /**
+   * Training injuries (SPEC §8.4, T 2026-10-15): risk per player per day at full condition,
+   * scaled like in-match risk (tiredness, Injury Prone, Medical dial; engine coefficients).
+   */
+  training: { perDay: 0.0017 },
   /** Matchday squad selection (SPEC §9): slot OVR minus these penalties. */
   selection: {
     /** OVR points off per point of condition below 100, in a match of importance 1. */

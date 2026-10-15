@@ -22,8 +22,11 @@ import { RATING_INDEX, type Position } from "../../common/config/ratings";
 import type { PlayerMatchStats } from "../../common/match";
 import type { Club, Fixture, Player } from "../../common/schema";
 import { maximizeAssignment } from "../core/assignment";
+import { Random } from "../core/random";
 import { slotOvr } from "../core/ovr";
 import { aiSliders } from "../engine/aiTactics";
+import { COEFFICIENTS, type Coefficients } from "../engine/coefficients";
+import { drawInjuryDays } from "../engine/manager";
 import { simulateMatch } from "../engine/match";
 import { enginePlayer } from "../engine/prepare";
 import type { EngineTeamInput } from "../engine/types";
@@ -100,6 +103,56 @@ export function resetForPreseason(p: Player, date: string): boolean {
     return true;
   }
   return changed;
+}
+
+// ---------------------------------------------------------------------------
+// Training injuries
+
+export interface Injured {
+  pid: number;
+  date: string;
+  days: number;
+}
+
+/**
+ * Training injuries on each day in (from, to] (SPEC §8.4): one draw per fit player per
+ * day, in player-ID order, from that day's own random stream. So the result for a day
+ * never depends on how the days were grouped into Play actions.
+ */
+export function trainingInjuries(
+  clubs: readonly Club[],
+  players: readonly Player[],
+  from: string,
+  to: string,
+  seed: string,
+  c: SquadCoefficients = SQUAD_COEFFICIENTS,
+  e: Coefficients = COEFFICIENTS,
+): Injured[] {
+  const medical = new Map(clubs.map((club) => [club.cid, club.budget.medical]));
+  const squad = players
+    .filter((p) => p.cid !== null && (p.status === "club" || p.status === "academy"))
+    .sort((a, b) => a.pid - b.pid);
+  const out: Injured[] = [];
+  for (let day = addDays(from, 1); day <= to; day = addDays(day, 1)) {
+    const rng = Random.fromSeed(`${seed}/training/${day}`);
+    for (const p of squad) {
+      if (isInjured(p, day)) continue;
+      const dial = medical.get(p.cid as number) ?? 50;
+      const energy = currentCondition(p, day, dial, c) / 100;
+      const below = Math.max(0, 0.75 - energy) / 0.25;
+      const risk =
+        c.training.perDay *
+        (1 + e.injuries.tired * (1 - energy)) *
+        (1 + e.injuries.sharp * below) *
+        (p.hidden.injuryProne ? e.injuries.injuryProne : 1) *
+        (e.injuries.medicalBase - (e.injuries.medicalSpan * dial) / 100);
+      if (!rng.bool(risk)) continue;
+      const days = drawInjuryDays(rng);
+      p.injury = { type: injuryType(days), until: addDays(day, days) };
+      out.push({ pid: p.pid, date: day, days });
+    }
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -260,10 +313,14 @@ export function pickMatchday(
 
 export interface SquadPlay {
   play: PlayFixture;
+  /** Training injuries for the days in (from, to] (call before each matchday). */
+  train: (from: string, to: string) => Injured[];
   /** Players whose condition or injury changed (to save). */
   changed: Set<number>;
-  /** Injury lengths (days) of every injury in the matches played. */
+  /** Injury lengths (days) of every injury so far, in matches and in training. */
   injuries: number[];
+  /** How many of those were training injuries. */
+  trainingCount: () => number;
 }
 
 /**
@@ -345,5 +402,15 @@ export function squadPlay(
     }
     return result;
   };
-  return { play, changed, injuries };
+  let training = 0;
+  const train = (from: string, to: string): Injured[] => {
+    const injured = trainingInjuries(clubs, players, from, to, state.seed, c);
+    for (const i of injured) {
+      changed.add(i.pid);
+      injuries.push(i.days);
+    }
+    training += injured.length;
+    return injured;
+  };
+  return { play, train, changed, injuries, trainingCount: () => training };
 }

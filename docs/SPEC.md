@@ -279,6 +279,7 @@ Computed from the starting XI by slot (config: `formations_tactics.json`): Passi
   ```
   injury_risk = base × (1 + k × (1 − condition)) × injuryProne × medicalFactor
   ```
+- Injuries happen **in matches and in training** between matches (T, 2026-10-15). Training injuries use the same formula once per day, with that day's condition, from 1 July to the season's last match. The training rate is tuned so squads average about 3 injured players at once.
 - No match sharpness.
 - Energy is match-only and never saved; condition is saved.
 
