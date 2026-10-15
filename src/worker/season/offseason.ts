@@ -2,7 +2,7 @@
  * Player development and squad turnover over a season (SPEC §5, §7.1, §7.2, §10.5):
  * - development updates on 1 January and 1 July, from the half-season just played;
  * - ceiling decay for 19–23-year-olds who hardly played;
- * - retirements and free agents leaving the game (end of season);
+ * - retirements (end of season) and free agents unsigned for a year moving on (1 July);
  * - youth intake, academy promotion or release, and the temporary squad top-up until
  *   M4's contracts and transfers (preseason);
  * - end-of-season awards.
@@ -15,8 +15,7 @@ import { addDays, exactAge } from "../../common/dates";
 import { clubDefinitions } from "../../common/config/clubs";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
 import { formationById } from "../../common/config/formations";
-import { nationalitiesConfig } from "../../common/config/nationalities";
-import { ratingsConfig, type Position, type Side } from "../../common/config/ratings";
+import type { Position } from "../../common/config/ratings";
 import type { AwardRow, Club, Player, TransactionRow } from "../../common/schema";
 import { coachingFactor, developHalfSeason, medicalFactor, youthFactor } from "../core/development";
 import { bestXi } from "../core/lineup";
@@ -24,9 +23,7 @@ import { bestPosition, positionOvrs, secondaryPositions } from "../core/ovr";
 import { estimatePotential, type PotentialClubContext } from "../core/potential";
 import { Random } from "../core/random";
 import { roundWage, WAGE_STEEPNESS, wageAgeFactor } from "../generate/contracts";
-import { sampleYouthNationality } from "../generate/identity";
-import { generatePlayer } from "../generate/player";
-import { ACADEMY_POSITIONS } from "../generate/squad";
+import { generateAcademyPlayer } from "../generate/youth";
 import { FREE_AGENT_CONTEXT } from "../generate/world";
 import { playoffId, type SeasonOutcome, type SeasonState } from "./season";
 import { resetForPreseason } from "./squads";
@@ -62,16 +59,9 @@ export const TURNOVER = {
   },
   /** Free agents this young unsigned for 12 months leave the game (SPEC default B8). */
   youngFreeAgentMaxAge: 23,
-  youth: {
-    min: 3,
-    max: 6,
-    /** Quality = base + perReputation × reputation + perYear × (age − 16) + perYouthDial × (dial − 50). */
-    base: 28,
-    perReputation: 0.22,
-    perYear: 4.5,
-    perYouthDial: 0.06,
-    sd: 5,
-  },
+  /** Youths per club per summer (quality: src/worker/generate/youth.ts). */
+  youth: { min: 3, max: 6 },
+
   academy: {
     /** From this age on 1 July an academy player is promoted or released (by 19, SPEC §7.2). */
     decideFromAge: 18,
@@ -317,45 +307,62 @@ export function developmentUpdate(
 export function endOfSeasonTurnover(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
   const r = TURNOVER.retirement;
+  for (const p of world.players) {
+    if (p.status === "retired" || p.status === "academy") continue;
+    const age = exactAge(p.birthDate, date);
+    const effectiveAge = p.position === "GK" ? age - r.gkShift : age;
+    let chance = interpolate(r.byAge, effectiveAge);
+    for (const [below, factor] of r.lowOvr) {
+      if (p.ovr < below) {
+        chance *= factor;
+        break;
+      }
+    }
+    if (p.status === "freeAgent") chance *= r.freeAgent;
+    if (!Random.fromSeed(`${world.seed}/retire/${season}/${p.pid}`).bool(Math.min(1, chance)))
+      continue;
+    retire(p, season, date, log);
+  }
+  return log;
+}
+
+function retire(p: Player, season: number, date: string, log: TurnoverLog): void {
+  const cid = p.cid;
+  p.status = "retired";
+  p.retiredSeason = season;
+  p.cid = null;
+  p.contract = null;
+  p.loan = null;
+  log.changed.add(p.pid);
+  log.transactions.push({
+    season,
+    date,
+    type: "retirement",
+    pids: [p.pid],
+    cids: cid === null ? [] : [cid],
+    names: [fullName(p)],
+    fee: 0,
+  });
+}
+
+/**
+ * 1 July: free agents unsigned for 12 months move on (SPEC §5.5, default B8): 30 and over
+ * retire, 23 and under leave the game. Logged as retirements.
+ */
+export function freeAgentDepartures(world: LoopWorld, season: number, date: string): TurnoverLog {
+  const log = emptyLog();
   const yearAgo = addDays(date, -365);
   for (const p of world.players) {
-    if (p.status === "retired") continue;
+    if (p.status !== "freeAgent" || p.freeAgentSince === null || p.freeAgentSince > yearAgo)
+      continue;
     const age = exactAge(p.birthDate, date);
-    const free = p.status === "freeAgent";
-    const unsignedYear = free && p.freeAgentSince !== null && p.freeAgentSince <= yearAgo;
-    let retire = false;
-    let leaves = false;
-    if (unsignedYear && age >= r.unsignedRetireFromAge) retire = true;
-    else if (unsignedYear && age <= TURNOVER.youngFreeAgentMaxAge) leaves = true;
-    else if (p.status !== "academy") {
-      const effectiveAge = p.position === "GK" ? age - r.gkShift : age;
-      let chance = interpolate(r.byAge, effectiveAge);
-      for (const [below, factor] of r.lowOvr) {
-        if (p.ovr < below) {
-          chance *= factor;
-          break;
-        }
-      }
-      if (free) chance *= r.freeAgent;
-      retire = Random.fromSeed(`${world.seed}/retire/${season}/${p.pid}`).bool(Math.min(1, chance));
+    // "23 and under" when released: up to a year older now.
+    if (
+      age >= TURNOVER.retirement.unsignedRetireFromAge ||
+      age <= TURNOVER.youngFreeAgentMaxAge + 1
+    ) {
+      retire(p, season - 1, date, log);
     }
-    if (!retire && !leaves) continue;
-    const cid = p.cid;
-    p.status = "retired";
-    p.retiredSeason = season;
-    p.cid = null;
-    p.contract = null;
-    p.loan = null;
-    log.changed.add(p.pid);
-    log.transactions.push({
-      season,
-      date,
-      type: "retirement",
-      pids: [p.pid],
-      cids: cid === null ? [] : [cid],
-      names: [fullName(p)],
-      fee: 0,
-    });
   }
   return log;
 }
@@ -413,33 +420,17 @@ export function youthIntake(world: LoopWorld, season: number, date: string): Tur
       y.min,
       y.max,
     );
-    const leagueMix = nationalitiesConfig.leagueMix[club.leagueId] ?? {};
     for (let i = 0; i < count; i++) {
-      const position = rng.weighted(ACADEMY_POSITIONS, ([, w]) => w)[0];
-      const age = rng.bool(0.5) ? 15 : 16;
-      const side: Side = ratingsConfig.sidedPositions.includes(position)
-        ? rng.choice(["L", "R"] as const)
-        : "C";
-      const quality = clamp(
-        y.base +
-          y.perReputation * reputation +
-          y.perYear * (age - 16) +
-          y.perYouthDial * (dial - 50) +
-          rng.normal(0, y.sd),
-        25,
-        60,
-      );
-      const player = generatePlayer(
+      const player = generateAcademyPlayer(
         rng,
         {
-          position,
-          side,
-          quality,
-          age,
-          nationality: sampleYouthNationality(rng, club.country, reputation, leagueMix),
-          status: "academy",
           cid: club.cid,
+          country: club.country,
+          leagueId: club.leagueId,
+          reputation,
+          youthDial: dial,
         },
+        rng.bool(0.5) ? 15 : 16,
         world.nextPid(),
         season,
         date,
@@ -608,11 +599,11 @@ export function topUpSquads(world: LoopWorld, season: number, date: string): Tur
   return log;
 }
 
-/** Every preseason step in order: contracts, youth intake, academy, top-up. */
+/** Every preseason step in order: contracts, free agents leaving, youth intake, academy, top-up. */
 export function preseasonTurnover(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
   for (const pid of rollOverContracts(world, season)) log.changed.add(pid);
-  for (const step of [youthIntake, academyDecisions, topUpSquads]) {
+  for (const step of [freeAgentDepartures, youthIntake, academyDecisions, topUpSquads]) {
     const part = step(world, season, date);
     for (const pid of part.changed) log.changed.add(pid);
     log.added.push(...part.added);

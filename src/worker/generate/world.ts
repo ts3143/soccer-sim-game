@@ -11,7 +11,7 @@ import type { Club, ClubSeason, CompetitionRow, MetaRows, Player } from "../../c
 import { estimatePotential, type PotentialClubContext } from "../core/potential";
 import { Random } from "../core/random";
 import { assignContracts } from "./contracts";
-import { generateFreeAgents } from "./freeAgents";
+import { generateFreeAgents, generateReleasedYouth } from "./freeAgents";
 import { generateSquad } from "./squad";
 
 /** Bump when generation changes in a way that makes old saves inconsistent. */
@@ -189,6 +189,7 @@ export function generateWorld(options: WorldOptions): World {
   });
 
   players.push(...generateFreeAgents(root.fork("freeAgents"), season, seasonStart, nextPid));
+  players.push(...generateReleasedYouth(root.fork("releasedYouth"), season, seasonStart, nextPid));
 
   for (const player of players) {
     const ratings = player.ratingsHistory[0]?.ratings ?? [];

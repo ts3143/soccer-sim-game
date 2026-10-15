@@ -35,6 +35,8 @@ export interface SeasonReport {
   days: DaysResult;
   metrics: SeasonMetrics;
   clubs: Club[];
+  /** Every player, as of 1 July after the season (development and turnover applied). */
+  players: Player[];
 }
 
 /** A whole run: per-season numbers plus the long-run checks. Plain data (sent as JSON). */
@@ -258,7 +260,7 @@ export function simulateWorld(
     });
     run.seasons.push(metrics);
     run.activeAfter.push(active());
-    onSeason?.({ index: s, state, outcome, days, metrics, clubs });
+    onSeason?.({ index: s, state, outcome, days, metrics, clubs, players });
     lastFinish = finishesOf(outcome);
   }
 

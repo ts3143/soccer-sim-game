@@ -45,6 +45,7 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 3 | League tie-breakers | Points, goal difference, goals scored, head-to-head points, head-to-head goal difference, seeded draw. Set per league in config so each league can change them. |
 | 4 | Awards (in the spec, in no milestone) | Worked out and saved at season end in M3; pages in M5. |
 | 5 | Injuries only in matches (ZenGM) or also in training? (asked Oct 15) | Also in training: same risk formula per day, tied to condition, the Medical dial and Injury Prone. |
+| 6 | Player count rose ~35% before settling: the opening world was smaller than the youth flow settles at (asked Oct 15) | B: start the world in its settled shape. 9–12 academy players per club (aged 15–17) and ~190 just-released 18-year-olds in the free-agent pool; the ±10% stability check stays as written. |
 
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.

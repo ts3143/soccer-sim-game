@@ -25,7 +25,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 - Name files per nationality in `data/names/` from public-domain or permissively licensed sources; document sources in `data/names/SOURCES.md`.
 - Player generator: bio, 22 ratings by archetype, height/weight, preferred foot, all 10 position OVRs, hidden ceiling, curve type, hidden traits, mood traits.
 - Fit the fixed per-position OVR scaling constants once and store them in `ratings_positions.json` → `ovrScaling`.
-- Squad generator: 22–24 senior + 4–6 academy per club. Each club gets a seeded default formation from the 5 MVP presets; its squad is built around it and saved as its starting tactics; tuned so the best-XI OVR in that formation hits `strength` (±1). Contracts and wages so each club starts at ~50–65% squad cost ratio.
+- Squad generator: 22–24 senior + 9–12 academy per club (T, 2026-10-15; was 4–6). Each club gets a seeded default formation from the 5 MVP presets; its squad is built around it and saved as its starting tactics; tuned so the best-XI OVR in that formation hits `strength` (±1). Contracts and wages so each club starts at ~50–65% squad cost ratio.
 - Seeded free-agent pool.
 - Development core (pure functions): age curves per rating group and curve type, the dev multiplier, growth/decline per SPEC §5.3. Pulled forward from M3 because POT depends on it; M3 wires it into the season and calibrates it.
 - POT via cheap simulated arcs (provisional until M3 calibration).
@@ -33,7 +33,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 - Generation inspector page (developer-only, replaced in M5) and `pnpm generate --check`, a headless report of the acceptance checks that CI also runs.
 
 **Accept**
-- New league: 62 clubs, ~1,800 club players including academies (22–24 senior + 4–6 academy per club, i.e. 1,612–1,860), free agents on top; plausible OVR distribution (few 75+, many 50–65).
+- New league: 62 clubs, ~2,100 club players including academies (22–24 senior + 9–12 academy per club, i.e. 1,922–2,232; T, 2026-10-15), free agents on top; plausible OVR distribution (few 75+, many 50–65).
 - Every club's best-XI OVR in its default formation within ±1 of `strength`; hierarchy matches club data.
 - OVR is a pure function of ratings + config (scaling constants stored, never recomputed per save).
 - `based_on` is absent from the production bundle and from saved data (automated check).

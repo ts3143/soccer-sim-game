@@ -11,8 +11,9 @@ import { ratingsConfig, type Position, type Side } from "../../common/config/rat
 import type { Player } from "../../common/schema";
 import { bestXi, type XiPick } from "../core/lineup";
 import type { Random } from "../core/random";
-import { sampleNationality, sampleYouthNationality } from "./identity";
+import { sampleNationality } from "./identity";
 import { generatePlayer, setRatings, type PlayerSpec } from "./player";
+import { generateAcademyPlayer } from "./youth";
 
 /** The best XI must land within this of `strength` (acceptance is ±1; aim tighter). */
 export const STRENGTH_TOLERANCE = 0.45;
@@ -32,17 +33,16 @@ const ADJACENT: Record<Position, Position[]> = {
 };
 const ADJACENT_BACKUP_CHANCE = 0.15;
 
-/** Academy positions (weights). */
-export const ACADEMY_POSITIONS: [Position, number][] = [
-  ["GK", 10], ["CB", 18], ["FB", 12], ["WB", 4], ["DM", 8],
-  ["CM", 14], ["WM", 6], ["AM", 8], ["W", 10], ["ST", 10],
-]; // prettier-ignore
-const ACADEMY_AGES: [number, number][] = [
-  [15, 20],
-  [16, 30],
-  [17, 30],
-  [18, 20],
-];
+/** Opening academy size and ages (weights): the settled shape of the youth intake. */
+export const OPENING_ACADEMY = {
+  min: 9,
+  max: 12,
+  ages: [
+    [15, 23],
+    [16, 43],
+    [17, 34],
+  ] as [number, number][],
+};
 
 type Role = "starter" | "gk2" | "gk3" | "backup";
 interface Need {
@@ -209,28 +209,26 @@ export function generateSquad(rng: Random, options: SquadOptions): GeneratedSqua
 
   const xi = tuneToStrength(rng, seniors, formation, club.strength);
 
-  const academyCount = rng.int(4, 6);
+  // Opening academies in the shape the yearly intake settles at (T, 2026-10-15): 9–12
+  // players aged 15–17 per club (18-year-olds are promoted or released each summer).
+  const academyCount = rng.int(OPENING_ACADEMY.min, OPENING_ACADEMY.max);
   const academy = Array.from({ length: academyCount }, () => {
-    const position = rng.weighted(ACADEMY_POSITIONS, ([, w]) => w)[0];
-    const age = rng.weighted(ACADEMY_AGES, ([, w]) => w)[0];
-    const side: Side = ratingsConfig.sidedPositions.includes(position)
-      ? rng.choice(["L", "R"] as const)
-      : "C";
-    const quality = clamp(
-      28 + 0.22 * club.reputation + (age - 16) * 4.5 + rng.normal(0, 5),
-      25,
-      club.strength - 3,
-    );
-    const spec: PlayerSpec = {
-      position,
-      side,
-      quality,
+    const age = rng.weighted(OPENING_ACADEMY.ages, ([, w]) => w)[0];
+    return generateAcademyPlayer(
+      rng,
+      {
+        cid,
+        country: club.country,
+        leagueId: club.league,
+        reputation: club.reputation,
+        youthDial: 50,
+        maxQuality: club.strength - 3,
+      },
       age,
-      nationality: sampleYouthNationality(rng, club.country, club.reputation, leagueMix),
-      status: "academy",
-      cid,
-    };
-    return generatePlayer(rng, spec, options.nextPid(), season, seasonStart);
+      options.nextPid(),
+      season,
+      seasonStart,
+    );
   });
 
   const starters = xi.playerIndexBySlot.map((index) => seniors[index] as Player);
