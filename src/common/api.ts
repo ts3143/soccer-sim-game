@@ -8,7 +8,7 @@
  */
 import type { Position } from "./config/ratings";
 import type { MatchEvent, MatchResult, Period } from "./match";
-import type { Fixture, Foot, LeagueSummary, Phase } from "./schema";
+import type { Fixture, Foot, InboxMessage, LeagueSummary, Phase } from "./schema";
 
 export type WorkerKind = "shared" | "dedicated";
 
@@ -205,6 +205,8 @@ export interface GameState {
   options: PlayOption[];
   /** The user's next fixture, if one is scheduled. */
   nextUserFixture: Fixture | null;
+  /** Set when the board has sacked the user: play stops until he takes a job offer. */
+  fired: { date: string; offers: { cid: number; name: string; leagueId: string }[] } | null;
 }
 
 export interface PlayReport {
@@ -266,6 +268,18 @@ export interface SeasonLabView {
   lid: number;
   state: GameState;
   user: SeasonLabTeam & { leagueId: string };
+  /** The user's club: board target and confidence, hype, reputation, cash. */
+  club: {
+    target: string;
+    confidence: number;
+    hype: number;
+    reputation: number;
+    cash: number;
+    revenue: number;
+    expenses: number;
+  };
+  /** The latest inbox messages, newest first. */
+  inbox: { mid: number; date: string; subject: string; body: string; read: boolean }[];
   nextUserMatch: SeasonLabMatch | null;
   leagues: { id: string; name: string; rows: SeasonLabTableRow[] }[];
   /** The last matchday played (all its matches). */
@@ -312,6 +326,9 @@ export interface WorkerApi {
   getGameState(lid: number): GameState;
   playGame(lid: number, option: PlayOption): PlayReport;
   getSeasonLab(lid: number): SeasonLabView;
+  acceptJobOffer(lid: number, cid: number): GameState;
+  getInbox(lid: number): InboxMessage[];
+  markInboxRead(lid: number, mid: number): void;
 }
 
 export interface UiEvents {

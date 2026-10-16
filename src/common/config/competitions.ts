@@ -54,6 +54,17 @@ export interface LeagueConfig {
   tieBreakers: TieBreaker[];
   /** Money settings per league (T, 2026-10-16; see `_financeNote` in the config). */
   finance: LeagueFinance;
+  /** Board targets, best first (SPEC §6.5; see `_boardNote` in the config). */
+  board: BoardTarget[];
+}
+
+export interface BoardTarget {
+  id: string;
+  label: string;
+  /** Met by finishing here or better. */
+  position: number;
+  /** How many clubs (by preseason squad strength) get this target. */
+  strongest: number;
 }
 
 export interface LeagueFinance {
@@ -183,7 +194,14 @@ function parse(json: typeof raw): CompetitionsConfig {
     styleModifiers: l.styleModifiers,
     tieBreakers: parseTieBreakers(l.id, l.tieBreakers),
     finance: l.finance,
+    board: l.board,
   }));
+  for (const league of leagues) {
+    const covered = league.board.reduce((n, t) => n + t.strongest, 0);
+    if (covered !== league.clubs) {
+      throw new Error(`competitions_mvp.json: ${league.id} board targets cover ${covered} clubs`);
+    }
+  }
   for (const league of leagues) {
     const relegation = league.relegation;
     if (!relegation) continue;

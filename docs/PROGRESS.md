@@ -8,7 +8,7 @@ Claude Code updates this file at the end of each milestone.
 | M1 Data, generation and new league | **Accepted** (T, 2026-10-14) | All checks pass locally, in CI and on the Cloudflare preview (18/18 headless Chrome); T tested in Chrome and Safari. See "M1 notes" below. |
 | M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
 | M3 Season loop | **Accepted** (T, 2026-10-16) | All M3 gates pass locally, in CI (`calibrate --world --check`, 16 checks) and on the Cloudflare preview (Season lab 19/19, Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Young regulars' growth and world shape gated in M4 (T). See "M3 notes" below. |
-| M4 Economy and market | In progress | Plan approved (11 chunks); chunk 1 (revenue, expenses, cash flow) built. See "M4 notes" below. |
+| M4 Economy and market | In progress | Plan approved (11 chunks); chunks 1–2 built (money; hype, reputation, dials, board, inbox). See "M4 notes" below. |
 | M5 Core UI | Not started | |
 | M6 Management UI | Not started | |
 | M7 Polish and release v0.1 | Not started | |
@@ -447,6 +447,31 @@ For information:
 - **Budget dials double as the clubs' running costs:** about 34% of revenue at the default dial of 50. The spec lists only wages, fees and dials as expenses, and without running costs clubs would bank ~50% of revenue every year.
 - Neutral cup finals and play-off finals bring no gate receipts, only prize money (play-offs pay none).
 - The AI sets every club's ticket price, the user's included, until the M6 screens let the user set it.
+
+**Chunk 2: hype, reputation, dials, board, inbox** (`src/worker/club/standing.ts`, `board.ts`)
+- **Hype** after every match: 2.2 × (points won − points expected), with expected points from the two squads' strength and home advantage (~26% draws between equals). Each match also closes 4% of the gap to the level reputation supports.
+- **Reputation** at the season's end closes 12% of the gap to what the finish supports, plus 2 for a cup or the play-offs. The level per position is the league's starting reputation at that rank: finishing 5th is worth the 5th-highest starting reputation. Reputation feeds commercial income, ticket prices and the youth intake.
+- **Facilities** close 15% of the gap to the Facilities dial each season and add up to 6% attendance.
+- **AI dials** each preseason: 50 + 20 × (cash / budget base − 0.3), between 35 and 70. The user's club keeps the user's dials.
+- **Relative dial effects:** costs follow each club's dials, but what they do (development, youth intake, injuries, recovery, facilities) follows `budgetEffect` = 50 ± the club's distance from the average club, as in ZenGM's expense levels. Without this, every AI club pushing its dials to 70 (cash piling up before transfers) raised wonderkids to 2.4 per league and cut parity to 12.9%. Both are back in band.
+- **Board** (per-league targets in config, approved spec item):
+  - preseason targets by squad strength rank (ENG1: 2 title, 4 top four, 8 mid-table, 6 avoid relegation; ENG2: 3 promotion, 6 play-offs, 15 mid-table; GER1: 1, 4, 7, 6);
+  - confidence after every matchday from results against the target, money and hype, weighted 0.6 / 0.25 / 0.15. It blends from the season-start value as the league season progresses, and the next season starts halfway back to 60.
+- **Sacking:** below 25 once a third of the season is played, or below 35 at its end. The user gets 1–3 seeded job offers from clubs with lower reputation, and play stops until he accepts one (new call `acceptJobOffer`).
+- **Inbox** (cached, new calls `getInbox` and `markInboxRead`): the preseason target, a warning when confidence falls below 40, the sacking, and the welcome at a new club.
+- The runner now keeps W/D/L, points and the final position in the club-season rows (for the harness too), and closes each season with merit money, the board's verdict, reputation and facilities.
+- The Season lab shows the board target, confidence, hype, reputation and cash, a "you've been sacked" banner with job offers, and the inbox.
+- 10 new tests (hype, reputation, facilities, relative dials, AI dials, targets, confidence, sacking, job offers, preseason board), a save test that sacks the user and takes a job, and 2 new Season lab browser checks (21/21). 186 tests in all.
+
+**Numbers** (3 worlds × 20 seasons, all M3 gates pass):
+- boards would sack 0.6% of managers mid-season and 12% at season end;
+- 60% of clubs meet their target; average confidence 65 at season end;
+- hype averages 52 and spans 84 points;
+- reputation stays stable: ENG1 69.5 → 68.5, ENG2 45.4 → 47.7, GER1 65.4 → 66.2.
+
+**Judgment calls (chunk 2)**
+- Mid-season sackings are rare because confidence blends from its season-start value; the harness reports them for tuning in chunks 9–10.
+- The user's own budget dials are kept as he set them; the M6 screens will let him change them.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

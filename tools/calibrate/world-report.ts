@@ -106,6 +106,10 @@ const inBand = (name: string, value: number, b: Band, gated = true) =>
 
 const seasons = runs.flatMap((r) => r.seasons);
 const avg = (key: string) => seasons.reduce((s, m) => s + (m[key] ?? 0), 0) / seasons.length;
+const firstLastPct = (key: string) =>
+  `${((runs.reduce((s, r) => s + (r.seasons[0]?.[key] ?? 0), 0) / runs.length) * 100).toFixed(0)}% → ${((runs.reduce((s, r) => s + (r.seasons.at(-1)?.[key] ?? 0), 0) / runs.length) * 100).toFixed(0)}%`;
+const firstLast = (key: string) =>
+  `${fmt(runs.reduce((s, r) => s + (r.seasons[0]?.[key] ?? 0), 0) / runs.length)} → ${fmt(runs.reduce((s, r) => s + (r.seasons.at(-1)?.[key] ?? 0), 0) / runs.length)}`;
 
 console.log("Per season (averages over every season of every world)");
 for (const key of [
@@ -213,8 +217,6 @@ row(
   survived / Math.max(1, promoted) >= 0.35 && survived / Math.max(1, promoted) <= 0.6,
 );
 
-const firstLastPct = (key: string) =>
-  `${((runs.reduce((s, r) => s + (r.seasons[0]?.[key] ?? 0), 0) / runs.length) * 100).toFixed(0)}% → ${((runs.reduce((s, r) => s + (r.seasons.at(-1)?.[key] ?? 0), 0) / runs.length) * 100).toFixed(0)}%`;
 console.log("\nMoney (information; gated from M4 chunk 8)");
 for (const league of ["ENG1", "ENG2", "GER1"]) {
   const errors = runs.flatMap((r) => r.anchorErrors[league] ?? []);
@@ -237,14 +239,30 @@ console.log(
   `  ${"median cash / revenue (first → last)".padEnd(34)} ${firstLastPct("medianCashToRevenue")}`,
 );
 
+console.log("\nClubs and boards (information)");
+console.log(
+  `  ${"would be sacked: mid-season / at season end".padEnd(34)} ${firstLastPct("sackedMidSeason").split(" ")[0]} … ${fmt(avg("sackedMidSeason"))} / ${fmt(avg("sackedAtSeasonEnd"))} of clubs a season`,
+);
+console.log(`  ${"board targets met".padEnd(34)} ${fmt(avg("boardTargetMet"))}`);
+console.log(
+  `  ${"board confidence, mean at season end".padEnd(34)} ${avg("boardConfidenceMean").toFixed(1)}`,
+);
+console.log(
+  `  ${"hype: mean / spread at season end".padEnd(34)} ${avg("hypeMean").toFixed(1)} / ${avg("hypeSpread").toFixed(1)}`,
+);
+console.log(
+  `  ${"reputation ENG1 / ENG2 / GER1".padEnd(34)} ${firstLast("reputationENG1")} / ${firstLast("reputationENG2")} / ${firstLast("reputationGER1")}`,
+);
+console.log(
+  `  ${"AI dials / facilities (first → last)".padEnd(34)} ${firstLast("aiDialMean")} / ${firstLast("facilitiesMean")}`,
+);
+
 console.log("\nFor information");
 const info = (label: string, value: string) => console.log(`  ${label.padEnd(34)} ${value}`);
 info("parity ENG2 / GER1", `${fmt(avg("parityENG2"))} / ${fmt(avg("parityGER1"))}`);
 info("injuries per team per match", fmt(avg("injuriesPerTeamMatch")));
 info("training share of injuries", fmt(avg("trainingInjuryShare")));
 info("youth intake per season", avg("youthIntake").toFixed(0));
-const firstLast = (key: string) =>
-  `${fmt(runs.reduce((s, r) => s + (r.seasons[0]?.[key] ?? 0), 0) / runs.length)} → ${fmt(runs.reduce((s, r) => s + (r.seasons.at(-1)?.[key] ?? 0), 0) / runs.length)}`;
 info("senior mean OVR (after season 1 → last)", firstLast("seniorMeanOvr"));
 info("seniors rated 75+ (after season 1 → last)", firstLast("elite75Share"));
 info(

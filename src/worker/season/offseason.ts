@@ -27,6 +27,7 @@ import { generateAcademyPlayer } from "../generate/youth";
 import { FREE_AGENT_CONTEXT } from "../generate/world";
 import { playoffId, type SeasonOutcome, type SeasonState } from "./season";
 import { resetForPreseason } from "./squads";
+import { effectiveDials } from "../club/standing";
 
 /** Coefficients (provisional, tuned with the calibration harness). */
 export const TURNOVER = {
@@ -157,9 +158,9 @@ function clubContexts(world: LoopWorld): Map<number, ClubContext> {
 function potContext(ctx: ClubContext | undefined): PotentialClubContext {
   if (!ctx) return FREE_AGENT_CONTEXT;
   return {
-    coachingDial: ctx.club.budget.coaching,
-    medicalDial: ctx.club.budget.medical,
-    youthDial: ctx.club.budget.youth,
+    coachingDial: effectiveDials(ctx.club).coaching,
+    medicalDial: effectiveDials(ctx.club).medical,
+    youthDial: effectiveDials(ctx.club).youth,
     xiStrength: ctx.xi,
     levelStrength: ctx.level,
   };
@@ -245,12 +246,13 @@ export function developmentUpdate(
         curve: p.hidden.curve,
         ceiling: p.hidden.ceiling,
         ovr: p.ovr,
-        coaching: coachingFactor(club?.budget.coaching ?? 50),
-        medical: medicalFactor(club?.budget.medical ?? 50),
+        coaching: coachingFactor(club ? effectiveDials(club).coaching : 50),
+        medical: medicalFactor(club ? effectiveDials(club).medical : 50),
         minutesShare: share,
         levelStrength: ctx?.level ?? 55,
         performanceAdj: performance,
-        academyYouth: p.status === "academy" ? youthFactor(club?.budget.youth ?? 50) : null,
+        academyYouth:
+          p.status === "academy" ? youthFactor(club ? effectiveDials(club).youth : 50) : null,
       },
       rng,
     ).map((r) => Math.round(r));
@@ -413,7 +415,7 @@ export function youthIntake(world: LoopWorld, season: number, date: string): Tur
   for (const club of world.clubs) {
     const rng = Random.fromSeed(`${world.seed}/youth/${season}/${club.cid}`);
     const reputation = world.reputation.get(club.cid) ?? 50;
-    const dial = club.budget.youth;
+    const dial = effectiveDials(club).youth;
     const count = clamp(
       Math.round(
         y.min + ((y.max - y.min) * (0.5 * dial + 0.5 * reputation)) / 100 + rng.normal(0, 0.7),

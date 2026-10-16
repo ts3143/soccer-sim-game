@@ -50,6 +50,8 @@ export interface GameMeta {
   userCid: number;
   /** Game version that created the save, for future migrations. */
   createdWithVersion: number;
+  /** Set when the board sacks the user: the date and the clubs offering him a job. */
+  fired?: { date: string; offers: number[] } | null;
 }
 
 /** Next free integer ID per entity type. */
@@ -168,6 +170,14 @@ export interface Club {
    * league creation. Absent in pre-M4 saves (derived on first use).
    */
   commercial?: { base: number; reputation: number };
+  /** Facilities quality 0–100: follows the Facilities dial slowly (absent = 50). */
+  facilitiesLevel?: number;
+  /**
+   * What the dials do (ZenGM-style relative expense levels): 50 plus how far this club's
+   * dials are from the average club's, set each preseason. Costs follow `budget`, effects
+   * follow this. Absent = the dials themselves.
+   */
+  budgetEffect?: BudgetDials;
 }
 
 export interface ClubSeason {
@@ -193,6 +203,11 @@ export interface ClubSeason {
   squadCostRatio: number | null;
   /** Revenue the season's budget dials are costed against (last season's, or the anchor). */
   budgetBase?: number;
+  /** Board confidence at the start of the season (it moves toward the live value). */
+  boardStart?: number;
+  /** This season the board already warned the user / would have sacked its manager. */
+  boardWarned?: boolean;
+  boardSacked?: boolean;
 }
 
 // ---------------------------------------------------------------------------

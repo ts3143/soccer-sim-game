@@ -166,7 +166,7 @@ describe("a season's money", () => {
   });
 
   it("opens next season's books on last season's revenue", SLOW, () => {
-    const next = openSeasonBooks(clubs, rows, 2027);
+    const next = openSeasonBooks(clubs, rows, 2027, 0);
     const club = clubs[0] as Club;
     expect(next.get(club.cid)?.budgetBase).toBe(totalOf(rows.get(club.cid)?.revenue ?? {}));
     expect(next.get(club.cid)?.revenue).toEqual({});

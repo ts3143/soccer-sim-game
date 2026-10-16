@@ -61,7 +61,8 @@ export function teamInput(club: Club, squad: readonly Player[]): EngineTeamInput
     players: available.filter((p) => inSquad.has(p.pid)).map(enginePlayer),
     sliders: { ...club.tactics.sliders },
     aiInGame: true,
-    medicalDial: club.budget.medical,
+    // What the Medical dial does is relative to the average club (club.budgetEffect).
+    medicalDial: (club.budgetEffect ?? club.budget).medical,
   };
 }
 

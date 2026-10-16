@@ -10,7 +10,7 @@ import type {
 } from "../../common/schema";
 import { listLeagues } from "../db/globalDb";
 import { openLeagueDb } from "../db/leagueDb";
-import { gameState, play, pruneMatchRecords, pruneRetiredPlayers } from "./game";
+import { acceptJobOffer, gameState, play, pruneMatchRecords, pruneRetiredPlayers } from "./game";
 import { closeLeague, createLeague, openLeague } from "./session";
 
 beforeAll(() => {
@@ -229,6 +229,42 @@ describe("the season loop in a save", () => {
     expect(statRows).toBeGreaterThanOrEqual(0);
     expect(session.cache.get("players", star.pid)).toBeDefined(); // has an award: kept
   });
+
+  it(
+    "sacks the user when board confidence collapses, then he takes a job offer",
+    SLOW,
+    async () => {
+      const league = await createLeague({ name: "Sacked", seed: "sacked-test", userCid: 0 });
+      const session = await openLeague(league.lid);
+      const inbox = session.cache.getAll("inbox");
+      expect(inbox.some((m) => /The board's target/.test(m.subject))).toBe(true);
+      // A title target, an empty board and a bankrupt club: the board loses patience.
+      const row = session.cache.get("clubSeasons", [0, 2026]) as ClubSeason;
+      session.cache.put("clubSeasons", {
+        ...row,
+        boardExpectation: "title",
+        boardStart: 0,
+        boardConfidence: 0,
+      });
+      const club = session.cache.get("clubs", 0);
+      if (club) session.cache.put("clubs", { ...club, cash: -10 * club.revenueAnchor });
+      const report = await play(session, "untilEndOfSeason");
+      expect(report.phase).toBe("regularSeason"); // stopped on the day he was sacked
+      const state = gameState(session);
+      expect(state.fired?.offers.length).toBeGreaterThan(0);
+      expect(state.options).toEqual([]);
+      await expect(play(session, "oneWeek")).rejects.toThrow(/isn't available/);
+      const offer = state.fired?.offers[0]?.cid as number;
+      await acceptJobOffer(session, offer);
+      const after = gameState(session);
+      expect(after.fired).toBeNull();
+      expect(after.options).toContain("untilNextMatch");
+      expect((session.cache.get("meta", "game") as GameMeta).userCid).toBe(offer);
+      const subjects = session.cache.getAll("inbox").map((m) => m.subject);
+      expect(subjects).toContain("You have been sacked");
+      expect(subjects.some((x) => x.startsWith("Welcome to"))).toBe(true);
+    },
+  );
 
   it("sets up the season for a save made before M3", SLOW, async () => {
     const league = await createLeague({ name: "Old save", seed: SEED, userCid: 0 });

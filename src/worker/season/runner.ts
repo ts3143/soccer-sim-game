@@ -12,15 +12,18 @@
 import type { SeasonEvent } from "../../common/api";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
 import type { MatchResult } from "../../common/match";
-import type { Fixture } from "../../common/schema";
+import type { ClubSeason, Fixture, InboxMessage } from "../../common/schema";
 import { seasonDate } from "../schedule/calendar";
 import { developmentUpdate, type LoopWorld } from "./offseason";
 import { matchdayIncome, meritIncome, prizeIncome, settleMonths } from "../finance/finance";
+import { boardSacks, updateConfidence } from "../club/board";
+import { seasonEndStanding, updateHype } from "../club/standing";
 import {
   leagueTableOf,
   nextMatchDate,
   playDate,
   type PlayFixture,
+  seasonOutcome,
   type SeasonState,
 } from "./season";
 import { squadPlay } from "./squads";
@@ -56,7 +59,15 @@ export interface DaysResult {
   /** Injury lengths (days) in matches and training, and how many were in training. */
   injuries: number[];
   trainingInjuries: number;
+  /** Every club whose board would sack its manager (the harness counts them all). */
+  sackings: { cid: number; date: string; seasonEnd: boolean }[];
+  /** The date the board sacked the user, if it did. */
+  userSacked: string | null;
+  /** Messages for the user's inbox. */
+  messages: NewMessage[];
 }
+
+export type NewMessage = Omit<InboxMessage, "mid">;
 
 export interface DaysOptions {
   /** Process days up to and including this date (null: no limit). */
@@ -65,6 +76,8 @@ export interface DaysOptions {
   stop?: (day: string, played: Fixture[]) => boolean;
   /** Called after each processed day (headless metrics). */
   onDay?: (day: string) => void;
+  /** Stop processing when the board sacks the user (the save does; the harness doesn't). */
+  stopWhenUserSacked?: boolean;
   config?: CompetitionsConfig;
 }
 
@@ -87,6 +100,50 @@ export function runDays(
     ended: false,
     injuries: [],
     trainingInjuries: 0,
+    sackings: [],
+    userSacked: null,
+    messages: [],
+  };
+  const warn = (row: ClubSeason, day: string) => {
+    if (row.cid !== world.userCid || (row.boardConfidence ?? 100) >= 40 || row.boardWarned) return;
+    row.boardWarned = true;
+    out.messages.push({
+      date: day,
+      season: state.season,
+      kind: "board",
+      subject: "The board is concerned",
+      body: `Board confidence has fallen to ${Math.round(row.boardConfidence ?? 0)}. Results must improve.`,
+      read: false,
+    });
+  };
+  /** League rows, board confidence and would-be sackings after a matchday. */
+  const afterMatchday = (day: string, seasonOver: boolean) => {
+    for (const leagueId of Object.keys(state.leagueClubs)) {
+      const table = leagueTableOf(state, leagueId, config);
+      const games = 2 * ((state.leagueClubs[leagueId]?.length ?? 2) - 1);
+      for (const t of table) {
+        const row = world.clubSeasons.get(t.cid);
+        const club = world.clubs.find((c) => c.cid === t.cid);
+        if (!row || !club) continue;
+        Object.assign(row, {
+          leagueId,
+          won: t.won,
+          drawn: t.drawn,
+          lost: t.lost,
+          goalsFor: t.goalsFor,
+          goalsAgainst: t.goalsAgainst,
+          points: t.points,
+          finish: seasonOver ? t.position : null,
+        });
+        const confidence = updateConfidence(row, club, table, t.played / games, config);
+        warn(row, day);
+        if (!row.boardSacked && boardSacks(confidence, t.played / games, seasonOver)) {
+          row.boardSacked = true;
+          out.sackings.push({ cid: t.cid, date: day, seasonEnd: seasonOver });
+          if (t.cid === world.userCid) out.userSacked = day;
+        }
+      }
+    }
   };
   const results = new Map<number, MatchResult>();
   const play: PlayFixture = (fixture, setup) => {
@@ -116,20 +173,38 @@ export function runDays(
       out.played.push({ fixture, result: results.get(fixture.fid) as MatchResult });
       matchdayIncome(world, fixture, config);
       prizeIncome(world, fixture, config);
+      updateHype(world.clubSeasons, fixture, (cid) => squads.strength(cid, day));
     }
     out.created.push(...state.fixtures.slice(before));
     out.date = day;
+    if (today.length > 0) afterMatchday(day, false);
     options.onDay?.(day);
     if (options.stop?.(day, today)) break;
+    if (options.stopWhenUserSacked && out.userSacked) break;
   }
 
   out.ended = nextMatchDate(state) === null;
   if (out.ended && !state.meritPaid) {
-    // TV merit money by final position, when the season's matches end.
+    // The season's matches are over (once per season): TV merit money by final position,
+    // final positions and board verdicts, then reputation and facilities.
+    const finish = new Map<number, number>();
     for (const leagueId of Object.keys(state.leagueClubs)) {
-      const order = leagueTableOf(state, leagueId, config).map((r) => r.cid);
-      meritIncome(world, leagueId, order, config);
+      const table = leagueTableOf(state, leagueId, config);
+      meritIncome(
+        world,
+        leagueId,
+        table.map((r) => r.cid),
+        config,
+      );
+      for (const r of table) finish.set(r.cid, r.position);
     }
+    afterMatchday(out.date, true);
+    const outcome = seasonOutcome(state, config);
+    const trophies = new Set([
+      ...Object.values(outcome.cupWinners),
+      ...Object.values(outcome.playoffWinners).flat(),
+    ]);
+    seasonEndStanding(world.clubs, world.clubSeasons, finish, trophies, config);
     state.meritPaid = true;
   }
   if (!out.ended && options.limit !== null && options.limit > out.date) {

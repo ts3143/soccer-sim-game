@@ -1,7 +1,7 @@
 import type { UiEvents, WorkerApi, WorkerKind } from "../../common/api";
 import type { ApiHandlers, RpcHost } from "../../common/rpc";
 import { listLeagues } from "../db/globalDb";
-import { gameState, play } from "../league/game";
+import { acceptJobOffer, gameState, play } from "../league/game";
 import { createLeague, deleteLeague, openLeague } from "../league/session";
 import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector";
 import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
@@ -51,5 +51,28 @@ export function createHandlers(
     },
 
     getSeasonLab,
+
+    async acceptJobOffer(lid, cid) {
+      const session = await openLeague(lid);
+      await acceptJobOffer(session, cid);
+      const state = gameState(session);
+      host.broadcast("gameChanged", { lid, state });
+      await announceLeagues();
+      return state;
+    },
+
+    async getInbox(lid) {
+      const { cache } = await openLeague(lid);
+      return cache.getAll("inbox").sort((a, b) => b.mid - a.mid);
+    },
+
+    async markInboxRead(lid, mid) {
+      const { cache } = await openLeague(lid);
+      const message = cache.get("inbox", mid);
+      if (message && !message.read) {
+        cache.put("inbox", { ...message, read: true });
+        await cache.flush();
+      }
+    },
   };
 }

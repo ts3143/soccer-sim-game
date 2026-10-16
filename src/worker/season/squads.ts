@@ -24,6 +24,7 @@ import type { Club, Fixture, Player } from "../../common/schema";
 import { maximizeAssignment } from "../core/assignment";
 import { Random } from "../core/random";
 import { slotOvr } from "../core/ovr";
+import { effectiveDials } from "../club/standing";
 import { aiSliders } from "../engine/aiTactics";
 import { COEFFICIENTS, type Coefficients } from "../engine/coefficients";
 import { drawInjuryDays } from "../engine/manager";
@@ -138,7 +139,7 @@ export function trainingInjuries(
   c: SquadCoefficients = SQUAD_COEFFICIENTS,
   e: Coefficients = COEFFICIENTS,
 ): Injured[] {
-  const medical = new Map(clubs.map((club) => [club.cid, club.budget.medical]));
+  const medical = new Map(clubs.map((club) => [club.cid, effectiveDials(club).medical]));
   const squad = players
     .filter((p) => p.cid !== null && (p.status === "club" || p.status === "academy"))
     .sort((a, b) => a.pid - b.pid);
@@ -255,7 +256,7 @@ export function pickMatchday(
   c: SquadCoefficients = SQUAD_COEFFICIENTS,
 ): EngineTeamInput {
   const s = c.selection;
-  const medical = club.budget.medical;
+  const medical = effectiveDials(club).medical;
   const fit = (p: Player) => !isInjured(p, ctx.date);
   const seniors = squad.filter((p) => p.status === "club" && fit(p));
   let pool = seniors;
@@ -332,6 +333,8 @@ export interface SquadPlay {
   injuries: number[];
   /** How many of those were training injuries. */
   trainingCount: () => number;
+  /** Mean OVR of a club's 11 best fit seniors on a date (cached per day). */
+  strength: (cid: number, date: string) => number;
 }
 
 /**
@@ -449,5 +452,5 @@ export function squadPlay(
     training += injured.length;
     return injured;
   };
-  return { play, train, changed, injuries, trainingCount: () => training };
+  return { play, train, changed, injuries, trainingCount: () => training, strength };
 }

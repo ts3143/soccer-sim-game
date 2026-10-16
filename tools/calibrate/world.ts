@@ -7,6 +7,7 @@ import { exactAge } from "../../src/common/dates";
 import { competitionsConfig } from "../../src/common/config/competitions";
 import type { Club, ClubSeason, Player } from "../../src/common/schema";
 import { closeSeasonBooks, openSeasonBooks, totalOf } from "../../src/worker/finance/finance";
+import { preseasonBoard, targetPosition } from "../../src/worker/club/board";
 import { generateWorld } from "../../src/worker/generate/world";
 import {
   endOfSeasonTurnover,
@@ -87,7 +88,8 @@ export function simulateWorld(
     players,
     reputation: startingReputation(),
     clubSeasons: new Map(generated.clubSeasons.map((r) => [r.cid, r])),
-    userCid: 0,
+    // No user in the harness: the AI runs every club (dials included).
+    userCid: -1,
     seed,
     nextPid: () => nextPid++,
   };
@@ -115,6 +117,7 @@ export function simulateWorld(
     const season = competitionsConfig.firstSeason + s;
     const seasonStart = `${season}-07-01`;
     const state = createSeason({ season, seed, clubs, lastFinish, firstFid });
+    preseasonBoard(loop, season, seasonStart);
     const start = new Map(
       players
         .filter((p) => p.status !== "retired")
@@ -242,6 +245,29 @@ export function simulateWorld(
       const age = exactAge(p.birthDate, endDate);
       if (age >= 30) run.retirements.push({ age, gk: p.position === "GK" });
     }
+    // Club standing and the board (information): would-be sackings, targets met, reputation.
+    const seasonRows = [...loop.clubSeasons.values()];
+    const met = seasonRows.filter((r) => {
+      const target = targetPosition(r.leagueId, r.boardExpectation);
+      return r.finish !== null && r.finish <= target;
+    }).length;
+    const leagueRep = (id: string) =>
+      mean(seasonRows.filter((r) => r.leagueId === id).map((r) => r.reputation));
+    Object.assign(metrics, {
+      sackedMidSeason: days.sackings.filter((x) => !x.seasonEnd).length / clubs.length,
+      sackedAtSeasonEnd: days.sackings.filter((x) => x.seasonEnd).length / clubs.length,
+      boardTargetMet: met / seasonRows.length,
+      boardConfidenceMean: mean(seasonRows.map((r) => r.boardConfidence ?? 0)),
+      hypeMean: mean(seasonRows.map((r) => r.hype)),
+      hypeSpread:
+        Math.max(...seasonRows.map((r) => r.hype)) - Math.min(...seasonRows.map((r) => r.hype)),
+      reputationENG1: leagueRep("ENG1"),
+      reputationENG2: leagueRep("ENG2"),
+      reputationGER1: leagueRep("GER1"),
+      aiDialMean: mean(clubs.map((c) => c.budget.coaching)),
+      facilitiesMean: mean(clubs.map((c) => c.facilitiesLevel ?? 50)),
+    });
+
     // Money: month-ends to 30 June and the season's cash snapshot, before anyone moves on.
     const lastDay = state.fixtures.reduce((d, f) => (f.date > d ? f.date : d), seasonStart);
     closeSeasonBooks(loop, season, lastDay);
@@ -275,7 +301,7 @@ export function simulateWorld(
     applyMoves(clubs, outcome.moves);
     const intakeFrom = nextPid;
     summerTransition(loop, state);
-    loop.clubSeasons = openSeasonBooks(clubs, loop.clubSeasons, season + 1);
+    loop.clubSeasons = openSeasonBooks(clubs, loop.clubSeasons, season + 1, -1);
     for (const [cid, row] of loop.clubSeasons) loop.reputation.set(cid, row.reputation);
     const changes = [...start].flatMap(([pid, before]) => {
       const p = players.find((x) => x.pid === pid);

@@ -25,6 +25,8 @@ import {
   type LeagueConfig,
 } from "../../common/config/competitions";
 import type { BudgetDials, Club, ClubSeason, Fixture, Player } from "../../common/schema";
+import { startingConfidence } from "../club/board";
+import { aiDials, setEffectiveDials } from "../club/standing";
 
 /** Coefficients (provisional; tuned with the calibration harness). */
 export const FINANCE = {
@@ -35,6 +37,8 @@ export const FINANCE = {
     hype: 0.25,
     market: 0.1,
     opponent: 0.05,
+    /** Facilities 100 vs 50 (the slow-moving level that follows the Facilities dial). */
+    facilities: 0.06,
     /** Early cup rounds draw this share of a league crowd; finals and semis a full one. */
     cupEarly: 0.75,
     min: 0.3,
@@ -67,7 +71,7 @@ export function ticketPrice(reputation: number, league: LeagueConfig): number {
 
 /** Spectators at a home match. */
 export function attendance(
-  club: Pick<Club, "capacity" | "market">,
+  club: Pick<Club, "capacity" | "market" | "facilitiesLevel">,
   hype: number,
   league: LeagueConfig,
   opponentReputation: number,
@@ -78,7 +82,8 @@ export function attendance(
     league.finance.attendanceBase +
     (a.hype * (hype - 50)) / 50 +
     (a.market * (club.market - 50)) / 50 +
-    (a.opponent * (opponentReputation - 50)) / 50;
+    (a.opponent * (opponentReputation - 50)) / 50 +
+    (a.facilities * ((club.facilitiesLevel ?? 50) - 50)) / 50;
   return Math.round(club.capacity * Math.min(1, Math.max(a.min, fill * stage)));
 }
 
@@ -285,14 +290,15 @@ export function closeSeasonBooks(
 }
 
 /**
- * The next season's club rows: same hype and reputation for now (they move from M4
- * chunk 2), the club's new league, and last season's revenue as the budget base. Also
- * sets the AI's ticket prices for the new season.
+ * The next season's club rows: hype and reputation carried over, the club's new league,
+ * last season's revenue as the budget base, and the board's starting confidence. Also
+ * sets the AI clubs' ticket prices and budget dials for the new season.
  */
 export function openSeasonBooks(
   clubs: readonly Club[],
   last: ReadonlyMap<number, ClubSeason>,
   season: number,
+  userCid: number,
   config: CompetitionsConfig = competitionsConfig,
 ): Map<number, ClubSeason> {
   const out = new Map<number, ClubSeason>();
@@ -300,7 +306,10 @@ export function openSeasonBooks(
     const prev = last.get(club.cid);
     const revenue = prev ? totalOf(prev.revenue) : 0;
     const reputation = prev?.reputation ?? 50;
+    const budgetBase = revenue > 0 ? revenue : club.revenueAnchor;
     club.ticketPrice = ticketPrice(reputation, leagueOf(club.leagueId, config));
+    // The AI sets its dials each season; the user's club keeps the user's.
+    if (club.cid !== userCid) club.budget = aiDials(club.cash, budgetBase);
     out.set(club.cid, {
       cid: club.cid,
       season,
@@ -320,8 +329,11 @@ export function openSeasonBooks(
       boardExpectation: null,
       boardConfidence: null,
       squadCostRatio: null,
-      budgetBase: revenue > 0 ? revenue : club.revenueAnchor,
+      budgetBase,
+      boardStart: startingConfidence(prev?.boardConfidence),
     });
   }
+  // What the dials do is relative to the average club (ZenGM-style expense levels).
+  setEffectiveDials(clubs);
   return out;
 }

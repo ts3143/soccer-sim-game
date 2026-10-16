@@ -13,7 +13,7 @@ import type {
   TableZone,
 } from "../../common/api";
 import { crestUrl } from "../crests";
-import { formatDate } from "../format";
+import { formatDate, formatEuros } from "../format";
 import { onWorkerEvent, toWorker } from "../workerClient";
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -176,6 +176,16 @@ export function SeasonLab({ lid }: { lid: number }) {
     }
   };
 
+  const acceptJob = async (cid: number) => {
+    setError(null);
+    try {
+      await toWorker("acceptJobOffer", lid, cid);
+      load();
+    } catch (e) {
+      setError(errorText(e));
+    }
+  };
+
   if (!view)
     return error ? <div className="alert alert-danger">{error}</div> : <p>Loading season…</p>;
   const { state } = view;
@@ -225,6 +235,31 @@ export function SeasonLab({ lid }: { lid: number }) {
               " · no match scheduled"
             )}
           </p>
+          <p className="small mb-1" data-testid="board">
+            Board target: <strong>{view.club.target || "none"}</strong> · confidence{" "}
+            <strong className={view.club.confidence < 40 ? "text-danger" : ""}>
+              {Math.round(view.club.confidence)}
+            </strong>{" "}
+            · hype {Math.round(view.club.hype)} · reputation {view.club.reputation} · cash{" "}
+            {formatEuros(view.club.cash)} (season so far: {formatEuros(view.club.revenue)} in,{" "}
+            {formatEuros(view.club.expenses)} out)
+          </p>
+          {state.fired && (
+            <div className="alert alert-danger py-2 mb-2" data-testid="fired">
+              <strong>You have been sacked</strong> ({formatDate(state.fired.date)}). Job offers:{" "}
+              {state.fired.offers.map((o) => (
+                <button
+                  key={o.cid}
+                  type="button"
+                  className="btn btn-sm btn-light ms-2"
+                  disabled={busy !== null}
+                  onClick={() => void acceptJob(o.cid)}
+                >
+                  Take the {o.name} job
+                </button>
+              ))}
+            </div>
+          )}
           {last && (
             <p className="small text-body-secondary mb-1" data-testid="last-action">
               {OPTION_LABELS[last.option]}: {formatDate(last.report.from)} →{" "}
@@ -442,6 +477,19 @@ export function SeasonLab({ lid }: { lid: number }) {
           </section>
         </div>
       </div>
+
+      <section className="card mb-4" data-testid="inbox">
+        <div className="card-body small">
+          <h3 className="h6 text-uppercase text-body-secondary">Inbox</h3>
+          {view.inbox.length === 0 && <p className="mb-0 text-body-secondary">No messages.</p>}
+          {view.inbox.map((m) => (
+            <div key={m.mid} className="mb-1">
+              <span className="text-body-secondary">{formatDate(m.date)}</span>{" "}
+              <strong>{m.subject}</strong> · {m.body}
+            </div>
+          ))}
+        </div>
+      </section>
 
       {view.awards.length > 0 && (
         <section className="card mb-4" data-testid="awards">

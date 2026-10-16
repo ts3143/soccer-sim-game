@@ -166,10 +166,29 @@ export async function getSeasonLab(lid: number): Promise<SeasonLabView> {
       p.ratingsHistory[0]?.date === seasonStart && game.season > competitionsConfig.firstSeason,
   );
 
+  const row = cache.get("clubSeasons", [game.userCid, game.season]);
+  const league = competitionsConfig.leagues.find((l) => l.id === row?.leagueId);
+  const target = league?.board.find((t) => t.id === row?.boardExpectation)?.label ?? "";
+  const sum = (r: Record<string, number> | undefined) =>
+    Object.values(r ?? {}).reduce((a, b) => a + b, 0);
   return {
     lid,
     state,
     user: { ...team(userClub), leagueId: userClub?.leagueId ?? "" },
+    club: {
+      target,
+      confidence: row?.boardConfidence ?? 0,
+      hype: row?.hype ?? 0,
+      reputation: row?.reputation ?? 0,
+      cash: userClub?.cash ?? 0,
+      revenue: sum(row?.revenue),
+      expenses: sum(row?.expenses),
+    },
+    inbox: cache
+      .getAll("inbox")
+      .sort((a, b) => b.mid - a.mid)
+      .slice(0, 6)
+      .map((m) => ({ mid: m.mid, date: m.date, subject: m.subject, body: m.body, read: m.read })),
     nextUserMatch: state.nextUserFixture ? match(state.nextUserFixture) : null,
     leagues,
     latest,
