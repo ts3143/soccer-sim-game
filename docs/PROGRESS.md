@@ -8,7 +8,7 @@ Claude Code updates this file at the end of each milestone.
 | M1 Data, generation and new league | **Accepted** (T, 2026-10-14) | All checks pass locally, in CI and on the Cloudflare preview (18/18 headless Chrome); T tested in Chrome and Safari. See "M1 notes" below. |
 | M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
 | M3 Season loop | **Accepted** (T, 2026-10-16) | All M3 gates pass locally, in CI (`calibrate --world --check`, 16 checks) and on the Cloudflare preview (Season lab 19/19, Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Young regulars' growth and world shape gated in M4 (T). See "M3 notes" below. |
-| M4 Economy and market | Not started | |
+| M4 Economy and market | In progress | Plan approved (11 chunks); chunk 1 (revenue, expenses, cash flow) under way. |
 | M5 Core UI | Not started | |
 | M6 Management UI | Not started | |
 | M7 Polish and release v0.1 | Not started | |
@@ -42,6 +42,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-15 | M3 chunk 5–6 | The opening world starts in the shape the season loop settles at: 9–12 academy players per club, aged 15–17 (was 4–6, aged 15–18), and ~190 just-released 18-year-olds added to the free-agent pool. Club players ~2,100 (M1 check now 1,922–2,232). | With the spec's youth intake (3–6 a year, 2–3 years in the academy), active players rose ~35% over the first seasons before levelling off, failing the ±10% stability target. T chose to match the opening world to the steady state (option B). | SPEC §2.1; MILESTONES M1; `generate/squad.ts`, `generate/freeAgents.ts`, `generate/checks.ts` |
 | 2026-10-15 | M3 chunk 7 | Development training base lowered from 0.4 to 0.2: dev = coaching × (0.2 + 0.8 × minutesFactor × challengeFactor) + performanceAdj (academy players: coaching × (0.2 + 0.8 × youth factor)). | With 0.4, a young regular (≥50% of minutes) grew only ~1.7× as fast as a benched one, so +4 to +8 a year for regulars and 0 to +2 for benched players couldn't both hold. | SPEC §5.3; `DEV.trainingBase` |
 | 2026-10-15 | M3 chunk 8 | The well-played 18–21 growth target (+4 to +8 a year) is reported in M3 and gated in M4, together with world-shape checks: a stable senior OVR distribution and a peak around 27–29. | After tuning, 16 of 17 season-loop checks passed; settings that pushed young regulars past +4 also broke the wonderkid rate and inflated the top end. Transfers and loans (M4) change who plays young. | MILESTONES M3, M4; `tools/calibrate/world-report.ts` |
+| 2026-10-16 | M4 plan | Opening squads carry notional past transfer fees, about 30% of squad cost, with wages about 70% of the M1 levels; squad cost stays 50–65% of revenue. TV pools and shares, and cup prize money per round, are set per league and per cup in config. The AI never acts for the user's club. M4 adds a developer-only Club lab page. | Per-player wages ran ~2× real-world because the whole wage budget went to ~23 players with no past fees. The spec gave no TV or prize amounts. | SPEC §6.2, §6.3; MILESTONES M4; `competitions_mvp.json` |
 
 ## M0 notes (2026-10-14)
 **Built**

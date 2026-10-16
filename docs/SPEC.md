@@ -160,8 +160,8 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 
 ### 6.2 Revenue
 - **Matchday:** attendance × one ticket price per season (user-set; AI auto). Attendance is capped by capacity and driven by hype, market size, opponent/competition size and ticket price.
-- **Broadcast:** pool by league tier; equal share + merit by finishing position. Largest and most predictable stream.
-- **Prize money:** cup rounds (MVP). `[Later]` European participation, wins and progress.
+- **Broadcast:** pool by league tier; equal share + merit by finishing position. Largest and most predictable stream. Each league's pool, and its equal and merit shares, are set per league in config (`competitions_mvp.json`, T 2026-10-16).
+- **Prize money:** cup rounds (MVP), set per cup and round in config. `[Later]` European participation, wins and progress.
 - **Commercial:** sponsorship and merchandise from reputation, market size, success and star players.
 - **Player sales:** fees received (profit counts toward FFP).
 - Money flow: matchday per home match, broadcast monthly, prize money as earned. All money in **whole euros**; wages quoted **per year**.
@@ -171,7 +171,7 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 - **Wages** (largest cost) and **transfer fees** (`[DEFAULT]` cash paid up front in the MVP; installments later; amortised over contract length for FFP).
 - **Budget dials** (ZenGM-style expense levels): `[MVP]` Coaching (development), Youth academy (intake count/quality), Medical (injury rate and recovery, slows decline), Facilities (slow-moving; attendance and player appeal). `[v1.1]` Scouting (rating accuracy, reveals hidden traits). Dial cost scales with club revenue.
 - **Transfer budget** auto-derived from cash, projected profit and FFP headroom; **wage room** = what the FFP ratio allows. One control shifts money between the transfer budget and wages. Both numbers ("Transfer budget €X", "Wage room €Y") show on transfer and contract screens.
-- **Starting wage bills** `[DEFAULT]`: generate squads so each club starts at roughly 50–65% squad cost ratio, leaving FFP headroom.
+- **Starting wage bills** `[DEFAULT]`: generate squads so each club starts at roughly 50–65% squad cost ratio, leaving FFP headroom. About 30% of that opening squad cost is amortisation of notional past transfer fees, and the rest is wages (T, 2026-10-16). This keeps individual wages near real-world levels.
 
 ### 6.4 Financial rules (FFP)
 - **Single squad cost ratio:** wages + amortised transfer fees ≤ **70% of revenue** (profit on player sales counts as revenue), checked at season end. AI clubs follow the same rule.

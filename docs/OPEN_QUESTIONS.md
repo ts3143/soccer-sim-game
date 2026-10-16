@@ -49,6 +49,14 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 7 | Development training base 0.4 caps a regular's growth at ~1.7× a benched player's; targets need more (asked Oct 15) | Lower the base to 0.2: dev = coaching × (0.2 + 0.8 × minutes × challenge) + performance. |
 | 8 | Well-played 18–21 growth stuck at +3.8 (target 4–8), with world-shape side effects (asked Oct 15) | C: defer that check and the side effects (peak age, top-end inflation, mean drift) to M4, where transfers and loans change who gets minutes. The other 16 checks gate M3 and CI. |
 
+## A5. M4 planning, answered by T (Oct 16 2026)
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Per-player wages ~2× real-world (M1 note) | Opening squads get notional past fees (~30% of squad cost); wages ~70% of the M1 levels; squad cost still 50–65% of revenue |
+| 2 | TV and prize money amounts (config said only "per round, scaled") | Set per league and per cup round in `competitions_mvp.json`, tuned to the revenue anchors; may be revised later |
+| 3 | How M4 is tested in the browser | A developer Club lab page: finances, board, ratios, transfers, inbox; renew, sign a free agent, bid, accept or reject an offer |
+| 4 | The user's club when the user doesn't act | The AI never acts for it: contracts expire, offers wait in the inbox. The harness runs every club by AI |
+
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.
 1. **Hidden traits** (Injury Prone, Hothead) are generated and affect the sim from the MVP but are never shown until scouting arrives in v1.1.

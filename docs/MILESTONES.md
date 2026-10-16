@@ -85,6 +85,9 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 - FFP squad cost ratio, warning → one-window transfer ban.
 - Mood, contracts, negotiation; renewals only in windows, no end-of-season re-sign phase (contracts ending 30 June must be renewed by 31 January; AI follows the same rule). Inbox: a warning when the January window opens listing every player in his final six months, and a reminder before deadline day.
 - Transfers (two-step), AI strategy and valuation, AI-to-AI deals, bids for user players, market value; loans; free-agent pool dynamics.
+- Opening squads carry notional past transfer fees (about 30% of squad cost), with wages about 70% of the M1 levels (T, 2026-10-16). TV money and cup prize money are set per league and per cup in config.
+- The AI never renews, buys or sells for the user's club: unrenewed contracts expire and offers wait in the inbox (in the headless harness the AI runs every club).
+- Club lab page (developer-only, replaced in M5/M6): all clubs' finances, board, squad cost ratios, the transfer log and the inbox; renew a player, sign a free agent, bid for a player, accept or reject an offer.
 
 **Accept**
 - 20-season run: world-stability checks in `calibration_targets.json` pass (negative-cash share, squad cost ratios, promoted-club survival, etc.).
