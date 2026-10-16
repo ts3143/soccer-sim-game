@@ -11,6 +11,23 @@ interface Entry {
   value: unknown;
 }
 
+/** Load only the rows whose `index` equals `value`. */
+export interface PartialLoad {
+  index: string;
+  value: IDBValidKey;
+}
+
+/** The cursor members open() uses. */
+interface CursorLike {
+  primaryKey: unknown;
+  value: unknown;
+  continue(): Promise<CursorLike | null>;
+}
+
+interface IndexedStore {
+  index(name: string): { openCursor(query: IDBValidKey): Promise<CursorLike | null> };
+}
+
 /** The untyped store operations flush() needs; idb's generics can't express "any store of S". */
 interface WritableStore {
   put(value: unknown, key?: IDBValidKey): Promise<IDBValidKey>;
@@ -35,10 +52,14 @@ export class Cache<S extends DBSchema> {
     this.db = db;
   }
 
-  /** Loads every row of the given stores into memory. */
+  /**
+   * Loads the given stores into memory: every row, or for the stores listed in `partial`
+   * only the rows whose `index` equals `value` (e.g. the current season's fixtures).
+   */
   static async open<S extends DBSchema>(
     db: IDBPDatabase<S>,
     storeNames: readonly StoreNames<S>[],
+    partial: Partial<Record<string, PartialLoad>> = {},
   ): Promise<Cache<S>> {
     const cache = new Cache(db);
     const tx = db.transaction(storeNames, "readonly");
@@ -46,9 +67,15 @@ export class Cache<S extends DBSchema> {
       const objectStore = tx.objectStore(store);
       cache.keyPaths.set(store, objectStore.keyPath);
       const rows = new Map<CacheKey, Entry>();
-      let cursor = await objectStore.openCursor();
+      const only = partial[store as string];
+      // idb's index typing can't follow a generic store name; the index is checked at runtime.
+      const source: Promise<CursorLike | null> = only
+        ? (objectStore as unknown as IndexedStore).index(only.index).openCursor(only.value)
+        : objectStore.openCursor();
+      let cursor = await source;
       while (cursor) {
-        const key = cursor.key as IDBValidKey;
+        // An index cursor's `key` is the index value; the row's own key is `primaryKey`.
+        const key = cursor.primaryKey as IDBValidKey;
         rows.set(toCacheKey(key), { key, value: cursor.value });
         cursor = await cursor.continue();
       }
@@ -83,6 +110,24 @@ export class Cache<S extends DBSchema> {
     const deletes = this.deleted.get(store) ?? new Map<CacheKey, IDBValidKey>();
     this.deleted.set(store, deletes);
     deletes.set(cacheKey, idbKey);
+  }
+
+  /**
+   * Drops rows from memory without deleting them from IndexedDB (e.g. last season's
+   * fixtures once a new season starts). Only saved rows can be dropped: flush() first.
+   */
+  evict<N extends StoreNames<S>>(store: N, drop: (value: StoreValue<S, N>) => boolean): number {
+    const rows = this.storeRows(store);
+    let count = 0;
+    for (const [cacheKey, entry] of rows) {
+      if (!drop(entry.value as StoreValue<S, N>)) continue;
+      if (this.dirty.get(store)?.has(cacheKey)) {
+        throw new Error(`Cache: can't evict unsaved rows from "${String(store)}"; flush() first`);
+      }
+      rows.delete(cacheKey);
+      count++;
+    }
+    return count;
   }
 
   get hasUnsavedChanges(): boolean {

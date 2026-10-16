@@ -5,6 +5,7 @@
  * replace injured players, fatigue subs around 60–75', chase a deficit, protect a lead.
  */
 import { formationsConfig, type FormationSlot } from "../../common/config/formations";
+import type { Random } from "../core/random";
 import { RATING_INDEX as R, type Position } from "../../common/config/ratings";
 import { rawPositionOvr, wrongFootPenalty } from "../core/ovr";
 import {
@@ -102,13 +103,20 @@ export function playMinutes(s: MatchState, minutes: number): void {
   }
 }
 
-/** Days out: most 1–3 weeks, ~10% four weeks or more, rarely the rest of the season. */
+/**
+ * Days out for an injury (in matches and in training): most 1–3 weeks, ~10% four weeks
+ * or more, rarely the rest of the season.
+ */
+export function drawInjuryDays(rng: Random): number {
+  const r = rng.next();
+  if (r < 0.25) return rng.int(2, 6);
+  if (r < 0.87) return rng.int(7, 21);
+  if (r < 0.98) return rng.int(28, 84);
+  return rng.int(120, 270);
+}
+
 function injuryDays(s: MatchState): number {
-  const r = s.rng.next();
-  if (r < 0.25) return s.rng.int(2, 6);
-  if (r < 0.87) return s.rng.int(7, 21);
-  if (r < 0.98) return s.rng.int(28, 84);
-  return s.rng.int(120, 270);
+  return drawInjuryDays(s.rng);
 }
 
 function injure(s: MatchState, team: TeamState, p: PlayerState): void {

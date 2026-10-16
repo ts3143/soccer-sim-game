@@ -37,6 +37,18 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 4 | How M2 is tested | A developer-only Match lab page; work in ~1 h chunks with a check-in after each |
 | 5 | Who manages the user's club in a match | Simulated: the AI makes the in-game changes and picks the pre-match tactics. Watched: the user. No Auto option. |
 
+## A4. M3 planning, answered by T (Oct 14 2026)
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Keeping squads full before M4 (no contracts or transfers yet) | Temporary upkeep: contracts roll over; each preseason AI clubs top up to 22 seniors from their academy, then from free agents. M4 replaces it. |
+| 2 | Which 20-season world checks M3 gates | Player count, distinct champions, parity, season and development targets. Promoted-club survival and the finance checks move to M4. |
+| 3 | League tie-breakers | Points, goal difference, goals scored, head-to-head points, head-to-head goal difference, seeded draw. Set per league in config so each league can change them. |
+| 4 | Awards (in the spec, in no milestone) | Worked out and saved at season end in M3; pages in M5. |
+| 5 | Injuries only in matches (ZenGM) or also in training? (asked Oct 15) | Also in training: same risk formula per day, tied to condition, the Medical dial and Injury Prone. |
+| 6 | Player count rose ~35% before settling: the opening world was smaller than the youth flow settles at (asked Oct 15) | B: start the world in its settled shape. 9–12 academy players per club (aged 15–17) and ~190 just-released 18-year-olds in the free-agent pool; the ±10% stability check stays as written. |
+| 7 | Development training base 0.4 caps a regular's growth at ~1.7× a benched player's; targets need more (asked Oct 15) | Lower the base to 0.2: dev = coaching × (0.2 + 0.8 × minutes × challenge) + performance. |
+| 8 | Well-played 18–21 growth stuck at +3.8 (target 4–8), with world-shape side effects (asked Oct 15) | C: defer that check and the side effects (peak age, top-end inflation, mean drift) to M4, where transfers and loans change who gets minutes. The other 16 checks gate M3 and CI. |
+
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.
 1. **Hidden traits** (Injury Prone, Hothead) are generated and affect the sim from the MVP but are never shown until scouting arrives in v1.1.

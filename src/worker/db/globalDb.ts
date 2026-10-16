@@ -56,3 +56,15 @@ export async function registerLeague(entry: Omit<LeagueSummary, "lid">): Promise
 export async function unregisterLeague(lid: number): Promise<void> {
   await (await openGlobalDb()).delete("leagues", lid);
 }
+
+/** Updates a save's list entry (season, last played) after play. */
+export async function updateLeagueSummary(
+  lid: number,
+  patch: Partial<Omit<LeagueSummary, "lid">>,
+): Promise<void> {
+  const db = await openGlobalDb();
+  const tx = db.transaction("leagues", "readwrite");
+  const league = await tx.store.get(lid);
+  if (league) await tx.store.put({ ...league, ...patch });
+  await tx.done;
+}

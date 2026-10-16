@@ -16,6 +16,9 @@ import { rawPositionOvr } from "./ovr";
 import type { Random } from "./random";
 
 export const POT_ARCS = 20;
+
+/** Ceiling decay for 19–23-year-olds short of minutes (SPEC §5.3); the season loop uses it too. */
+export const CEILING_DECAY = { fromAge: 19, toAge: 23, belowShare: 0.15, min: 1, max: 3 };
 /** Arcs run until this age (or two more seasons for older players). */
 const ARC_END_AGE = 31;
 /** Academy players start getting senior minutes from this age in the arcs. */
@@ -41,10 +44,14 @@ export interface PotentialInput {
   club: PotentialClubContext;
 }
 
-/** Expected share of minutes for a player of `ovr` at a club whose XI averages `xi`. */
+/**
+ * Expected share of minutes for a player of `ovr` at a club whose XI averages `xi`. Fitted
+ * in M3 to the minutes the rotation AI actually gives (one season, all seniors): players
+ * 10 points below the XI play ~5%, at XI level ~75%, the best ~85%.
+ */
 export function expectedMinutesShare(ovr: number, xi: number): number {
   const d = ovr - xi;
-  return 0.08 + 0.77 / (1 + Math.exp(-(d + 5) / 2.5));
+  return 0.85 / (1 + Math.exp(-(d + 4.4) / 2.1));
 }
 
 export function estimatePotential(input: PotentialInput, rng: Random, arcs = POT_ARCS): number {
@@ -57,12 +64,15 @@ export function estimatePotential(input: PotentialInput, rng: Random, arcs = POT
     let age = input.age;
     let ovr = current;
     let peak = current;
+    let ceiling = input.ceiling;
+    let seasonShare = 0;
+    let halves = 0;
     while (age < endAge) {
       const inAcademy = input.academy && age < ACADEMY_UNTIL_AGE;
       const dev: DevelopmentInput = {
         age,
         curve: input.curve,
-        ceiling: input.ceiling,
+        ceiling,
         ovr,
         coaching: coachingFactor(input.club.coachingDial),
         medical: medicalFactor(input.club.medicalDial),
@@ -75,6 +85,21 @@ export function estimatePotential(input: PotentialInput, rng: Random, arcs = POT
       age += 0.5;
       ovr = rawPositionOvr(ratings, input.position);
       if (ovr > peak) peak = ovr;
+      // Ceiling decay, as in the season loop: a 19–23-year-old with too few minutes over
+      // a season loses 1–3 points of ceiling.
+      seasonShare += dev.minutesShare / 2;
+      if (++halves % 2 === 0) {
+        const decay = CEILING_DECAY;
+        if (
+          !inAcademy &&
+          age >= decay.fromAge &&
+          age < decay.toAge + 1 &&
+          seasonShare < decay.belowShare
+        ) {
+          ceiling = Math.max(ovr, ceiling - rng.int(decay.min, decay.max));
+        }
+        seasonShare = 0;
+      }
     }
     peaks.push(peak);
   }

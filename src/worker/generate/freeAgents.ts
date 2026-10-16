@@ -1,15 +1,20 @@
 /**
  * The seeded free-agent pool at league creation (SPEC §7.5): unattached players, mostly
- * experienced and below the level of a typical second-tier starter.
+ * experienced and below the level of a typical second-tier starter, plus the young
+ * players academies released this summer (the pool's settled shape, T 2026-10-15).
  */
+import { competitionsConfig } from "../../common/config/competitions";
 import { ratingsConfig, type Position, type Side } from "../../common/config/ratings";
 import type { Player } from "../../common/schema";
 import type { Random } from "../core/random";
 import { combinedMix, sampleNationality } from "./identity";
 import { generatePlayer } from "./player";
+import { generateAcademyPlayer } from "./youth";
 
 /** Judgment call (PROGRESS.md): ~6% of the club players. */
 export const FREE_AGENT_POOL_SIZE = 120;
+/** 18-year-olds released by academies this summer: the size this pool settles at. */
+export const RELEASED_YOUTH_COUNT = 190;
 
 const POSITIONS_WEIGHTED: [Position, number][] = [
   ["GK", 10], ["CB", 17], ["FB", 12], ["WB", 5], ["DM", 9],
@@ -45,5 +50,35 @@ export function generateFreeAgents(
       season,
       seasonStart,
     );
+  });
+}
+
+/** Young players released by academies this summer (they leave the game if unsigned for a year). */
+export function generateReleasedYouth(
+  rng: Random,
+  season: number,
+  seasonStart: string,
+  nextPid: () => number,
+): Player[] {
+  return Array.from({ length: RELEASED_YOUTH_COUNT }, () => {
+    const league = rng.choice(competitionsConfig.leagues);
+    const player = generateAcademyPlayer(
+      rng,
+      {
+        cid: -1,
+        country: league.country,
+        leagueId: league.id,
+        reputation: rng.real(25, 70),
+        youthDial: 50,
+      },
+      18,
+      nextPid(),
+      season,
+      seasonStart,
+    );
+    player.status = "freeAgent";
+    player.cid = null;
+    player.freeAgentSince = seasonStart;
+    return player;
   });
 }

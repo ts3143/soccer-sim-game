@@ -7,7 +7,7 @@ Claude Code updates this file at the end of each milestone.
 | M0 Scaffold and plumbing | **Accepted** (T, 2026-10-14) | All acceptance checks pass locally and on the Cloudflare preview; T tested in Chrome and Safari. See "M0 notes" below. |
 | M1 Data, generation and new league | **Accepted** (T, 2026-10-14) | All checks pass locally, in CI and on the Cloudflare preview (18/18 headless Chrome); T tested in Chrome and Safari. See "M1 notes" below. |
 | M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
-| M3 Season loop | Not started | |
+| M3 Season loop | **Accepted** (T, 2026-10-16) | All M3 gates pass locally, in CI (`calibrate --world --check`, 16 checks) and on the Cloudflare preview (Season lab 19/19, Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Young regulars' growth and world shape gated in M4 (T). See "M3 notes" below. |
 | M4 Economy and market | Not started | |
 | M5 Core UI | Not started | |
 | M6 Management UI | Not started | |
@@ -37,6 +37,11 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-14 | M2 plan | Substitutions follow the real rule: 5 in normal time in at most 3 windows (half-time free); extra time adds a 6th sub and a 4th window (free before extra time and at its half-time); no replacement once used up; no concussion subs. M2 adds a developer-only Match lab page; season targets are reported in M2 and gated in M3; engine coefficients live in code, overridable by the harness. | The spec said only "5 substitutions per match"; T chose the real rule. The page lets T test M2 in the browser. | SPEC §7.1, §8.5; `formations_tactics.json` → `substitutions`; MILESTONES M2 |
 | 2026-10-14 | M2 chunk 2 | No Auto option. Simulated matches: the AI makes in-game changes for every club, the user's included, and picks his club's pre-match tactics too (confirmed by T). Watched matches: the user makes his club's in-game changes and sets its pre-match tactics. | The spec didn't say what happens to the user's club in simulated matches; T decided the AI handles them and the user manages the matches he watches. | SPEC §8.3, §8.5, §9, §11; MILESTONES M6 |
 | 2026-10-14 | M2 chunk 4 | The parity target (top-6 losing to bottom-6, 13–22%) moves from the M2 gate to M3, with the other season targets. M2 reports it (ENG1 11.6%). | M2's harness plays full-strength XIs every match with no rotation, fatigue or injury lists; those cause many real upsets and arrive in M3. Tuning parity harder in M2 pushed the ENG1 champion below 82 points. | MILESTONES M2, M3; `tools/calibrate` |
+| 2026-10-14 | M3 plan | League tie-breakers defined: points, goal difference, goals scored, head-to-head points, head-to-head goal difference, seeded draw; each league sets its own order in config. Awards are worked out and saved at season end in M3 (pages in M5). Until M4, contracts roll over and AI clubs top up to 22 seniors each preseason from their academy, then from free agents. Promoted-club survival and the finance checks of the 20-season run are gated in M4. M3 adds a developer-only Season lab page. | The spec named tie-breakers without defining them, and no milestone owned awards. Without contracts and transfers (M4), a 20-season run would empty squads. Promoted clubs can't strengthen without transfers. | SPEC §2.1; `competitions_mvp.json` → `tieBreakers`; MILESTONES M3 |
+| 2026-10-15 | M3 chunk 4 | Injuries also happen in training between matches, with the same risk formula once per day (that day's condition, Medical dial, Injury Prone). | With in-match injuries only, squads averaged ~1.9 injured at once against a target of 2–4.5. Raising the in-match rate would have meant unrealistic numbers of injury substitutions; in real football about half of injuries happen in training. | SPEC §8.4; MILESTONES M3 |
+| 2026-10-15 | M3 chunk 5–6 | The opening world starts in the shape the season loop settles at: 9–12 academy players per club, aged 15–17 (was 4–6, aged 15–18), and ~190 just-released 18-year-olds added to the free-agent pool. Club players ~2,100 (M1 check now 1,922–2,232). | With the spec's youth intake (3–6 a year, 2–3 years in the academy), active players rose ~35% over the first seasons before levelling off, failing the ±10% stability target. T chose to match the opening world to the steady state (option B). | SPEC §2.1; MILESTONES M1; `generate/squad.ts`, `generate/freeAgents.ts`, `generate/checks.ts` |
+| 2026-10-15 | M3 chunk 7 | Development training base lowered from 0.4 to 0.2: dev = coaching × (0.2 + 0.8 × minutesFactor × challengeFactor) + performanceAdj (academy players: coaching × (0.2 + 0.8 × youth factor)). | With 0.4, a young regular (≥50% of minutes) grew only ~1.7× as fast as a benched one, so +4 to +8 a year for regulars and 0 to +2 for benched players couldn't both hold. | SPEC §5.3; `DEV.trainingBase` |
+| 2026-10-15 | M3 chunk 8 | The well-played 18–21 growth target (+4 to +8 a year) is reported in M3 and gated in M4, together with world-shape checks: a stable senior OVR distribution and a peak around 27–29. | After tuning, 16 of 17 season-loop checks passed; settings that pushed young regulars past +4 also broke the wonderkid rate and inflated the top end. Transfers and loans (M4) change who plays young. | MILESTONES M3, M4; `tools/calibrate/world-report.ts` |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -156,6 +161,259 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 - **M3:** gate parity and the season targets with the real calendar, rotation, fatigue and injury lists. Bring top assists (22) into band. In-match injuries run at about 0.5 per team per match; tune them with the injury lists.
 - **M5:** Team OVR still uses placeholder weights. The harness fits real weights (R² 0.18–0.31, defence weighted most); adopt them before M5 shows Team OVR.
 - **M6:** the Watch screen replaces the Match lab. `applyChanges` and the event feed are ready for it.
+
+## M3 notes (2026-10-14 to 2026-10-15)
+**Chunk 1: calendar, league fixtures, tables** (`src/worker/schedule/`)
+- `seasonCalendar(season)` dates every league round and cup round. Two slots a week: Saturday and Wednesday. Each config MM-DD date moves to the nearest slot, so the season keeps its shape whatever weekday a date falls on.
+- League fixtures are a double round-robin, with clubs shuffled by the season's own random stream. No club plays three home or three away matches in a row. The two meetings of a pair are at least 16 rounds apart (18 clubs) and 22 apart (24 clubs).
+- League tables use each league's tie-breakers from config. Head-to-head criteria use a mini-table of the clubs still tied; `draw` is seeded and stable.
+- `pnpm calendar [--season Y] [--sim]` prints a season's calendar, and with `--sim` plays the league fixtures and prints the tables.
+- 34 new unit tests. They check the calendar rules for 20 seasons (2026–2045), fixture fairness and the tie-breaker cases.
+
+**Judgment calls (chunk 1)**
+- A cup-final weekend is kept free of league rounds for every league in that cup. GER1's last date and the German cup final are both 22 May 2027, so GER1 ends on 15 May (the real league also finishes before its cup final). The English top flight keeps 15 May free for the English cup final.
+- Earlier cup rounds are spread evenly across midweeks: from 10 days after the entrants' first league round to 4 weeks before the final, outside the winter break. 2026/27: English cup 19 Aug, 21 Oct, 16 Dec, 17 Feb, 14 Apr, final 15 May. German cup 9 Sep, 18 Nov, 10 Feb, 21 Apr, final 22 May.
+- Spare weekends (ENG1 2, GER1 1) are spread evenly, like international breaks. ENG2's extra rounds (7, or 8 when Christmas Day is a Saturday) are spread through the season's midweeks, never on a cup midweek.
+- No matches on 24 or 25 December.
+- The second half of the round-robin is the first half with venues swapped, starting from its second round. A straight mirror gave some clubs three home or away matches in a row at the turn of the season.
+
+**Chunk 2: cups, play-offs, promotion and relegation** (`src/worker/season/`)
+- `createSeason` builds a season from the clubs' current leagues: every league fixture, plus the first round of each cup. As matches are played, `progress` draws each cup round when the previous one finishes and creates the play-off stages one after another.
+- English cup: ENG2 clubs enter round 1 and ENG1 joins in round 2 (32 clubs). German cup: a preliminary round for the 4 lowest-placed GER1 clubs (lowest `strength` in season 1), then the last 16.
+- ENG2 play-offs, 3rd–8th:
+  - eliminators: 5th hosts 8th, 6th hosts 7th;
+  - two-legged semi-finals: 3rd plays the lowest-seeded eliminator winner, 4th the highest; the higher seed hosts the second leg;
+  - final at a neutral venue.
+- Extra time and penalties apply in every knockout match and after second legs; the engine works out aggregates.
+- `seasonOutcome` returns the tables, champions, cup and play-off winners and the moves between leagues; `applyMoves` and `finishesOf` set up the next season.
+- `pnpm season [--seasons N] [--seed X]` prints each season: tables, both cups round by round, the play-off bracket, and who went up and down. One season is about 1,300 matches and takes 1.2 s in Node, world generation included.
+- The season state is plain data. A test saves it as JSON mid-season, resumes it, and gets identical results.
+- The config loader now reads cup entry rounds and the preliminary round from the existing config text (no data change). It refuses a config whose cup bracket doesn't reach one final, or whose promotion and relegation counts don't match.
+- 7 new season tests (full 2026/27 season plus season 2) and play-off date tests over 20 seasons. 140 tests in all.
+
+**Judgment calls (chunk 2)**
+- Cup finals and the play-off final are at a neutral venue. Other cup ties, semi-finals included, are at the ground of the club drawn first.
+- Cup ties between clubs of different leagues use neutral style modifiers; a tie between two clubs of the same league uses that league's style. Play-offs use the league's style.
+- Each cup round is drawn as soon as the previous round is complete. A round with an odd number of clubs gives one club a bye (the current config never needs one).
+- Ranking for the German preliminary round: last season's finish. A club that was in a lower league last season, or has no finish (season 1), counts as lowest; ties go to the weaker club.
+- A play-off date that falls on a cup date moves to the next free slot of the same kind. It never happens with the current calendar.
+- The config check also accepts a 4-club play-off format for future leagues.
+- **Observed, for M4:** without transfers, promoted clubs mostly go straight back down (in a 3-season run: 0 of 3 survived after season 1, 1 of 3 after season 2). Their survival rate is gated in M4 (T, 2026-10-14).
+
+**Chunk 3: phase machine, Play actions, saving** (`src/worker/league/game.ts`)
+- Phases: preseason (1 July to the first match), regular season (every league, cup and play-off match), end of season (from the last match to 30 June). The end of season has two steps the user takes: "Proceed to promotion/relegation" (moves the date to 1 June) and "Advance to preseason" (1 July, a new season).
+- Play actions run in the worker: `untilNextMatch`, `oneWeek`, `untilWindowCloses`, `untilEndOfSeason`, `proceedToPromotionRelegation`, `advanceToPreseason`. They're reached through the new calls `getGameState` and `playGame`; a `gameChanged` event updates every open tab. Actions on one save run one at a time.
+- Dated events: both transfer windows opening and closing, and the winter development date (its work arrives in chunk 5). The game date is the last day processed; each action processes days in order and saves once at the end.
+- Saved per match:
+  - the fixture result;
+  - a match record (box score, key events, team and player stats, ratings; no play-by-play);
+  - per-competition player stats (31 totals, including a rating total for averages).
+- Club-season rows hold W/D/L, goals and points through the season, and the final position at the end.
+- The cache keeps only the current season of fixtures, match records and player stats in memory. A new season saves the old one, drops it from memory and prunes match records older than last season (the user's club's are kept forever).
+- Saves from before M3 get their season set up when opened. No database version bump was needed (no new stores or indexes).
+- Fixed: a cache loaded through an index was keying rows by the index value. Regression test added.
+- 7 new tests:
+  - a season played in one go;
+  - the same season stopped, reloaded and continued, identical down to every player stat;
+  - promotion and relegation, then the next season;
+  - match-record retention;
+  - an upgraded old save;
+  - partial cache loading.
+  147 tests in all.
+
+**Judgment calls (chunk 3)**
+- The `playoffs` phase is gone. The spec's phase table has no such phase, and ENG2's play-offs overlap the ENG1 run-in and both cup finals, so they run inside the regular season.
+- No separate "Start season" action: "Until next match" from preseason plays up to the user's first match. The M5 Play menu can label it as it likes.
+- Play-offs keep their own player-stats competition (`ENG2-PO`), separate from the league.
+- **Test speed:** fake-indexeddb, used by the unit tests, rewrites a row in time proportional to the store's size, so saving after many short steps is slow in tests. The stop-and-resume test therefore reloads once, early. Real browsers use proper indexes; chunk 9 measures saving in Chrome against the 60-second season budget.
+
+**Chunk 4: condition, injuries, rotation** (`src/worker/season/squads.ts`, `coefficients.ts`)
+- **Condition** is saved with the date it was set (the player's last match) and recovers with rest: the gap to 100% shrinks by exp(−rate × days). Recovery is faster with endurance and the Medical dial, and slower past 29.
+  - A full 90 minutes leaves a player at about 65–70%. He's about 90% four days later and about 96% a week later.
+  - Only players who play are rewritten, which keeps saves small. Everyone is reset to 100% in preseason; long injuries carry on.
+- **Injuries** come from the match engine, which is already tied to energy (which starts at condition) and the Medical dial. They're saved as `injury.until`, with a type by length (knock, muscle strain, ligament, serious). Injured players are never picked.
+- **Matchday squad AI** (SPEC §9), used for every club in simulated matches, the user's included. It assigns players to slots by slot OVR minus penalties:
+  - tiredness, weighted down in big matches and up when a bigger match comes within 4 days;
+  - rest for the regular starters in matches that matter less than an ordinary league match;
+  - a large penalty below 55% condition.
+  The bench gets area minimums, then the best of the rest.
+- **Importance:**
+  - an ordinary league match is 1;
+  - from 70% of the league season, 1.25 with something at stake (within 6 points of the title, promotion, play-off or drop line) and 0.85 with nothing to play for;
+  - cup: early rounds 0.65, quarter-finals 0.9, semi-finals 1.2, finals 1.5;
+  - play-offs 1.5.
+- With fewer than 16 fit seniors, the best academy players aged 16+ fill the matchday squad up to 20.
+- `pnpm season` now plays with the squad AI and prints the squad numbers. `--quiet` prints only the averages.
+- 7 new squad tests:
+  - recovery: rest, Medical dial, endurance, age;
+  - match updates and the preseason reset;
+  - injured players excluded;
+  - more rotation in small games, less in big ones, more before a big match;
+  - the academy rule;
+  - importance.
+  154 tests in all.
+
+**First numbers** (6 seasons each on two seeds; development not in yet):
+- top clubs' minutes share 0.81 and 0.83 ✓ (0.72–0.88);
+- injured per squad at once 1.8 and 1.9 (2–4.5, low);
+- injury lengths: 25% under a week, 63% 1–3 weeks, 12% 4+ weeks, 2% season-ending ✓;
+- parity ENG1 12% and 9% (13–22%, low), ENG2 15% ✓, GER1 13% and 10%;
+- ENG1 champion 83 and 89 ✓, bottom 26 and 28 ✓, top scorer 33 and 29 ✓, top assists 18 and 23.
+Tuning is chunks 7–8.
+
+**Training injuries** (T, 2026-10-15, option B): `trainingInjuries` makes one draw per fit player per day, from 1 July to the last match, with the engine's injury-risk factors and length distribution. Each day has its own random stream, so the result never depends on how days are grouped into Play actions (tested). With a base of 0.0017 per player per day, 4 seasons give:
+- injured per squad at once 2.7 ✓ (was 1.9);
+- 40% of injuries in training;
+- injury lengths unchanged;
+- ENG1 champion 78.8 (lower, for tuning).
+Season sim time rose by about 0.5 s per season in Node.
+
+**Judgment calls (chunk 4)**
+- Injuries happened in matches only (ZenGM-like) at first. To reach ~3 injured per squad, T chose to add training injuries (2026-10-15; see Deviations).
+- When fewer than 16 seniors are fit, academy players fill the matchday squad up to 20, not just up to 16.
+- The squad AI keeps the club's saved formation; formation changes by the AI are not in the MVP spec.
+
+**Chunk 5: development and squad turnover** (`src/worker/season/offseason.ts`, `runner.ts`)
+- **Shared runner:** `runDays` is the day-by-day loop (training injuries → dated events → matches), used by the save (`game.ts` persists what it returns) and by the tools, so both run the same code.
+- **Development** on 1 January and 1 July for every player not retired, using the M1 core and a per-player tally of minutes and ratings since the last update:
+  - minutes share = his minutes / his club's match minutes in the half;
+  - level = the average best-XI OVR of his league;
+  - performanceAdj = (average rating − 6.6) × 0.15;
+  - academy players develop on the Youth dial.
+  Each update appends a ratings snapshot and recomputes POT from career arcs (POT = OVR from 29, as in ZenGM).
+- **Ceiling decay** (1 July): 19–23-year-olds under 15% of the season's minutes lose 1–3 hidden ceiling points.
+- **End of season** (1 June):
+  - retirement odds rise from 32 (2%) to 38 (90%); keepers retire two years later;
+  - ×1.6 under OVR 50, ×1.25 under 60, ×2 for free agents;
+  - free agents 30+ unsigned for a season retire; free agents 23 or under unsigned for 12 months leave the game.
+- **Preseason** (1 July):
+  - contracts roll over (temporary until M4);
+  - youth intake: 3–6 per club aged 15–16, by Youth dial and reputation, club-country nationality mix;
+  - academy players 18+ are promoted (3-year contract, wage on the club's scale) or released; outstanding 17-year-olds are promoted early;
+  - squad top-up to 22 seniors, academy first, then the free agent filling the thinnest area;
+  - condition reset.
+- **Awards** at the final whistle, per league: champions, Player of the Year (best average rating, 50%+ of league minutes), Golden Boot, Team of the Season (1-4-3-3 by listed position, 40%+ minutes). Also cup winners, play-off winners, promoted and relegated clubs.
+- **Transactions** are logged for retirements, academy promotions, releases and free-agent signings.
+- **Pruning:** retired 3+ seasons ago, peak OVR under 74, no award and under 50 appearances for the user's club: the player and his stat rows are deleted.
+- Transactions and awards are cached for the current season only, like fixtures.
+- 9 new tests (8 season-end, 1 pruning), and the save tests now cover awards, retirements, youth intake and development. 165 tests in all. The M1 development tests already covered the three M3 development checks.
+
+**First numbers** (untuned; 6 seasons on two seeds, then 10):
+- well-played 18–21s +2.4 OVR a year (target +4 to +8, low);
+- benched +1.2 ✓;
+- 33+ −4.1 ✓;
+- wonderkids (POT 75+) 4.2–4.4 per league per season (target 0.5–1.8, high);
+- retirement age mean 34, 70% between 33 and 37 ✓;
+- parity ENG1 12–13%, ENG2 17% ✓, GER1 11–14%;
+- top-clubs minutes share 0.79–0.80 ✓, injured at once 2.7 ✓.
+- **Player count:** active players rise from 1,863 to about 2,500 by season 4 and hold there (+35%). The spec's academy flow (3–6 youths a year, 2–3 years in the academy) settles at about 12 academy players per club, while the opening world generates 4–6. Young released players also make the free-agent pool about 300, against 120 at the start. Question for T at the chunk 5 check-in.
+- Speed: a season with development takes about 3.6 s in Node. Each development update takes 0.6 s, mostly POT arcs.
+
+**Judgment calls (chunk 5)**
+- Development level = the average best-XI OVR of the player's league, a stand-in for "opponents' average team OVR" until Team OVR weights are fitted (M5).
+- POT is recomputed at both updates; from age 29, POT = OVR.
+- The squad top-up also covers the user's club while there's no transfer market (M4).
+- Free agents develop as if at a typical club with no minutes.
+
+**Chunk 6: 20-season harness** (`tools/calibrate/world.ts`, `world-report.ts`)
+- `pnpm calibrate --world [--seasons 20] [--worlds 3] [--seed X] [--check]` plays W generated worlds for S seasons, each in its own process, with the real season loop. The engine harness stays the default (`pnpm calibrate`, now `tools/calibrate/engine.ts`). `pnpm season` prints from the same per-world module.
+- **Gated:**
+  - per season: champion and bottom points, top scorer and assists (ENG1), injured per squad, injury lengths, parity, top clubs' minutes share;
+  - development: well-played and benched 18–21s, decline from 33, wonderkids, displayed POT beaten, retirement ages;
+  - stability: player count drift and distinct ENG1 champions.
+  Promoted clubs' survival is reported only (gated in M4).
+- **Readings of the text targets** (judgment calls):
+  - "most injuries 1–3 weeks; ~10% 4+ weeks; rare season-ending" = at least 50% at 7–21 days, 5–20% at 28+ days, at most 5% at 120+ days;
+  - "most retire 33–37; goalkeepers later" = at least 50% of retirements (players 30+) at 33–37, and keepers' mean age above outfielders';
+  - "exceed displayed POT" = seniors aged 17–21 in the first 5 seasons whose later peak OVR beats the POT shown then (gated from 12 seasons).
+- Speed: 3.0 s per season per process. 3 worlds × 20 seasons take 60 s wall time locally, so roughly 3 minutes on CI. POT is now recalculated once a year (1 July); on 1 January it only rises to meet OVR.
+- 1 new smoke test (2 seasons, every metric finite, results survive JSON). 166 tests in all.
+
+**First full run** (3 worlds × 20 seasons, untuned): 11 of 17 gated checks pass.
+- **Pass:**
+  - champion 84.2, bottom 28.2, top scorer 30.4;
+  - injured 2.65 at once, parity 13.3%, minutes share 0.82, injury lengths;
+  - benched 18–21s +1.3;
+  - retirements 89% at 33–37 (keepers 36.5 v 34.8);
+  - at least 4 different ENG1 champions per world.
+- **Fail:**
+  - top assists 21.6 (11–20);
+  - well-played 18–21s +2.5 a year (4–8);
+  - players 33+ −3.9 (4–7);
+  - wonderkids 5.1 per league per season (0.5–1.8);
+  - displayed POT beaten 3.8% (18–32%);
+  - player count +43% from the start, although only 4.2% after season 4 (decision pending with T).
+- Promoted survival 57% (M4 target 35–60%).
+- `calibrate --world --check` joins CI once tuning passes (chunk 8).
+
+**Chunks 7–8: tuning** (T's decisions B and training base 0.2 applied; all values are code coefficients)
+- **Development** (`core/development.ts` `DEV`):
+  - training base 0.2;
+  - young-player growth ×3 up to 22, fading to ×1 by 26 (players in senior football only);
+  - academy growth ×0.5;
+  - decline ×1.5 from 33, phasing in from 31;
+  - ceiling softness 8 and mental minutes bonus 0.35, both unchanged.
+- **Ceilings** (`generate/player.ts` `CEILING_HEADROOM`): one rule for every generated player, headroom ~ normal(1.1 × (27 − age), 0.2 × mean + 1.5).
+  - Was 2.2 per year with a 0.45 share, sized for the old, slower growth. With faster growth it let the world inflate (75+ share 2.5% → 14% in 10 seasons).
+- **Youth intake** (`generate/youth.ts`): base quality 25 (was 28). "Talent" link: a youth's quality noise also adds 8 ceiling points per standard deviation, so the youngsters who earn minutes first are the ones with room to grow.
+- **POT** (`core/potential.ts`):
+  - career arcs now model ceiling decay, as the season loop does;
+  - expected minutes refitted to what the rotation AI actually gives (players 10 points below their club's XI play ~5%, not ~19%).
+  Before this, only ~4% of young players beat their displayed POT; now 32%.
+- **Engine** (`engine/coefficients.ts`): assist shares by chance kind. A set-piece header is the taker's assist only half the time (flick-ons and second balls); this alone took top assists from ~21 to ~16. The assist skill power is now a coefficient, left at 2. The M2 per-match gates still pass (average rating 6.55).
+- **Squad AI:** a league match against a clearly weaker side counts × 0.85 (big clubs rotate against small ones). The effect on parity is small.
+- **Turnover fix:** free agents unsigned for 12 months now move on on 1 July. The 1 June check let them stay nearly two years.
+- **Harness:**
+  - `--overrides JSON` for in-memory tuning runs (A3 #3);
+  - average OVR by age band and the 75+ share, for information.
+
+**Result** (`pnpm calibrate --world`, 3 worlds × 20 seasons, defaults): 16 of 17 gated checks pass.
+- champion 83.9, bottom 28.0, top scorer 32.5, top assists 18.6;
+- injured at once 2.62, parity 13.8%, minutes share 0.83, injury lengths;
+- benched 18–21s +1.43, 33+ −5.66, wonderkids 1.75 per league, displayed POT beaten 31.9%, retirements 93% at 33–37 (keepers 36.8 v 34.9);
+- player count drift 8.3%, at least 4 different ENG1 champions;
+- **well-played 18–21s +3.81 a year (target 4–8):** gated in M4, by T's decision C (2026-10-15).
+
+For information:
+- promoted clubs' survival 66% (M4 target 35–60%);
+- senior mean OVR 57.0 → 54.7 over 20 seasons;
+- 75+ share 2.6% → 6.4%;
+- by age, the last season's 21–23s (57.2) are better than its 27–29s (56.1): players peak earlier than in real football.
+
+**Why the last check is hard:** players who play aged 18–21 are, by selection, the ones closest to their ceilings. Settings that push them past +4 a year also raise the wonderkid count above 1.8 and inflate the top end. A grid over talent headroom, average headroom and youth quality, and a run with growth spread into the mid-20s, all traded one failing check for another. T deferred this check and the world-shape side effects to M4 (decision C). The 20-season check now runs in CI.
+
+**Chunk 9: Season lab page** (`src/ui/inspector/SeasonLab.tsx`, `src/worker/views/seasonLab.ts`)
+- **Season lab** tab on the developer page (replaced in M5).
+  - The Play options for the phase, as buttons; the date, phase and open window; the user's next match.
+  - League tables with promotion, play-off and relegation zones.
+  - The latest matchday's results, both cups round by round, and the play-off bracket.
+  - Injuries (per squad, the user's club, the worst squads) and the best academy prospects.
+  - This season's transactions, and the honours and awards once the season ends.
+  - Each action shows what it did and how long it took. A whole season from 1 July is timed against the 60-second budget.
+  - Every open tab refreshes when the game moves on (`gameChanged`).
+- New worker call `getSeasonLab(lid)`.
+
+**Verified locally (end of M3)**
+- 166 unit tests; lint; build (no real club names in `dist/`); `generate --check`; `calibrate --check` (M2 engine gates); `calibrate --world --check` (16 season-loop gates, 3 worlds × 20 seasons, 67 s).
+- **Headless Chrome on the production build:** Season lab 19/19, Match lab 11/11, M1 18/18. The M1 squad-size check is now 31–36 rows, after decision B. The Season lab checks cover:
+  - preseason on 1 July with the window open;
+  - Until next match plays to the user's first match (15 Aug); One week moves to 22 Aug;
+  - a reload mid-season carries on from the same date;
+  - the rest of the season in 2.3 s, then awards, both cups and the play-offs complete;
+  - promotion and relegation with retirements logged; Advance to preseason opens 2027/28 with the youth intake;
+  - **a whole season, 1 July to the final, in 1.9 s in Chrome, saving included (budget 60 s);**
+  - a reload at the end of the season keeps it;
+  - no real club names and no console errors.
+- Saving in the browser is fast: the slowdown seen with fake-indexeddb in unit tests doesn't occur with Chrome's IndexedDB.
+
+**M3 judgment calls, all chunks:** see the chunk sections above. Coefficients are in `src/worker/core/development.ts` (`DEV`), `src/worker/generate/player.ts` (`CEILING_HEADROOM`), `src/worker/generate/youth.ts` (`YOUTH_QUALITY`), `src/worker/season/coefficients.ts`, `src/worker/season/offseason.ts` (`TURNOVER`) and `src/worker/engine/coefficients.ts`.
+
+**Carried to M4:**
+- young regulars' growth (+3.8 a year, target 4–8);
+- world shape: stable OVR distribution and a peak at 27–29;
+- promoted clubs' survival (66% now, target 35–60%);
+- the finance checks;
+- real contract expiry, replacing the M3 rollover and squad top-up.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

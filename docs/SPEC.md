@@ -26,9 +26,10 @@ A web-based soccer management sim in the mold of the ZenGM games (Basketball GM,
   - **ENG1** English top flight, 20 clubs, 38 rounds.
   - **ENG2** English second tier, 24 clubs, 46 rounds.
   - **GER1** German top flight, 18 clubs, 34 rounds.
-- About 1,800 club players at start, academies included (22–24 senior + 4–6 academy per club), plus a seeded free-agent pool on top.
+- About 2,100 club players at start, academies included: 22–24 seniors and 9–12 academy players (aged 15–17) per club, the size the yearly youth intake settles at (T, 2026-10-15). On top, a seeded free-agent pool of about 310: 120 experienced players and about 190 18-year-olds just released by academies.
 - **Promotion/relegation:** ENG1 bottom 3 go down to ENG2. ENG2 top 2 go up automatically; **3rd–8th play-offs** for the third place, mirroring the real 2026/27 format: one-off eliminators (5th hosts 8th, 6th hosts 7th), two-legged semi-finals (3rd vs lowest-seeded eliminator winner, 4th vs highest-seeded), single-match final at a neutral venue. Extra time and penalties where ties are level.
   - Play-off dates: eliminators in the first midweek slot after ENG2's final round; semi-final first legs the following weekend, second legs the midweek after; final around 23–25 May (the weekend slot nearest 24 May).
+- **League tables** are ordered by points, then goal difference, goals scored, head-to-head points, head-to-head goal difference, and finally a seeded draw. Each league sets its own tie-breaker order in config (`tieBreakers` in `competitions_mvp.json`), so a league can use different rules later.
 - **No relegation from the lowest simulated tier.** That means none from ENG2, and none from GER1 in the MVP because no German second tier exists yet.
 - **Domestic cups:** one per country, single-leg knockout, extra time and penalties if level.
   - English cup: ENG2 clubs enter round 1 (24 → 12), ENG1 joins in round 2 (32 clubs), then last 16, quarter-finals, semis, final.
@@ -123,7 +124,7 @@ Two progression updates per season: **summer (1 July)** and **winter (1 January)
 
 ### 5.3 Development multiplier (growth only; full effect up to 23, blending to neutral by 27)
 ```
-dev    = coaching × (0.4 + 0.6 × minutesFactor × challengeFactor) + performanceAdj
+dev    = coaching × (0.2 + 0.8 × minutesFactor × challengeFactor) + performanceAdj
 blend  = clamp((age − 23) / 4, 0, 1)          // 0 at 23 or younger, 1 at 27 or older
 devEff = dev × (1 − blend) + 1.0 × blend      // blends linearly to neutral (1.0)
 
@@ -135,7 +136,7 @@ per rating, with a = ageCurve(group, age, curveType):
 - The dev multiplier applies to **growth only**. Decline is driven by **age × the Medical dial** (`medicalFactor` slightly below 1 for a high dial). Minutes, coaching and form can't speed decline up or slow it down, so a benched veteran never declines slower than a starter (unit-tested in M3).
 - **mentalMinutesBonus** is a small tuned coefficient on the mental age-curve group (`oiq`, `diq`, `wrk`, `ant`).
 - **coaching:** Coaching dial of the club where he actually plays (incl. loan clubs), mapped to 0.9–1.1.
-- **minutesFactor:** share of available minutes in all competitions in the half-season, with diminishing returns. Zero minutes still gives the 0.4 training base.
+- **minutesFactor:** share of available minutes in all competitions in the half-season, with diminishing returns. Zero minutes still gives the 0.2 training base (T, 2026-10-15; was 0.4, which held a young regular's growth to about 1.7× a benched player's, too little for the +4–8 vs 0–2 targets).
 - **challengeFactor:** compares the strength of the level he played at (minutes-weighted average team OVR of opponents/competitions) with his own OVR. Peaks when the level is at or slightly above his OVR; small when he is far too good for the level (blocks the weak-loan exploit) or badly out of his depth.
 - **performanceAdj:** average match rating vs positional expectation, capped at ±0.15.
 - **Academy players** (no matches) develop on coaching + Youth academy dial only.
@@ -278,6 +279,7 @@ Computed from the starting XI by slot (config: `formations_tactics.json`): Passi
   ```
   injury_risk = base × (1 + k × (1 − condition)) × injuryProne × medicalFactor
   ```
+- Injuries happen **in matches and in training** between matches (T, 2026-10-15). Training injuries use the same formula once per day, with that day's condition, from 1 July to the season's last match. The training rate is tuned so squads average about 3 injured players at once.
 - No match sharpness.
 - Energy is match-only and never saved; condition is saved.
 

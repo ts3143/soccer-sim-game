@@ -223,7 +223,9 @@ function openPlay(
       return null;
     }
     dribbler.stats.dribblesCompleted++;
-    const assister = rng.bool(0.3) ? pick(rng, att.pickers.assistCentral, dribbler) : null;
+    const assister = rng.bool(c.assistShare.dribble)
+      ? pick(rng, att.pickers.assistCentral, dribbler)
+      : null;
     return {
       shotType: "dribble",
       shooter: dribbler,
@@ -238,8 +240,10 @@ function openPlay(
   }
   const shooter = pick(rng, att.pickers[kind]);
   if (!shooter) return null;
+  // A certain assist draws no random number (keeps the M2 sequences when the share is 1).
+  const share = kind === "central" ? c.assistShare.central : c.assistShare.other;
   const assister =
-    kind === "central" || rng.bool(0.4) ? pick(rng, att.pickers.assistCentral, shooter) : null;
+    share >= 1 || rng.bool(share) ? pick(rng, att.pickers.assistCentral, shooter) : null;
   const skill =
     kind === "longShot" ? (shooter.eff[R.lsh] as number) : (shooter.eff[R.fin] as number);
   return {
@@ -378,10 +382,13 @@ function setPieceDelivery(s: MatchState, att: TeamState, def: TeamState): ShotOu
   const shooter = pick(rng, att.pickers.header, taker);
   if (!shooter) return "cleared";
   shooter.stats.aerialsWon++;
+  // Flick-ons and second balls: not every set-piece header is the taker's assist.
+  const share = c.assistShare.setPiece;
+  const credited = share >= 1 || rng.bool(share);
   return resolveShot(s, att, def, {
     shotType: "header",
     shooter,
-    assister: taker && taker !== shooter ? taker : null,
+    assister: taker && taker !== shooter && credited ? taker : null,
     xg: xgFor(s, att, def, c.xg.header * c.setPiece.xgFactor, avg(shooter.eff, "hdr", "jmp")),
     blocked: c.shotOutcome.blocked * c.shotOutcome.headerBlockedFactor,
   });

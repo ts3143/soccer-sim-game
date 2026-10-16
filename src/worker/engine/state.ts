@@ -219,7 +219,11 @@ function buildPicker(team: TeamState, kind: PickerKind, c: Coefficients): Picker
   team.slots.forEach((p, i) => {
     if (!p) return;
     const slot = team.plan.formation.slots[i] as FormationSlot;
-    let w = (POSITION_WEIGHTS[kind][slot.position] ?? 0) * (SKILL[kind](p.eff) / 50) ** 2;
+    const power =
+      kind === "assistCentral" || kind === "assistCross"
+        ? c.pickers.assistSkillPower
+        : c.pickers.skillPower;
+    let w = (POSITION_WEIGHTS[kind][slot.position] ?? 0) * (SKILL[kind](p.eff) / 50) ** power;
     if (kind === "fouler") {
       if (p.input.hothead) w *= 2;
       if (p.booked) w *= c.cards.bookedFoulFactor;

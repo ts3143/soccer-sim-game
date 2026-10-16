@@ -8,6 +8,7 @@
  * the fields the spec names, and extended (with a DB version bump) when built.
  */
 import type { Position } from "./config/ratings";
+import type { MatchResult } from "./match";
 
 // ---------------------------------------------------------------------------
 // Save list (global database)
@@ -28,8 +29,13 @@ export interface LeagueSummary {
 // ---------------------------------------------------------------------------
 // meta (key-value rows)
 
-/** Season phases (SPEC §3.1). There is no re-sign phase: renewals happen in windows. */
-export type Phase = "preseason" | "regularSeason" | "playoffs" | "endOfSeason";
+/**
+ * Season phases (SPEC §3.1). Preseason runs from 1 July to the season's first match; the
+ * regular season covers every league, cup and play-off match (windows are dated events
+ * inside it); the end of season runs from the last match to 30 June. There is no re-sign
+ * phase: renewals happen in windows.
+ */
+export type Phase = "preseason" | "regularSeason" | "endOfSeason";
 
 export interface GameMeta {
   /** Display name of the save. */
@@ -56,8 +62,25 @@ export interface IdCounters {
   aid: number;
 }
 
+/**
+ * The current season's competition state (src/worker/season): who is in each league
+ * this season and how far each cup has got. Fixtures live in their own store.
+ */
+export interface SeasonMeta {
+  season: number;
+  leagueClubs: Record<string, number[]>;
+  /** Per cup: the clubs entering each round (0-based). */
+  cupEntrants: Record<string, number[][]>;
+  /** Per cup: the clubs in each round drawn so far (byes included). */
+  cupParticipants: Record<string, number[][]>;
+  /** End of season: promotion and relegation already applied. */
+  movesApplied: boolean;
+}
+
 export interface MetaRows {
   game: GameMeta;
+  /** Absent in saves made before M3 until the season is first set up. */
+  season: SeasonMeta;
   ids: IdCounters;
   /** Saved state of the league's main random stream. */
   rng: { seed: string; words: readonly [number, number, number, number] };
@@ -203,6 +226,16 @@ export interface TransferRecord {
   type: "transfer" | "loan" | "freeAgent" | "academyPromotion" | "release";
 }
 
+/** What development needs from the matches since the last update (SPEC §5.3). */
+export interface DevTally {
+  /** This half-season: minutes, appearances and the sum of match ratings. */
+  minutes: number;
+  appearances: number;
+  ratingTotal: number;
+  /** The whole season so far (for ceiling decay at the summer update). */
+  seasonMinutes: number;
+}
+
 export interface Player {
   pid: number;
   firstName: string;
@@ -234,8 +267,15 @@ export interface Player {
   loan: { parentCid: number; until: string; wageShare: number } | null;
   contract: Contract | null;
   injury: Injury | null;
-  /** Between-match condition, 0–100. */
+  /**
+   * Between-match condition, 0–100, as of `conditionDate`. It recovers with rest from
+   * then on (src/worker/season/squads.ts works out today's value).
+   */
   condition: number;
+  /** Date `condition` was set (his last match); null = full condition. Absent in pre-M3 saves. */
+  conditionDate?: string | null;
+  /** Minutes and ratings since the last development update (reset at each one). */
+  devTally?: DevTally;
   transfers: TransferRecord[];
   /** ISO date he became a free agent (null otherwise). */
   freeAgentSince: string | null;
@@ -245,43 +285,90 @@ export interface Player {
 // ---------------------------------------------------------------------------
 // playerStats, fixtures, matches (filled from M2/M3)
 
-export interface PlayerStatsRow {
+/** Per-match player totals summed over a season (SPEC §10.1); averages are derived. */
+export const PLAYER_STAT_TOTALS = [
+  "minutes",
+  "goals",
+  "assists",
+  "shots",
+  "shotsOnTarget",
+  "xg",
+  "xa",
+  "passes",
+  "passesCompleted",
+  "keyPasses",
+  "progressivePasses",
+  "crosses",
+  "tackles",
+  "interceptions",
+  "clearances",
+  "blocks",
+  "aerialsWon",
+  "dribbles",
+  "dribblesCompleted",
+  "fouls",
+  "foulsWon",
+  "yellowCards",
+  "redCards",
+  "saves",
+  "goalsConceded",
+] as const;
+export type PlayerStatTotal = (typeof PLAYER_STAT_TOTALS)[number];
+
+/** One player's season at one club in one competition (SPEC §10.3). */
+export type PlayerStatsRow = {
   pid: number;
   season: number;
   cid: number;
   competition: string;
   appearances: number;
   starts: number;
-  minutes: number;
-  goals: number;
-  assists: number;
-  /** Further per-match totals (SPEC §10.1) are added by the match engine. */
-  [stat: string]: number | string;
-}
+  cleanSheets: number;
+  /** Sum of match ratings; average = ratingTotal / appearances. */
+  ratingTotal: number;
+} & Record<PlayerStatTotal, number>;
 
 export interface Fixture {
   fid: number;
   season: number;
   date: string;
   slot: "weekend" | "midweek";
+  /** League ID, cup ID or play-off ID (e.g. "ENG1", "ENGCUP", "ENG2-PO"). */
+  competition: string;
+  /** League round number ("1", "2", …) or the knockout round's name. */
+  round: string;
+  homeCid: number;
+  awayCid: number;
+  /** Finals are played at a neutral venue (no home advantage). */
+  neutral: boolean;
+  /** 1 or 2 in a two-legged tie; null otherwise. */
+  leg: 1 | 2 | null;
+  /** Set once played. */
+  result: {
+    /** Goals including extra time. */
+    homeGoals: number;
+    awayGoals: number;
+    extraTime: boolean;
+    /** Shoot-out score, home-away. */
+    penalties: string | null;
+    /** Knockout ties: the club that goes through (after the second leg in two-legged ties). */
+    winnerCid: number | null;
+  } | null;
+}
+
+/**
+ * A played match's record (SPEC §10.4): box score, key events, team stats and player
+ * ratings. No play-by-play. Kept 2 seasons, or forever when the user's club played.
+ */
+export interface MatchRecord {
+  fid: number;
+  season: number;
+  date: string;
   competition: string;
   round: string;
   homeCid: number;
   awayCid: number;
-  /** Set once played. */
-  result: {
-    homeGoals: number;
-    awayGoals: number;
-    extraTime: boolean;
-    penalties: string | null;
-  } | null;
-}
-
-export interface MatchRecord {
-  fid: number;
-  season: number;
-  /** Box score, scoring summary, key events, team stats, player ratings: shaped in M2. */
-  data: unknown;
+  result: MatchResult;
 }
 
 // ---------------------------------------------------------------------------

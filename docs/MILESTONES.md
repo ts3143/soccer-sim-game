@@ -25,7 +25,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 - Name files per nationality in `data/names/` from public-domain or permissively licensed sources; document sources in `data/names/SOURCES.md`.
 - Player generator: bio, 22 ratings by archetype, height/weight, preferred foot, all 10 position OVRs, hidden ceiling, curve type, hidden traits, mood traits.
 - Fit the fixed per-position OVR scaling constants once and store them in `ratings_positions.json` → `ovrScaling`.
-- Squad generator: 22–24 senior + 4–6 academy per club. Each club gets a seeded default formation from the 5 MVP presets; its squad is built around it and saved as its starting tactics; tuned so the best-XI OVR in that formation hits `strength` (±1). Contracts and wages so each club starts at ~50–65% squad cost ratio.
+- Squad generator: 22–24 senior + 9–12 academy per club (T, 2026-10-15; was 4–6). Each club gets a seeded default formation from the 5 MVP presets; its squad is built around it and saved as its starting tactics; tuned so the best-XI OVR in that formation hits `strength` (±1). Contracts and wages so each club starts at ~50–65% squad cost ratio.
 - Seeded free-agent pool.
 - Development core (pure functions): age curves per rating group and curve type, the dev multiplier, growth/decline per SPEC §5.3. Pulled forward from M3 because POT depends on it; M3 wires it into the season and calibrates it.
 - POT via cheap simulated arcs (provisional until M3 calibration).
@@ -33,7 +33,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 - Generation inspector page (developer-only, replaced in M5) and `pnpm generate --check`, a headless report of the acceptance checks that CI also runs.
 
 **Accept**
-- New league: 62 clubs, ~1,800 club players including academies (22–24 senior + 4–6 academy per club, i.e. 1,612–1,860), free agents on top; plausible OVR distribution (few 75+, many 50–65).
+- New league: 62 clubs, ~2,100 club players including academies (22–24 senior + 9–12 academy per club, i.e. 1,922–2,232; T, 2026-10-15), free agents on top; plausible OVR distribution (few 75+, many 50–65).
 - Every club's best-XI OVR in its default formation within ±1 of `strength`; hierarchy matches club data.
 - OVR is a pure function of ratings + config (scaling constants stored, never recomputed per save).
 - `based_on` is absent from the production bundle and from saved data (automated check).
@@ -62,15 +62,18 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 
 ## M3 — Season loop (headless)
 **Build**
-- Calendar and fixture generation (weekend/midweek slots, ENG2 midweek rounds, GER1 winter break), standings, tie-breakers.
+- Calendar and fixture generation (weekend/midweek slots, ENG2 midweek rounds, GER1 winter break), standings, tie-breakers (per league, from config).
 - Cups (draws, byes, ET/pens; in season 1 the German cup preliminary round uses the 4 lowest-`strength` clubs), Championship play-offs (6 clubs: midweek eliminators after the final round, two-legged semis over a weekend + midweek, final around 23–25 May), promotion/relegation.
-- Condition, recovery by days elapsed, injuries tied to condition and Medical dial.
+- Condition, recovery by days elapsed, injuries tied to condition and Medical dial, in matches and in training (T, 2026-10-15).
 - Rotation/lineup AI with mid-term view; if fewer than 16 seniors are fit, academy players aged 16+ fill the bench.
 - Development updates (summer, winter), using the development core built in M1: dev multiplier on growth only, blending to neutral between 23 and 27; decline = age × Medical dial; small mental minutes bonus at any age. Aging, ceiling decay, retirement, youth intake, academy promotion/release, pruning (a pruned player's stat rows go with him).
 - Phase machine and dated events; Play-menu actions as worker functions.
+- End-of-season awards and history rows (Player of the Year, Golden Boot, Team of the Season per league; champions, promotions/relegations, cup winners), saved in `awards`; their pages come in M5.
+- **Temporary squad upkeep until M4:** contracts roll over instead of expiring, and each preseason AI clubs top up to 22 seniors, first by promoting academy players, then by signing the best-fitting free agents. M4 replaces it with renewals, transfers and the free-agent market.
+- Season lab page (developer-only, replaced in M5): the Play-menu actions, tables, results, cups and play-offs, leaders, injuries, awards, and a full-season timer.
 
 **Accept**
-- A 20-season headless run completes without errors; season and development calibration targets pass; player count stays within ±10%.
+- A 20-season headless run completes without errors; season and development calibration targets pass; player count stays within ±10%. Promoted-club survival and the finance checks are gated in M4, once transfers and finances exist (T, 2026-10-14). The well-played 18–21 growth target is gated in M4 too (T, 2026-10-15): transfers and loans change who gets minutes.
 - Top-club starters' minutes share within target; at least 3 distinct ENG1 champions in 20 seasons; parity (top-6 losing to bottom-6) within target, with rotation, fatigue and injuries in place.
 - Development unit tests: a benched 33-year-old doesn't decline slower than a starter; the dev multiplier never changes decline; the multiplier is neutral from 27.
 
@@ -85,6 +88,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 
 **Accept**
 - 20-season run: world-stability checks in `calibration_targets.json` pass (negative-cash share, squad cost ratios, promoted-club survival, etc.).
+- Development and world shape, deferred from M3 (T, 2026-10-15): well-played 18–21-year-olds gain +4 to +8 OVR a year; over 20 seasons the senior OVR distribution stays stable (mean, 75+ share) and players peak around 27–29, not earlier. (End of M3: +3.8 a year; mean 57.0 → 54.7; 75+ share 2.6% → 6.4%; 21–23-year-olds rated above 27–29-year-olds by the last season.)
 - Wage/fee levels stay plausible relative to revenue; no runaway inflation or deflation.
 - Exploit checks: can't buy a star by offering several average players' worth; weak-loan development exploit doesn't work.
 - Contracts not renewed by 31 January (user or AI) expire on 30 June and the players become free agents on 1 July; the January inbox warning and deadline-day reminder fire.

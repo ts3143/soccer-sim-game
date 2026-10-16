@@ -6,7 +6,8 @@
 import { clubDefinitions } from "../../common/config/clubs";
 import type { Club, ClubSeason, Player } from "../../common/schema";
 import { STARTING_SQUAD_COST } from "./contracts";
-import { FREE_AGENT_POOL_SIZE } from "./freeAgents";
+import { FREE_AGENT_POOL_SIZE, RELEASED_YOUTH_COUNT } from "./freeAgents";
+import { OPENING_ACADEMY } from "./squad";
 
 export interface Check {
   name: string;
@@ -30,7 +31,8 @@ export interface CheckContext {
 }
 
 export const THRESHOLDS = {
-  clubPlayers: { min: 1612, max: 1860 },
+  /** 62 × (22–24 seniors + 9–12 academy players), T 2026-10-15. */
+  clubPlayers: { min: 1922, max: 2232 },
   strength: 1,
   /** Share of senior club players rated 75+ ("few"). */
   elite: { min: 0.01, max: 0.06 },
@@ -75,20 +77,20 @@ export function evaluateWorld(world: WorldLike, context: CheckContext = {}): Che
       detail: `${world.clubs.length}`,
     },
     {
-      name: "club players incl. academies ~1,800",
+      name: "club players incl. academies ~2,100",
       pass: clubPlayers >= THRESHOLDS.clubPlayers.min && clubPlayers <= THRESHOLDS.clubPlayers.max,
       detail: `${clubPlayers} (range ${THRESHOLDS.clubPlayers.min}-${THRESHOLDS.clubPlayers.max})`,
     },
     {
-      name: "22-24 seniors and 4-6 academy players per club",
+      name: "22-24 seniors and 9-12 academy players per club",
       pass:
         seniorsPerClub.every((n) => n >= 22 && n <= 24) &&
-        academyPerClub.every((n) => n >= 4 && n <= 6),
+        academyPerClub.every((n) => n >= OPENING_ACADEMY.min && n <= OPENING_ACADEMY.max),
       detail: `seniors ${Math.min(...seniorsPerClub)}-${Math.max(...seniorsPerClub)}, academy ${Math.min(...academyPerClub)}-${Math.max(...academyPerClub)}`,
     },
     {
       name: "free-agent pool seeded",
-      pass: freeAgents.length === FREE_AGENT_POOL_SIZE,
+      pass: freeAgents.length === FREE_AGENT_POOL_SIZE + RELEASED_YOUTH_COUNT,
       detail: `${freeAgents.length}`,
     },
     {

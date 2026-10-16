@@ -1,5 +1,6 @@
 {
   "_note": "MVP world. Leagues are data-driven: adding a country later means adding entries here, not code. Dates are templates for season Y/Y+1; the scheduler places matches on weekend and midweek slots between these bounds.",
+  "_tieBreakersNote": "Each league lists its own table tie-breakers, applied in order (T, 2026-10-14). Allowed: points, goalDifference, goalsFor, goalsAgainst, wins, headToHeadPoints, headToHeadGoalDifference, headToHeadGoalsFor, draw. draw is a seeded random draw and must come last.",
   "seasonStart": "2026-07-01",
   "countries": [
     {
@@ -35,7 +36,8 @@
         "chanceQuality": 1.0,
         "foulRate": 0.95,
         "directness": 0.0
-      }
+      },
+      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"]
     },
     {
       "id": "ENG2",
@@ -77,7 +79,8 @@
         "chanceQuality": 0.88,
         "foulRate": 1.08,
         "directness": 0.5
-      }
+      },
+      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"]
     },
     {
       "id": "GER1",
@@ -96,7 +99,8 @@
         "chanceQuality": 1.05,
         "foulRate": 1.05,
         "directness": 0.0
-      }
+      },
+      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"]
     }
   ],
   "cups": [

@@ -11,14 +11,14 @@ import type { Club, ClubSeason, CompetitionRow, MetaRows, Player } from "../../c
 import { estimatePotential, type PotentialClubContext } from "../core/potential";
 import { Random } from "../core/random";
 import { assignContracts } from "./contracts";
-import { generateFreeAgents } from "./freeAgents";
+import { generateFreeAgents, generateReleasedYouth } from "./freeAgents";
 import { generateSquad } from "./squad";
 
 /** Bump when generation changes in a way that makes old saves inconsistent. */
 export const WORLD_VERSION = 1;
 const NEUTRAL_DIAL = 50;
 /** Context for free agents' POT: they'd likely land at a second-tier level. */
-const FREE_AGENT_CONTEXT: PotentialClubContext = {
+export const FREE_AGENT_CONTEXT: PotentialClubContext = {
   coachingDial: NEUTRAL_DIAL,
   medicalDial: NEUTRAL_DIAL,
   youthDial: NEUTRAL_DIAL,
@@ -35,7 +35,8 @@ export interface WorldOptions {
 }
 
 export interface World {
-  meta: MetaRows;
+  /** Every meta row except the season state, which the season loop sets up. */
+  meta: Omit<MetaRows, "season">;
   competitions: CompetitionRow[];
   clubs: Club[];
   clubSeasons: ClubSeason[];
@@ -188,6 +189,7 @@ export function generateWorld(options: WorldOptions): World {
   });
 
   players.push(...generateFreeAgents(root.fork("freeAgents"), season, seasonStart, nextPid));
+  players.push(...generateReleasedYouth(root.fork("releasedYouth"), season, seasonStart, nextPid));
 
   for (const player of players) {
     const ratings = player.ratingsHistory[0]?.ratings ?? [];
@@ -209,7 +211,7 @@ export function generateWorld(options: WorldOptions): World {
     if (entry) entry.pot = player.pot;
   }
 
-  const meta: MetaRows = {
+  const meta: World["meta"] = {
     game: {
       name: options.name,
       seed: options.seed,
