@@ -52,6 +52,19 @@ export interface LeagueConfig {
   styleModifiers: StyleModifiers;
   /** Table order after points; each league sets its own (T, 2026-10-14). */
   tieBreakers: TieBreaker[];
+  /** Money settings per league (T, 2026-10-16; see `_financeNote` in the config). */
+  finance: LeagueFinance;
+}
+
+export interface LeagueFinance {
+  /** The season's TV money for the whole league, in euros. */
+  broadcastPool: number;
+  /** Share split equally (monthly, August–May); the rest is merit by final position. */
+  equalShare: number;
+  /** Average ticket price (euros) for a reputation-50 club. */
+  ticketPriceBase: number;
+  /** Typical share of capacity filled. */
+  attendanceBase: number;
 }
 
 export interface CupConfig {
@@ -68,6 +81,8 @@ export interface CupConfig {
    * the first season: lowest `strength`); every other entrant joins in round 1.
    */
   preliminary: { clubs: number } | null;
+  /** Euros for winning each round (last = the final), and for the beaten finalist. */
+  prizeMoney: { roundWon: number[]; runnerUp: number };
 }
 
 export interface RosterRules {
@@ -167,6 +182,7 @@ function parse(json: typeof raw): CompetitionsConfig {
     relegation: l.relegation,
     styleModifiers: l.styleModifiers,
     tieBreakers: parseTieBreakers(l.id, l.tieBreakers),
+    finance: l.finance,
   }));
   for (const league of leagues) {
     const relegation = league.relegation;
@@ -207,9 +223,15 @@ function parse(json: typeof raw): CompetitionsConfig {
       finalDate: c.finalDate,
       entryRound,
       preliminary: c.preliminary ? { clubs: c.preliminary.clubs } : null,
+      prizeMoney: c.prizeMoney,
     };
   });
-  for (const cup of cups) checkCupBracket(cup, leagues);
+  for (const cup of cups) {
+    checkCupBracket(cup, leagues);
+    if (cup.prizeMoney.roundWon.length !== cup.rounds.length) {
+      throw new Error(`competitions_mvp.json: ${cup.id} needs one prize per round`);
+    }
+  }
   return {
     seasonStart: json.seasonStart,
     firstSeason: Number(json.seasonStart.slice(0, 4)),

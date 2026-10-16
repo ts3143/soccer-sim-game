@@ -8,7 +8,7 @@ Claude Code updates this file at the end of each milestone.
 | M1 Data, generation and new league | **Accepted** (T, 2026-10-14) | All checks pass locally, in CI and on the Cloudflare preview (18/18 headless Chrome); T tested in Chrome and Safari. See "M1 notes" below. |
 | M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
 | M3 Season loop | **Accepted** (T, 2026-10-16) | All M3 gates pass locally, in CI (`calibrate --world --check`, 16 checks) and on the Cloudflare preview (Season lab 19/19, Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Young regulars' growth and world shape gated in M4 (T). See "M3 notes" below. |
-| M4 Economy and market | In progress | Plan approved (11 chunks); chunk 1 (revenue, expenses, cash flow) under way. |
+| M4 Economy and market | In progress | Plan approved (11 chunks); chunk 1 (revenue, expenses, cash flow) built. See "M4 notes" below. |
 | M5 Core UI | Not started | |
 | M6 Management UI | Not started | |
 | M7 Polish and release v0.1 | Not started | |
@@ -415,6 +415,38 @@ For information:
 - promoted clubs' survival (66% now, target 35–60%);
 - the finance checks;
 - real contract expiry, replacing the M3 rollover and squad top-up.
+
+## M4 notes (2026-10-16, in progress)
+**Chunk 1: revenue, expenses, cash flow** (`src/worker/finance/finance.ts`)
+- **Config** (approved by T): each league has a TV pool, its equal share, a ticket price base and an attendance base. Each cup has prize money per round won plus a runner-up prize (`competitions_mvp.json`, `_financeNote`).
+  - TV pools: ENG1 €2.9B (75% equal), ENG2 €260M (85%), GER1 €1.25B (45%).
+  - English cup €100k–€2.4M per round; German cup €200k–€4.5M.
+- **Revenue:**
+  - gates at every home match (attendance × ticket price; none at neutral finals);
+  - TV equal share in ten month-end instalments, August to May; TV merit by final position (linear) when the matches end;
+  - cup prize money at once;
+  - commercial income in twelve month-end instalments.
+- **Commercial base:** set at league creation as the anchor minus the expected TV and gate income (at least 5% of the anchor). It scales with reputation from there, ~8% per point, fitted on the anchors. A single formula missed the extremes by 30–50%.
+- **Costs at each month-end:** a twelfth of the wage bill, plus the four budget dials, each (3% + 11% × dial/100) of the season's budget base (last season's revenue; the anchor in season 1).
+- **Bookkeeping:**
+  - every flow goes to the club's cash and its season row's revenue and expense breakdown;
+  - 30 June closes the books with a cash snapshot;
+  - the next season's rows take last season's revenue as their budget base, and the AI's ticket prices are reset by reputation.
+- **Opening contracts (T's decision):** 70% of the opening squad cost is wages; 30% is notional past fees, spread over each player's remaining contract years (`Player.feeBalance`). Players aged 20 or under carry no fee. Squad cost stays 50.3–64.8% of revenue (M1 check passes).
+- The shared runner books gates, prizes, month-ends and merit, so the save and the harness use the same money code. The harness reports season-1 revenue against the anchors, the revenue mix, wages to revenue and cash (information until chunk 8).
+- 9 new finance tests (prices, attendance, month-ends, merit, prizes, opening contracts, a full season against the anchors, balanced books, next season's budget base), and the save tests check the books. 175 tests in all.
+
+**First numbers** (3 worlds):
+- season-1 revenue against the anchors, mean (mean absolute error): ENG1 −2.0% (6.0%), ENG2 +0.3% (1.9%), GER1 −2.6% (9.5%; worst 42%, a club whose anchor is below its TV money alone);
+- revenue mix: gates 17%, TV 31%, commercial 52%, prizes 0.3%. Commercial is high because the anchors include European income, which the MVP books as commercial;
+- wages are 39% of revenue in season 1;
+- cash builds up (median 41% of revenue after season 1, 96% after 3) until transfers spend it;
+- over 20 seasons, median wages slide to 17% of revenue. M3's rollover keeps wages flat and cheap academy players replace veterans; chunk 3's contracts replace this.
+
+**Judgment calls (chunk 1)**
+- **Budget dials double as the clubs' running costs:** about 34% of revenue at the default dial of 50. The spec lists only wages, fees and dials as expenses, and without running costs clubs would bank ~50% of revenue every year.
+- Neutral cup finals and play-off finals bring no gate receipts, only prize money (play-offs pay none).
+- The AI sets every club's ticket price, the user's included, until the M6 screens let the user set it.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

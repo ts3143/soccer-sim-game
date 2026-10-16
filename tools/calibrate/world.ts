@@ -5,7 +5,8 @@
  */
 import { exactAge } from "../../src/common/dates";
 import { competitionsConfig } from "../../src/common/config/competitions";
-import type { Club, Player } from "../../src/common/schema";
+import type { Club, ClubSeason, Player } from "../../src/common/schema";
+import { closeSeasonBooks, openSeasonBooks, totalOf } from "../../src/worker/finance/finance";
 import { generateWorld } from "../../src/worker/generate/world";
 import {
   endOfSeasonTurnover,
@@ -56,6 +57,8 @@ export interface WorldRun {
   /** Clubs promoted to ENG1, and whether they stayed up the next season. */
   promotedSurvived: number;
   promotedChecked: number;
+  /** Season 1: each club's revenue against its anchor (ratio − 1), per league. */
+  anchorErrors: Record<string, number[]>;
   seconds: number;
 }
 
@@ -83,6 +86,7 @@ export function simulateWorld(
     clubs,
     players,
     reputation: startingReputation(),
+    clubSeasons: new Map(generated.clubSeasons.map((r) => [r.cid, r])),
     userCid: 0,
     seed,
     nextPid: () => nextPid++,
@@ -99,6 +103,7 @@ export function simulateWorld(
     retirements: [],
     promotedSurvived: 0,
     promotedChecked: 0,
+    anchorErrors: {},
     seconds: 0,
   };
   const potSnapshot = new Map<number, { pot: number; date: string }>();
@@ -237,9 +242,41 @@ export function simulateWorld(
       const age = exactAge(p.birthDate, endDate);
       if (age >= 30) run.retirements.push({ age, gk: p.position === "GK" });
     }
+    // Money: month-ends to 30 June and the season's cash snapshot, before anyone moves on.
+    const lastDay = state.fixtures.reduce((d, f) => (f.date > d ? f.date : d), seasonStart);
+    closeSeasonBooks(loop, season, lastDay);
+    const rows = [...loop.clubSeasons.values()];
+    const revenueOf = (r: ClubSeason) => totalOf(r.revenue);
+    const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0;
+    const wageRatio = rows.map((r) => (r.expenses.wages ?? 0) / Math.max(1, revenueOf(r)));
+    const mix = (kinds: string[]) =>
+      rows.reduce((sum, r) => sum + kinds.reduce((k, kind) => k + (r.revenue[kind] ?? 0), 0), 0) /
+      rows.reduce((sum, r) => sum + revenueOf(r), 0);
+    Object.assign(metrics, {
+      negativeCashShare: clubs.filter((c) => c.cash < 0).length / clubs.length,
+      medianWageRatio: median(wageRatio),
+      medianCashToRevenue: median(rows.map((r) => (r.cashEnd ?? 0) / Math.max(1, revenueOf(r)))),
+      revenueShareMatchday: mix(["matchday"]),
+      revenueShareBroadcast: mix(["broadcast", "merit"]),
+      revenueShareCommercial: mix(["commercial"]),
+      revenueSharePrize: mix(["prize"]),
+    });
+    if (s === 0) {
+      for (const league of competitionsConfig.leagues) {
+        const own = rows.filter((r) => r.leagueId === league.id);
+        const errors = own.map((r) => {
+          const club = clubs.find((c) => c.cid === r.cid) as Club;
+          return revenueOf(r) / club.revenueAnchor - 1;
+        });
+        run.anchorErrors[league.id] = errors;
+      }
+    }
+
     applyMoves(clubs, outcome.moves);
     const intakeFrom = nextPid;
     summerTransition(loop, state);
+    loop.clubSeasons = openSeasonBooks(clubs, loop.clubSeasons, season + 1);
+    for (const [cid, row] of loop.clubSeasons) loop.reputation.set(cid, row.reputation);
     const changes = [...start].flatMap(([pid, before]) => {
       const p = players.find((x) => x.pid === pid);
       if (!p || p.status === "retired") return [];

@@ -3,9 +3,11 @@
  * persists what it returns, and the headless tools call it directly, so both run the
  * same code.
  *
- * Each processed day: training injuries for the days since the last one, then the day's
- * dated events (the winter development update on 1 January), then its matches. A day is
- * processed when it has a match or an event; the game date is the last day processed.
+ * Each processed day: training injuries and month-end money for the days since the last
+ * one, then the day's dated events (the winter development update on 1 January), then its
+ * matches (gate receipts and prize money). When the matches end, TV merit money is paid.
+ * A day is processed when it has a match or an event; the game date is the last day
+ * processed.
  */
 import type { SeasonEvent } from "../../common/api";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
@@ -13,7 +15,14 @@ import type { MatchResult } from "../../common/match";
 import type { Fixture } from "../../common/schema";
 import { seasonDate } from "../schedule/calendar";
 import { developmentUpdate, type LoopWorld } from "./offseason";
-import { nextMatchDate, playDate, type PlayFixture, type SeasonState } from "./season";
+import { matchdayIncome, meritIncome, prizeIncome, settleMonths } from "../finance/finance";
+import {
+  leagueTableOf,
+  nextMatchDate,
+  playDate,
+  type PlayFixture,
+  type SeasonState,
+} from "./season";
 import { squadPlay } from "./squads";
 
 /** Dated events of a season (SPEC §3.1) besides matches: windows and the winter update. */
@@ -94,6 +103,7 @@ export function runDays(
     if (options.limit !== null && day > options.limit) break;
 
     squads.train(out.date, day);
+    settleMonths(world, out.date, day, config);
     for (const event of events.filter((e) => e.date === day)) {
       out.events.push(event);
       if (event.kind === "winterUpdate") {
@@ -102,8 +112,11 @@ export function runDays(
     }
     const before = state.fixtures.length;
     const today = playDate(state, day, play, config);
-    for (const fixture of today)
+    for (const fixture of today) {
       out.played.push({ fixture, result: results.get(fixture.fid) as MatchResult });
+      matchdayIncome(world, fixture, config);
+      prizeIncome(world, fixture, config);
+    }
     out.created.push(...state.fixtures.slice(before));
     out.date = day;
     options.onDay?.(day);
@@ -111,8 +124,17 @@ export function runDays(
   }
 
   out.ended = nextMatchDate(state) === null;
+  if (out.ended && !state.meritPaid) {
+    // TV merit money by final position, when the season's matches end.
+    for (const leagueId of Object.keys(state.leagueClubs)) {
+      const order = leagueTableOf(state, leagueId, config).map((r) => r.cid);
+      meritIncome(world, leagueId, order, config);
+    }
+    state.meritPaid = true;
+  }
   if (!out.ended && options.limit !== null && options.limit > out.date) {
     squads.train(out.date, options.limit);
+    settleMonths(world, out.date, options.limit, config);
     out.date = options.limit;
   }
   for (const pid of squads.changed) out.changed.add(pid);

@@ -16,7 +16,7 @@ import { clubDefinitions } from "../../common/config/clubs";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
 import { formationById } from "../../common/config/formations";
 import type { Position } from "../../common/config/ratings";
-import type { AwardRow, Club, Player, TransactionRow } from "../../common/schema";
+import type { AwardRow, Club, ClubSeason, Player, TransactionRow } from "../../common/schema";
 import { coachingFactor, developHalfSeason, medicalFactor, youthFactor } from "../core/development";
 import { bestXi } from "../core/lineup";
 import { bestPosition, positionOvrs, secondaryPositions } from "../core/ovr";
@@ -87,6 +87,8 @@ export interface LoopWorld {
   players: Player[];
   /** Club reputation (0–100) for the season being set up. */
   reputation: Map<number, number>;
+  /** The current season's club rows (money, hype, reputation), by club. */
+  clubSeasons: Map<number, ClubSeason>;
   userCid: number;
   seed: string;
   nextPid: () => number;

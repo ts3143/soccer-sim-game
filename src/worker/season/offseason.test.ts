@@ -34,6 +34,7 @@ function freshWorld(): LoopWorld {
     clubs: structuredClone(generated.clubs),
     players,
     reputation: startingReputation(),
+    clubSeasons: new Map(structuredClone(generated.clubSeasons).map((r) => [r.cid, r])),
     userCid: 0,
     seed: SEED,
     nextPid: () => pid++,
@@ -49,6 +50,7 @@ function copyOf(w: LoopWorld): LoopWorld {
     clubs: structuredClone(w.clubs),
     players,
     reputation: new Map(w.reputation),
+    clubSeasons: new Map(structuredClone([...w.clubSeasons])),
     nextPid: () => pid++,
   };
 }

@@ -75,6 +75,8 @@ export interface SeasonMeta {
   cupParticipants: Record<string, number[][]>;
   /** End of season: promotion and relegation already applied. */
   movesApplied: boolean;
+  /** TV merit money for this season has been paid (absent in pre-M4 saves). */
+  meritPaid?: boolean;
 }
 
 export interface MetaRows {
@@ -160,6 +162,12 @@ export interface Club {
   ticketPrice: number;
   /** Current cash in whole euros (season-end snapshots go in clubSeasons). */
   cash: number;
+  /**
+   * Commercial income (sponsorship, merchandise) per season at `reputation`; it scales with
+   * the club's reputation from there (src/worker/finance). Set from the revenue anchor at
+   * league creation. Absent in pre-M4 saves (derived on first use).
+   */
+  commercial?: { base: number; reputation: number };
 }
 
 export interface ClubSeason {
@@ -183,6 +191,8 @@ export interface ClubSeason {
   boardExpectation: string | null;
   boardConfidence: number | null;
   squadCostRatio: number | null;
+  /** Revenue the season's budget dials are costed against (last season's, or the anchor). */
+  budgetBase?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -276,6 +286,11 @@ export interface Player {
   conditionDate?: string | null;
   /** Minutes and ratings since the last development update (reset at each one). */
   devTally?: DevTally;
+  /**
+   * The unamortised part of the fee his club paid for him, and the amount written off each
+   * season (fee spread over his contract; SPEC §6.3). Null when he cost no fee.
+   */
+  feeBalance?: { remaining: number; perYear: number } | null;
   transfers: TransferRecord[];
   /** ISO date he became a free agent (null otherwise). */
   freeAgentSince: string | null;

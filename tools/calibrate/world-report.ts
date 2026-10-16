@@ -213,6 +213,30 @@ row(
   survived / Math.max(1, promoted) >= 0.35 && survived / Math.max(1, promoted) <= 0.6,
 );
 
+const firstLastPct = (key: string) =>
+  `${((runs.reduce((s, r) => s + (r.seasons[0]?.[key] ?? 0), 0) / runs.length) * 100).toFixed(0)}% → ${((runs.reduce((s, r) => s + (r.seasons.at(-1)?.[key] ?? 0), 0) / runs.length) * 100).toFixed(0)}%`;
+console.log("\nMoney (information; gated from M4 chunk 8)");
+for (const league of ["ENG1", "ENG2", "GER1"]) {
+  const errors = runs.flatMap((r) => r.anchorErrors[league] ?? []);
+  const meanAbs = errors.reduce((s, e) => s + Math.abs(e), 0) / Math.max(1, errors.length);
+  const mean = errors.reduce((s, e) => s + e, 0) / Math.max(1, errors.length);
+  const worst = Math.max(...errors.map(Math.abs));
+  console.log(
+    `  ${`season-1 revenue v anchor, ${league}`.padEnd(34)} mean ${(mean * 100).toFixed(1)}%, mean |error| ${(meanAbs * 100).toFixed(1)}%, worst ${(worst * 100).toFixed(0)}%`,
+  );
+}
+const money = (key: string) => fmt(avg(key));
+console.log(
+  `  ${"revenue mix: gates / TV / commercial / prizes".padEnd(34)} ${money("revenueShareMatchday")} / ${money("revenueShareBroadcast")} / ${money("revenueShareCommercial")} / ${money("revenueSharePrize")}`,
+);
+console.log(`  ${"median wages / revenue".padEnd(34)} ${money("medianWageRatio")}`);
+console.log(
+  `  ${"clubs with negative cash (first → last season)".padEnd(34)} ${firstLastPct("negativeCashShare")}`,
+);
+console.log(
+  `  ${"median cash / revenue (first → last)".padEnd(34)} ${firstLastPct("medianCashToRevenue")}`,
+);
+
 console.log("\nFor information");
 const info = (label: string, value: string) => console.log(`  ${label.padEnd(34)} ${value}`);
 info("parity ENG2 / GER1", `${fmt(avg("parityENG2"))} / ${fmt(avg("parityGER1"))}`);

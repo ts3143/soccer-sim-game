@@ -59,6 +59,8 @@ export interface SeasonState {
   cupParticipants: Record<string, number[][]>;
   fixtures: Fixture[];
   nextFid: number;
+  /** TV merit money for this season has been paid. */
+  meritPaid?: boolean;
 }
 
 /** The saved part of a season's state (fixtures are saved in their own store). */
@@ -68,6 +70,7 @@ export function seasonMetaOf(state: SeasonState): Omit<SeasonMeta, "movesApplied
     leagueClubs: state.leagueClubs,
     cupEntrants: state.cupEntrants,
     cupParticipants: state.cupParticipants,
+    meritPaid: state.meritPaid ?? false,
   };
 }
 
@@ -88,6 +91,7 @@ export function restoreSeason(
     cupParticipants: meta.cupParticipants,
     fixtures: [...fixtures].sort((a, b) => a.fid - b.fid),
     nextFid,
+    meritPaid: meta.meritPaid ?? false,
   };
 }
 

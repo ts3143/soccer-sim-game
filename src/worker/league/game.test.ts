@@ -84,6 +84,13 @@ describe("the season loop in a save", () => {
       Array.from({ length: 20 }, (_, i) => i + 1),
     );
     expect(eng1.every((c) => c.won + c.drawn + c.lost === 38)).toBe(true);
+    // Money: gates, TV (equal and merit), commercial, wages and dials are booked.
+    for (const row of eng1) {
+      for (const kind of ["matchday", "broadcast", "merit", "commercial"]) {
+        expect(row.revenue[kind] ?? 0).toBeGreaterThan(0);
+      }
+      expect(row.expenses.wages ?? 0).toBeGreaterThan(0);
+    }
     // The season's awards are saved at the final whistle.
     const awardRows = await openLeague(1).then((s) => s.cache.getAll("awards"));
     expect(awardRows.filter((a) => a.type === "champions")).toHaveLength(3);
@@ -165,8 +172,16 @@ describe("the season loop in a save", () => {
       straight.fixtures.length,
     );
     expect(session.cache.getAll("playerStats")).toEqual([]);
+    // Last season closed with a cash snapshot; the new one is budgeted on its revenue.
+    const closed = session.cache.getAll("clubSeasons").filter((c) => c.season === 2026);
+    expect(closed.every((c) => c.cashEnd === session.cache.get("clubs", c.cid)?.cash)).toBe(true);
     // The new season's tables start empty, in the clubs' new leagues.
     const rows = session.cache.getAll("clubSeasons").filter((c) => c.season === 2027);
+    for (const row of rows) {
+      const last = closed.find((c) => c.cid === row.cid);
+      const revenue = Object.values(last?.revenue ?? {}).reduce((a, b) => a + b, 0);
+      expect(row.budgetBase).toBe(revenue);
+    }
     expect(rows).toHaveLength(62);
     const moved = rows.filter((r) => r.leagueId !== before.get(r.cid));
     expect(moved).toHaveLength(6);

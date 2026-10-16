@@ -34,6 +34,7 @@ import {
   seasonAwards,
   summerTransition,
 } from "../season/offseason";
+import { closeSeasonBooks, openSeasonBooks, settleMonths } from "../finance/finance";
 import { runDays } from "../season/runner";
 import {
   applyMoves,
@@ -68,13 +69,17 @@ function loopWorld(session: LeagueSession, season: number): LoopWorld {
   const game = meta<GameMeta>(session, "game");
   const ids = { ...meta<IdCounters>(session, "ids") };
   const reputation = new Map<number, number>();
+  const clubSeasons = new Map<number, ClubSeason>();
   for (const row of session.cache.getAll("clubSeasons")) {
-    if (row.season === season) reputation.set(row.cid, row.reputation);
+    if (row.season !== season) continue;
+    reputation.set(row.cid, row.reputation);
+    clubSeasons.set(row.cid, row);
   }
   return {
     clubs: session.cache.getAll("clubs"),
     players: session.cache.getAll("players"),
     reputation,
+    clubSeasons,
     userCid: game.userCid,
     seed: game.seed,
     nextPid: () => {
@@ -83,6 +88,12 @@ function loopWorld(session: LeagueSession, season: number): LoopWorld {
       return pid;
     },
   };
+}
+
+/** Saves the clubs and club-season rows the season code changed in place (cash, books). */
+function saveBooks(session: LeagueSession, world: LoopWorld): void {
+  for (const club of world.clubs) session.cache.put("clubs", club);
+  for (const row of world.clubSeasons.values()) session.cache.put("clubSeasons", row);
 }
 
 function saveTransactions(session: LeagueSession, rows: readonly NewTransaction[]): void {
@@ -278,6 +289,7 @@ function processDays(
   const from = game.date;
   const days = runDays(world, state, from, { limit, stop });
 
+  saveBooks(session, world);
   for (const { fixture, result } of days.played) recordMatch(session, fixture, result);
   for (const fixture of days.created) session.cache.put("fixtures", fixture);
   for (const p of world.players) if (days.changed.has(p.pid)) session.cache.put("players", p);
@@ -304,15 +316,19 @@ function proceedToPromotionRelegation(session: LeagueSession): PlayReport {
   const game = { ...meta<GameMeta>(session, "game") };
   const state = loadSeason(session);
   const outcome = seasonOutcome(state);
-  const clubs = session.cache.getAll("clubs").map((c) => ({ ...c }));
-  applyMoves(clubs, outcome.moves);
-  for (const club of clubs) session.cache.put("clubs", club);
   const from = game.date;
   const processing = seasonDate(
     game.season,
     competitionsConfig.keyDates.endOfSeasonProcessing ?? "06-01",
   );
   if (processing > game.date) game.date = processing;
+  // Month-end money up to 1 June, in the clubs' leagues of this season.
+  const books = loopWorld(session, game.season);
+  settleMonths(books, from, game.date);
+  saveBooks(session, books);
+  const clubs = session.cache.getAll("clubs").map((c) => ({ ...c }));
+  applyMoves(clubs, outcome.moves);
+  for (const club of clubs) session.cache.put("clubs", club);
   // Retirements and departures (SPEC §5.5).
   const world = loopWorld(session, game.season);
   const turnover = endOfSeasonTurnover(world, game.season, game.date);
@@ -402,34 +418,18 @@ async function advanceToPreseason(session: LeagueSession): Promise<PlayReport> {
   // 1 July: summer development for the season just played, then youth intake, academy
   // decisions and the squad top-up (src/worker/season/offseason.ts).
   const world = loopWorld(session, old);
+  // 30 June: the season's last month-ends and its cash snapshot.
+  closeSeasonBooks(world, old, from);
+  saveBooks(session, world);
   const turnover = summerTransition(world, loadSeason(session));
   for (const p of world.players) if (turnover.changed.has(p.pid)) cache.put("players", p);
   for (const p of turnover.added) cache.put("players", p);
   saveTransactions(session, turnover.transactions);
 
-  for (const club of cache.getAll("clubs")) {
-    const last = cache.get("clubSeasons", [club.cid, old]);
-    cache.put("clubSeasons", {
-      cid: club.cid,
-      season,
-      leagueId: club.leagueId,
-      hype: last?.hype ?? 50,
-      reputation: last?.reputation ?? 50,
-      won: 0,
-      drawn: 0,
-      lost: 0,
-      goalsFor: 0,
-      goalsAgainst: 0,
-      points: 0,
-      finish: null,
-      revenue: {},
-      expenses: {},
-      cashEnd: null,
-      boardExpectation: null,
-      boardConfidence: null,
-      squadCostRatio: null,
-    });
-  }
+  // The new season's club rows (budget base, ticket prices).
+  const next = openSeasonBooks(world.clubs, world.clubSeasons, season);
+  for (const row of next.values()) cache.put("clubSeasons", row);
+  for (const club of world.clubs) cache.put("clubs", club);
   game.season = season;
   game.phase = "preseason";
   game.date = `${season}-07-01`;
