@@ -7,7 +7,7 @@ Claude Code updates this file at the end of each milestone.
 | M0 Scaffold and plumbing | **Accepted** (T, 2026-10-14) | All acceptance checks pass locally and on the Cloudflare preview; T tested in Chrome and Safari. See "M0 notes" below. |
 | M1 Data, generation and new league | **Accepted** (T, 2026-10-14) | All checks pass locally, in CI and on the Cloudflare preview (18/18 headless Chrome); T tested in Chrome and Safari. See "M1 notes" below. |
 | M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
-| M3 Season loop | Built, in review | All M3 gates pass locally: `calibrate --world --check` (16 checks, now in CI), 166 unit tests, Season lab 19/19 in headless Chrome. Young regulars' growth and world shape gated in M4 (T). Waiting for T's browser test, then PR. See "M3 notes" below. |
+| M3 Season loop | **Accepted** (T, 2026-10-16) | All M3 gates pass locally, in CI (`calibrate --world --check`, 16 checks) and on the Cloudflare preview (Season lab 19/19, Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Young regulars' growth and world shape gated in M4 (T). See "M3 notes" below. |
 | M4 Economy and market | Not started | |
 | M5 Core UI | Not started | |
 | M6 Management UI | Not started | |
