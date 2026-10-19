@@ -8,7 +8,7 @@ Claude Code updates this file at the end of each milestone.
 | M1 Data, generation and new league | **Accepted** (T, 2026-10-14) | All checks pass locally, in CI and on the Cloudflare preview (18/18 headless Chrome); T tested in Chrome and Safari. See "M1 notes" below. |
 | M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
 | M3 Season loop | **Accepted** (T, 2026-10-16) | All M3 gates pass locally, in CI (`calibrate --world --check`, 16 checks) and on the Cloudflare preview (Season lab 19/19, Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Young regulars' growth and world shape gated in M4 (T). See "M3 notes" below. |
-| M4 Economy and market | **Built**, awaiting T's local test | All 11 chunks built. Every gate passes locally: unit tests (222), `generate --check`, `calibrate --check` (engine) and `calibrate --world --check` (20 seasons, M2–M4 gates incl. economy, world shape and exploits); headless Chrome Club lab 19/19, Season lab 21/21, M1 18/18, Match lab smoke. See "M4 notes" below. |
+| M4 Economy and market | **Accepted** (T, 2026-10-19) | All gates pass locally, in CI (`calibrate --check`, `calibrate --world --check` with the M4 economy, world-shape and exploit gates; 222 tests) and on the Cloudflare preview (Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. Champion band 76–100 for the MVP (revisit with Europe). See "M4 notes" below. |
 | M5 Core UI | Not started | |
 | M6 Management UI | Not started | |
 | M7 Polish and release v0.1 | Not started | |
