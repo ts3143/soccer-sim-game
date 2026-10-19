@@ -214,6 +214,56 @@ export interface GameState {
   fired: { date: string; offers: { cid: number; name: string; leagueId: string }[] } | null;
 }
 
+/** A league table row on the Standings page (form and home/away only for the live season). */
+export interface StandingsRow extends TableRowView {
+  form: FormResult[] | null;
+  /** "W-D-L" at home and away. */
+  home: string | null;
+  away: string | null;
+}
+
+export interface StandingsView {
+  leagueId: string;
+  leagueName: string;
+  season: number;
+  /** The season being played (live table), or a finished one (final positions). */
+  current: boolean;
+  rows: StandingsRow[];
+  /** What each coloured zone means in this league. */
+  zones: { zone: Exclude<TableZone, null>; label: string }[];
+  /** A finished season's outcome: champions, promoted, play-off winners, relegated. */
+  notes: string[];
+}
+
+/** One knockout tie (one match, or two legs) on the Cups page. */
+export interface CupTie {
+  home: TeamRef;
+  away: TeamRef;
+  legs: MatchView[];
+  /** Two-legged ties: the aggregate, e.g. "3–2". */
+  aggregate: string | null;
+  winner: TeamRef | null;
+}
+
+export interface CupView {
+  id: string;
+  name: string;
+  season: number;
+  /** Every knockout competition (cups and play-offs), for the tabs. */
+  competitions: { id: string; name: string }[];
+  rounds: { name: string; date: string | null; ties: CupTie[] }[];
+  winner: TeamRef | null;
+}
+
+/** The Weekly Schedule: one week's fixtures in every competition (weeks run Monday–Sunday). */
+export interface ScheduleView {
+  season: number;
+  weeks: { start: string; end: string; matches: number }[];
+  /** Start (Monday) of the week shown. */
+  week: string;
+  matches: MatchView[];
+}
+
 /** Win, draw or loss, for form guides. */
 export type FormResult = "W" | "D" | "L";
 
@@ -577,6 +627,10 @@ export interface WorkerApi {
   getGameState(lid: number): GameState;
   getLeagueShell(lid: number): LeagueShell;
   getDashboard(lid: number): DashboardView;
+  getStandings(lid: number, leagueId: string | null, season: number | null): StandingsView;
+  getCups(lid: number, competition: string | null, season: number | null): CupView;
+  /** `week`: the Monday of the week to show (null: the current week). */
+  getSchedule(lid: number, week: string | null): ScheduleView;
   markAllInboxRead(lid: number): void;
   playGame(lid: number, option: PlayOption): PlayReport;
   getSeasonLab(lid: number): SeasonLabView;

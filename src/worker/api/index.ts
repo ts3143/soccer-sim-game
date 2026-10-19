@@ -16,6 +16,7 @@ import { createLeague, deleteLeague, openLeague } from "../league/session";
 import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector";
 import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
 import { getClubLab, searchPlayers } from "../views/clubLab";
+import { getCups, getSchedule, getStandings } from "../views/competitions";
 import { getDashboard, markAllInboxRead } from "../views/dashboard";
 import { getSeasonLab } from "../views/seasonLab";
 import { getLeagueShell } from "../views/shell";
@@ -58,6 +59,18 @@ export function createHandlers(
 
     async getDashboard(lid) {
       return getDashboard(lid);
+    },
+
+    async getStandings(lid, leagueId, season) {
+      return getStandings(lid, leagueId, season);
+    },
+
+    async getCups(lid, competition, season) {
+      return getCups(lid, competition, season);
+    },
+
+    async getSchedule(lid, week) {
+      return getSchedule(lid, week);
     },
 
     async markAllInboxRead(lid) {

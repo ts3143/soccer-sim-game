@@ -899,5 +899,23 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Tests:** table sorting and paging, the Dashboard and mark-all-read (230 in all).
 - **Browser checks:** `check-m5` adds 14 checks (the Dashboard after the first match, the mini table, board, alerts, unread count, reading messages, mark all read, sorting the top performers both ways, player links). All pass, as do M3's.
 
+**Chunk 3: Standings, Cups, Weekly Schedule** (`src/worker/views/competitions.ts`)
+- **Standings** (`/l/:lid/standings/:league/:season`):
+  - league tabs and the season dropdown;
+  - the live table with home and away records and form, coloured zones (champions, promotion, play-offs, relegation) and a legend.
+  - Past seasons show the final table from the club-season rows, with notes: champions, promoted, play-off winners, relegated.
+- **Cups** (`/l/:lid/cups/:competition/:season`):
+  - both cups and the ENG2 play-offs as tabs;
+  - rounds side by side, each tie with its legs, the aggregate for two-legged ties, the winner in bold, and your ties outlined;
+  - a winner banner; past seasons read from IndexedDB.
+- **Weekly Schedule** (`/l/:lid/schedule/:monday`): weeks run Monday to Sunday.
+  - It opens on this week, or the next week with matches.
+  - Previous and next buttons, and a week dropdown with each week's match count.
+  - A competition filter and an "Only my club" switch; your matches are highlighted.
+  - Every score links to its box score.
+- **Shared:** a helper reads past seasons' rows from IndexedDB and the current season's from the cache (SPEC §12).
+- **Tests:** a full-season test of all three views: the live table, play-off semis with aggregates, and the past season's final table, notes and cup (231 tests in all).
+- **Browser checks:** 12 more in `check-m5` (zones and their legend, league tabs, position order, the cup's rounds and ties, the play-off tab, the schedule's days, next week, only my club). All pass.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

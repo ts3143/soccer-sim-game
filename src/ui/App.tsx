@@ -4,11 +4,14 @@
  */
 import { useEffect, useState } from "react";
 import { Inspector } from "./inspector/Inspector";
+import { Cups } from "./pages/Cups";
 import { Dashboard } from "./pages/Dashboard";
 import { Home } from "./pages/Home";
 import { Inbox } from "./pages/Inbox";
 import { NewLeague } from "./pages/NewLeague";
 import { Placeholder } from "./pages/Placeholder";
+import { Schedule } from "./pages/Schedule";
+import { Standings } from "./pages/Standings";
 import { Link, parseRoute, usePath } from "./router";
 import { Shell } from "./shell/Shell";
 import { connectWorker, type Connection } from "./workerClient";
@@ -78,6 +81,12 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <Dashboard />;
     case "inbox":
       return <Inbox />;
+    case "standings":
+      return <Standings params={params} />;
+    case "cups":
+      return <Cups params={params} />;
+    case "schedule":
+      return <Schedule params={params} />;
     default:
       return <Placeholder page={page} params={params} />;
   }

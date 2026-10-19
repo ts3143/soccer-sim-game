@@ -5,6 +5,8 @@
 import type { FormResult, MatchView, TableRowView, TableZone, TeamRef } from "../../common/api";
 import { competitionsConfig } from "../../common/config/competitions";
 import type { Club, Fixture, GameMeta, SeasonMeta } from "../../common/schema";
+import type { StoreValue } from "idb";
+import type { LeagueDBSchema } from "../db/schema";
 import type { LeagueSession } from "../league/session";
 import { leagueTable } from "../schedule/standings";
 import { playoffId } from "../season/season";
@@ -110,4 +112,26 @@ export function leagueTables(
       rows: rows.map((r) => ({ ...r, ...teamRef(clubs.get(r.cid)), zone: zone(r.position) })),
     };
   });
+}
+
+type SeasonStore = "fixtures" | "awards" | "playerStats" | "transactions" | "matches";
+
+/**
+ * A season's rows of a season-scoped store: the cache holds the current season's, IndexedDB
+ * the past ones (SPEC §12: uncommon reads go to IndexedDB).
+ */
+export async function seasonRows<S extends SeasonStore>(
+  session: LeagueSession,
+  store: S,
+  season: number,
+): Promise<StoreValue<LeagueDBSchema, S>[]> {
+  const game = session.cache.get("meta", "game") as GameMeta;
+  if (season === game.season) {
+    return session.cache.getAll(store).filter((r) => r.season === season);
+  }
+  // Every season-scoped store has a "season" index (src/worker/db/leagueDb.ts).
+  const db = session.db as unknown as {
+    getAllFromIndex(store: string, index: string, key: number): Promise<unknown[]>;
+  };
+  return (await db.getAllFromIndex(store, "season", season)) as StoreValue<LeagueDBSchema, S>[];
 }

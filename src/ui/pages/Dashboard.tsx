@@ -1,7 +1,8 @@
 /** Dashboard (SPEC §11): next match, form, position, board confidence, alerts, inbox preview. */
-import type { DashboardView, MatchView, TableZone } from "../../common/api";
+import type { DashboardView, MatchView } from "../../common/api";
 import { DataTable } from "../components/DataTable";
 import { FormBadges, PlayerLink, ScoreLink, TeamLink } from "../components/links";
+import { ZONE_CLASS } from "../components/zones";
 import { crestUrl } from "../crests";
 import { formatDate, formatEuros } from "../format";
 import { leaguePath, Link } from "../router";
@@ -9,13 +10,6 @@ import { PageHeader } from "../shell/PageHeader";
 import { useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
-
-export const ZONE_CLASS: Record<Exclude<TableZone, null>, string> = {
-  champions: "table-success",
-  promoted: "table-success",
-  playoffs: "table-info",
-  relegated: "table-danger",
-};
 
 const ordinal = (n: number) => {
   const s = ["th", "st", "nd", "rd"];
