@@ -161,6 +161,7 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 
 ### 6.2 Revenue
 - **Matchday:** attendance × one ticket price per season (user-set; AI auto). Attendance is capped by capacity and driven by hype, market size, opponent/competition size and ticket price.
+  - The user sets his price in preseason; it locks after his club's first home match of the season. "Auto" uses the AI's price (T, 2026-10-19).
 - **Broadcast:** pool by league tier; equal share + merit by finishing position. Largest and most predictable stream. Each league's pool, and its equal and merit shares, are set per league in config (`competitions_mvp.json`, T 2026-10-16).
 - **Prize money:** cup rounds (MVP), set per cup and round in config. `[Later]` European participation, wins and progress.
 - **Commercial:** sponsorship and merchandise from reputation, market size, success and star players.
@@ -204,6 +205,7 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 - Nationality mostly the club's country; bigger clubs pull in a larger foreign share (`data/config/nationalities.json`).
 - 2–3 years of academy development (Coaching + Youth dials, no minutes needed).
 - At 17–18: promote (first pro contract, 3 years), loan, or release to the free-agent pool.
+  - The user decides for his own academy on the Youth Academy page. A player aged 18+ on 1 July whom he hasn't decided on gets the AI clubs' rule (promoted if good enough and there's room, otherwise released), with an inbox reminder in May (T, 2026-10-19).
 - Roughly 1 wonderkid (POT 75+) per league per season.
 - All clubs, including AI, run academies.
 
@@ -229,6 +231,7 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 
 ### 7.6 Contracts
 - Length 1–5 years; first pro contract 3 years. Wages per year. No hard max wage (FFP and budget limit spending). No release clauses for now.
+- **Releasing a player** (user, as ZenGM; T, 2026-10-19): he joins the free-agent pool at once, and the club keeps paying his wages monthly until the contract would have ended. They count toward the squad cost ratio.
   - Counting the years (T, 2026-10-18): a summer deal counts the current season as its first year; a January deal's years start next season, with the half season left on top ("two and a half years"). A renewal must run past the current contract.
 - ZenGM-style negotiation: the player asks a wage per contract length, adjusted by mood; the user picks a length/wage or walks away. One modal for renewals, transfers and free agents.
 - Renewals only in the summer and winter windows; expiry 30 June. A player in his final year must be renewed by 31 January or he leaves on 1 July (see 3.1).
@@ -340,12 +343,13 @@ Mirror ZenGM's layout: a **top-bar Play button** (sim options + phase steps) and
 | Team | Squad, Tactics, Schedule (Sim game / Watch live), Box score / Game log, Finances/Facilities, History, Youth Academy |
 | Players | Free Agents, Transfer Market (tabs: Search, Your listed players, Incoming offers, Loans), Player profile, Contract negotiation (modal) |
 | Stats | League Leaders, Player Ratings, Player Stats, Team Stats, Injuries |
-| Tools | Settings, Manage Leagues (create, switch, delete saves) |
+| Tools | Settings (rename the save, delete the league), Manage Leagues (create, switch, delete saves) |
 
 Screen details:
 - **Squad:** contract-expiry badges on players whose contracts end this 30 June (see 3.1).
 - **Tactics:** formation dropdown preloads the 11 slots into a table; players are drag-and-drop ordered into slots and bench (ZenGM-style); slot OVR shown per player; the 3 sliders; live team ratings. No Auto toggle: these tactics apply to the matches the user watches. No pitch view.
-- **Watch live:** before kick-off, temporary one-match changes to the saved lineup (incl. one-click Auto rotation). During: live text feed, score and clock, live stats, energy bars, subs, sliders, pause button; pausing opens an adjustment screen; half-time screen.
+- **Watch live:** before kick-off, temporary one-match changes to the saved lineup (incl. one-click Auto rotation). During: live text feed, score and clock, live stats, energy bars, subs, sliders, pause button, and a speed slider (T, 2026-10-19); pausing opens an adjustment screen; half-time screen. The live match is saved as it goes: closing the game mid-match resumes it on return, so there are no do-overs.
+- **Transfer Market, Your listed players** (T, 2026-10-19): listing a player with an asking price makes AI clubs that need his position bid around that price during the windows. Unlisted players still get occasional bids.
 - **Player profile:** bio, ratings table + **radar chart** (8 grouped axes, see config), OVR/POT history chart, career stats, contract, mood (with ZenGM-style breakdown popup), condition and injury, transfer history.
 - **Finances (own club):** revenue/expense breakdown, cash over seasons, FFP gauge, budget dials, ticket price, transfer/wage budgets and shift control.
 - **New league screen:** pick your club (any of the 62).
