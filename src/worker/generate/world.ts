@@ -4,13 +4,14 @@
  * included) → identical world. Writing it to IndexedDB is the caller's job.
  */
 import { clubDefinitions, type ClubDefinition } from "../../common/config/clubs";
-import { competitionsConfig } from "../../common/config/competitions";
+import { competitionsConfig, leagueById } from "../../common/config/competitions";
 import { formationById, formationsConfig } from "../../common/config/formations";
 import { exactAge } from "../../common/dates";
 import type { Club, ClubSeason, CompetitionRow, MetaRows, Player } from "../../common/schema";
 import { estimatePotential, type PotentialClubContext } from "../core/potential";
 import { Random } from "../core/random";
 import { assignContracts } from "./contracts";
+import { commercialBase, expectedTvAndGates, ticketPrice } from "../finance/finance";
 import { generateFreeAgents, generateReleasedYouth } from "./freeAgents";
 import { generateSquad } from "./squad";
 
@@ -96,18 +97,31 @@ function clubRow(rng: Random, def: ClubDefinition, cid: number, formation: strin
       medical: NEUTRAL_DIAL,
       facilities: NEUTRAL_DIAL,
     },
-    // Provisional until the economy milestone (M4).
-    ticketPrice: Math.round(20 + 0.6 * def.market),
+    ticketPrice: ticketPrice(def.reputation, leagueById(def.league)),
     cash: Math.round(def.revenue * rng.real(0.08, 0.25)),
+    // Commercial income set so season-1 revenue lands near the anchor (src/worker/finance).
+    commercial: {
+      base: commercialBase(
+        def.revenue,
+        expectedTvAndGates(
+          { capacity: def.capacity, market: def.market, leagueId: def.league },
+          def.reputation,
+          openingHype(def),
+        ),
+      ),
+      reputation: def.reputation,
+    },
   };
 }
+
+const openingHype = (def: ClubDefinition) => Math.round(50 + (def.reputation - 50) * 0.4);
 
 function clubSeasonRow(def: ClubDefinition, cid: number, season: number): ClubSeason {
   return {
     cid,
     season,
     leagueId: def.league,
-    hype: Math.round(50 + (def.reputation - 50) * 0.4),
+    hype: openingHype(def),
     reputation: def.reputation,
     won: 0,
     drawn: 0,
@@ -122,6 +136,7 @@ function clubSeasonRow(def: ClubDefinition, cid: number, season: number): ClubSe
     boardExpectation: null,
     boardConfidence: null,
     squadCostRatio: null,
+    budgetBase: def.revenue,
   };
 }
 

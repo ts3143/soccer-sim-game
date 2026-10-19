@@ -49,6 +49,24 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 7 | Development training base 0.4 caps a regular's growth at ~1.7× a benched player's; targets need more (asked Oct 15) | Lower the base to 0.2: dev = coaching × (0.2 + 0.8 × minutes × challenge) + performance. |
 | 8 | Well-played 18–21 growth stuck at +3.8 (target 4–8), with world-shape side effects (asked Oct 15) | C: defer that check and the side effects (peak age, top-end inflation, mean drift) to M4, where transfers and loans change who gets minutes. The other 16 checks gate M3 and CI. |
 
+## A5. M4 planning, answered by T (Oct 16 2026)
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Per-player wages ~2× real-world (M1 note) | Opening squads get notional past fees (~30% of squad cost); wages ~70% of the M1 levels; squad cost still 50–65% of revenue |
+| 2 | TV and prize money amounts (config said only "per round, scaled") | Set per league and per cup round in `competitions_mvp.json`, tuned to the revenue anchors; may be revised later |
+| 3 | How M4 is tested in the browser | A developer Club lab page: finances, board, ratios, transfers, inbox; renew, sign a free agent, bid, accept or reject an offer |
+| 4 | The user's club when the user doesn't act | The AI never acts for it: contracts expire, offers wait in the inbox. The harness runs every club by AI |
+
+## A6. M4 build, answered by T (Oct 18–19 2026)
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | How contract years count (SPEC said only "1–5 years") | A summer deal counts this season as year one; a January deal's years start next season (the half season on top); a renewal must extend the contract |
+| 2 | Should good, young or ambitious players be harder to keep? | Yes, very subtly: a small ambition term in mood when a player has clearly outgrown his club (SPEC §4.6) |
+| 3 | Parity fell to ~10% with the AI transfer market | Fix it mainly with match randomness (form on the day), plus a little more big-club rotation; don't damp the market |
+| 4 | Numbers for the M4 world-stability targets | Wages 35–65% and squad cost 50–68% of revenue every season; fees 5–45%; senior mean OVR ±1.5 and the 75+ share ±1.5 points over 20 seasons; peak at 27–29 |
+| 5 | Champion points (82–100) conflict with stable stars and realistic parity | MVP band 76–100 (target 84); revisit with European competition |
+| 6 | Players beating their displayed POT | Target 20% (14–30%), was 25% |
+
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.
 1. **Hidden traits** (Injury Prone, Hothead) are generated and affect the sim from the MVP but are never shown until scouting arrives in v1.1.

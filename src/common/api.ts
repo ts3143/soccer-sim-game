@@ -8,7 +8,7 @@
  */
 import type { Position } from "./config/ratings";
 import type { MatchEvent, MatchResult, Period } from "./match";
-import type { Fixture, Foot, LeagueSummary, Phase } from "./schema";
+import type { Fixture, Foot, InboxMessage, LeagueSummary, Phase } from "./schema";
 
 export type WorkerKind = "shared" | "dedicated";
 
@@ -187,7 +187,7 @@ export type PlayOption =
   | "proceedToPromotionRelegation"
   | "advanceToPreseason";
 
-export type SeasonEventKind = "windowOpens" | "windowCloses" | "winterUpdate";
+export type SeasonEventKind = "windowOpens" | "windowCloses" | "winterUpdate" | "deadlineReminder";
 
 export interface SeasonEvent {
   date: string;
@@ -205,6 +205,8 @@ export interface GameState {
   options: PlayOption[];
   /** The user's next fixture, if one is scheduled. */
   nextUserFixture: Fixture | null;
+  /** Set when the board has sacked the user: play stops until he takes a job offer. */
+  fired: { date: string; offers: { cid: number; name: string; leagueId: string }[] } | null;
 }
 
 export interface PlayReport {
@@ -266,6 +268,18 @@ export interface SeasonLabView {
   lid: number;
   state: GameState;
   user: SeasonLabTeam & { leagueId: string };
+  /** The user's club: board target and confidence, hype, reputation, cash. */
+  club: {
+    target: string;
+    confidence: number;
+    hype: number;
+    reputation: number;
+    cash: number;
+    revenue: number;
+    expenses: number;
+  };
+  /** The latest inbox messages, newest first. */
+  inbox: { mid: number; date: string; subject: string; body: string; read: boolean }[];
   nextUserMatch: SeasonLabMatch | null;
   leagues: { id: string; name: string; rows: SeasonLabTableRow[] }[];
   /** The last matchday played (all its matches). */
@@ -297,6 +311,176 @@ export interface SeasonLabView {
   };
 }
 
+/**
+ * Talks with a player: a renewal (one of the user's), a transfer (personal terms once his
+ * club accepts a fee) or a free agent. Mood and asks are toward the user's club.
+ */
+export interface ContractTalks {
+  pid: number;
+  name: string;
+  position: string;
+  age: number;
+  ovr: number;
+  pot: number;
+  kind: "renewal" | "transfer" | "freeAgent";
+  /** His club's name (null for a free agent). */
+  club: string | null;
+  wage: number;
+  expires: string | null;
+  yearsLeft: number;
+  /** Market value in euros. */
+  value: number;
+  mood: { value: number; components: Record<string, number>; willing: boolean };
+  /** Wage asked per contract length (1–5 years) and the end date it gives. */
+  asks: { years: number; wage: number; expires: string }[];
+  windowOpen: boolean;
+  userPlayer: boolean;
+  /** Transfer: the fee his club accepted (null until a bid is accepted). */
+  feeAgreed: number | null;
+  /**
+   * The user's transfer budget and wage room (a year) now (SPEC §6.3), his squad cost as a
+   * share of revenue against the FFP limit, and any FFP warning or ban (SPEC §6.4).
+   */
+  budget: {
+    transfer: number;
+    wageRoom: number;
+    squadCostRatio: number;
+    ffpLimit: number;
+    warned: boolean;
+    bannedUntil: string | null;
+  };
+}
+
+/** A club's answer to the user's bid. */
+export interface BidReply {
+  outcome: "accepted" | "countered" | "rejected";
+  fee: number;
+  /** The club's asking price when it counters. */
+  counter: number | null;
+  message: string;
+  talks: ContractTalks;
+}
+
+/** M4 Club lab (developer-only): one club's money, FFP, board and market standing. */
+export interface ClubLabClubRow {
+  cid: number;
+  name: string;
+  code: string;
+  leagueId: string;
+  user: boolean;
+  cash: number;
+  /** Last season's operating revenue (this season's budgets are costed on it). */
+  budgetBase: number;
+  /** This season so far: operating revenue and cash expenses. */
+  revenue: number;
+  expenses: number;
+  /** A year, now: wages and transfer-fee amortisation. */
+  wages: number;
+  amortisation: number;
+  /** Squad cost over the budget base now, and last season's FFP ratio. */
+  squadCostRatio: number;
+  lastSquadCostRatio: number | null;
+  ffp: "ok" | "warned" | "banned";
+  strategy: "contending" | "developing" | "selling";
+  boardTarget: string | null;
+  confidence: number | null;
+  transferBudget: number;
+  wageRoom: number;
+  seniors: number;
+  loansIn: number;
+  loansOut: number;
+}
+
+/** One of the user's players (contracted, loaned out, or on loan to him). */
+export interface ClubLabPlayer {
+  pid: number;
+  name: string;
+  position: string;
+  age: number;
+  ovr: number;
+  pot: number;
+  status: string;
+  /** Loan: "to <club> until <date>" or "from <club> until <date>". */
+  loan: string | null;
+  wage: number;
+  expires: string | null;
+  yearsLeft: number;
+  value: number;
+  mood: number;
+  willing: boolean;
+  /** Unamortised transfer fee. */
+  feeRemaining: number;
+}
+
+export interface ClubLabView {
+  date: string;
+  season: number;
+  window: { id: string; closes: string } | null;
+  fired: boolean;
+  user: {
+    cid: number;
+    name: string;
+    code: string;
+    budget: ContractTalks["budget"];
+    /** The budget control: share of FFP headroom kept for wages (SPEC §6.3). */
+    wageShare: number;
+  };
+  clubs: ClubLabClubRow[];
+  squad: ClubLabPlayer[];
+  offers: OfferView[];
+  /** This season's transfers, signings, loans, renewals and releases, newest first. */
+  transfers: { date: string; type: string; text: string; fee: number }[];
+  inbox: InboxMessage[];
+}
+
+/** A market search in the Club lab. */
+export interface PlayerSearch {
+  position?: string;
+  minOvr?: number;
+  maxOvr?: number;
+  maxAge?: number;
+  freeAgents?: boolean;
+  limit?: number;
+}
+
+export interface PlayerSearchRow {
+  pid: number;
+  name: string;
+  position: string;
+  age: number;
+  ovr: number;
+  pot: number;
+  club: string | null;
+  cid: number | null;
+  status: string;
+  value: number;
+  wage: number;
+  expires: string | null;
+  /** Free agents: days unsigned. */
+  daysFree: number | null;
+}
+
+/** An AI club's answer to a loan the user proposed. */
+export interface LoanReply {
+  accepted: boolean;
+  message: string;
+}
+
+/** A bid by or for the user's club this season. */
+export interface OfferView {
+  oid: number;
+  pid: number;
+  name: string;
+  from: string;
+  to: string;
+  fee: number;
+  status: "open" | "accepted" | "rejected" | "expired" | "completed";
+  /** The day the window closes; the bid lapses once that day is played. */
+  expires: string;
+  /** A bid for one of the user's players. */
+  incoming: boolean;
+}
+
 export interface WorkerApi {
   getStatus(): WorkerStatus;
   listLeagues(): LeagueSummary[];
@@ -312,6 +496,27 @@ export interface WorkerApi {
   getGameState(lid: number): GameState;
   playGame(lid: number, option: PlayOption): PlayReport;
   getSeasonLab(lid: number): SeasonLabView;
+  acceptJobOffer(lid: number, cid: number): GameState;
+  getInbox(lid: number): InboxMessage[];
+  markInboxRead(lid: number, mid: number): void;
+  getContractTalks(lid: number, pid: number): ContractTalks;
+  renewContract(lid: number, pid: number, years: number): ContractTalks;
+  bidForPlayer(lid: number, pid: number, fee: number): BidReply;
+  signPlayer(lid: number, pid: number, years: number): ContractTalks;
+  getOffers(lid: number): OfferView[];
+  respondToOffer(lid: number, oid: number, accept: boolean): OfferView[];
+  /** Loan a player out (to `cid`) or in (`cid` = your club); `wageShare`: the loan club's. */
+  proposeLoan(
+    lid: number,
+    pid: number,
+    cid: number,
+    length: "half" | "season",
+    wageShare: number,
+  ): LoanReply;
+  getClubLab(lid: number): ClubLabView;
+  searchPlayers(lid: number, query: PlayerSearch): PlayerSearchRow[];
+  /** The budget control (SPEC §6.3): 0 = all headroom for fees, 1 = all for wages. */
+  setWageShare(lid: number, share: number): ClubLabView;
 }
 
 export interface UiEvents {

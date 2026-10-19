@@ -15,6 +15,7 @@
  *   nothing to play for), the club's regular starters give way to fringe players.
  * The same AI picks the user's club in simulated matches.
  */
+import { isSenior } from "../../common/status";
 import { addDays, ageOn, exactAge } from "../../common/dates";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
 import { formationById } from "../../common/config/formations";
@@ -24,6 +25,7 @@ import type { Club, Fixture, Player } from "../../common/schema";
 import { maximizeAssignment } from "../core/assignment";
 import { Random } from "../core/random";
 import { slotOvr } from "../core/ovr";
+import { effectiveDials } from "../club/standing";
 import { aiSliders } from "../engine/aiTactics";
 import { COEFFICIENTS, type Coefficients } from "../engine/coefficients";
 import { drawInjuryDays } from "../engine/manager";
@@ -138,9 +140,9 @@ export function trainingInjuries(
   c: SquadCoefficients = SQUAD_COEFFICIENTS,
   e: Coefficients = COEFFICIENTS,
 ): Injured[] {
-  const medical = new Map(clubs.map((club) => [club.cid, club.budget.medical]));
+  const medical = new Map(clubs.map((club) => [club.cid, effectiveDials(club).medical]));
   const squad = players
-    .filter((p) => p.cid !== null && (p.status === "club" || p.status === "academy"))
+    .filter((p) => p.cid !== null && (isSenior(p) || p.status === "academy"))
     .sort((a, b) => a.pid - b.pid);
   const out: Injured[] = [];
   for (let day = addDays(from, 1); day <= to; day = addDays(day, 1)) {
@@ -255,9 +257,9 @@ export function pickMatchday(
   c: SquadCoefficients = SQUAD_COEFFICIENTS,
 ): EngineTeamInput {
   const s = c.selection;
-  const medical = club.budget.medical;
+  const medical = effectiveDials(club).medical;
   const fit = (p: Player) => !isInjured(p, ctx.date);
-  const seniors = squad.filter((p) => p.status === "club" && fit(p));
+  const seniors = squad.filter((p) => isSenior(p) && fit(p));
   let pool = seniors;
   if (seniors.length < config.rosterRules.minSeniorForMatch) {
     const academy = squad
@@ -332,6 +334,10 @@ export interface SquadPlay {
   injuries: number[];
   /** How many of those were training injuries. */
   trainingCount: () => number;
+  /** Mean OVR of a club's 11 best fit seniors on a date (cached per day). */
+  strength: (cid: number, date: string) => number;
+  /** Re-reads who plays where, after transfers. */
+  regroup: () => void;
 }
 
 /**
@@ -348,12 +354,17 @@ export function squadPlay(
   const clubById = new Map(clubs.map((club) => [club.cid, club]));
   const squads = new Map<number, Player[]>();
   const byPid = new Map<number, Player>();
-  for (const p of players) {
-    byPid.set(p.pid, p);
-    if (p.cid !== null && (p.status === "club" || p.status === "academy")) {
-      squads.set(p.cid, [...(squads.get(p.cid) ?? []), p]);
+  const group = () => {
+    squads.clear();
+    byPid.clear();
+    for (const p of players) {
+      byPid.set(p.pid, p);
+      if (p.cid !== null && (isSenior(p) || p.status === "academy")) {
+        squads.set(p.cid, [...(squads.get(p.cid) ?? []), p]);
+      }
     }
-  }
+  };
+  group();
   const tableCache = new Map<string, TableRow[]>();
   let tableDate = "";
   const tables: Tables = (leagueId) => {
@@ -374,7 +385,7 @@ export function squadPlay(
     let value = strengthCache.get(key);
     if (value === undefined) {
       const best = (squads.get(cid) ?? [])
-        .filter((p) => p.status === "club" && !isInjured(p, date))
+        .filter((p) => isSenior(p) && !isInjured(p, date))
         .map((p) => p.ovr)
         .sort((a, b) => b - a)
         .slice(0, 11);
@@ -417,7 +428,10 @@ export function squadPlay(
     const side = (cid: number) => {
       const club = clubById.get(cid);
       if (!club) throw new Error(`Unknown club ${cid}`);
-      return pickMatchday(club, squads.get(cid) ?? [], context(fixture, cid), config, c);
+      // A loanee can't play against his parent club (SPEC §7.4).
+      const opponent = fixture.homeCid === cid ? fixture.awayCid : fixture.homeCid;
+      const squad = (squads.get(cid) ?? []).filter((p) => p.loan?.parentCid !== opponent);
+      return pickMatchday(club, squad, context(fixture, cid), config, c);
     };
     const home = side(fixture.homeCid);
     const away = side(fixture.awayCid);
@@ -449,5 +463,9 @@ export function squadPlay(
     training += injured.length;
     return injured;
   };
-  return { play, train, changed, injuries, trainingCount: () => training };
+  const regroup = () => {
+    group();
+    strengthCache.clear();
+  };
+  return { play, train, changed, injuries, trainingCount: () => training, strength, regroup };
 }

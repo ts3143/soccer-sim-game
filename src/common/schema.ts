@@ -50,6 +50,8 @@ export interface GameMeta {
   userCid: number;
   /** Game version that created the save, for future migrations. */
   createdWithVersion: number;
+  /** Set when the board sacks the user: the date and the clubs offering him a job. */
+  fired?: { date: string; offers: number[] } | null;
 }
 
 /** Next free integer ID per entity type. */
@@ -75,6 +77,8 @@ export interface SeasonMeta {
   cupParticipants: Record<string, number[][]>;
   /** End of season: promotion and relegation already applied. */
   movesApplied: boolean;
+  /** TV merit money for this season has been paid (absent in pre-M4 saves). */
+  meritPaid?: boolean;
 }
 
 export interface MetaRows {
@@ -160,6 +164,30 @@ export interface Club {
   ticketPrice: number;
   /** Current cash in whole euros (season-end snapshots go in clubSeasons). */
   cash: number;
+  /**
+   * Commercial income (sponsorship, merchandise) per season at `reputation`; it scales with
+   * the club's reputation from there (src/worker/finance). Set from the revenue anchor at
+   * league creation. Absent in pre-M4 saves (derived on first use).
+   */
+  commercial?: { base: number; reputation: number };
+  /**
+   * FFP standing (SPEC §6.4): warned after a season over the ratio; a second in a row bans
+   * signings until `bannedUntil` (the next summer window's deadline day).
+   */
+  ffp?: { warned: boolean; bannedUntil: string | null };
+  /**
+   * The user's one budget control (SPEC §6.3): the share of the FFP headroom kept for
+   * wages, the rest backing transfer fees. Absent: half each.
+   */
+  wageShare?: number;
+  /** Facilities quality 0–100: follows the Facilities dial slowly (absent = 50). */
+  facilitiesLevel?: number;
+  /**
+   * What the dials do (ZenGM-style relative expense levels): 50 plus how far this club's
+   * dials are from the average club's, set each preseason. Costs follow `budget`, effects
+   * follow this. Absent = the dials themselves.
+   */
+  budgetEffect?: BudgetDials;
 }
 
 export interface ClubSeason {
@@ -182,7 +210,19 @@ export interface ClubSeason {
   cashEnd: number | null;
   boardExpectation: string | null;
   boardConfidence: number | null;
+  /** Wages and fee amortisation over revenue (with profit on sales), set at season end (FFP). */
   squadCostRatio: number | null;
+  /** The season's transfer-fee amortisation (non-cash, SPEC §6.3), month by month. */
+  amortisation?: number;
+  /** Profit on player sales (fee less the player's unamortised balance; can be negative). */
+  salesProfit?: number;
+  /** Revenue the season's budget dials are costed against (last season's, or the anchor). */
+  budgetBase?: number;
+  /** Board confidence at the start of the season (it moves toward the live value). */
+  boardStart?: number;
+  /** This season the board already warned the user / would have sacked its manager. */
+  boardWarned?: boolean;
+  boardSacked?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -276,6 +316,11 @@ export interface Player {
   conditionDate?: string | null;
   /** Minutes and ratings since the last development update (reset at each one). */
   devTally?: DevTally;
+  /**
+   * The unamortised part of the fee his club paid for him, and the amount written off each
+   * season (fee spread over his contract; SPEC §6.3). Null when he cost no fee.
+   */
+  feeBalance?: { remaining: number; perYear: number } | null;
   transfers: TransferRecord[];
   /** ISO date he became a free agent (null otherwise). */
   freeAgentSince: string | null;
@@ -374,15 +419,24 @@ export interface MatchRecord {
 // ---------------------------------------------------------------------------
 // offers, transactions, inbox, awards (filled from M3/M4)
 
+/**
+ * A bid for a player (M4). `fromCid` makes it to `toCid`, the player's club (null for a
+ * free agent). Open: awaiting the receiving club's answer (bids for the user's players).
+ * Accepted: fee agreed, personal terms next. Completed: the player moved.
+ */
 export interface Offer {
   oid: number;
   pid: number;
   fromCid: number;
   toCid: number | null;
   kind: "transfer" | "loan" | "contract";
-  status: "open" | "accepted" | "rejected" | "expired";
+  status: "open" | "accepted" | "rejected" | "expired" | "completed";
   fee: number;
+  /** Last day it stands: the window's deadline day. */
   expires: string;
+  /** When it was made (absent in rows written before M4). */
+  date?: string;
+  season?: number;
 }
 
 export interface TransactionRow {

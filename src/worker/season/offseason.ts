@@ -11,12 +11,20 @@
  * the save (src/worker/league/game.ts) and the headless tools run exactly the same code.
  * Each decision draws from its own seeded stream, e.g. `${seed}/dev/${date}/${pid}`.
  */
+import { isSenior } from "../../common/status";
 import { addDays, exactAge } from "../../common/dates";
 import { clubDefinitions } from "../../common/config/clubs";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
 import { formationById } from "../../common/config/formations";
 import type { Position } from "../../common/config/ratings";
-import type { AwardRow, Club, Player, TransactionRow } from "../../common/schema";
+import type {
+  AwardRow,
+  Club,
+  ClubSeason,
+  InboxMessage,
+  Player,
+  TransactionRow,
+} from "../../common/schema";
 import { coachingFactor, developHalfSeason, medicalFactor, youthFactor } from "../core/development";
 import { bestXi } from "../core/lineup";
 import { bestPosition, positionOvrs, secondaryPositions } from "../core/ovr";
@@ -26,7 +34,10 @@ import { roundWage, WAGE_STEEPNESS, wageAgeFactor } from "../generate/contracts"
 import { generateAcademyPlayer } from "../generate/youth";
 import { FREE_AGENT_CONTEXT } from "../generate/world";
 import { playoffId, type SeasonOutcome, type SeasonState } from "./season";
+import { returnLoans } from "../market/loans";
+import { aiRenewals, expireContracts } from "../market/renewals";
 import { resetForPreseason } from "./squads";
+import { effectiveDials } from "../club/standing";
 
 /** Coefficients (provisional, tuned with the calibration harness). */
 export const TURNOVER = {
@@ -72,10 +83,8 @@ export const TURNOVER = {
     earlyPotAboveXi: 2,
     contractYears: 3,
   },
-  /** Temporary until M4: clubs keep at least this many seniors. */
+  /** AI clubs promote academy prospects up to this many seniors each summer. */
   topUpTo: 22,
-  /** Seniors per formation area a club aims for when signing free agents. */
-  areaTargets: { gk: 3, def: 2, mid: 2, att: 2 },
 };
 
 const AREA: Record<Position, "gk" | "def" | "mid" | "att"> = {
@@ -87,9 +96,13 @@ export interface LoopWorld {
   players: Player[];
   /** Club reputation (0–100) for the season being set up. */
   reputation: Map<number, number>;
+  /** The current season's club rows (money, hype, reputation), by club. */
+  clubSeasons: Map<number, ClubSeason>;
   userCid: number;
   seed: string;
   nextPid: () => number;
+  /** AI bids for the user's players, open until `expires` (at most one per player). */
+  openBids?: { pid: number; fromCid: number; expires: string }[];
 }
 
 export type NewTransaction = Omit<TransactionRow, "xid">;
@@ -101,9 +114,16 @@ export interface TurnoverLog {
   /** New players (youth intake). */
   added: Player[];
   transactions: NewTransaction[];
+  /** Messages for the user's inbox. */
+  messages: Omit<InboxMessage, "mid">[];
 }
 
-const emptyLog = (): TurnoverLog => ({ changed: new Set(), added: [], transactions: [] });
+const emptyLog = (): TurnoverLog => ({
+  changed: new Set(),
+  added: [],
+  transactions: [],
+  messages: [],
+});
 const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 const ratingsOf = (p: Player): number[] => p.ratingsHistory.at(-1)?.ratings ?? [];
@@ -135,7 +155,7 @@ function clubContexts(world: LoopWorld): Map<number, ClubContext> {
   const out = new Map<number, ClubContext>();
   for (const club of world.clubs) {
     const own = world.players.filter((p) => p.cid === club.cid);
-    const seniors = own.filter((p) => p.status === "club");
+    const seniors = own.filter(isSenior);
     const academy = own.filter((p) => p.status === "academy");
     const pool = seniors.length >= 11 ? seniors : [...seniors, ...academy];
     const xi = pool.length >= 11 ? bestXi(pool, formationById(club.tactics.formation)).meanOvr : 50;
@@ -155,9 +175,9 @@ function clubContexts(world: LoopWorld): Map<number, ClubContext> {
 function potContext(ctx: ClubContext | undefined): PotentialClubContext {
   if (!ctx) return FREE_AGENT_CONTEXT;
   return {
-    coachingDial: ctx.club.budget.coaching,
-    medicalDial: ctx.club.budget.medical,
-    youthDial: ctx.club.budget.youth,
+    coachingDial: effectiveDials(ctx.club).coaching,
+    medicalDial: effectiveDials(ctx.club).medical,
+    youthDial: effectiveDials(ctx.club).youth,
     xiStrength: ctx.xi,
     levelStrength: ctx.level,
   };
@@ -243,12 +263,13 @@ export function developmentUpdate(
         curve: p.hidden.curve,
         ceiling: p.hidden.ceiling,
         ovr: p.ovr,
-        coaching: coachingFactor(club?.budget.coaching ?? 50),
-        medical: medicalFactor(club?.budget.medical ?? 50),
+        coaching: coachingFactor(club ? effectiveDials(club).coaching : 50),
+        medical: medicalFactor(club ? effectiveDials(club).medical : 50),
         minutesShare: share,
         levelStrength: ctx?.level ?? 55,
         performanceAdj: performance,
-        academyYouth: p.status === "academy" ? youthFactor(club?.budget.youth ?? 50) : null,
+        academyYouth:
+          p.status === "academy" ? youthFactor(club ? effectiveDials(club).youth : 50) : null,
       },
       rng,
     ).map((r) => Math.round(r));
@@ -369,19 +390,6 @@ export function freeAgentDepartures(world: LoopWorld, season: number, date: stri
 // ---------------------------------------------------------------------------
 // Preseason (1 July): contracts, youth intake, academy, squad top-up
 
-/** Temporary until M4: contracts ending this summer roll over by a year at the same wage. */
-export function rollOverContracts(world: LoopWorld, season: number): Set<number> {
-  const changed = new Set<number>();
-  const ending = `${season}-06-30`;
-  for (const p of world.players) {
-    if (p.status === "club" && p.contract && p.contract.expires <= ending) {
-      p.contract = { ...p.contract, expires: `${season + 1}-06-30` };
-      changed.add(p.pid);
-    }
-  }
-  return changed;
-}
-
 /** A wage in line with the club's current scale for a player of this OVR and age. */
 function wageFor(ctx: ClubContext, ovr: number, age: number, date: string): number {
   const weight = (o: number, a: number) =>
@@ -411,7 +419,7 @@ export function youthIntake(world: LoopWorld, season: number, date: string): Tur
   for (const club of world.clubs) {
     const rng = Random.fromSeed(`${world.seed}/youth/${season}/${club.cid}`);
     const reputation = world.reputation.get(club.cid) ?? 50;
-    const dial = club.budget.youth;
+    const dial = effectiveDials(club).youth;
     const count = clamp(
       Math.round(
         y.min + ((y.max - y.min) * (0.5 * dial + 0.5 * reputation)) / 100 + rng.normal(0, 0.7),
@@ -524,89 +532,46 @@ export function academyDecisions(world: LoopWorld, season: number, date: string)
 }
 
 /**
- * Temporary until M4 (T, 2026-10-14): clubs below 22 seniors top up, first from their
- * academy (best POT, 17+), then with the free agent who best fills their thinnest area.
- * Applies to the user's club too while it has no transfer market.
+ * 1 July: AI clubs below 22 seniors promote their best academy prospects (17+, by POT)
+ * first. Signings to fill the rest come in the market (src/worker/market/aiMarket.ts),
+ * which replaced M3's free-agent top-up in M4. The user's club is never topped up.
  */
-export function topUpSquads(world: LoopWorld, season: number, date: string): TurnoverLog {
+export function promoteToSquadSize(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
-  const contexts = clubContexts(world);
-  const free = world.players.filter((p) => p.status === "freeAgent");
-  for (const ctx of contexts.values()) {
+  for (const ctx of clubContexts(world).values()) {
+    if (ctx.club.cid === world.userCid) continue;
     while (ctx.seniors.length < TURNOVER.topUpTo) {
       const prospect = [...ctx.academy]
-        .filter((p) => exactAge(p.birthDate, date) >= 17)
+        .filter((p) => p.status === "academy" && exactAge(p.birthDate, date) >= 17)
         .sort((x, y) => y.pot - x.pot || x.pid - y.pid)[0];
-      if (prospect) {
-        promote(prospect, ctx, season, date, log);
-        continue;
-      }
-      // The area furthest below its target (formation slots × 2, three goalkeepers).
-      const formation = formationById(ctx.club.tactics.formation);
-      const slots = { gk: 0, def: 0, mid: 0, att: 0 };
-      for (const slot of formation.slots) slots[AREA[slot.position]]++;
-      const t = TURNOVER.areaTargets;
-      const target = {
-        gk: t.gk,
-        def: slots.def * t.def,
-        mid: slots.mid * t.mid,
-        att: slots.att * t.att,
-      };
-      const have = { gk: 0, def: 0, mid: 0, att: 0 };
-      for (const p of ctx.seniors) have[AREA[p.position]]++;
-      const area = (Object.keys(target) as (keyof typeof target)[]).sort(
-        (x, y) => have[x] - target[x] - (have[y] - target[y]),
-      )[0] as keyof typeof target;
-      const pick =
-        free
-          .filter((p) => p.status === "freeAgent" && AREA[p.position] === area)
-          .sort((x, y) => y.ovr - x.ovr || x.pid - y.pid)[0] ??
-        free
-          .filter((p) => p.status === "freeAgent")
-          .sort((x, y) => y.ovr - x.ovr || x.pid - y.pid)[0];
-      if (!pick) break;
-      const age = exactAge(pick.birthDate, date);
-      pick.status = "club";
-      pick.cid = ctx.club.cid;
-      pick.freeAgentSince = null;
-      pick.contract = {
-        wage: wageFor(ctx, pick.ovr, age, date),
-        expires: `${season + (age >= 30 ? 1 : 2)}-06-30`,
-      };
-      pick.shirtNumber = freeShirtNumber(world, ctx.club.cid, 2);
-      pick.transfers.push({
-        date,
-        season,
-        fromCid: null,
-        toCid: ctx.club.cid,
-        fee: 0,
-        type: "freeAgent",
-      });
-      ctx.seniors.push(pick);
-      log.changed.add(pick.pid);
-      log.transactions.push({
-        season,
-        date,
-        type: "freeAgent",
-        pids: [pick.pid],
-        cids: [ctx.club.cid],
-        names: [fullName(pick), ctx.club.name],
-        fee: 0,
-      });
+      if (!prospect) break;
+      promote(prospect, ctx, season, date, log);
     }
   }
   return log;
 }
 
-/** Every preseason step in order: contracts, free agents leaving, youth intake, academy, top-up. */
+/**
+ * Every preseason step in order: loans returning, expiring contracts, free agents moving on, youth intake,
+ * academy decisions, the AI's summer renewals, then AI academy promotions up to squad size.
+ */
 export function preseasonTurnover(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
-  for (const pid of rollOverContracts(world, season)) log.changed.add(pid);
-  for (const step of [freeAgentDepartures, youthIntake, academyDecisions, topUpSquads]) {
+  const steps: ((w: LoopWorld, s: number, d: string) => Partial<TurnoverLog>)[] = [
+    (w, s, d) => returnLoans(w, d, s),
+    expireContracts,
+    freeAgentDepartures,
+    youthIntake,
+    academyDecisions,
+    (w, s, d) => aiRenewals(w, s, d, "summer"),
+    promoteToSquadSize,
+  ];
+  for (const step of steps) {
     const part = step(world, season, date);
-    for (const pid of part.changed) log.changed.add(pid);
-    log.added.push(...part.added);
-    log.transactions.push(...part.transactions);
+    for (const pid of part.changed ?? []) log.changed.add(pid);
+    log.added.push(...(part.added ?? []));
+    log.transactions.push(...(part.transactions ?? []));
+    log.messages.push(...(part.messages ?? []));
   }
   return log;
 }
@@ -625,6 +590,7 @@ export function summerTransition(world: LoopWorld, played: SeasonState): Turnove
   for (const pid of pre.changed) log.changed.add(pid);
   log.added.push(...pre.added);
   log.transactions.push(...pre.transactions);
+  log.messages.push(...pre.messages);
   for (const p of world.players) if (resetForPreseason(p, date)) log.changed.add(p.pid);
   return log;
 }

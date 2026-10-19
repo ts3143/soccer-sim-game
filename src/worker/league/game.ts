@@ -34,12 +34,14 @@ import {
   seasonAwards,
   summerTransition,
 } from "../season/offseason";
-import { runDays } from "../season/runner";
+import { closeSeasonBooks, openSeasonBooks, settleMonths } from "../finance/finance";
+import { BOARD, jobOffers, preseasonBoard } from "../club/board";
+import type { NewOffer } from "../market/aiMarket";
+import { runDays, type NewMessage } from "../season/runner";
 import {
   applyMoves,
   createSeason,
   type LastFinish,
-  leagueTableOf,
   restoreSeason,
   seasonMetaOf,
   seasonOutcome,
@@ -47,7 +49,7 @@ import {
 } from "../season/season";
 import type { LeagueSession } from "./session";
 
-const meta = <T>(session: LeagueSession, key: string): T => {
+export const meta = <T>(session: LeagueSession, key: string): T => {
   const row = session.cache.get("meta", key) as T | undefined;
   if (row === undefined) throw new Error(`Save has no meta row "${key}"`);
   return row;
@@ -64,19 +66,27 @@ export function openWindow(date: string, season: number, config = competitionsCo
 }
 
 /** The save's clubs and players as the in-memory season code works on them (cache objects). */
-function loopWorld(session: LeagueSession, season: number): LoopWorld {
+export function loopWorld(session: LeagueSession, season: number): LoopWorld {
   const game = meta<GameMeta>(session, "game");
   const ids = { ...meta<IdCounters>(session, "ids") };
   const reputation = new Map<number, number>();
+  const clubSeasons = new Map<number, ClubSeason>();
   for (const row of session.cache.getAll("clubSeasons")) {
-    if (row.season === season) reputation.set(row.cid, row.reputation);
+    if (row.season !== season) continue;
+    reputation.set(row.cid, row.reputation);
+    clubSeasons.set(row.cid, row);
   }
   return {
     clubs: session.cache.getAll("clubs"),
     players: session.cache.getAll("players"),
     reputation,
+    clubSeasons,
     userCid: game.userCid,
     seed: game.seed,
+    openBids: session.cache
+      .getAll("offers")
+      .filter((o) => o.status === "open" && o.toCid === game.userCid)
+      .map((o) => ({ pid: o.pid, fromCid: o.fromCid, expires: o.expires })),
     nextPid: () => {
       const pid = ids.pid++;
       session.cache.put("meta", { ...meta<IdCounters>(session, "ids"), pid: ids.pid }, "ids");
@@ -85,7 +95,13 @@ function loopWorld(session: LeagueSession, season: number): LoopWorld {
   };
 }
 
-function saveTransactions(session: LeagueSession, rows: readonly NewTransaction[]): void {
+/** Saves the clubs and club-season rows the season code changed in place (cash, books). */
+export function saveBooks(session: LeagueSession, world: LoopWorld): void {
+  for (const club of world.clubs) session.cache.put("clubs", club);
+  for (const row of world.clubSeasons.values()) session.cache.put("clubSeasons", row);
+}
+
+export function saveTransactions(session: LeagueSession, rows: readonly NewTransaction[]): void {
   const ids = { ...meta<IdCounters>(session, "ids") };
   for (const row of rows) session.cache.put("transactions", { xid: ids.xid++, ...row });
   session.cache.put("meta", ids, "ids");
@@ -137,6 +153,17 @@ export function ensureSeason(session: LeagueSession): void {
   });
   for (const f of state.fixtures) session.cache.put("fixtures", f);
   saveSeason(session, state, false);
+  // The board's targets for the season (SPEC §6.5).
+  const world = loopWorld(session, game.season);
+  const message = preseasonBoard(world, game.season, game.date);
+  saveBooks(session, world);
+  if (message) saveMessages(session, [message]);
+}
+
+export function saveMessages(session: LeagueSession, rows: readonly NewMessage[]): void {
+  const ids = { ...meta<IdCounters>(session, "ids") };
+  for (const row of rows) session.cache.put("inbox", { mid: ids.mid++, ...row });
+  session.cache.put("meta", ids, "ids");
 }
 
 export function gameState(session: LeagueSession): GameState {
@@ -144,7 +171,9 @@ export function gameState(session: LeagueSession): GameState {
   const stored = meta<SeasonMeta>(session, "season");
   const window = openWindow(game.date, game.season);
   const options: PlayOption[] = [];
-  if (game.phase === "endOfSeason") {
+  if (game.fired) {
+    // Sacked: nothing to play until the user takes a job (acceptJobOffer).
+  } else if (game.phase === "endOfSeason") {
     options.push(stored.movesApplied ? "advanceToPreseason" : "proceedToPromotionRelegation");
   } else {
     options.push("untilNextMatch", "oneWeek");
@@ -167,7 +196,48 @@ export function gameState(session: LeagueSession): GameState {
     window,
     options,
     nextUserFixture: next ?? null,
+    fired: game.fired
+      ? {
+          date: game.fired.date,
+          offers: game.fired.offers.map((cid) => {
+            const club = session.cache.get("clubs", cid);
+            return { cid, name: club?.name ?? "?", leagueId: club?.leagueId ?? "" };
+          }),
+        }
+      : null,
   };
+}
+
+/** The sacked user takes one of his job offers: the game goes on at that club. */
+export async function acceptJobOffer(session: LeagueSession, cid: number): Promise<void> {
+  const game = { ...meta<GameMeta>(session, "game") };
+  if (!game.fired?.offers.includes(cid)) throw new Error(`No job offer from club ${cid}`);
+  const club = session.cache.get("clubs", cid);
+  game.userCid = cid;
+  game.fired = null;
+  session.cache.put("meta", game, "game");
+  const row = session.cache.get("clubSeasons", [cid, game.season]);
+  if (row) {
+    session.cache.put("clubSeasons", {
+      ...row,
+      boardStart: BOARD.fresh,
+      boardConfidence: BOARD.fresh,
+      boardWarned: false,
+      boardSacked: false,
+    });
+  }
+  saveMessages(session, [
+    {
+      date: game.date,
+      season: game.season,
+      kind: "board",
+      subject: `Welcome to ${club?.name ?? "your new club"}`,
+      body: "You have taken the job. The board gives you a fresh start.",
+      read: false,
+    },
+  ]);
+  await session.cache.flush();
+  await updateLeagueSummary(session.lid, { clubName: club?.name ?? "" });
 }
 
 function emptyStats(pid: number, season: number, cid: number, competition: string): PlayerStatsRow {
@@ -208,29 +278,6 @@ function recordMatch(session: LeagueSession, fixture: Fixture, result: MatchResu
     row.ratingTotal += p.rating;
     for (const stat of PLAYER_STAT_TOTALS) row[stat] += p[stat];
     cache.put("playerStats", row);
-  }
-}
-
-/** Writes each league club's W/D/L, goals and points (and, at the end, its finish). */
-function updateClubSeasons(session: LeagueSession, state: SeasonState, final: boolean): void {
-  for (const leagueId of Object.keys(state.leagueClubs)) {
-    for (const row of leagueTableOf(state, leagueId)) {
-      const key: [number, number] = [row.cid, state.season];
-      const current = session.cache.get("clubSeasons", key);
-      if (!current) continue;
-      const next: ClubSeason = {
-        ...current,
-        leagueId,
-        won: row.won,
-        drawn: row.drawn,
-        lost: row.lost,
-        goalsFor: row.goalsFor,
-        goalsAgainst: row.goalsAgainst,
-        points: row.points,
-        finish: final ? row.position : null,
-      };
-      session.cache.put("clubSeasons", next);
-    }
   }
 }
 
@@ -276,8 +323,9 @@ function processDays(
   const stored = meta<SeasonMeta>(session, "season");
   const world = loopWorld(session, game.season);
   const from = game.date;
-  const days = runDays(world, state, from, { limit, stop });
+  const days = runDays(world, state, from, { limit, stop, stopWhenUserSacked: true });
 
+  saveBooks(session, world);
   for (const { fixture, result } of days.played) recordMatch(session, fixture, result);
   for (const fixture of days.created) session.cache.put("fixtures", fixture);
   for (const p of world.players) if (days.changed.has(p.pid)) session.cache.put("players", p);
@@ -287,7 +335,36 @@ function processDays(
     game.phase = "endOfSeason";
     finishSeason(session, state);
   }
-  updateClubSeasons(session, state, game.phase === "endOfSeason");
+  if (days.userSacked) {
+    game.fired = {
+      date: days.userSacked,
+      offers: jobOffers(world.clubs, world.clubSeasons, game.userCid, game.seed, days.userSacked),
+    };
+    days.messages.push({
+      date: days.userSacked,
+      season: game.season,
+      kind: "board",
+      subject: "You have been sacked",
+      body: `Board confidence fell too low. ${game.fired.offers.length} club(s) have offered you a job.`,
+      read: false,
+    });
+  }
+  saveBooks(session, world);
+  saveMessages(session, days.messages);
+  saveTransactions(session, days.transactions);
+  saveOffers(session, days.offers);
+  // Players the AI signed: bids for them elsewhere no longer stand.
+  const moved = new Set(
+    days.transactions
+      .filter((t) => t.type === "transfer" || t.type === "freeAgent")
+      .flatMap((t) => t.pids),
+  );
+  for (const offer of session.cache.getAll("offers")) {
+    if (moved.has(offer.pid) && (offer.status === "open" || offer.status === "accepted")) {
+      session.cache.put("offers", { ...offer, status: "expired" });
+    }
+  }
+  expireOffers(session, game.date);
   saveSeason(session, state, stored.movesApplied);
   session.cache.put("meta", game, "game");
   return {
@@ -299,20 +376,40 @@ function processDays(
   };
 }
 
+function saveOffers(session: LeagueSession, rows: readonly NewOffer[]): void {
+  const ids = { ...meta<IdCounters>(session, "ids") };
+  for (const row of rows) session.cache.put("offers", { oid: ids.oid++, ...row });
+  session.cache.put("meta", ids, "ids");
+}
+
+/** Bids still standing when their window closed lapse (deadline day processed). */
+function expireOffers(session: LeagueSession, date: string): void {
+  for (const offer of session.cache.getAll("offers")) {
+    if ((offer.status === "open" || offer.status === "accepted") && date >= offer.expires) {
+      session.cache.put("offers", { ...offer, status: "expired" });
+    }
+  }
+}
+
 /** 1 June: promotion and relegation (SPEC §3.1). */
 function proceedToPromotionRelegation(session: LeagueSession): PlayReport {
   const game = { ...meta<GameMeta>(session, "game") };
   const state = loadSeason(session);
   const outcome = seasonOutcome(state);
-  const clubs = session.cache.getAll("clubs").map((c) => ({ ...c }));
-  applyMoves(clubs, outcome.moves);
-  for (const club of clubs) session.cache.put("clubs", club);
   const from = game.date;
   const processing = seasonDate(
     game.season,
     competitionsConfig.keyDates.endOfSeasonProcessing ?? "06-01",
   );
   if (processing > game.date) game.date = processing;
+  // Month-end money up to 1 June, in the clubs' leagues of this season.
+  const books = loopWorld(session, game.season);
+  const amortised = settleMonths(books, from, game.date);
+  for (const p of books.players) if (amortised.has(p.pid)) session.cache.put("players", p);
+  saveBooks(session, books);
+  const clubs = session.cache.getAll("clubs").map((c) => ({ ...c }));
+  applyMoves(clubs, outcome.moves);
+  for (const club of clubs) session.cache.put("clubs", club);
   // Retirements and departures (SPEC §5.5).
   const world = loopWorld(session, game.season);
   const turnover = endOfSeasonTurnover(world, game.season, game.date);
@@ -402,34 +499,21 @@ async function advanceToPreseason(session: LeagueSession): Promise<PlayReport> {
   // 1 July: summer development for the season just played, then youth intake, academy
   // decisions and the squad top-up (src/worker/season/offseason.ts).
   const world = loopWorld(session, old);
+  // 30 June: the season's last month-ends, its cash snapshot and the FFP check.
+  const ffp = closeSeasonBooks(world, old, from, game.userCid);
+  for (const p of world.players) if (ffp.changed.has(p.pid)) cache.put("players", p);
+  saveMessages(session, ffp.messages);
+  saveBooks(session, world);
   const turnover = summerTransition(world, loadSeason(session));
   for (const p of world.players) if (turnover.changed.has(p.pid)) cache.put("players", p);
   for (const p of turnover.added) cache.put("players", p);
   saveTransactions(session, turnover.transactions);
+  saveMessages(session, turnover.messages);
 
-  for (const club of cache.getAll("clubs")) {
-    const last = cache.get("clubSeasons", [club.cid, old]);
-    cache.put("clubSeasons", {
-      cid: club.cid,
-      season,
-      leagueId: club.leagueId,
-      hype: last?.hype ?? 50,
-      reputation: last?.reputation ?? 50,
-      won: 0,
-      drawn: 0,
-      lost: 0,
-      goalsFor: 0,
-      goalsAgainst: 0,
-      points: 0,
-      finish: null,
-      revenue: {},
-      expenses: {},
-      cashEnd: null,
-      boardExpectation: null,
-      boardConfidence: null,
-      squadCostRatio: null,
-    });
-  }
+  // The new season's club rows (budget base, ticket prices).
+  const next = openSeasonBooks(world.clubs, world.clubSeasons, season, game.userCid);
+  for (const row of next.values()) cache.put("clubSeasons", row);
+  for (const club of world.clubs) cache.put("clubs", club);
   game.season = season;
   game.phase = "preseason";
   game.date = `${season}-07-01`;
@@ -444,21 +528,33 @@ async function advanceToPreseason(session: LeagueSession): Promise<PlayReport> {
   cache.evict("playerStats", (r) => r.season < season);
   cache.evict("awards", (r) => r.season < season);
   cache.evict("transactions", (r) => r.season < season);
+  // Bids are kept for their season only.
+  for (const offer of cache.getAll("offers")) {
+    if ((offer.season ?? 0) < season) cache.delete("offers", offer.oid);
+  }
+  await cache.flush();
 
   await pruneMatchRecords(db, season, game.userCid);
   await pruneRetiredPlayers(session, season);
   return { from, to: game.date, matchesPlayed: 0, events: [], phase: game.phase };
 }
 
-/** Play actions on a save run one at a time, even when two tabs press Play together. */
+/**
+ * Actions on a save (Play, and the user's market actions) run one at a time, even when two
+ * tabs act together.
+ */
 const queues = new WeakMap<LeagueSession, Promise<unknown>>();
+
+export function queued<T>(session: LeagueSession, task: () => Promise<T>): Promise<T> {
+  const previous = queues.get(session) ?? Promise.resolve();
+  const run = previous.catch(() => undefined).then(task);
+  queues.set(session, run);
+  return run;
+}
 
 /** Runs one Play-menu action and saves the result. */
 export function play(session: LeagueSession, option: PlayOption): Promise<PlayReport> {
-  const previous = queues.get(session) ?? Promise.resolve();
-  const run = previous.catch(() => undefined).then(() => runPlay(session, option));
-  queues.set(session, run);
-  return run;
+  return queued(session, () => runPlay(session, option));
 }
 
 async function runPlay(session: LeagueSession, option: PlayOption): Promise<PlayReport> {

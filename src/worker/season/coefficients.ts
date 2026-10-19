@@ -26,8 +26,11 @@ export const SQUAD_COEFFICIENTS = {
   selection: {
     /** OVR points off per point of condition below 100, in a match of importance 1. */
     fatiguePerPoint: 0.3,
-    /** OVR points off a regular starter per unit of importance below 1 (rest in small games). */
-    restRegulars: 8,
+    /**
+     * OVR points off a regular starter per unit of importance below 1 (rest in small games).
+     * 8 until M4; 14 since (T, 2026-10-19: a little more rotation by big clubs).
+     */
+    restRegulars: 14,
     /** A match this many days ahead counts as "coming up" (congestion). */
     congestionDays: 4,
     /** Below this condition a player isn't picked to start unless there's no one else. */
@@ -51,7 +54,7 @@ export const SQUAD_COEFFICIENTS = {
      * small ones): × factor once the club's top-11 OVR is `full` points above the
      * opponent's, phasing in from `from`.
      */
-    weakOpponent: { from: 4, full: 10, factor: 0.85 },
+    weakOpponent: { from: 4, full: 10, factor: 0.8 },
   },
 };
 

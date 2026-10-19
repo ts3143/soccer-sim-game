@@ -5,7 +5,13 @@
  */
 import { exactAge } from "../../src/common/dates";
 import { competitionsConfig } from "../../src/common/config/competitions";
-import type { Club, Player } from "../../src/common/schema";
+import type { Club, ClubSeason, Player } from "../../src/common/schema";
+import {
+  closeSeasonBooks,
+  openSeasonBooks,
+  operatingRevenue,
+} from "../../src/worker/finance/finance";
+import { preseasonBoard, targetPosition } from "../../src/worker/club/board";
 import { generateWorld } from "../../src/worker/generate/world";
 import {
   endOfSeasonTurnover,
@@ -24,6 +30,9 @@ import {
   type SeasonState,
 } from "../../src/worker/season/season";
 import { isInjured } from "../../src/worker/season/squads";
+import { developHalfSeason } from "../../src/worker/core/development";
+import { Random } from "../../src/worker/core/random";
+import { askingPrice, bidOutcome, marketSnapshot } from "../../src/worker/market/transfers";
 
 export type SeasonMetrics = Record<string, number>;
 
@@ -56,6 +65,10 @@ export interface WorldRun {
   /** Clubs promoted to ENG1, and whether they stayed up the next season. */
   promotedSurvived: number;
   promotedChecked: number;
+  /** Season 1: each club's revenue against its anchor (ratio − 1), per league. */
+  anchorErrors: Record<string, number[]>;
+  /** The M4 exploit checks on the final world (see exploitChecks). */
+  exploits: ExploitResult;
   seconds: number;
 }
 
@@ -83,7 +96,9 @@ export function simulateWorld(
     clubs,
     players,
     reputation: startingReputation(),
-    userCid: 0,
+    clubSeasons: new Map(generated.clubSeasons.map((r) => [r.cid, r])),
+    // No user in the harness: the AI runs every club (dials included).
+    userCid: -1,
     seed,
     nextPid: () => nextPid++,
   };
@@ -99,6 +114,8 @@ export function simulateWorld(
     retirements: [],
     promotedSurvived: 0,
     promotedChecked: 0,
+    anchorErrors: {},
+    exploits: { starsChecked: 0, starsBoughtForTwo: 0, loansChecked: 0, weakLoanWins: 0 },
     seconds: 0,
   };
   const potSnapshot = new Map<number, { pot: number; date: string }>();
@@ -110,6 +127,7 @@ export function simulateWorld(
     const season = competitionsConfig.firstSeason + s;
     const seasonStart = `${season}-07-01`;
     const state = createSeason({ season, seed, clubs, lastFinish, firstFid });
+    preseasonBoard(loop, season, seasonStart);
     const start = new Map(
       players
         .filter((p) => p.status !== "retired")
@@ -237,15 +255,99 @@ export function simulateWorld(
       const age = exactAge(p.birthDate, endDate);
       if (age >= 30) run.retirements.push({ age, gk: p.position === "GK" });
     }
+    // Club standing and the board (information): would-be sackings, targets met, reputation.
+    const seasonRows = [...loop.clubSeasons.values()];
+    const met = seasonRows.filter((r) => {
+      const target = targetPosition(r.leagueId, r.boardExpectation);
+      return r.finish !== null && r.finish <= target;
+    }).length;
+    const leagueRep = (id: string) =>
+      mean(seasonRows.filter((r) => r.leagueId === id).map((r) => r.reputation));
+    Object.assign(metrics, {
+      sackedMidSeason: days.sackings.filter((x) => !x.seasonEnd).length / clubs.length,
+      sackedAtSeasonEnd: days.sackings.filter((x) => x.seasonEnd).length / clubs.length,
+      boardTargetMet: met / seasonRows.length,
+      boardConfidenceMean: mean(seasonRows.map((r) => r.boardConfidence ?? 0)),
+      hypeMean: mean(seasonRows.map((r) => r.hype)),
+      hypeSpread:
+        Math.max(...seasonRows.map((r) => r.hype)) - Math.min(...seasonRows.map((r) => r.hype)),
+      reputationENG1: leagueRep("ENG1"),
+      reputationENG2: leagueRep("ENG2"),
+      reputationGER1: leagueRep("GER1"),
+      aiDialMean: mean(clubs.map((c) => c.budget.coaching)),
+      facilitiesMean: mean(clubs.map((c) => c.facilitiesLevel ?? 50)),
+    });
+
+    // Money: month-ends to 30 June and the season's cash snapshot, before anyone moves on.
+    const lastDay = state.fixtures.reduce((d, f) => (f.date > d ? f.date : d), seasonStart);
+    const ffp = closeSeasonBooks(loop, season, lastDay, -1);
+    const rows = [...loop.clubSeasons.values()];
+    const revenueOf = (r: ClubSeason) => operatingRevenue(r.revenue);
+    const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0;
+    const wageRatio = rows.map((r) => (r.expenses.wages ?? 0) / Math.max(1, revenueOf(r)));
+    const mix = (kinds: string[]) =>
+      rows.reduce((sum, r) => sum + kinds.reduce((k, kind) => k + (r.revenue[kind] ?? 0), 0), 0) /
+      rows.reduce((sum, r) => sum + revenueOf(r), 0);
+    Object.assign(metrics, {
+      negativeCashShare: clubs.filter((c) => c.cash < 0).length / clubs.length,
+      medianWageRatio: median(wageRatio),
+      medianSquadCostRatio: median(rows.map((r) => r.squadCostRatio ?? 0)),
+      ffpBreachShare: ffp.breaches.length / clubs.length,
+      ffpBanShare: ffp.bans.length / clubs.length,
+      medianCashToRevenue: median(rows.map((r) => (r.cashEnd ?? 0) / Math.max(1, revenueOf(r)))),
+      revenueShareMatchday: mix(["matchday"]),
+      revenueShareBroadcast: mix(["broadcast", "merit"]),
+      revenueShareCommercial: mix(["commercial"]),
+      revenueSharePrize: mix(["prize"]),
+    });
+    if (s === 0) {
+      for (const league of competitionsConfig.leagues) {
+        const own = rows.filter((r) => r.leagueId === league.id);
+        const errors = own.map((r) => {
+          const club = clubs.find((c) => c.cid === r.cid) as Club;
+          return revenueOf(r) / club.revenueAnchor - 1;
+        });
+        run.anchorErrors[league.id] = errors;
+      }
+    }
+
     applyMoves(clubs, outcome.moves);
     const intakeFrom = nextPid;
-    summerTransition(loop, state);
+    const summer = summerTransition(loop, state);
+    const count = (type: string, list = summer.transactions) =>
+      list.filter((t) => t.type === type).length;
+    Object.assign(metrics, {
+      contractsExpired:
+        summer.transactions.filter((t) => t.names[1]?.endsWith("(contract ended)")).length /
+        clubs.length,
+      renewals: (count("renewal") + count("renewal", days.transactions)) / clubs.length,
+      transfers: count("transfer", days.transactions) / clubs.length,
+      freeAgentSignings: count("freeAgent", days.transactions) / clubs.length,
+      loans: count("loan", days.transactions) / clubs.length,
+      feesToRevenue:
+        days.transactions.filter((t) => t.type === "transfer").reduce((a, t) => a + t.fee, 0) /
+        Math.max(
+          1,
+          rows.reduce((a, r) => a + revenueOf(r), 0),
+        ),
+      seniorsPerClub: players.filter((p) => p.status === "club").length / clubs.length,
+      freeAgentPool: players.filter((p) => p.status === "freeAgent").length,
+    });
+    loop.clubSeasons = openSeasonBooks(clubs, loop.clubSeasons, season + 1, -1);
+    for (const [cid, row] of loop.clubSeasons) loop.reputation.set(cid, row.reputation);
     const changes = [...start].flatMap(([pid, before]) => {
       const p = players.find((x) => x.pid === pid);
       if (!p || p.status === "retired") return [];
-      const club = before.cid === null ? undefined : minutes.get(before.cid);
-      const played =
-        before.cid === null ? 0 : (club?.get(pid) ?? 0) / (available.get(before.cid) ?? 1);
+      // His minutes wherever he played (loans and transfers), against the club he played
+      // most for.
+      let total = 0;
+      let main: number | null = null;
+      for (const [cid, club] of minutes) {
+        const m = club.get(pid) ?? 0;
+        total += m;
+        if (m > 0 && (main === null || m > (minutes.get(main)?.get(pid) ?? 0))) main = cid;
+      }
+      const played = main === null ? 0 : total / (available.get(main) ?? 1);
       return [{ age: before.age, delta: p.ovr - before.ovr, share: played }];
     });
     const young = changes.filter((c) => c.age >= 18 && c.age < 22);
@@ -291,6 +393,87 @@ export function simulateWorld(
     run.potChecked++;
     if (peak > snap.pot) run.potExceeded++;
   }
+  run.exploits = exploitChecks(loop, `${competitionsConfig.firstSeason + seasons}-07-01`);
   run.seconds = (performance.now() - started) / 1000;
   return run;
 }
+
+export interface ExploitResult {
+  /** League stars priced, and how many two average players' fees would buy. */
+  starsChecked: number;
+  starsBoughtForTwo: number;
+  /** Young players tried, and how many grew more playing far below their level. */
+  loansChecked: number;
+  weakLoanWins: number;
+}
+
+/**
+ * The M4 exploit checks (MILESTONES M4), on the world as it ends:
+ * - two average players' fees never buy a star: each league's 3 best players against the
+ *   asking prices of two players at the league's XI level;
+ * - the weak-loan exploit doesn't pay: young players (19–21, POT 6+ above OVR) given full
+ *   minutes 12 below their level grow less than with full minutes at their level.
+ */
+function exploitChecks(world: LoopWorld, date: string): ExploitResult {
+  const out: ExploitResult = {
+    starsChecked: 0,
+    starsBoughtForTwo: 0,
+    loansChecked: 0,
+    weakLoanWins: 0,
+  };
+  const snap = marketSnapshot(world, date);
+  for (const league of competitionsConfig.leagues) {
+    const own = world.players
+      .filter(
+        (p) =>
+          p.status === "club" && world.clubs.find((c) => c.cid === p.cid)?.leagueId === league.id,
+      )
+      .sort((a, b) => b.ovr - a.ovr || a.pid - b.pid);
+    const level = Math.round(snap.leagueLevels.get(league.id) ?? 66);
+    const average = own.filter((p) => Math.abs(p.ovr - level) <= 1).slice(0, 2);
+    if (average.length < 2) continue;
+    const two = average.reduce((s, p) => s + askingPrice(world, p, date, snap).asking, 0);
+    for (const star of own.slice(0, 3)) {
+      out.starsChecked++;
+      if (bidOutcome(two, askingPrice(world, star, date, snap).asking) === "accepted") {
+        out.starsBoughtForTwo++;
+      }
+    }
+  }
+  const young = world.players
+    .filter((p) => {
+      const age = exactAge(p.birthDate, date);
+      return p.status === "club" && age >= 19 && age < 22 && p.pot >= p.ovr + 6;
+    })
+    .slice(0, 30);
+  for (const p of young) {
+    const growth = (levelStrength: number) => {
+      let total = 0;
+      for (let i = 0; i < 40; i++) {
+        const next = developHalfSeason(
+          ratingsOfPlayer(p),
+          {
+            age: exactAge(p.birthDate, date),
+            curve: p.hidden.curve,
+            ceiling: p.hidden.ceiling,
+            ovr: p.ovr,
+            coaching: 1,
+            medical: 1,
+            minutesShare: 0.9,
+            levelStrength,
+            performanceAdj: 0,
+            academyYouth: null,
+          },
+          Random.fromSeed(`${world.seed}/exploit/${p.pid}/${i}`),
+        );
+        total += next.reduce((s, r) => s + r, 0) / next.length;
+      }
+      return total;
+    };
+    out.loansChecked++;
+    if (growth(p.ovr - 12) > growth(p.ovr + 2)) out.weakLoanWins++;
+  }
+  return out;
+}
+
+const ratingsOfPlayer = (p: Player): number[] => p.ratingsHistory.at(-1)?.ratings ?? [];

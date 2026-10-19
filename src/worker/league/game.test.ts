@@ -9,8 +9,10 @@ import type {
   SeasonMeta,
 } from "../../common/schema";
 import { listLeagues } from "../db/globalDb";
+import { operatingRevenue } from "../finance/finance";
 import { openLeagueDb } from "../db/leagueDb";
-import { gameState, play, pruneMatchRecords, pruneRetiredPlayers } from "./game";
+import { acceptJobOffer, gameState, play, pruneMatchRecords, pruneRetiredPlayers } from "./game";
+import { contractTalks, renewContract } from "./market";
 import { closeLeague, createLeague, openLeague } from "./session";
 
 beforeAll(() => {
@@ -84,6 +86,13 @@ describe("the season loop in a save", () => {
       Array.from({ length: 20 }, (_, i) => i + 1),
     );
     expect(eng1.every((c) => c.won + c.drawn + c.lost === 38)).toBe(true);
+    // Money: gates, TV (equal and merit), commercial, wages and dials are booked.
+    for (const row of eng1) {
+      for (const kind of ["matchday", "broadcast", "merit", "commercial"]) {
+        expect(row.revenue[kind] ?? 0).toBeGreaterThan(0);
+      }
+      expect(row.expenses.wages ?? 0).toBeGreaterThan(0);
+    }
     // The season's awards are saved at the final whistle.
     const awardRows = await openLeague(1).then((s) => s.cache.getAll("awards"));
     expect(awardRows.filter((a) => a.type === "champions")).toHaveLength(3);
@@ -93,6 +102,16 @@ describe("the season loop in a save", () => {
     const players = await db.getAll("players");
     expect(players.filter((p) => p.conditionDate).length).toBeGreaterThan(600);
     expect(players.some((p) => p.injury !== null)).toBe(true);
+    // The user hears about his final-year contracts in January and before deadline day.
+    const subjects = (await db.getAll("inbox")).map((m) => m.subject);
+    expect(subjects.some((x) => /contract\(s\) end in June/.test(x))).toBe(true);
+    expect(subjects.some((x) => /^Deadline day tomorrow/.test(x))).toBe(true);
+    const log = await db.getAllFromIndex("transactions", "season", 2026);
+    expect(log.filter((t) => t.type === "renewal").length).toBeGreaterThan(50);
+    // The AI's market: transfers between AI clubs, and bids for the user's players.
+    expect(log.filter((t) => t.type === "transfer").length).toBeGreaterThan(50);
+    const bids = await db.getAll("offers");
+    expect(bids.every((o) => o.toCid === 0 && o.status === "expired")).toBe(true);
   });
 
   it("gives the same season when stopped, reloaded and continued", SLOW, async () => {
@@ -141,7 +160,23 @@ describe("the season loop in a save", () => {
     }
 
     const playersBefore = session.cache.getAll("players").length;
+    const userCid = (session.cache.get("meta", "game") as GameMeta).userCid;
+    const leaving = session.cache
+      .getAll("players")
+      .filter(
+        (p) => p.cid === userCid && p.status === "club" && p.contract?.expires === "2027-06-30",
+      );
+    expect(leaving.length).toBeGreaterThan(0);
     const next = await play(session, "advanceToPreseason");
+    // Contracts that ended on 30 June expired on 1 July (no more M3 rollover).
+    for (const p of leaving) {
+      expect(session.cache.get("players", p.pid)?.status).toMatch(/freeAgent|retired/);
+    }
+    expect(
+      session.cache
+        .getAll("inbox")
+        .some((m) => /left at the end of their contracts/.test(m.subject)),
+    ).toBe(true);
     expect(next).toMatchObject({ to: "2027-07-01", phase: "preseason" });
     // Summer development, youth intake and academy decisions reached the save.
     const all = session.cache.getAll("players");
@@ -165,8 +200,19 @@ describe("the season loop in a save", () => {
       straight.fixtures.length,
     );
     expect(session.cache.getAll("playerStats")).toEqual([]);
+    // Last season closed with a cash snapshot; the new one is budgeted on its revenue.
+    const closed = session.cache.getAll("clubSeasons").filter((c) => c.season === 2026);
+    expect(closed.every((c) => c.cashEnd === session.cache.get("clubs", c.cid)?.cash)).toBe(true);
+    // The FFP check ran for every club on 30 June.
+    expect(closed.every((c) => c.squadCostRatio !== null && c.squadCostRatio > 0.2)).toBe(true);
+    expect(closed.some((c) => (c.amortisation ?? 0) > 0)).toBe(true);
     // The new season's tables start empty, in the clubs' new leagues.
     const rows = session.cache.getAll("clubSeasons").filter((c) => c.season === 2027);
+    for (const row of rows) {
+      const last = closed.find((c) => c.cid === row.cid);
+      const revenue = operatingRevenue(last?.revenue ?? {});
+      expect(row.budgetBase).toBe(revenue);
+    }
     expect(rows).toHaveLength(62);
     const moved = rows.filter((r) => r.leagueId !== before.get(r.cid));
     expect(moved).toHaveLength(6);
@@ -213,6 +259,73 @@ describe("the season loop in a save", () => {
     expect(await session.db.countFromIndex("playerStats", "pid", ordinary.pid)).toBe(0);
     expect(statRows).toBeGreaterThanOrEqual(0);
     expect(session.cache.get("players", star.pid)).toBeDefined(); // has an award: kept
+  });
+
+  it(
+    "sacks the user when board confidence collapses, then he takes a job offer",
+    SLOW,
+    async () => {
+      const league = await createLeague({ name: "Sacked", seed: "sacked-test", userCid: 0 });
+      const session = await openLeague(league.lid);
+      const inbox = session.cache.getAll("inbox");
+      expect(inbox.some((m) => /The board's target/.test(m.subject))).toBe(true);
+      // A title target, an empty board and a bankrupt club: the board loses patience.
+      const row = session.cache.get("clubSeasons", [0, 2026]) as ClubSeason;
+      session.cache.put("clubSeasons", {
+        ...row,
+        boardExpectation: "title",
+        boardStart: 0,
+        boardConfidence: 0,
+      });
+      const club = session.cache.get("clubs", 0);
+      if (club) session.cache.put("clubs", { ...club, cash: -10 * club.revenueAnchor });
+      const report = await play(session, "untilEndOfSeason");
+      expect(report.phase).toBe("regularSeason"); // stopped on the day he was sacked
+      const state = gameState(session);
+      expect(state.fired?.offers.length).toBeGreaterThan(0);
+      expect(state.options).toEqual([]);
+      await expect(play(session, "oneWeek")).rejects.toThrow(/isn't available/);
+      const offer = state.fired?.offers[0]?.cid as number;
+      await acceptJobOffer(session, offer);
+      const after = gameState(session);
+      expect(after.fired).toBeNull();
+      expect(after.options).toContain("untilNextMatch");
+      expect((session.cache.get("meta", "game") as GameMeta).userCid).toBe(offer);
+      const subjects = session.cache.getAll("inbox").map((m) => m.subject);
+      expect(subjects).toContain("You have been sacked");
+      expect(subjects.some((x) => x.startsWith("Welcome to"))).toBe(true);
+    },
+  );
+
+  it("renews the user's players at their asks, only in a window", SLOW, async () => {
+    const league = await createLeague({ name: "Renewals", seed: SEED, userCid: 0 });
+    const session = await openLeague(league.lid);
+    const mine = session.cache
+      .getAll("players")
+      .filter((p) => p.cid === 0 && p.status === "club")
+      .sort((a, b) => (a.contract?.expires ?? "").localeCompare(b.contract?.expires ?? ""));
+    const p = mine[0] as (typeof mine)[number];
+    const talks = contractTalks(session, p.pid);
+    expect(talks).toMatchObject({ userPlayer: true, windowOpen: true, yearsLeft: 1 });
+    expect(talks.asks).toHaveLength(5);
+    expect(talks.value).toBeGreaterThan(0);
+    await renewContract(session, p.pid, 2);
+    const renewed = session.cache.get("players", p.pid);
+    const two = talks.asks.find((a) => a.years === 2);
+    expect(two?.expires).toBe("2028-06-30");
+    expect(renewed?.contract).toEqual({ wage: two?.wage, expires: "2028-06-30" });
+    expect(session.cache.getAll("transactions").at(-1)).toMatchObject({
+      type: "renewal",
+      pids: [p.pid],
+    });
+    // Not another club's player, not a renewal that doesn't extend, not outside a window.
+    const theirs = session.cache.getAll("players").find((x) => x.cid === 1 && x.status === "club");
+    await expect(renewContract(session, theirs?.pid ?? -1, 2)).rejects.toThrow(/your own/);
+    await expect(renewContract(session, p.pid, 1)).rejects.toThrow(/must run past/);
+    await play(session, "untilWindowCloses");
+    await play(session, "oneWeek");
+    expect(contractTalks(session, p.pid).windowOpen).toBe(false);
+    await expect(renewContract(session, p.pid, 3)).rejects.toThrow(/transfer window/);
   });
 
   it("sets up the season for a save made before M3", SLOW, async () => {

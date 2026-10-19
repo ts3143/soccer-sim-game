@@ -6,6 +6,7 @@ import { formatEuros, formatPercent } from "../format";
 import { toWorker } from "../workerClient";
 import { OvrHistogram } from "./OvrHistogram";
 import { MatchLab } from "./MatchLab";
+import { ClubLab } from "./ClubLab";
 import { SeasonLab } from "./SeasonLab";
 import { SquadTable } from "./SquadTable";
 
@@ -17,7 +18,7 @@ export function LeagueView({ lid }: { lid: number }) {
   const [leagueId, setLeagueId] = useState<string | null>(null);
   const [squad, setSquad] = useState<SquadView | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"generation" | "lab" | "season">("generation");
+  const [tab, setTab] = useState<"generation" | "lab" | "season" | "club">("generation");
 
   useEffect(() => {
     // The parent remounts this view per league (key={lid}), so state starts empty.
@@ -91,10 +92,20 @@ export function LeagueView({ lid }: { lid: number }) {
               Season lab (M3)
             </button>
           </li>
+          <li className="nav-item">
+            <button
+              type="button"
+              className={`nav-link ${tab === "club" ? "active" : ""}`}
+              onClick={() => setTab("club")}
+            >
+              Club lab (M4)
+            </button>
+          </li>
         </ul>
       </section>
       {tab === "lab" && <MatchLab lid={lid} clubs={overview.clubs} leagues={overview.leagues} />}
       {tab === "season" && <SeasonLab lid={lid} />}
+      {tab === "club" && <ClubLab lid={lid} />}
       {tab === "generation" && (
         <>
           <section className="mb-4">

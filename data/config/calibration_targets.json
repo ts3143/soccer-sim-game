@@ -27,7 +27,7 @@
     "avgMatchRating": { "target": 6.6, "tol": [6.4, 6.8], "note": "0-10 scale; typical range 5.0-8.5, 9+ rare" }
   },
   "perSeason": {
-    "championPointsENG1": { "target": 90, "tol": [82, 100] },
+    "championPointsENG1": { "target": 84, "tol": [76, 100], "note": "MVP band (T, 2026-10-19; was 90, 82-100): without European football the economy concentrates less money at the top. Revisit when Europe is added." },
     "bottomPointsENG1": { "target": 28, "tol": [18, 36] },
     "topScorerGoals": { "target": 28, "tol": [22, 38] },
     "topAssists": { "target": 15, "tol": [11, 20] },
@@ -41,13 +41,18 @@
     "benched18to21OvrGainPerYear": { "target": 1, "tol": [0, 2] },
     "age33plusOvrLossPerYear": { "target": 5.5, "tol": [4, 7] },
     "retirementAge": "most 33-37; goalkeepers later",
-    "exceedDisplayedPotPct": { "target": 0.25, "tol": [0.18, 0.32] },
+    "exceedDisplayedPotPct": { "target": 0.20, "tol": [0.14, 0.30], "note": "T, 2026-10-19 (was 0.25, 0.18-0.32): released and stalled young players fall short of the forecast" },
     "wonderkidsPerLeaguePerSeason": { "target": 1, "tol": [0.5, 1.8], "note": "youth intake with POT 75+" }
   },
   "worldStability20Seasons": {
     "note": "Sanity checks over a 20-season headless run",
     "clubsInNegativeCashShare": "< 15% at any season end",
-    "medianSquadCostRatio": "50-68% of revenue",
+    "medianSquadCostRatio": { "target": 0.59, "tol": [0.50, 0.68], "note": "of revenue, every season" },
+    "medianWageRatio": { "target": 0.5, "tol": [0.35, 0.65], "note": "wages / revenue, every season (T, 2026-10-19)" },
+    "transferFeesToRevenue": { "target": 0.25, "tol": [0.05, 0.45], "note": "mean over seasons (T, 2026-10-19)" },
+    "seniorMeanOvrDrift": { "target": 0, "tol": [-1.5, 1.5], "note": "senior mean OVR, last season vs season 1 (T, 2026-10-19)" },
+    "elite75ShareDrift": { "target": 0, "tol": [-0.015, 0.015], "note": "share of seniors rated 75+, last season vs season 1 (T, 2026-10-19)" },
+    "peakAge": "27-29-year-olds rated at least as high as 21-23 and 24-26-year-olds in the last season (MILESTONES M4)",
     "playerCountDrift": "total active players stays within +/- 10% of start",
     "differentChampionsENG1": "at least 3 distinct champions in 20 seasons",
     "promotedClubsSurvivalRate": "roughly 35-60% of promoted clubs avoid relegation"

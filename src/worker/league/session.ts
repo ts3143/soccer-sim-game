@@ -35,6 +35,8 @@ const CACHED_STORES = [
   "playerStats",
   "transactions",
   "awards",
+  "inbox",
+  "offers",
 ] as const;
 const SEASON_SCOPED = ["fixtures", "matches", "playerStats", "transactions", "awards"] as const;
 

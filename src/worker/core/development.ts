@@ -21,7 +21,7 @@ import type { Random } from "./random";
  * peaks mid-career; mental grows into the early 30s; goalkeeping peaks ~29–33.
  * Provisional values: calibrated in M3.
  */
-const AGE_CURVES: Record<Exclude<AgeCurveGroup, "fixed">, readonly [number, number][]> = {
+export const AGE_CURVES: Record<Exclude<AgeCurveGroup, "fixed">, readonly [number, number][]> = {
   physical: [[16, 7], [18, 6], [20, 4.5], [22, 3], [24, 1.5], [25, 0], [27, -0.8], [29, -2], [31, -3.5], [33, -5.5], [35, -7.5], [38, -10]],
   technical: [[16, 7], [18, 6.5], [20, 5.5], [22, 4], [24, 2.5], [26, 1], [27, 0], [29, -0.8], [31, -2], [33, -4], [35, -6], [38, -9]],
   mental: [[16, 6], [20, 5], [24, 3.5], [27, 2], [30, 1], [32, 0], [34, -1.5], [36, -3], [38, -5]],
@@ -50,7 +50,7 @@ export const DEV = {
    * Extra growth for young players (M3 calibration): growth × `scale` up to `fullBelow`,
    * fading linearly to × 1 at `noneFrom`. Front-loads growth without lifting older players.
    */
-  youngGrowth: { scale: 3, fullBelow: 22, noneFrom: 26 },
+  youngGrowth: { scale: 2.5, fullBelow: 22, noneFrom: 26 },
   /** Growth multiplier for academy players (coaching + Youth dial only, SPEC §5.3). */
   academyGrowth: 0.5,
   /**

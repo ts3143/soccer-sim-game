@@ -3,17 +3,34 @@
  * persists what it returns, and the headless tools call it directly, so both run the
  * same code.
  *
- * Each processed day: training injuries for the days since the last one, then the day's
- * dated events (the winter development update on 1 January), then its matches. A day is
- * processed when it has a match or an event; the game date is the last day processed.
+ * Each processed day: training injuries and month-end money for the days since the last
+ * one, then the day's dated events (the winter development update on 1 January), the AI's
+ * market on market days (src/worker/market/aiMarket.ts), then its matches (gate receipts
+ * and prize money). When the matches end, TV merit money is paid.
+ * A day is processed when it has a match or an event; the game date is the last day
+ * processed.
  */
 import type { SeasonEvent } from "../../common/api";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
 import type { MatchResult } from "../../common/match";
-import type { Fixture } from "../../common/schema";
+import { addDays } from "../../common/dates";
+import type { ClubSeason, Fixture, InboxMessage, TransactionRow } from "../../common/schema";
+import { marketDay, marketDays, type NewOffer } from "../market/aiMarket";
+import { returnLoans } from "../market/loans";
+import { aiRenewals, contractWarning } from "../market/renewals";
 import { seasonDate } from "../schedule/calendar";
 import { developmentUpdate, type LoopWorld } from "./offseason";
-import { nextMatchDate, playDate, type PlayFixture, type SeasonState } from "./season";
+import { matchdayIncome, meritIncome, prizeIncome, settleMonths } from "../finance/finance";
+import { boardSacks, updateConfidence } from "../club/board";
+import { seasonEndStanding, updateHype } from "../club/standing";
+import {
+  leagueTableOf,
+  nextMatchDate,
+  playDate,
+  type PlayFixture,
+  seasonOutcome,
+  type SeasonState,
+} from "./season";
 import { squadPlay } from "./squads";
 
 /** Dated events of a season (SPEC §3.1) besides matches: windows and the winter update. */
@@ -25,6 +42,15 @@ export function seasonEvents(season: number, config = competitionsConfig): Seaso
   }
   const winter = config.keyDates.winterDevelopmentUpdate;
   if (winter) events.push({ date: seasonDate(season, winter), kind: "winterUpdate" });
+  // The renewal deadline (SPEC §3.1): a reminder the day before winter deadline day.
+  const january = config.windows.find((w) => w.id === "winter");
+  if (january) {
+    events.push({
+      date: addDays(seasonDate(season, january.deadlineDay), -1),
+      kind: "deadlineReminder",
+      window: january.id,
+    });
+  }
   return events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
@@ -47,7 +73,19 @@ export interface DaysResult {
   /** Injury lengths (days) in matches and training, and how many were in training. */
   injuries: number[];
   trainingInjuries: number;
+  /** Every club whose board would sack its manager (the harness counts them all). */
+  sackings: { cid: number; date: string; seasonEnd: boolean }[];
+  /** The date the board sacked the user, if it did. */
+  userSacked: string | null;
+  /** Messages for the user's inbox. */
+  messages: NewMessage[];
+  /** Transactions on the way (renewals, transfers, signings). */
+  transactions: Omit<TransactionRow, "xid">[];
+  /** New AI bids for the user's players (to save; he answers them in his inbox). */
+  offers: NewOffer[];
 }
+
+export type NewMessage = Omit<InboxMessage, "mid">;
 
 export interface DaysOptions {
   /** Process days up to and including this date (null: no limit). */
@@ -56,6 +94,8 @@ export interface DaysOptions {
   stop?: (day: string, played: Fixture[]) => boolean;
   /** Called after each processed day (headless metrics). */
   onDay?: (day: string) => void;
+  /** Stop processing when the board sacks the user (the save does; the harness doesn't). */
+  stopWhenUserSacked?: boolean;
   config?: CompetitionsConfig;
 }
 
@@ -78,6 +118,53 @@ export function runDays(
     ended: false,
     injuries: [],
     trainingInjuries: 0,
+    sackings: [],
+    userSacked: null,
+    messages: [],
+    transactions: [],
+    offers: [],
+  };
+  const market = marketDays(state.season, config);
+  const warn = (row: ClubSeason, day: string) => {
+    if (row.cid !== world.userCid || (row.boardConfidence ?? 100) >= 40 || row.boardWarned) return;
+    row.boardWarned = true;
+    out.messages.push({
+      date: day,
+      season: state.season,
+      kind: "board",
+      subject: "The board is concerned",
+      body: `Board confidence has fallen to ${Math.round(row.boardConfidence ?? 0)}. Results must improve.`,
+      read: false,
+    });
+  };
+  /** League rows, board confidence and would-be sackings after a matchday. */
+  const afterMatchday = (day: string, seasonOver: boolean) => {
+    for (const leagueId of Object.keys(state.leagueClubs)) {
+      const table = leagueTableOf(state, leagueId, config);
+      const games = 2 * ((state.leagueClubs[leagueId]?.length ?? 2) - 1);
+      for (const t of table) {
+        const row = world.clubSeasons.get(t.cid);
+        const club = world.clubs.find((c) => c.cid === t.cid);
+        if (!row || !club) continue;
+        Object.assign(row, {
+          leagueId,
+          won: t.won,
+          drawn: t.drawn,
+          lost: t.lost,
+          goalsFor: t.goalsFor,
+          goalsAgainst: t.goalsAgainst,
+          points: t.points,
+          finish: seasonOver ? t.position : null,
+        });
+        const confidence = updateConfidence(row, club, table, t.played / games, config);
+        warn(row, day);
+        if (!row.boardSacked && boardSacks(confidence, t.played / games, seasonOver)) {
+          row.boardSacked = true;
+          out.sackings.push({ cid: t.cid, date: day, seasonEnd: seasonOver });
+          if (t.cid === world.userCid) out.userSacked = day;
+        }
+      }
+    }
   };
   const results = new Map<number, MatchResult>();
   const play: PlayFixture = (fixture, setup) => {
@@ -90,29 +177,92 @@ export function runDays(
     const nextMatch = nextMatchDate(state);
     if (nextMatch === null) break;
     const nextEvent = events.find((e) => e.date > out.date)?.date ?? null;
-    const day = nextEvent !== null && nextEvent < nextMatch ? nextEvent : nextMatch;
+    const nextMarket = market.find((m) => m.date > out.date)?.date ?? null;
+    const day = [nextEvent, nextMarket].reduce<string>(
+      (d, x) => (x !== null && x < d ? x : d),
+      nextMatch,
+    );
     if (options.limit !== null && day > options.limit) break;
 
     squads.train(out.date, day);
+    for (const pid of settleMonths(world, out.date, day, config)) out.changed.add(pid);
     for (const event of events.filter((e) => e.date === day)) {
       out.events.push(event);
       if (event.kind === "winterUpdate") {
         for (const pid of developmentUpdate(world, state, day, false)) out.changed.add(pid);
       }
+      if (event.kind === "windowOpens" && event.window === "winter") {
+        // Last chance for final-year players (SPEC §3.1): the AI renews; the user is told.
+        const renewed = aiRenewals(world, state.season, day, "winter");
+        for (const pid of renewed.changed) out.changed.add(pid);
+        out.transactions.push(...renewed.transactions);
+        const warning = contractWarning(world, state.season, day, false);
+        if (warning) out.messages.push(warning);
+      }
+      if (event.kind === "deadlineReminder") {
+        const reminder = contractWarning(world, state.season, day, true);
+        if (reminder) out.messages.push(reminder);
+      }
+    }
+    // Half-season loans end on 1 January, after that day's development update.
+    if (world.players.some((p) => p.status === "loan" && p.loan && p.loan.until <= day)) {
+      const back = returnLoans(world, day, state.season);
+      for (const pid of back.changed) out.changed.add(pid);
+      out.messages.push(...back.messages);
+      squads.regroup();
+    }
+    for (const marketDate of market.filter((m) => m.date === day)) {
+      // The AI's transfers and free-agent signings, and its bids for the user's players.
+      const log = marketDay(world, state.season, marketDate);
+      for (const pid of log.changed) out.changed.add(pid);
+      out.transactions.push(...log.transactions);
+      out.messages.push(...log.messages);
+      out.offers.push(...log.offers);
+      if (log.moved) squads.regroup();
     }
     const before = state.fixtures.length;
     const today = playDate(state, day, play, config);
-    for (const fixture of today)
+    for (const fixture of today) {
       out.played.push({ fixture, result: results.get(fixture.fid) as MatchResult });
+      matchdayIncome(world, fixture, config);
+      prizeIncome(world, fixture, config);
+      updateHype(world.clubSeasons, fixture, (cid) => squads.strength(cid, day));
+    }
     out.created.push(...state.fixtures.slice(before));
     out.date = day;
+    if (today.length > 0) afterMatchday(day, false);
     options.onDay?.(day);
     if (options.stop?.(day, today)) break;
+    if (options.stopWhenUserSacked && out.userSacked) break;
   }
 
   out.ended = nextMatchDate(state) === null;
+  if (out.ended && !state.meritPaid) {
+    // The season's matches are over (once per season): TV merit money by final position,
+    // final positions and board verdicts, then reputation and facilities.
+    const finish = new Map<number, number>();
+    for (const leagueId of Object.keys(state.leagueClubs)) {
+      const table = leagueTableOf(state, leagueId, config);
+      meritIncome(
+        world,
+        leagueId,
+        table.map((r) => r.cid),
+        config,
+      );
+      for (const r of table) finish.set(r.cid, r.position);
+    }
+    afterMatchday(out.date, true);
+    const outcome = seasonOutcome(state, config);
+    const trophies = new Set([
+      ...Object.values(outcome.cupWinners),
+      ...Object.values(outcome.playoffWinners).flat(),
+    ]);
+    seasonEndStanding(world.clubs, world.clubSeasons, finish, trophies, config);
+    state.meritPaid = true;
+  }
   if (!out.ended && options.limit !== null && options.limit > out.date) {
     squads.train(out.date, options.limit);
+    for (const pid of settleMonths(world, out.date, options.limit, config)) out.changed.add(pid);
     out.date = options.limit;
   }
   for (const pid of squads.changed) out.changed.add(pid);

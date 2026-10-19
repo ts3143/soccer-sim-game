@@ -1,5 +1,7 @@
 {
   "_note": "MVP world. Leagues are data-driven: adding a country later means adding entries here, not code. Dates are templates for season Y/Y+1; the scheduler places matches on weekend and midweek slots between these bounds.",
+  "_financeNote": "Per league (T, 2026-10-16; may be revised): broadcastPool = the season's TV money for the whole league in euros, equalShare = the part split equally (paid monthly August to May), the rest paid as merit by final position (linear). ticketPriceBase = average ticket price in euros for a reputation-50 club; attendanceBase = typical share of capacity filled. Cup prizeMoney.roundWon = euros for winning each round (the last entry is the final), runnerUp = the beaten finalist.",
+  "_boardNote": "Board targets per league, best first (SPEC 6.5). Before each season the clubs are ranked by squad strength: the first `strongest` clubs get the first target, the next `strongest` the second, and so on. A target is met by finishing at `position` or better.",
   "_tieBreakersNote": "Each league lists its own table tie-breakers, applied in order (T, 2026-10-14). Allowed: points, goalDifference, goalsFor, goalsAgainst, wins, headToHeadPoints, headToHeadGoalDifference, headToHeadGoalsFor, draw. draw is a seeded random draw and must come last.",
   "seasonStart": "2026-07-01",
   "countries": [
@@ -37,7 +39,14 @@
         "foulRate": 0.95,
         "directness": 0.0
       },
-      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"]
+      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
+      "finance": { "broadcastPool": 2900000000, "equalShare": 0.75, "ticketPriceBase": 32, "attendanceBase": 0.92 },
+      "board": [
+        { "id": "title", "label": "Win the league", "position": 1, "strongest": 2 },
+        { "id": "top4", "label": "Finish in the top four", "position": 4, "strongest": 4 },
+        { "id": "midTable", "label": "Finish in mid-table", "position": 14, "strongest": 8 },
+        { "id": "avoidRelegation", "label": "Avoid relegation", "position": 17, "strongest": 6 }
+      ]
     },
     {
       "id": "ENG2",
@@ -80,7 +89,13 @@
         "foulRate": 1.08,
         "directness": 0.5
       },
-      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"]
+      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
+      "finance": { "broadcastPool": 260000000, "equalShare": 0.85, "ticketPriceBase": 20, "attendanceBase": 0.68 },
+      "board": [
+        { "id": "promotion", "label": "Win promotion", "position": 2, "strongest": 3 },
+        { "id": "playoffs", "label": "Reach the play-offs", "position": 8, "strongest": 6 },
+        { "id": "midTable", "label": "Finish in mid-table", "position": 18, "strongest": 15 }
+      ]
     },
     {
       "id": "GER1",
@@ -100,7 +115,14 @@
         "foulRate": 1.05,
         "directness": 0.0
       },
-      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"]
+      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
+      "finance": { "broadcastPool": 1250000000, "equalShare": 0.45, "ticketPriceBase": 26, "attendanceBase": 0.9 },
+      "board": [
+        { "id": "title", "label": "Win the league", "position": 1, "strongest": 1 },
+        { "id": "top4", "label": "Finish in the top four", "position": 4, "strongest": 4 },
+        { "id": "midTable", "label": "Finish in mid-table", "position": 12, "strongest": 7 },
+        { "id": "aboveBottom3", "label": "Finish above the bottom three", "position": 15, "strongest": 6 }
+      ]
     }
   ],
   "cups": [
@@ -126,7 +148,7 @@
         "Final"
       ],
       "finalDate": "05-16",
-      "prizeMoney": "per round, scaled; winner largest"
+      "prizeMoney": { "roundWon": [100000, 150000, 250000, 500000, 1200000, 2400000], "runnerUp": 1200000 }
     },
     {
       "id": "GERCUP",
@@ -149,7 +171,7 @@
         "Final"
       ],
       "finalDate": "05-22",
-      "prizeMoney": "per round, scaled; winner largest"
+      "prizeMoney": { "roundWon": [200000, 900000, 1800000, 3600000, 4500000], "runnerUp": 3000000 }
     }
   ],
   "windows": [

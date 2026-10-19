@@ -94,7 +94,7 @@ Name, nationality (+ optional second nationality, ~8%), birth date, birthplace, 
 - Stored: all position OVRs and POT, recomputed at each development update.
 
 ### 4.4 Potential (POT)
-- Displayed POT = 75th-percentile OVR from simulated career arcs (ZenGM method), **using the player's expected minutes at his current club** (so benching a prospect visibly lowers his POT). Roughly 25% of players exceed their displayed POT.
+- Displayed POT = 75th-percentile OVR from simulated career arcs (ZenGM method), **using the player's expected minutes at his current club** (so benching a prospect visibly lowers his POT). Roughly 20% of players exceed their displayed POT (T, 2026-10-19; was 25%: released and stalled young players fall short of the forecast).
 - Use a cheap arc simulation (e.g. ~20 Monte Carlo arcs with the development formula) to respect the performance budget.
 - **Hidden true ceiling** per player (see 5.3).
 
@@ -106,6 +106,7 @@ Name, nationality (+ optional second nationality, ~8%), birth date, birthplace, 
 
 ### 4.6 Mood
 - ZenGM-style mood score from components: team success, hype, facilities, market size, playing time, loyalty (years at club). Traits change how much each component counts.
+  - **Ambition** (T, 2026-10-18), kept very subtle: a player clearly better than his club (more than about 6 OVR above its best-XI level, counting part of a young player's potential) is slightly less happy there, more so with Fame or Winning. It counts only as far as stronger clubs exist, and it must not drain talent to the big clubs.
 - Mood affects **only** contract negotiation: willingness to negotiate and the wage asked. No chemistry, no "upset players play worse".
 - `[v1.1]` Squad role promises (starter / rotation / prospect): breaking one hurts mood and can trigger a transfer request.
 
@@ -160,8 +161,8 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 
 ### 6.2 Revenue
 - **Matchday:** attendance × one ticket price per season (user-set; AI auto). Attendance is capped by capacity and driven by hype, market size, opponent/competition size and ticket price.
-- **Broadcast:** pool by league tier; equal share + merit by finishing position. Largest and most predictable stream.
-- **Prize money:** cup rounds (MVP). `[Later]` European participation, wins and progress.
+- **Broadcast:** pool by league tier; equal share + merit by finishing position. Largest and most predictable stream. Each league's pool, and its equal and merit shares, are set per league in config (`competitions_mvp.json`, T 2026-10-16).
+- **Prize money:** cup rounds (MVP), set per cup and round in config. `[Later]` European participation, wins and progress.
 - **Commercial:** sponsorship and merchandise from reputation, market size, success and star players.
 - **Player sales:** fees received (profit counts toward FFP).
 - Money flow: matchday per home match, broadcast monthly, prize money as earned. All money in **whole euros**; wages quoted **per year**.
@@ -171,7 +172,7 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 - **Wages** (largest cost) and **transfer fees** (`[DEFAULT]` cash paid up front in the MVP; installments later; amortised over contract length for FFP).
 - **Budget dials** (ZenGM-style expense levels): `[MVP]` Coaching (development), Youth academy (intake count/quality), Medical (injury rate and recovery, slows decline), Facilities (slow-moving; attendance and player appeal). `[v1.1]` Scouting (rating accuracy, reveals hidden traits). Dial cost scales with club revenue.
 - **Transfer budget** auto-derived from cash, projected profit and FFP headroom; **wage room** = what the FFP ratio allows. One control shifts money between the transfer budget and wages. Both numbers ("Transfer budget €X", "Wage room €Y") show on transfer and contract screens.
-- **Starting wage bills** `[DEFAULT]`: generate squads so each club starts at roughly 50–65% squad cost ratio, leaving FFP headroom.
+- **Starting wage bills** `[DEFAULT]`: generate squads so each club starts at roughly 50–65% squad cost ratio, leaving FFP headroom. About 30% of that opening squad cost is amortisation of notional past transfer fees, and the rest is wages (T, 2026-10-16). This keeps individual wages near real-world levels.
 
 ### 6.4 Financial rules (FFP)
 - **Single squad cost ratio:** wages + amortised transfer fees ≤ **70% of revenue** (profit on player sales counts as revenue), checked at season end. AI clubs follow the same rule.
@@ -228,6 +229,7 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 
 ### 7.6 Contracts
 - Length 1–5 years; first pro contract 3 years. Wages per year. No hard max wage (FFP and budget limit spending). No release clauses for now.
+  - Counting the years (T, 2026-10-18): a summer deal counts the current season as its first year; a January deal's years start next season, with the half season left on top ("two and a half years"). A renewal must run past the current contract.
 - ZenGM-style negotiation: the player asks a wage per contract length, adjusted by mood; the user picks a length/wage or walks away. One modal for renewals, transfers and free agents.
 - Renewals only in the summer and winter windows; expiry 30 June. A player in his final year must be renewed by 31 January or he leaves on 1 July (see 3.1).
 
@@ -261,6 +263,7 @@ Computed from the starting XI by slot (config: `formations_tactics.json`): Passi
 - **Set Pieces** = the designated taker's delivery quality (`stp`) only. Aerial ability counts once in the set-piece matchup, through the Aerial rating.
 - **Team OVR** = regression of the seven ratings onto goal difference, shown 0–100. Until enough sim data exists, use a hand-weighted placeholder; club `strength` in the club data means the mean slot OVR of the club's best XI in its default formation (see 8.3).
 - Home advantage is a small engine coefficient tuned to the calibration targets.
+- **Form on the day** (T, 2026-10-19): each team's ratings move by a small random amount for the whole match (seeded), so a weaker side has its good days. Its spread is an engine coefficient tuned with the calibration targets (parity: top six losing to bottom six).
 
 ### 8.3 Tactics
 - **Formations:** presets only. MVP: 4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2. Defined for later: 4-1-4-1, 3-4-3, 5-4-1. Each preset defines 11 slots with position groups and sides.

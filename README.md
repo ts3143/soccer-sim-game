@@ -27,11 +27,11 @@ pnpm install
 | `pnpm format` | Format code with Prettier |
 | `pnpm generate [--seed X] [--check]` | Generate a new league headlessly and report the M1 checks |
 | `pnpm calibrate [--matches N] [--seasons S] [--worlds W] [--seed X] [--check]` | Match-engine calibration: per-match targets on a neutral sample and each league's style checks, pass/fail against `data/config/calibration_targets.json` (`--check` exits 1 on a failure) |
-| `pnpm calibrate --world [--seasons 20] [--worlds 3] [--seed X] [--overrides JSON] [--check]` | Season-loop calibration: whole worlds played for 20 seasons (in parallel), checked against the season, development and stability targets. `--overrides '{"dev":{...}}'` tries coefficient changes in memory |
+| `pnpm calibrate --world [--seasons 20] [--worlds 3] [--seed X] [--overrides JSON] [--check]` | Season-loop calibration: whole worlds played for 20 seasons (in parallel), checked against the season, development, stability, economy and world-shape targets, plus the M4 exploit checks. `--overrides '{"dev":{...}}'` tries coefficient changes in memory (also for `pnpm calibrate`) |
 | `pnpm season [--seasons N] [--seed X] [--quiet]` | Plays seasons headlessly and prints tables, cups, play-offs, promotion and relegation, and the season numbers |
 | `pnpm calendar [--season Y]` | Prints a season's match calendar (league rounds, cup rounds, play-offs) |
 
-The developer page has three tabs per saved league: **Generation** (M1: the generated world, its checks, clubs and squads), **Match lab** (M2: simulate or watch a match between any two clubs, or simulate 1,000 matches against the targets) and **Season lab** (M3: play the season with the Play-menu actions; tables, results, cups, play-offs, injuries, academies, transactions and awards). All are temporary; the game screens arrive in M5 and M6.
+The developer page has four tabs per saved league: **Generation** (M1: the generated world, its checks, clubs and squads), **Match lab** (M2: simulate or watch a match between any two clubs, or simulate 1,000 matches against the targets), **Season lab** (M3: play the season with the Play-menu actions; tables, results, cups, play-offs, injuries, academies, transactions, awards, the board and the inbox) and **Club lab** (M4: every club's finances, FFP and board; your budgets and the fees/wages control; contract talks to renew, bid, sign a free agent or propose a loan; bids for your players; the season's transfer log and the inbox). All are temporary; the game screens arrive in M5 and M6.
 
 Layout: `src/ui` (React tabs, UI only), `src/worker` (game core, runs in a SharedWorker), `src/common` (types and the UI↔worker protocol shared by both), `tools/` (harness, generators), `data/` (fixed inputs).
 
