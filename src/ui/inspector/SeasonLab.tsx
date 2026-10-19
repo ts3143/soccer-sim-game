@@ -54,8 +54,11 @@ const AWARD_LABELS: Record<string, string> = {
 const TRANSACTION_LABELS: Record<string, string> = {
   retirement: "Retirements and departures",
   academyPromotion: "Academy promotions",
-  release: "Academy releases",
+  release: "Releases and expired contracts",
   freeAgent: "Free-agent signings",
+  transfer: "Transfers",
+  loan: "Loans (out and back)",
+  renewal: "Renewals",
 };
 
 /** Runs `work` and returns its result with the wall-clock seconds it took. */

@@ -453,3 +453,15 @@ export function proposeLoan(
     return { accepted: true, message: `${name} joins ${to.name} on loan until ${until}.` };
   });
 }
+
+/** The user's budget control (SPEC §6.3): the share of FFP headroom kept for wages. */
+export function setWageShare(session: LeagueSession, share: number) {
+  return queued(session, async () => {
+    if (!(share >= 0 && share <= 1)) throw new Error("The wage share is between 0 and 1");
+    const game = meta<GameMeta>(session, "game");
+    const club = session.cache.get("clubs", game.userCid);
+    if (!club) throw new Error("The save has no user club");
+    session.cache.put("clubs", { ...club, wageShare: Math.round(share * 100) / 100 });
+    await session.cache.flush();
+  });
+}

@@ -8,7 +8,7 @@ Claude Code updates this file at the end of each milestone.
 | M1 Data, generation and new league | **Accepted** (T, 2026-10-14) | All checks pass locally, in CI and on the Cloudflare preview (18/18 headless Chrome); T tested in Chrome and Safari. See "M1 notes" below. |
 | M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
 | M3 Season loop | **Accepted** (T, 2026-10-16) | All M3 gates pass locally, in CI (`calibrate --world --check`, 16 checks) and on the Cloudflare preview (Season lab 19/19, Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Young regulars' growth and world shape gated in M4 (T). See "M3 notes" below. |
-| M4 Economy and market | In progress | Plan approved (11 chunks); chunks 1–2 built (money; hype, reputation, dials, board, inbox). See "M4 notes" below. |
+| M4 Economy and market | **Built**, awaiting T's local test | All 11 chunks built. Every gate passes locally: unit tests (222), `generate --check`, `calibrate --check` (engine) and `calibrate --world --check` (20 seasons, M2–M4 gates incl. economy, world shape and exploits); headless Chrome Club lab 19/19, Season lab 21/21, M1 18/18, Match lab smoke. See "M4 notes" below. |
 | M5 Core UI | Not started | |
 | M6 Management UI | Not started | |
 | M7 Polish and release v0.1 | Not started | |
@@ -422,7 +422,7 @@ For information:
 - the finance checks;
 - real contract expiry, replacing the M3 rollover and squad top-up.
 
-## M4 notes (2026-10-16, in progress)
+## M4 notes (2026-10-16 to 2026-10-19)
 **Chunk 1: revenue, expenses, cash flow** (`src/worker/finance/finance.ts`)
 - **Config** (approved by T): each league has a TV pool, its equal share, a ticket price base and an attendance base. Each cup has prize money per round won plus a runner-up prize (`competitions_mvp.json`, `_financeNote`).
   - TV pools: ENG1 €2.9B (75% equal), ENG2 €260M (85%), GER1 €1.25B (45%).
@@ -788,6 +788,62 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Fail:**
   - **ENG1 champion 78.5 points** (band 82–100). It's low from season 1 (79), with talent spread more evenly. Over 20 tuning runs, every setting that held stars stable kept the champion at 78–82: rotation, randomness, contender spending and academy quality were all tried.
   - **Beating displayed POT 15.8%** (band 18–32%). The minutes fit matches reality, so the forecasts are slightly optimistic with more ceiling room.
+
+**Chunk 11: Club lab, browser checks, handover**
+- **Club lab** (developer-only tab, `src/ui/inspector/ClubLab.tsx`, worker view `src/worker/views/clubLab.ts`):
+  - **Your club:**
+    - budgets: transfer budget, wage room, and squad cost against the FFP limit;
+    - FFP warning or ban;
+    - the fees/wages control (SPEC §6.3, new call `setWageShare`).
+  - **Squad and contracts:** value, mood, fee left, and an "expires" badge for final-year players.
+  - **Contract talks:** mood breakdown and the ask per length; renew, bid (accepted, counter or reject), sign, or propose a loan out or in.
+  - **Bids:** yours, and AI bids for your players with Accept and Reject.
+  - **Market search:** at other clubs or free agents, by position, OVR and age (new call `searchPlayers`).
+  - **Every club:** cash, budget base, revenue, expenses, wages, amortisation, squad cost and last season's FFP ratio, FFP standing, strategy, board target and confidence, budgets, seniors, loans in and out.
+  - **The season's transfer log, and the inbox.**
+- Fixed while checking: after an action the talks panel refreshed and cleared its own success message.
+- The Season lab labels transfers, loans and renewals in its transaction counts.
+- **Browser checks** (headless Chrome against the production build):
+  - Club lab: 19/19 pass (budget control, renewal, free-agent signing, a lowball bid rejected, a loan answered, the AI's summer deals in the log, bids lapsing at the deadline, no console errors);
+  - Season lab 21/21; M1 18/18 (reference data regenerated);
+  - Match lab smoke run: simulate, watch, pause, to the end, 1,000 matches at 0.98 ms each with goals in band.
+- A save test covers the Club lab view, the search and the budget control. 222 tests in all.
+
+### M4 summary
+- **Built:**
+  - revenue, expenses and cash flow; hype, reputation, facilities, AI dials and the board;
+  - market value, mood (with subtle ambition), contracts, renewals and expiry;
+  - transfers (two-step), AI strategy and valuation, AI-to-AI deals and bids for your players;
+  - free agents with falling asks, and loans;
+  - FFP with amortisation;
+  - the M4 harness gates and the Club lab.
+- **Tuning** (T's decisions in the Deviations table):
+  - parity by match randomness (form on the day) and a little more rotation;
+  - wages +15%;
+  - development: more ceiling room to 27, a smaller top-end talent bonus, a soft cap on ceilings, POT minutes refitted;
+  - MVP champion band 76–100;
+  - POT exceed target 20%.
+- **All gates pass** with 3 worlds × 20 seasons. Highlights:
+
+| Check | Result | Target |
+|---|---|---|
+| ENG1 champion / bottom points | 78.5 / 28.8 | 76–100 / 18–36 |
+| Top six losing to the bottom six | 16.8% | 13–22% |
+| Young regulars' growth / benched | +4.19 / +1.69 a year | 4–8 / 0–2 |
+| Wonderkids per league per season | 0.58 | 0.5–1.8 |
+| Beating displayed POT | 15.8% | 14–30% |
+| Senior mean OVR / 75+ share drift | −0.9 / +0.0 pts | ±1.5 / ±1.5 pts |
+| Peak age (27–29 v 24–26) | 64.8 v 64.6 | 27–29 highest |
+| Squad cost / wages, every season | 52–60% / 43–56% | 50–68% / 35–65% |
+| Negative cash (worst season) | 6% | < 15% |
+| Promoted clubs staying up | 44% | 35–60% |
+| Exploits (star for two fees, weak loans) | 0 of 27, 0 of 90 | never |
+
+- **Known edges, for later:**
+  - draws 22.5% (target 25%, floor 22%; any per-match randomness lowers them);
+  - champion, peak age and wonderkids are near their edges;
+  - cash still builds up (about 2× revenue after 20 seasons);
+  - the champion band is to be revisited with European competition.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

@@ -8,12 +8,14 @@ import {
   proposeLoan,
   renewContract,
   respondToOffer,
+  setWageShare,
   signPlayer,
   userOffers,
 } from "../league/market";
 import { createLeague, deleteLeague, openLeague } from "../league/session";
 import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector";
 import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
+import { getClubLab, searchPlayers } from "../views/clubLab";
 import { getSeasonLab } from "../views/seasonLab";
 
 /** The worker's implementation of WorkerApi. The compiler checks it against the contract. */
@@ -101,6 +103,19 @@ export function createHandlers(
 
     async proposeLoan(lid, pid, cid, length, wageShare) {
       return proposeLoan(await openLeague(lid), pid, cid, length, wageShare);
+    },
+
+    async getClubLab(lid) {
+      return getClubLab(lid);
+    },
+
+    async searchPlayers(lid, query) {
+      return searchPlayers(lid, query);
+    },
+
+    async setWageShare(lid, share) {
+      await setWageShare(await openLeague(lid), share);
+      return getClubLab(lid);
     },
 
     async respondToOffer(lid, oid, accept) {

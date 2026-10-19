@@ -361,6 +361,105 @@ export interface BidReply {
   talks: ContractTalks;
 }
 
+/** M4 Club lab (developer-only): one club's money, FFP, board and market standing. */
+export interface ClubLabClubRow {
+  cid: number;
+  name: string;
+  code: string;
+  leagueId: string;
+  user: boolean;
+  cash: number;
+  /** Last season's operating revenue (this season's budgets are costed on it). */
+  budgetBase: number;
+  /** This season so far: operating revenue and cash expenses. */
+  revenue: number;
+  expenses: number;
+  /** A year, now: wages and transfer-fee amortisation. */
+  wages: number;
+  amortisation: number;
+  /** Squad cost over the budget base now, and last season's FFP ratio. */
+  squadCostRatio: number;
+  lastSquadCostRatio: number | null;
+  ffp: "ok" | "warned" | "banned";
+  strategy: "contending" | "developing" | "selling";
+  boardTarget: string | null;
+  confidence: number | null;
+  transferBudget: number;
+  wageRoom: number;
+  seniors: number;
+  loansIn: number;
+  loansOut: number;
+}
+
+/** One of the user's players (contracted, loaned out, or on loan to him). */
+export interface ClubLabPlayer {
+  pid: number;
+  name: string;
+  position: string;
+  age: number;
+  ovr: number;
+  pot: number;
+  status: string;
+  /** Loan: "to <club> until <date>" or "from <club> until <date>". */
+  loan: string | null;
+  wage: number;
+  expires: string | null;
+  yearsLeft: number;
+  value: number;
+  mood: number;
+  willing: boolean;
+  /** Unamortised transfer fee. */
+  feeRemaining: number;
+}
+
+export interface ClubLabView {
+  date: string;
+  season: number;
+  window: { id: string; closes: string } | null;
+  fired: boolean;
+  user: {
+    cid: number;
+    name: string;
+    code: string;
+    budget: ContractTalks["budget"];
+    /** The budget control: share of FFP headroom kept for wages (SPEC §6.3). */
+    wageShare: number;
+  };
+  clubs: ClubLabClubRow[];
+  squad: ClubLabPlayer[];
+  offers: OfferView[];
+  /** This season's transfers, signings, loans, renewals and releases, newest first. */
+  transfers: { date: string; type: string; text: string; fee: number }[];
+  inbox: InboxMessage[];
+}
+
+/** A market search in the Club lab. */
+export interface PlayerSearch {
+  position?: string;
+  minOvr?: number;
+  maxOvr?: number;
+  maxAge?: number;
+  freeAgents?: boolean;
+  limit?: number;
+}
+
+export interface PlayerSearchRow {
+  pid: number;
+  name: string;
+  position: string;
+  age: number;
+  ovr: number;
+  pot: number;
+  club: string | null;
+  cid: number | null;
+  status: string;
+  value: number;
+  wage: number;
+  expires: string | null;
+  /** Free agents: days unsigned. */
+  daysFree: number | null;
+}
+
 /** An AI club's answer to a loan the user proposed. */
 export interface LoanReply {
   accepted: boolean;
@@ -414,6 +513,10 @@ export interface WorkerApi {
     length: "half" | "season",
     wageShare: number,
   ): LoanReply;
+  getClubLab(lid: number): ClubLabView;
+  searchPlayers(lid: number, query: PlayerSearch): PlayerSearchRow[];
+  /** The budget control (SPEC §6.3): 0 = all headroom for fees, 1 = all for wages. */
+  setWageShare(lid: number, share: number): ClubLabView;
 }
 
 export interface UiEvents {

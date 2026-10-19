@@ -5,11 +5,13 @@ import type { GameMeta, Offer, Player } from "../../common/schema";
 import { askingPrice, seniorsOf } from "../market/transfers";
 import { loopWorld, play } from "./game";
 import { lendable, rankAt } from "../market/loans";
+import { getClubLab, searchPlayers } from "../views/clubLab";
 import {
   bidForPlayer,
   contractTalks,
   proposeLoan,
   respondToOffer,
+  setWageShare,
   signPlayer,
   userOffers,
 } from "./market";
@@ -210,6 +212,35 @@ describe("the user's transfers", () => {
       expect(session.cache.getAll("inbox").some((m) => /back from loan/.test(m.subject))).toBe(
         true,
       );
+    },
+  );
+
+  it(
+    "feeds the Club lab: every club, the user's squad, a market search, the budget control",
+    SLOW,
+    async () => {
+      const league = await createLeague({ name: "Club lab", seed: "club-lab", userCid: 0 });
+      const session = await openLeague(league.lid);
+      const view = await getClubLab(league.lid);
+      expect(view.clubs).toHaveLength(62);
+      expect(view.clubs.filter((c) => c.user).map((c) => c.cid)).toEqual([0]);
+      expect(view.window).toEqual({ id: "summer", closes: "2026-08-31" });
+      expect(view.squad.length).toBeGreaterThan(25);
+      expect(view.squad.every((p) => p.value > 0)).toBe(true);
+      expect(view.clubs.every((c) => c.squadCostRatio > 0.3 && c.squadCostRatio < 0.9)).toBe(true);
+      const free = await searchPlayers(league.lid, { freeAgents: true, limit: 10 });
+      expect(free).toHaveLength(10);
+      expect(free.every((p) => p.club === null && p.daysFree !== null)).toBe(true);
+      const keepers = await searchPlayers(league.lid, { position: "GK", minOvr: 60, maxOvr: 70 });
+      expect(
+        keepers.every((p) => p.position === "GK" && p.ovr >= 60 && p.ovr <= 70 && p.cid !== 0),
+      ).toBe(true);
+      await setWageShare(session, 1);
+      const wages = (await getClubLab(league.lid)).user;
+      expect(wages.wageShare).toBe(1);
+      expect(wages.budget.transfer).toBe(0);
+      expect(wages.budget.wageRoom).toBeGreaterThan(view.user.budget.wageRoom);
+      await expect(setWageShare(session, 2)).rejects.toThrow(/between 0 and 1/);
     },
   );
 });
