@@ -94,7 +94,7 @@ Name, nationality (+ optional second nationality, ~8%), birth date, birthplace, 
 - Stored: all position OVRs and POT, recomputed at each development update.
 
 ### 4.4 Potential (POT)
-- Displayed POT = 75th-percentile OVR from simulated career arcs (ZenGM method), **using the player's expected minutes at his current club** (so benching a prospect visibly lowers his POT). Roughly 25% of players exceed their displayed POT.
+- Displayed POT = 75th-percentile OVR from simulated career arcs (ZenGM method), **using the player's expected minutes at his current club** (so benching a prospect visibly lowers his POT). Roughly 20% of players exceed their displayed POT (T, 2026-10-19; was 25%: released and stalled young players fall short of the forecast).
 - Use a cheap arc simulation (e.g. ~20 Monte Carlo arcs with the development formula) to respect the performance budget.
 - **Hidden true ceiling** per player (see 5.3).
 

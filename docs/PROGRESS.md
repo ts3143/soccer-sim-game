@@ -47,6 +47,8 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-18 | M4 chunk 4 | Mood gains a small ambition penalty: a player clearly better than his club (more than 6 OVR above its best-XI level, young players credited with half their headroom to POT) loses up to 0.1 mood (0.2 with Fame or Winning). The gap counts only as far as stronger clubs exist. | T asked that good, young or ambitious players be harder to keep, but very subtly, so talent doesn't drain to the big clubs. Over 20 seasons it moves top-six parity by about 0.5 points (within noise). | SPEC §4.6; `market/market.ts` (`MARKET.mood.ambition`) |
 | 2026-10-19 | M4 chunk 8 | New 20-season targets in `calibration_targets.json`: median wages 35–65% of revenue every season, transfer fees 5–45% of revenue, senior mean OVR within ±1.5 of season 1, the 75+ share within ±1.5 points, and 27–29s rated at least as high as younger bands. The squad cost ratio (50–68%) must hold every season. | MILESTONES M4 asked for a stable world and plausible wages and fees without numbers. Approved by T. | `data/config/calibration_targets.json`; `tools/calibrate/world-report.ts` |
 | 2026-10-19 | M4 chunk 9 | Parity is fixed mainly with match randomness (rating gaps decide each step a little less), plus a little more rotation by big clubs; the transfer market isn't damped. | With AI transfers, upsets fell to ~10% (target 13–22%), while the top/bottom strength gap stays near the opening world's. T's choice (options A, then B). | SPEC §8 (engine coefficients); `engine/coefficients.ts`, `season/coefficients.ts` |
+| 2026-10-19 | M4 chunk 10 | ENG1 champion points target 90 (82–100) → 84 (76–100) for the MVP. | With stable stars, a later peak and realistic parity, talent spreads evenly and the champion averages ~78–80 points. Real 85–90-point champions come from money concentration, much of it European, which is out of MVP scope. Revisit when Europe is added. Approved by T (option A). | `calibration_targets.json` perSeason |
+| 2026-10-19 | M4 chunk 10 | Players beating their displayed POT: target 25% (18–32%) → 20% (14–30%). | With more ceiling room for prospects, released and stalled young players fall short of the forecast; measured 15.8%. Approved by T. | SPEC §4.4; `calibration_targets.json` development |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -762,7 +764,7 @@ Each point of parity gained cost about one champion point, so the two real-world
 - More rotation went in through `restRegulars` (low-stakes matches) rather than the weak-opponent factor alone, which didn't change selection.
 - Wages rise 15% rather than adding running costs: wages are the spend the M4 targets watch (squad cost, wage share), and they also ease talent concentration.
 
-**Chunk 10: tuning II — development and world shape** (decision pending from T on the champion's points)
+**Chunk 10: tuning II — development and world shape** (T decided the champion and POT targets, see Deviations)
 - **POT minutes refit:** `expectedMinutesShare` is refitted to the minutes seniors actually get over the next season in the M4 world (rotation, injuries, loans and moves): floor 7%, cap 83%, midpoint 6.3 below the XI level, width 3 (`MINUTES_FIT`). Before, 10 below the XI meant ~5%; now ~25%, as measured. It's still the expected minutes at his current club (SPEC §4.4). Re-measured after the development changes, it still fits.
 - **Diagnosis:**
   - All 75+ players after 20 seasons came from youth intake. Youth ceilings were too generous at the top: a talent bonus of 8 per sd.

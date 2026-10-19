@@ -27,7 +27,7 @@
     "avgMatchRating": { "target": 6.6, "tol": [6.4, 6.8], "note": "0-10 scale; typical range 5.0-8.5, 9+ rare" }
   },
   "perSeason": {
-    "championPointsENG1": { "target": 90, "tol": [82, 100] },
+    "championPointsENG1": { "target": 84, "tol": [76, 100], "note": "MVP band (T, 2026-10-19; was 90, 82-100): without European football the economy concentrates less money at the top. Revisit when Europe is added." },
     "bottomPointsENG1": { "target": 28, "tol": [18, 36] },
     "topScorerGoals": { "target": 28, "tol": [22, 38] },
     "topAssists": { "target": 15, "tol": [11, 20] },
@@ -41,7 +41,7 @@
     "benched18to21OvrGainPerYear": { "target": 1, "tol": [0, 2] },
     "age33plusOvrLossPerYear": { "target": 5.5, "tol": [4, 7] },
     "retirementAge": "most 33-37; goalkeepers later",
-    "exceedDisplayedPotPct": { "target": 0.25, "tol": [0.18, 0.32] },
+    "exceedDisplayedPotPct": { "target": 0.20, "tol": [0.14, 0.30], "note": "T, 2026-10-19 (was 0.25, 0.18-0.32): released and stalled young players fall short of the forecast" },
     "wonderkidsPerLeaguePerSeason": { "target": 1, "tol": [0.5, 1.8], "note": "youth intake with POT 75+" }
   },
   "worldStability20Seasons": {
