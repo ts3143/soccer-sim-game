@@ -668,5 +668,55 @@ For information:
 - **A loss on a sale** (fee below the balance) lowers FFP revenue, the mirror of a profit.
 - A balance left when a contract expires isn't written off separately: monthly charges run it down to zero over the contract.
 
+**Chunk 8: M4 gates in the 20-season harness** (`tools/calibrate/world-report.ts`, `world.ts`)
+- **Newly gated:**
+  - young regulars' growth (well-played 18–21s, 4–8 a year);
+  - promoted clubs' survival (35–60%);
+  - and a new "Economy, market and world shape (M4)" section:
+    - negative cash under 15% at every season end;
+    - the median squad cost ratio within 50–68% in every season;
+    - median wages within 35–65% of revenue in every season (proposed);
+    - transfer fees 5–45% of revenue (proposed);
+    - senior mean OVR within ±1.5 of season 1 (proposed);
+    - the 75+ share within ±1.5 points of season 1 (proposed);
+    - peak age: 27–29s rated at least as high as 21–23s and 24–26s in the last season;
+    - the two exploit checks.
+- **Exploit checks run on each world's final season**, so CI tests them on a mature world, not just the opening one:
+  - each league's 3 best players against two league-level players' asking prices;
+  - 30 young players (19–21, POT 6+ above OVR) given full minutes 12 below their level against at their level, 40 draws each.
+  The unit tests (chunks 4 and 6) check the same on the opening world.
+- **Proposed bands** (not yet in `calibration_targets.json`; T to approve before they move into data/): mean OVR drift ±1.5, 75+ share drift ±1.5 points, wages 35–65%, fees 5–45%.
+- The report also prints squad cost and cash per season.
+
+**First M4 report** (3 worlds × 20 seasons):
+
+| Check | Result | Target | |
+|---|---|---|---|
+| clubsInNegativeCashShare (worst) | 5% | < 15% | PASS |
+| medianSquadCostRatio (range) | 44–62% | 50–68% every season | FAIL (seasons 3–11 dip to 48–51%) |
+| median wages / revenue (range) | 41–54% | 35–65% (proposed) | PASS |
+| transfer fees / revenue | 32% | 5–45% (proposed) | PASS |
+| senior mean OVR (last − season 1) | −1.4 | ±1.5 (proposed) | PASS (edge) |
+| seniors rated 75+ (last − season 1) | +4.6 pts | ±1.5 pts (proposed) | FAIL |
+| peak age | 27–29: 62.7 v 24–26: 62.9 | 27–29 at least as high | FAIL (edge) |
+| exploit: star for two average fees | 0 of 27 | never | PASS |
+| exploit: weak-loan development | 0 of 90 | none | PASS |
+| promotedClubsSurvivalRate | 45% | 35–60% | PASS |
+| wellPlayed18to21OvrGainPerYear | 3.98 | 4–8 | FAIL (edge) |
+| exceedDisplayedPotPct | 39.2% | 18–32% | FAIL |
+| top6LoseToBottom6Pct | 9.9% | 13–22% | FAIL (T's decision, chunk 9) |
+| topAssists | 20.1 | 11–20 | FAIL (noise) |
+
+All other M2/M3 gates pass.
+
+**Plan for the tuning chunks (9–10)**
+1. **Parity:** T's choice first (reminder saved): more match randomness, more rotation, or a damped market.
+2. **Money:** clubs underuse their FFP room (squad cost dips under 50%) while cash piles up to 390% of revenue. Candidates:
+   - AI clubs spend cash on wages and transfers more readily;
+   - wage asks scale more with revenue;
+   - running costs rise with cash.
+3. **World shape:** too many 75+ seniors (+4.6 points); peak age a hair early; young regulars a hair slow. Development coefficients, and the transfer market's pull of stars to clubs where they play.
+4. **POT forecasts:** players now move to where they play, so the displayed POT (current club's minutes) is beaten 39% of the time. The forecast should expect a talented player to find minutes.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

@@ -9,9 +9,11 @@
  * - development: growth of well-played and benched 18–21s, decline from 33, retirement
  *   ages, how often young players beat their displayed POT, wonderkids per league;
  * - worldStability20Seasons: player count drift, distinct ENG1 champions.
- * Gated in M3 (T, 2026-10-14): all of the above except young regulars' growth. Reported
- * only: well-played 18–21 growth, promoted clubs' survival and the finance checks, and
- * the world's shape (gated in M4, T 2026-10-15).
+ * Gated in M3 (T, 2026-10-14): all of the above except young regulars' growth. Gated
+ * from M4 (chunk 8): young regulars' growth, promoted clubs' survival, negative cash,
+ * squad cost ratios, wage and fee levels, the world's shape (mean OVR, 75+ share, peak
+ * age; T 2026-10-15) and the two exploit checks. Bands not in calibration_targets.json
+ * are marked "proposed" until T approves them.
  */
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -136,12 +138,11 @@ row(
 );
 
 console.log("\nDevelopment");
-// Young regulars' growth is gated in M4, with transfers and loans (T, 2026-10-15).
+// Young regulars' growth is gated from M4, with transfers and loans (T, 2026-10-15).
 inBand(
-  "wellPlayed18to21 (M4)",
+  "wellPlayed18to21OvrGainPerYear",
   avg("wellPlayed18to21OvrGainPerYear"),
   band("development", "wellPlayed18to21OvrGainPerYear"),
-  false,
 );
 for (const key of [
   "benched18to21OvrGainPerYear",
@@ -210,14 +211,112 @@ row(
 const survived = runs.reduce((s, r) => s + r.promotedSurvived, 0);
 const promoted = runs.reduce((s, r) => s + r.promotedChecked, 0);
 row(
-  "promotedClubsSurvivalRate (M4)",
+  "promotedClubsSurvivalRate",
   `${((survived / Math.max(1, promoted)) * 100).toFixed(0)}%`,
-  "roughly 35-60% (gated in M4)",
-  false,
+  "roughly 35-60%",
+  SEASONS >= 10,
   survived / Math.max(1, promoted) >= 0.35 && survived / Math.max(1, promoted) <= 0.6,
 );
 
-console.log("\nMoney (information; gated from M4 chunk 8)");
+// ---------------------------------------------------------------------------
+// M4: economy, market and world shape (MILESTONES M4 "Accept").
+// Bands marked "proposed" aren't in calibration_targets.json yet: proposed in M4 chunk 8,
+// for T to approve (data/ changes need his approval).
+const PROPOSED = {
+  /** Senior mean OVR, last season against season 1. */
+  meanOvrDrift: 1.5,
+  /** Share of seniors rated 75+, last season against season 1 (percentage points). */
+  elite75Drift: 0.015,
+  /** Median wages / revenue, every season. */
+  wageRatio: [0.35, 0.65] as [number, number],
+  /** Transfer fees / revenue, mean over seasons. */
+  feeRatio: [0.05, 0.45] as [number, number],
+};
+console.log("\nEconomy, market and world shape (M4)");
+const perSeason = (key: string) => runs.flatMap((r) => r.seasons.map((m) => m[key] ?? 0));
+const lastOf = (key: string) =>
+  runs.reduce((s, r) => s + (r.seasons.at(-1)?.[key] ?? 0), 0) / runs.length;
+const firstOf = (key: string) =>
+  runs.reduce((s, r) => s + (r.seasons[0]?.[key] ?? 0), 0) / runs.length;
+const pctText = (x: number) => `${(x * 100).toFixed(0)}%`;
+const worstCash = Math.max(...perSeason("negativeCashShare"));
+row(
+  "clubsInNegativeCashShare (worst)",
+  pctText(worstCash),
+  "< 15% at any season end",
+  true,
+  worstCash < 0.15,
+);
+const costs = perSeason("medianSquadCostRatio");
+row(
+  "medianSquadCostRatio (range)",
+  `${pctText(Math.min(...costs))}-${pctText(Math.max(...costs))}`,
+  "50-68% of revenue, every season",
+  true,
+  Math.min(...costs) >= 0.5 && Math.max(...costs) <= 0.68,
+);
+const wages = perSeason("medianWageRatio");
+row(
+  "median wages / revenue (range)",
+  `${pctText(Math.min(...wages))}-${pctText(Math.max(...wages))}`,
+  `${pctText(PROPOSED.wageRatio[0])}-${pctText(PROPOSED.wageRatio[1])}, every season (proposed)`,
+  true,
+  Math.min(...wages) >= PROPOSED.wageRatio[0] && Math.max(...wages) <= PROPOSED.wageRatio[1],
+);
+const fees = avg("feesToRevenue");
+row(
+  "transfer fees / revenue",
+  pctText(fees),
+  `${pctText(PROPOSED.feeRatio[0])}-${pctText(PROPOSED.feeRatio[1])} (proposed)`,
+  true,
+  fees >= PROPOSED.feeRatio[0] && fees <= PROPOSED.feeRatio[1],
+);
+const meanDrift = lastOf("seniorMeanOvr") - firstOf("seniorMeanOvr");
+row(
+  "senior mean OVR (last − season 1)",
+  `${meanDrift >= 0 ? "+" : ""}${meanDrift.toFixed(1)}`,
+  `within ±${PROPOSED.meanOvrDrift} (proposed)`,
+  SEASONS >= 10,
+  Math.abs(meanDrift) <= PROPOSED.meanOvrDrift,
+);
+const eliteDrift = lastOf("elite75Share") - firstOf("elite75Share");
+row(
+  "seniors rated 75+ (last − season 1)",
+  `${eliteDrift >= 0 ? "+" : ""}${(eliteDrift * 100).toFixed(1)} pts`,
+  `within ±${(PROPOSED.elite75Drift * 100).toFixed(1)} pts (proposed)`,
+  SEASONS >= 10,
+  Math.abs(eliteDrift) <= PROPOSED.elite75Drift,
+);
+const peak = lastOf("ovrAge27to29");
+const younger = Math.max(lastOf("ovrAge21to23"), lastOf("ovrAge24to26"));
+row(
+  "peak age (last season)",
+  `27-29: ${peak.toFixed(1)} v 21-26 best ${younger.toFixed(1)}`,
+  "27-29 rated at least as high as 21-23 and 24-26",
+  SEASONS >= 10,
+  peak >= younger,
+);
+const ex = runs.map((r) => r.exploits);
+const starsChecked = ex.reduce((s, e) => s + e.starsChecked, 0);
+const starsBought = ex.reduce((s, e) => s + e.starsBoughtForTwo, 0);
+row(
+  "exploit: star for two average fees",
+  `${starsBought} of ${starsChecked}`,
+  "never (final world)",
+  true,
+  starsChecked > 0 && starsBought === 0,
+);
+const loansChecked = ex.reduce((s, e) => s + e.loansChecked, 0);
+const weakWins = ex.reduce((s, e) => s + e.weakLoanWins, 0);
+row(
+  "exploit: weak-loan development",
+  `${weakWins} of ${loansChecked} grew more far below`,
+  "none (final world)",
+  true,
+  loansChecked > 0 && weakWins === 0,
+);
+
+console.log("\nMoney (information)");
 for (const league of ["ENG1", "ENG2", "GER1"]) {
   const errors = runs.flatMap((r) => r.anchorErrors[league] ?? []);
   const meanAbs = errors.reduce((s, e) => s + Math.abs(e), 0) / Math.max(1, errors.length);
@@ -235,7 +334,7 @@ console.log(
   `  ${"median wages / revenue (first → last)".padEnd(34)} ${firstLastPct("medianWageRatio")}`,
 );
 console.log(
-  `  ${"median squad cost / revenue (first → last)".padEnd(34)} ${firstLastPct("medianSquadCostRatio")} (target 50-68%, gated in chunk 8)`,
+  `  ${"median squad cost / revenue (first → last)".padEnd(34)} ${firstLastPct("medianSquadCostRatio")}`,
 );
 console.log(
   `  ${"FFP: clubs over 70% / banned a season".padEnd(34)} ${money("ffpBreachShare")} / ${money("ffpBanShare")}`,
@@ -284,6 +383,23 @@ info("parity ENG2 / GER1", `${fmt(avg("parityENG2"))} / ${fmt(avg("parityGER1"))
 info("injuries per team per match", fmt(avg("injuriesPerTeamMatch")));
 info("training share of injuries", fmt(avg("trainingInjuryShare")));
 info("youth intake per season", avg("youthIntake").toFixed(0));
+const bySeason = (key: string) =>
+  Array.from({ length: SEASONS }, (_, i) => {
+    const xs = runs.map((r) => r.seasons[i]?.[key] ?? 0);
+    return xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+  });
+info(
+  "median squad cost by season",
+  bySeason("medianSquadCostRatio")
+    .map((x) => (x * 100).toFixed(0))
+    .join(" "),
+);
+info(
+  "median cash / revenue by season",
+  bySeason("medianCashToRevenue")
+    .map((x) => (x * 100).toFixed(0))
+    .join(" "),
+);
 info("senior mean OVR (after season 1 → last)", firstLast("seniorMeanOvr"));
 info("seniors rated 75+ (after season 1 → last)", firstLast("elite75Share"));
 info(

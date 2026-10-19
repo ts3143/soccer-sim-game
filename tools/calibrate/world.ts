@@ -30,6 +30,9 @@ import {
   type SeasonState,
 } from "../../src/worker/season/season";
 import { isInjured } from "../../src/worker/season/squads";
+import { developHalfSeason } from "../../src/worker/core/development";
+import { Random } from "../../src/worker/core/random";
+import { askingPrice, bidOutcome, marketSnapshot } from "../../src/worker/market/transfers";
 
 export type SeasonMetrics = Record<string, number>;
 
@@ -64,6 +67,8 @@ export interface WorldRun {
   promotedChecked: number;
   /** Season 1: each club's revenue against its anchor (ratio − 1), per league. */
   anchorErrors: Record<string, number[]>;
+  /** The M4 exploit checks on the final world (see exploitChecks). */
+  exploits: ExploitResult;
   seconds: number;
 }
 
@@ -110,6 +115,7 @@ export function simulateWorld(
     promotedSurvived: 0,
     promotedChecked: 0,
     anchorErrors: {},
+    exploits: { starsChecked: 0, starsBoughtForTwo: 0, loansChecked: 0, weakLoanWins: 0 },
     seconds: 0,
   };
   const potSnapshot = new Map<number, { pot: number; date: string }>();
@@ -387,6 +393,87 @@ export function simulateWorld(
     run.potChecked++;
     if (peak > snap.pot) run.potExceeded++;
   }
+  run.exploits = exploitChecks(loop, `${competitionsConfig.firstSeason + seasons}-07-01`);
   run.seconds = (performance.now() - started) / 1000;
   return run;
 }
+
+export interface ExploitResult {
+  /** League stars priced, and how many two average players' fees would buy. */
+  starsChecked: number;
+  starsBoughtForTwo: number;
+  /** Young players tried, and how many grew more playing far below their level. */
+  loansChecked: number;
+  weakLoanWins: number;
+}
+
+/**
+ * The M4 exploit checks (MILESTONES M4), on the world as it ends:
+ * - two average players' fees never buy a star: each league's 3 best players against the
+ *   asking prices of two players at the league's XI level;
+ * - the weak-loan exploit doesn't pay: young players (19–21, POT 6+ above OVR) given full
+ *   minutes 12 below their level grow less than with full minutes at their level.
+ */
+function exploitChecks(world: LoopWorld, date: string): ExploitResult {
+  const out: ExploitResult = {
+    starsChecked: 0,
+    starsBoughtForTwo: 0,
+    loansChecked: 0,
+    weakLoanWins: 0,
+  };
+  const snap = marketSnapshot(world, date);
+  for (const league of competitionsConfig.leagues) {
+    const own = world.players
+      .filter(
+        (p) =>
+          p.status === "club" && world.clubs.find((c) => c.cid === p.cid)?.leagueId === league.id,
+      )
+      .sort((a, b) => b.ovr - a.ovr || a.pid - b.pid);
+    const level = Math.round(snap.leagueLevels.get(league.id) ?? 66);
+    const average = own.filter((p) => Math.abs(p.ovr - level) <= 1).slice(0, 2);
+    if (average.length < 2) continue;
+    const two = average.reduce((s, p) => s + askingPrice(world, p, date, snap).asking, 0);
+    for (const star of own.slice(0, 3)) {
+      out.starsChecked++;
+      if (bidOutcome(two, askingPrice(world, star, date, snap).asking) === "accepted") {
+        out.starsBoughtForTwo++;
+      }
+    }
+  }
+  const young = world.players
+    .filter((p) => {
+      const age = exactAge(p.birthDate, date);
+      return p.status === "club" && age >= 19 && age < 22 && p.pot >= p.ovr + 6;
+    })
+    .slice(0, 30);
+  for (const p of young) {
+    const growth = (levelStrength: number) => {
+      let total = 0;
+      for (let i = 0; i < 40; i++) {
+        const next = developHalfSeason(
+          ratingsOfPlayer(p),
+          {
+            age: exactAge(p.birthDate, date),
+            curve: p.hidden.curve,
+            ceiling: p.hidden.ceiling,
+            ovr: p.ovr,
+            coaching: 1,
+            medical: 1,
+            minutesShare: 0.9,
+            levelStrength,
+            performanceAdj: 0,
+            academyYouth: null,
+          },
+          Random.fromSeed(`${world.seed}/exploit/${p.pid}/${i}`),
+        );
+        total += next.reduce((s, r) => s + r, 0) / next.length;
+      }
+      return total;
+    };
+    out.loansChecked++;
+    if (growth(p.ovr - 12) > growth(p.ovr + 2)) out.weakLoanWins++;
+  }
+  return out;
+}
+
+const ratingsOfPlayer = (p: Player): number[] => p.ratingsHistory.at(-1)?.ratings ?? [];
