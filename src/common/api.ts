@@ -187,7 +187,7 @@ export type PlayOption =
   | "proceedToPromotionRelegation"
   | "advanceToPreseason";
 
-export type SeasonEventKind = "windowOpens" | "windowCloses" | "winterUpdate";
+export type SeasonEventKind = "windowOpens" | "windowCloses" | "winterUpdate" | "deadlineReminder";
 
 export interface SeasonEvent {
   date: string;
@@ -311,6 +311,26 @@ export interface SeasonLabView {
   };
 }
 
+/** Contract talks with a player (renewals; transfers and free agents from M4 chunks 4–5). */
+export interface ContractTalks {
+  pid: number;
+  name: string;
+  position: string;
+  age: number;
+  ovr: number;
+  pot: number;
+  wage: number;
+  expires: string | null;
+  yearsLeft: number;
+  /** Market value in euros. */
+  value: number;
+  mood: { value: number; components: Record<string, number>; willing: boolean };
+  /** Wage asked per contract length (1–5 years) and the end date it gives. */
+  asks: { years: number; wage: number; expires: string }[];
+  windowOpen: boolean;
+  userPlayer: boolean;
+}
+
 export interface WorkerApi {
   getStatus(): WorkerStatus;
   listLeagues(): LeagueSummary[];
@@ -329,6 +349,8 @@ export interface WorkerApi {
   acceptJobOffer(lid: number, cid: number): GameState;
   getInbox(lid: number): InboxMessage[];
   markInboxRead(lid: number, mid: number): void;
+  getContractTalks(lid: number, pid: number): ContractTalks;
+  renewContract(lid: number, pid: number, years: number): ContractTalks;
 }
 
 export interface UiEvents {

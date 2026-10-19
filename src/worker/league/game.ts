@@ -12,7 +12,7 @@
  * matches are played. Each Play action processes days in order (events first, then
  * matches) and saves once at the end.
  */
-import { addDays } from "../../common/dates";
+import { addDays, exactAge } from "../../common/dates";
 import { competitionsConfig } from "../../common/config/competitions";
 import {
   PLAYER_STAT_TOTALS,
@@ -24,7 +24,7 @@ import {
   type SeasonMeta,
 } from "../../common/schema";
 import type { MatchResult } from "../../common/match";
-import type { GameState, PlayOption, PlayReport } from "../../common/api";
+import type { ContractTalks, GameState, PlayOption, PlayReport } from "../../common/api";
 import { updateLeagueSummary } from "../db/globalDb";
 import { seasonDate } from "../schedule/calendar";
 import {
@@ -36,6 +36,9 @@ import {
 } from "../season/offseason";
 import { closeSeasonBooks, openSeasonBooks, settleMonths } from "../finance/finance";
 import { BOARD, jobOffers, preseasonBoard } from "../club/board";
+import { clubStrength } from "../club/standing";
+import { contractAsks, contractEnd, marketValue, signContract, yearsLeft } from "../market/market";
+import { clubRevenue, moodAtClub } from "../market/renewals";
 import { runDays, type NewMessage } from "../season/runner";
 import {
   applyMoves,
@@ -203,6 +206,69 @@ export function gameState(session: LeagueSession): GameState {
   };
 }
 
+/** Contract talks with one of the user's players: his mood and what he asks per length. */
+export function contractTalks(session: LeagueSession, pid: number): ContractTalks {
+  const game = meta<GameMeta>(session, "game");
+  const world = loopWorld(session, game.season);
+  const p = session.cache.get("players", pid);
+  const club = world.clubs.find((c) => c.cid === p?.cid);
+  if (!p || !club) throw new Error(`No player ${pid} at a club`);
+  const league = world.clubs.filter((c) => c.leagueId === club.leagueId);
+  const level =
+    league.reduce((s, c) => s + clubStrength(world.players, c.cid, game.date), 0) /
+    Math.max(1, league.length);
+  const mood = moodAtClub(world, p, game.date);
+  const left = yearsLeft(p, game.date);
+  return {
+    pid,
+    name: `${p.firstName} ${p.lastName}`.trim(),
+    position: p.position,
+    age: Math.floor(exactAge(p.birthDate, game.date)),
+    ovr: p.ovr,
+    pot: p.pot,
+    wage: p.contract?.wage ?? 0,
+    expires: p.contract?.expires ?? null,
+    yearsLeft: left,
+    value: marketValue(p, game.date, level),
+    mood: mood ?? { value: 0, components: {}, willing: false },
+    asks: contractAsks(p, game.date, clubRevenue(world, club), mood?.value ?? 0, left === 1).map(
+      (a) => ({ ...a, expires: contractEnd(game.season, a.years, game.date) }),
+    ),
+    windowOpen: openWindow(game.date, game.season) !== null,
+    userPlayer: p.cid === game.userCid,
+  };
+}
+
+/** Renews one of the user's players at his ask for `years` (only in a window, SPEC §7.6). */
+export async function renewContract(session: LeagueSession, pid: number, years: number) {
+  const game = meta<GameMeta>(session, "game");
+  const talks = contractTalks(session, pid);
+  if (!talks.userPlayer) throw new Error("You can only renew your own players");
+  if (!talks.windowOpen) throw new Error("Contracts can only be renewed in a transfer window");
+  if (!talks.mood.willing) throw new Error(`${talks.name} won't negotiate with your club`);
+  const ask = talks.asks.find((a) => a.years === years);
+  const p = session.cache.get("players", pid);
+  if (!ask || !p) throw new Error(`No ask for ${years} years`);
+  const expires = contractEnd(game.season, years, game.date);
+  if (expires <= (p.contract?.expires ?? "")) {
+    throw new Error(`A renewal must run past ${p.contract?.expires ?? "the current contract"}`);
+  }
+  signContract(p, ask.wage, expires, game.date);
+  session.cache.put("players", p);
+  saveTransactions(session, [
+    {
+      season: game.season,
+      date: game.date,
+      type: "renewal",
+      pids: [pid],
+      cids: [game.userCid],
+      names: [talks.name, session.cache.get("clubs", game.userCid)?.name ?? ""],
+      fee: 0,
+    },
+  ]);
+  await session.cache.flush();
+}
+
 /** The sacked user takes one of his job offers: the game goes on at that club. */
 export async function acceptJobOffer(session: LeagueSession, cid: number): Promise<void> {
   const game = { ...meta<GameMeta>(session, "game") };
@@ -346,6 +412,7 @@ function processDays(
   }
   saveBooks(session, world);
   saveMessages(session, days.messages);
+  saveTransactions(session, days.transactions);
   saveSeason(session, state, stored.movesApplied);
   session.cache.put("meta", game, "game");
   return {
@@ -471,6 +538,7 @@ async function advanceToPreseason(session: LeagueSession): Promise<PlayReport> {
   for (const p of world.players) if (turnover.changed.has(p.pid)) cache.put("players", p);
   for (const p of turnover.added) cache.put("players", p);
   saveTransactions(session, turnover.transactions);
+  saveMessages(session, turnover.messages);
 
   // The new season's club rows (budget base, ticket prices).
   const next = openSeasonBooks(world.clubs, world.clubSeasons, season, game.userCid);

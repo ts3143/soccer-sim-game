@@ -473,5 +473,46 @@ For information:
 - Mid-season sackings are rare because confidence blends from its season-start value; the harness reports them for tuning in chunks 9–10.
 - The user's own budget dials are kept as he set them; the M6 screens will let him change them.
 
+**Chunk 3: market value, mood, contracts, renewals, expiry** (`src/worker/market/market.ts`, `renewals.ts`)
+- **Market value** (derived, never stored): €40M × exp(0.16 × (rated OVR − 75)), where rated OVR credits young players with 60% of their headroom to POT (full to 21, none from 27).
+  - From 29, × 0.85 per year older.
+  - By contract years left: 0.25 (expired) / 0.6 (one year left) / 0.85 / then 1.
+  - ±15% for form; × exp(0.06 × (league level − 70)), where league level is the average best-XI OVR.
+- **Wage demand:** the going wage fitted on the opening contracts, €5.62M × exp(0.108 × (OVR − 65)) × (club revenue / €200M)^0.289, × 0.44 / 0.64 / 1 / 0.92 for ages up to 20 / 21–23 / 24–30 / 31+. The residual spread is 22%.
+  - A length he doesn't want: +5% per year away from his preferred length (4 years up to 24, 3 to 29, 2 to 32, then 1).
+  - Final year: +10% (SPEC §3.1).
+  - Mood: × (1 − 0.15 × mood). "Money" players: +10%.
+- **Mood** (−1 to 1, ZenGM-style): team success (the board's results score), hype, facilities, market size, playing time and loyalty (years at the club). Each trait doubles its components: fame → market and hype, loyalty → loyalty, winning → success. Below −0.6 he won't negotiate.
+- **Contract lengths:** a summer deal counts this season as its first year. A January deal's years start next season, with the half season left on top ("two and a half years"). A renewal must run past the current contract.
+- **The contract year** (replaces M3's rollover):
+  - 1 July: contracts that ended on 30 June expire, and the players become free agents. A transaction is logged, and the user's inbox lists who left.
+  - The AI renews when a window opens: in summer, final-year players and regulars (top 11) with two years left; in winter, final-year players.
+    - It keeps its best 18 by OVR, plus prospects (23 or under, POT within 3 of its XI). Players 32 or older are kept only if in its best 14, on short deals.
+    - The player must be willing. The wage bill must stay within 55% of revenue, except for the best eleven (see judgment calls).
+  - The AI never acts for the user's club (T, 2026-10-16).
+  - The user's inbox: the January list of players in their final six months, and a reminder the day before deadline day.
+- **API:** `getContractTalks(lid, pid)` returns mood, market value and the ask per length with its end date. `renewContract(lid, pid, years)` renews the user's own players, only in a window, only if the player is willing, and only if the contract is extended. The Club lab page (chunk 11) will use both; until then the user's players expire unless renewed through the API.
+- `signContract` re-spreads any unamortised fee over the new length (SPEC §6.3).
+- The harness reports expiries, renewals, top-up signings and the free-agent pool. Overrides now cover finance, standing, board, market and renewals.
+- 10 new market tests (value, wages, mood, asks, contract lengths, fee re-spread, expiry, AI renewals, warnings) and a save test for renewals (window, own players, extension). The save tests also check the January warning, the reminder and expiry on 1 July. 196 tests in all.
+
+**Numbers** (3 worlds × 20 seasons; 6 worlds in brackets):
+- per club a season: 1.5 contracts expire, 11 renewals, 0.2 top-up signings;
+- median wages / revenue stays at 41% → 50% (52%), instead of sliding to 17% under the rollover;
+- clubs with negative cash rise to 8% (6%) by the last season, until AI budgets (chunk 4) and FFP (chunk 7);
+- squad age shape improves, because clubs now let unwanted veterans go: senior OVR by age after the last season is 18–20: 46.7, 21–23: 60.2, 24–26: 63.3, 27–29: 62.2, 30–32: 59.7, 33+: 54.1. Under the rollover, 21–23 rated above 27–29.
+- **M3 gates on the edge.** Contracts move several M3 gates that were already near their limits:
+  - With 3 worlds (the CI run), three fail: ENG1 champion 81.6 points (floor 82), top assists 20.2 (cap 20), and players beating their displayed POT 32.3% (cap 32%).
+  - With 6 worlds, only the POT check fails, at exactly 32.0%. Chunk 2 measured 29.5% with 6 worlds: veterans leaving gives young players more minutes than their POT forecast assumes.
+  - Parity: top six losing to the bottom six was 14.2% (6 worlds) after chunk 2. It fell to 12.6% with the 55% wage cap on all renewals, and is 13.1% (13.3%) with the best-eleven exemption.
+  - Transfers (chunks 4–5) will change squads again, so these gates are tuned in chunks 9–10. The branch is pushed only when every gate passes.
+
+**Judgment calls (chunk 3)**
+- **The best eleven are re-signed whatever the wage bill,** as ZenGM lets teams go over the cap to re-sign their own players. With every renewal under the 55% cap, weaker clubs lost regulars they wanted and parity fell.
+- **Contract lengths** count as above (SPEC §7.6 says only "1–5 years"). Counting a renewal's years after this season would allow 6-season deals in summer, so the summer deal counts this season instead. To confirm with T.
+- Mood's "success" component is the board's live confidence, so a club doing better than expected is attractive.
+- Final-year players pay the 10% premium in both windows; the AI renews regulars in summer with two years left, to avoid that premium.
+- An expiring player's fee balance is cleared. Yearly amortisation, and the write-off of any balance left, is booked with FFP in chunk 7.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

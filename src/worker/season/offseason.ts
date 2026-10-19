@@ -16,7 +16,14 @@ import { clubDefinitions } from "../../common/config/clubs";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
 import { formationById } from "../../common/config/formations";
 import type { Position } from "../../common/config/ratings";
-import type { AwardRow, Club, ClubSeason, Player, TransactionRow } from "../../common/schema";
+import type {
+  AwardRow,
+  Club,
+  ClubSeason,
+  InboxMessage,
+  Player,
+  TransactionRow,
+} from "../../common/schema";
 import { coachingFactor, developHalfSeason, medicalFactor, youthFactor } from "../core/development";
 import { bestXi } from "../core/lineup";
 import { bestPosition, positionOvrs, secondaryPositions } from "../core/ovr";
@@ -26,6 +33,7 @@ import { roundWage, WAGE_STEEPNESS, wageAgeFactor } from "../generate/contracts"
 import { generateAcademyPlayer } from "../generate/youth";
 import { FREE_AGENT_CONTEXT } from "../generate/world";
 import { playoffId, type SeasonOutcome, type SeasonState } from "./season";
+import { aiRenewals, expireContracts } from "../market/renewals";
 import { resetForPreseason } from "./squads";
 import { effectiveDials } from "../club/standing";
 
@@ -104,9 +112,16 @@ export interface TurnoverLog {
   /** New players (youth intake). */
   added: Player[];
   transactions: NewTransaction[];
+  /** Messages for the user's inbox. */
+  messages: Omit<InboxMessage, "mid">[];
 }
 
-const emptyLog = (): TurnoverLog => ({ changed: new Set(), added: [], transactions: [] });
+const emptyLog = (): TurnoverLog => ({
+  changed: new Set(),
+  added: [],
+  transactions: [],
+  messages: [],
+});
 const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 const ratingsOf = (p: Player): number[] => p.ratingsHistory.at(-1)?.ratings ?? [];
@@ -373,19 +388,6 @@ export function freeAgentDepartures(world: LoopWorld, season: number, date: stri
 // ---------------------------------------------------------------------------
 // Preseason (1 July): contracts, youth intake, academy, squad top-up
 
-/** Temporary until M4: contracts ending this summer roll over by a year at the same wage. */
-export function rollOverContracts(world: LoopWorld, season: number): Set<number> {
-  const changed = new Set<number>();
-  const ending = `${season}-06-30`;
-  for (const p of world.players) {
-    if (p.status === "club" && p.contract && p.contract.expires <= ending) {
-      p.contract = { ...p.contract, expires: `${season + 1}-06-30` };
-      changed.add(p.pid);
-    }
-  }
-  return changed;
-}
-
 /** A wage in line with the club's current scale for a player of this OVR and age. */
 function wageFor(ctx: ClubContext, ovr: number, age: number, date: string): number {
   const weight = (o: number, a: number) =>
@@ -602,15 +604,27 @@ export function topUpSquads(world: LoopWorld, season: number, date: string): Tur
   return log;
 }
 
-/** Every preseason step in order: contracts, free agents leaving, youth intake, academy, top-up. */
+/**
+ * Every preseason step in order: expiring contracts, free agents moving on, youth intake,
+ * academy decisions, the AI's summer renewals, then the squad top-up (temporary until the
+ * transfer market, M4 chunk 5).
+ */
 export function preseasonTurnover(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
-  for (const pid of rollOverContracts(world, season)) log.changed.add(pid);
-  for (const step of [freeAgentDepartures, youthIntake, academyDecisions, topUpSquads]) {
+  const steps: ((w: LoopWorld, s: number, d: string) => Partial<TurnoverLog>)[] = [
+    expireContracts,
+    freeAgentDepartures,
+    youthIntake,
+    academyDecisions,
+    (w, s, d) => aiRenewals(w, s, d, "summer"),
+    topUpSquads,
+  ];
+  for (const step of steps) {
     const part = step(world, season, date);
-    for (const pid of part.changed) log.changed.add(pid);
-    log.added.push(...part.added);
-    log.transactions.push(...part.transactions);
+    for (const pid of part.changed ?? []) log.changed.add(pid);
+    log.added.push(...(part.added ?? []));
+    log.transactions.push(...(part.transactions ?? []));
+    log.messages.push(...(part.messages ?? []));
   }
   return log;
 }
@@ -629,6 +643,7 @@ export function summerTransition(world: LoopWorld, played: SeasonState): Turnove
   for (const pid of pre.changed) log.changed.add(pid);
   log.added.push(...pre.added);
   log.transactions.push(...pre.transactions);
+  log.messages.push(...pre.messages);
   for (const p of world.players) if (resetForPreseason(p, date)) log.changed.add(p.pid);
   return log;
 }

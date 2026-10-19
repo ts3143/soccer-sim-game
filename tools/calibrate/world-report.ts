@@ -231,12 +231,25 @@ const money = (key: string) => fmt(avg(key));
 console.log(
   `  ${"revenue mix: gates / TV / commercial / prizes".padEnd(34)} ${money("revenueShareMatchday")} / ${money("revenueShareBroadcast")} / ${money("revenueShareCommercial")} / ${money("revenueSharePrize")}`,
 );
-console.log(`  ${"median wages / revenue".padEnd(34)} ${money("medianWageRatio")}`);
+console.log(
+  `  ${"median wages / revenue (first → last)".padEnd(34)} ${firstLastPct("medianWageRatio")}`,
+);
 console.log(
   `  ${"clubs with negative cash (first → last season)".padEnd(34)} ${firstLastPct("negativeCashShare")}`,
 );
 console.log(
   `  ${"median cash / revenue (first → last)".padEnd(34)} ${firstLastPct("medianCashToRevenue")}`,
+);
+
+console.log("\nContracts (information)");
+console.log(
+  `  ${"per club a season: expired / renewed".padEnd(34)} ${avg("contractsExpired").toFixed(1)} / ${avg("renewals").toFixed(1)}`,
+);
+console.log(
+  `  ${"top-up signings per club a season".padEnd(34)} ${avg("topUpSignings").toFixed(1)} (temporary until chunk 5)`,
+);
+console.log(
+  `  ${"free agents after the summer (first → last)".padEnd(34)} ${firstLast("freeAgentPool")}`,
 );
 
 console.log("\nClubs and boards (information)");

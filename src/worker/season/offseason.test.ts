@@ -8,7 +8,6 @@ import {
   developmentUpdate,
   endOfSeasonTurnover,
   type LoopWorld,
-  rollOverContracts,
   seasonAwards,
   type SeasonLine,
   startingReputation,
@@ -179,16 +178,6 @@ describe("preseason", () => {
   const pre = copyOf(world);
   applyMoves(pre.clubs, outcome.moves);
   const date = "2027-07-01";
-
-  it("rolls over contracts ending this summer (temporary until M4)", () => {
-    const ending = pre.players.filter(
-      (p) => p.status === "club" && p.contract?.expires === "2027-06-30",
-    );
-    expect(ending.length).toBeGreaterThan(50);
-    const changed = rollOverContracts(pre, 2027);
-    expect(changed.size).toBe(ending.length);
-    expect(ending.every((p) => p.contract?.expires === "2028-06-30")).toBe(true);
-  });
 
   it("brings 3–6 youths aged 15–16 into every academy", () => {
     const log = youthIntake(pre, 2027, date);

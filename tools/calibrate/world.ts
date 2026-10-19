@@ -300,7 +300,17 @@ export function simulateWorld(
 
     applyMoves(clubs, outcome.moves);
     const intakeFrom = nextPid;
-    summerTransition(loop, state);
+    const summer = summerTransition(loop, state);
+    const count = (type: string, list = summer.transactions) =>
+      list.filter((t) => t.type === type).length;
+    Object.assign(metrics, {
+      contractsExpired:
+        summer.transactions.filter((t) => t.names[1]?.endsWith("(contract ended)")).length /
+        clubs.length,
+      renewals: (count("renewal") + count("renewal", days.transactions)) / clubs.length,
+      topUpSignings: count("freeAgent") / clubs.length,
+      freeAgentPool: players.filter((p) => p.status === "freeAgent").length,
+    });
     loop.clubSeasons = openSeasonBooks(clubs, loop.clubSeasons, season + 1, -1);
     for (const [cid, row] of loop.clubSeasons) loop.reputation.set(cid, row.reputation);
     const changes = [...start].flatMap(([pid, before]) => {

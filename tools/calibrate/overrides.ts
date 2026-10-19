@@ -3,10 +3,15 @@
  * harness may override them in memory). `--overrides '{"dev":{"declineScale":1.3}}'` is
  * passed to every world process through CALIBRATE_OVERRIDES and deep-merged here.
  */
+import { BOARD } from "../../src/worker/club/board";
+import { STANDING } from "../../src/worker/club/standing";
 import { DEV } from "../../src/worker/core/development";
 import { COEFFICIENTS } from "../../src/worker/engine/coefficients";
 import { CEILING_HEADROOM } from "../../src/worker/generate/player";
+import { FINANCE } from "../../src/worker/finance/finance";
 import { YOUTH_QUALITY } from "../../src/worker/generate/youth";
+import { MARKET } from "../../src/worker/market/market";
+import { RENEWALS } from "../../src/worker/market/renewals";
 import { SQUAD_COEFFICIENTS } from "../../src/worker/season/coefficients";
 import { TURNOVER } from "../../src/worker/season/offseason";
 
@@ -17,6 +22,11 @@ const TARGETS: Record<string, object> = {
   ceiling: CEILING_HEADROOM,
   squads: SQUAD_COEFFICIENTS,
   turnover: TURNOVER,
+  finance: FINANCE,
+  standing: STANDING,
+  board: BOARD,
+  market: MARKET,
+  renewals: RENEWALS,
 };
 
 function merge(target: Record<string, unknown>, patch: Record<string, unknown>, path: string) {

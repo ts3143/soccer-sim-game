@@ -12,7 +12,9 @@
 import type { SeasonEvent } from "../../common/api";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
 import type { MatchResult } from "../../common/match";
-import type { ClubSeason, Fixture, InboxMessage } from "../../common/schema";
+import { addDays } from "../../common/dates";
+import type { ClubSeason, Fixture, InboxMessage, TransactionRow } from "../../common/schema";
+import { aiRenewals, contractWarning } from "../market/renewals";
 import { seasonDate } from "../schedule/calendar";
 import { developmentUpdate, type LoopWorld } from "./offseason";
 import { matchdayIncome, meritIncome, prizeIncome, settleMonths } from "../finance/finance";
@@ -37,6 +39,15 @@ export function seasonEvents(season: number, config = competitionsConfig): Seaso
   }
   const winter = config.keyDates.winterDevelopmentUpdate;
   if (winter) events.push({ date: seasonDate(season, winter), kind: "winterUpdate" });
+  // The renewal deadline (SPEC §3.1): a reminder the day before winter deadline day.
+  const january = config.windows.find((w) => w.id === "winter");
+  if (january) {
+    events.push({
+      date: addDays(seasonDate(season, january.deadlineDay), -1),
+      kind: "deadlineReminder",
+      window: january.id,
+    });
+  }
   return events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
@@ -65,6 +76,8 @@ export interface DaysResult {
   userSacked: string | null;
   /** Messages for the user's inbox. */
   messages: NewMessage[];
+  /** Transactions on the way (renewals). */
+  transactions: Omit<TransactionRow, "xid">[];
 }
 
 export type NewMessage = Omit<InboxMessage, "mid">;
@@ -103,6 +116,7 @@ export function runDays(
     sackings: [],
     userSacked: null,
     messages: [],
+    transactions: [],
   };
   const warn = (row: ClubSeason, day: string) => {
     if (row.cid !== world.userCid || (row.boardConfidence ?? 100) >= 40 || row.boardWarned) return;
@@ -165,6 +179,18 @@ export function runDays(
       out.events.push(event);
       if (event.kind === "winterUpdate") {
         for (const pid of developmentUpdate(world, state, day, false)) out.changed.add(pid);
+      }
+      if (event.kind === "windowOpens" && event.window === "winter") {
+        // Last chance for final-year players (SPEC §3.1): the AI renews; the user is told.
+        const renewed = aiRenewals(world, state.season, day, "winter");
+        for (const pid of renewed.changed) out.changed.add(pid);
+        out.transactions.push(...renewed.transactions);
+        const warning = contractWarning(world, state.season, day, false);
+        if (warning) out.messages.push(warning);
+      }
+      if (event.kind === "deadlineReminder") {
+        const reminder = contractWarning(world, state.season, day, true);
+        if (reminder) out.messages.push(reminder);
       }
     }
     const before = state.fixtures.length;
