@@ -52,7 +52,7 @@ export const MARKET = {
     weights: { success: 1, hype: 0.6, facilities: 0.5, market: 0.5, playingTime: 1, loyalty: 0.5 },
     /** Trait → components it doubles. */
     traits: {
-      fame: ["market", "hype"],
+      fame: ["market", "hype", "playingTime"],
       loyalty: ["loyalty"],
       winning: ["success"],
       money: [],

@@ -228,6 +228,7 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 
 ### 7.6 Contracts
 - Length 1–5 years; first pro contract 3 years. Wages per year. No hard max wage (FFP and budget limit spending). No release clauses for now.
+  - Counting the years (T, 2026-10-18): a summer deal counts the current season as its first year; a January deal's years start next season, with the half season left on top ("two and a half years"). A renewal must run past the current contract.
 - ZenGM-style negotiation: the player asks a wage per contract length, adjusted by mood; the user picks a length/wage or walks away. One modal for renewals, transfers and free agents.
 - Renewals only in the summer and winter windows; expiry 30 June. A player in his final year must be renewed by 31 January or he leaves on 1 July (see 3.1).
 

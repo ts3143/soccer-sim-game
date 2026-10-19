@@ -43,6 +43,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-15 | M3 chunk 7 | Development training base lowered from 0.4 to 0.2: dev = coaching × (0.2 + 0.8 × minutesFactor × challengeFactor) + performanceAdj (academy players: coaching × (0.2 + 0.8 × youth factor)). | With 0.4, a young regular (≥50% of minutes) grew only ~1.7× as fast as a benched one, so +4 to +8 a year for regulars and 0 to +2 for benched players couldn't both hold. | SPEC §5.3; `DEV.trainingBase` |
 | 2026-10-15 | M3 chunk 8 | The well-played 18–21 growth target (+4 to +8 a year) is reported in M3 and gated in M4, together with world-shape checks: a stable senior OVR distribution and a peak around 27–29. | After tuning, 16 of 17 season-loop checks passed; settings that pushed young regulars past +4 also broke the wonderkid rate and inflated the top end. Transfers and loans (M4) change who plays young. | MILESTONES M3, M4; `tools/calibrate/world-report.ts` |
 | 2026-10-16 | M4 plan | Opening squads carry notional past transfer fees, about 30% of squad cost, with wages about 70% of the M1 levels; squad cost stays 50–65% of revenue. TV pools and shares, and cup prize money per round, are set per league and per cup in config. The AI never acts for the user's club. M4 adds a developer-only Club lab page. | Per-player wages ran ~2× real-world because the whole wage budget went to ~23 players with no past fees. The spec gave no TV or prize amounts. | SPEC §6.2, §6.3; MILESTONES M4; `competitions_mvp.json` |
+| 2026-10-18 | M4 chunk 3 | Contract years count by window: a summer deal's first year is the current season; a January deal's years start next season, the half season on top. A renewal must extend the contract. | SPEC §7.6 said only "1–5 years". Counting a renewal's years after the current season would have allowed 6-season deals in summer. Approved by T. | SPEC §7.6; `market/market.ts` (`contractEnd`) |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -482,7 +483,7 @@ For information:
   - A length he doesn't want: +5% per year away from his preferred length (4 years up to 24, 3 to 29, 2 to 32, then 1).
   - Final year: +10% (SPEC §3.1).
   - Mood: × (1 − 0.15 × mood). "Money" players: +10%.
-- **Mood** (−1 to 1, ZenGM-style): team success (the board's results score), hype, facilities, market size, playing time and loyalty (years at the club). Each trait doubles its components: fame → market and hype, loyalty → loyalty, winning → success. Below −0.6 he won't negotiate.
+- **Mood** (−1 to 1, ZenGM-style): team success (the board's results score), hype, facilities, market size, playing time and loyalty (years at the club). Each trait doubles its components: fame → market, hype and playing time (SPEC §4.4), loyalty → loyalty, winning → success. Below −0.6 he won't negotiate.
 - **Contract lengths:** a summer deal counts this season as its first year. A January deal's years start next season, with the half season left on top ("two and a half years"). A renewal must run past the current contract.
 - **The contract year** (replaces M3's rollover):
   - 1 July: contracts that ended on 30 June expire, and the players become free agents. A transaction is logged, and the user's inbox lists who left.
@@ -509,7 +510,7 @@ For information:
 
 **Judgment calls (chunk 3)**
 - **The best eleven are re-signed whatever the wage bill,** as ZenGM lets teams go over the cap to re-sign their own players. With every renewal under the 55% cap, weaker clubs lost regulars they wanted and parity fell.
-- **Contract lengths** count as above (SPEC §7.6 says only "1–5 years"). Counting a renewal's years after this season would allow 6-season deals in summer, so the summer deal counts this season instead. To confirm with T.
+- **Contract lengths** count as above, approved by T (2026-10-18) and added to SPEC §7.6. Counting a renewal's years after this season would have allowed 6-season deals in summer.
 - Mood's "success" component is the board's live confidence, so a club doing better than expected is attractive.
 - Final-year players pay the 10% premium in both windows; the AI renews regulars in summer with two years left, to avoid that premium.
 - An expiring player's fee balance is cleared. Yearly amortisation, and the write-off of any balance left, is booked with FFP in chunk 7.
