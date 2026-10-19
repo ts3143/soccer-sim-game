@@ -387,6 +387,114 @@ export interface GameLogView {
   record: { won: number; drawn: number; lost: number; goalsFor: number; goalsAgainst: number };
 }
 
+/** League Leaders: the top ten in each category, one league and season. */
+export interface LeagueLeadersView {
+  leagueId: string;
+  leagueName: string;
+  season: number;
+  categories: {
+    key: string;
+    label: string;
+    /** e.g. "min. 8 appearances" for the rating category. */
+    note: string | null;
+    rows: { pid: number; name: string; club: TeamRef; value: number; display: string }[];
+  }[];
+}
+
+/** Player Ratings: every active player and free agent with his 22 ratings. */
+export interface PlayerRatingsView {
+  codes: { code: string; name: string }[];
+  rows: {
+    pid: number;
+    name: string;
+    club: TeamRef | null;
+    leagueId: string | null;
+    status: string;
+    position: string;
+    age: number;
+    ovr: number;
+    pot: number;
+    /** In `codes` order. */
+    ratings: number[];
+  }[];
+}
+
+/** Player Stats: one row per player and club for a season (all or one competition). */
+export interface PlayerStatsView {
+  season: number;
+  competition: string | null;
+  competitions: { id: string; name: string }[];
+  rows: {
+    pid: number;
+    name: string;
+    club: TeamRef;
+    leagueId: string;
+    position: string;
+    age: number;
+    appearances: number;
+    starts: number;
+    minutes: number;
+    goals: number;
+    assists: number;
+    xg: number;
+    xa: number;
+    shots: number;
+    shotsOnTarget: number;
+    keyPasses: number;
+    passes: number;
+    passesCompleted: number;
+    tackles: number;
+    interceptions: number;
+    yellowCards: number;
+    redCards: number;
+    saves: number;
+    cleanSheets: number;
+    rating: number | null;
+  }[];
+}
+
+/** Team Stats: each club's season in its league, from the saved match records. */
+export interface TeamStatsView {
+  leagueId: string;
+  leagueName: string;
+  season: number;
+  /** False when the season's match records have been pruned (only results remain). */
+  detailed: boolean;
+  rows: {
+    team: TeamRef;
+    played: number;
+    goalsFor: number;
+    goalsAgainst: number;
+    xgFor: number | null;
+    xgAgainst: number | null;
+    shotsFor: number | null;
+    shotsAgainst: number | null;
+    possession: number | null;
+    passAccuracy: number | null;
+    corners: number | null;
+    fouls: number | null;
+    yellowCards: number | null;
+    redCards: number | null;
+    cleanSheets: number | null;
+  }[];
+}
+
+/** Injuries: every injured player in the world now. */
+export interface InjuriesView {
+  date: string;
+  rows: {
+    pid: number;
+    name: string;
+    club: TeamRef;
+    leagueId: string;
+    position: string;
+    ovr: number;
+    type: string;
+    until: string;
+    daysLeft: number;
+  }[];
+}
+
 /** Win, draw or loss, for form guides. */
 export type FormResult = "W" | "D" | "L";
 
@@ -754,6 +862,11 @@ export interface WorkerApi {
   getPlayer(lid: number, pid: number): PlayerView;
   getBoxScore(lid: number, fid: number): BoxScoreView;
   getGameLog(lid: number, cid: number, season: number | null): GameLogView;
+  getLeagueLeaders(lid: number, leagueId: string | null, season: number | null): LeagueLeadersView;
+  getPlayerRatings(lid: number): PlayerRatingsView;
+  getPlayerStats(lid: number, season: number | null, competition: string | null): PlayerStatsView;
+  getTeamStats(lid: number, leagueId: string | null, season: number | null): TeamStatsView;
+  getInjuries(lid: number): InjuriesView;
   getStandings(lid: number, leagueId: string | null, season: number | null): StandingsView;
   getCups(lid: number, competition: string | null, season: number | null): CupView;
   /** `week`: the Monday of the week to show (null: the current week). */

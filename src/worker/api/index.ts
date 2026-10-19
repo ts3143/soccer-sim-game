@@ -20,6 +20,13 @@ import { getCups, getSchedule, getStandings } from "../views/competitions";
 import { getDashboard, markAllInboxRead } from "../views/dashboard";
 import { getBoxScore, getGameLog } from "../views/matches";
 import { getPlayer, getTeamSquad } from "../views/players";
+import {
+  getInjuries,
+  getLeagueLeaders,
+  getPlayerRatings,
+  getPlayerStats,
+  getTeamStats,
+} from "../views/stats";
 import { getSeasonLab } from "../views/seasonLab";
 import { getLeagueShell } from "../views/shell";
 
@@ -77,6 +84,26 @@ export function createHandlers(
 
     async getGameLog(lid, cid, season) {
       return getGameLog(lid, cid, season);
+    },
+
+    async getLeagueLeaders(lid, leagueId, season) {
+      return getLeagueLeaders(lid, leagueId, season);
+    },
+
+    async getPlayerRatings(lid) {
+      return getPlayerRatings(lid);
+    },
+
+    async getPlayerStats(lid, season, competition) {
+      return getPlayerStats(lid, season, competition);
+    },
+
+    async getTeamStats(lid, leagueId, season) {
+      return getTeamStats(lid, leagueId, season);
+    },
+
+    async getInjuries(lid) {
+      return getInjuries(lid);
     },
 
     async getStandings(lid, leagueId, season) {

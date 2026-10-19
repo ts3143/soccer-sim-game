@@ -951,5 +951,22 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Tests:** the players test now also covers history, radar, career, the game log and box scores (played and unplayed); 232 tests in all.
 - **Browser checks:** 10 more in `check-m5` (radar axes, history hover, career rows, a result's box score, box-score player links, the game log, its team dropdown, another club's box score, the Match lab still working). All pass.
 
+**Chunk 6: Stats pages** (`src/worker/views/stats.ts`)
+- **League Leaders** (`/l/:lid/league-leaders/:league/:season`): the top ten for goals, assists, average rating (min. 40% of the most appearances, at least 3), clean sheets (goalkeepers), expected goals, key passes, tackles and yellow cards; league tabs and the season dropdown.
+- **Player Ratings** (`/l/:lid/player-ratings`):
+  - every senior and free agent with OVR, POT and all 22 ratings (codes as headings, names on hover);
+  - filters by league or free agents, and by position;
+  - a name or club search, 50 a page, sortable by any rating.
+- **Player Stats** (`/l/:lid/player-stats/:season/:competition`):
+  - a row per player and club (a mid-season move gives two), summed over every competition or for one;
+  - columns: apps, minutes, goals, assists, xG, xA, shots, on target, key passes, pass %, tackles, interceptions, cards, rating;
+  - a **per 90** switch (which sets a 450-minute minimum), a minutes filter, league and position filters, and search.
+- **Team Stats** (`/l/:lid/team-stats/:league/:season`), from the saved match records:
+  - goals and xG for and against, shots for and against, average possession, pass accuracy, corners, fouls, cards, clean sheets.
+  - Once a season's records are pruned it shows goals and clean sheets only, and says why.
+- **Injuries** (`/l/:lid/injuries`): every injured player in the world, longest out first, with injury, return date and days out; a league filter and search, with your players highlighted.
+- **Tests:** a stats test over a month of matches (leaders sorted, 22 ratings each, competition filtering, team stats with xG and possession averaging 50%, injuries sorted); 233 tests in all.
+- **Browser checks:** 12 more in `check-m5` (leader categories and league tabs, ratings paging, position filter, 22 rating columns, name search, player stats, per 90 with its minimum, the competition dropdown, team stats, injuries order). All pass.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

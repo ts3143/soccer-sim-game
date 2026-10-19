@@ -10,12 +10,17 @@ import { Dashboard } from "./pages/Dashboard";
 import { GameLog } from "./pages/GameLog";
 import { Home } from "./pages/Home";
 import { Inbox } from "./pages/Inbox";
+import { Injuries } from "./pages/Injuries";
+import { LeagueLeaders } from "./pages/LeagueLeaders";
 import { NewLeague } from "./pages/NewLeague";
 import { Placeholder } from "./pages/Placeholder";
 import { Player } from "./pages/Player";
+import { PlayerRatings } from "./pages/PlayerRatings";
+import { PlayerStats } from "./pages/PlayerStats";
 import { Schedule } from "./pages/Schedule";
 import { Squad } from "./pages/Squad";
 import { Standings } from "./pages/Standings";
+import { TeamStats } from "./pages/TeamStats";
 import { Link, parseRoute, usePath } from "./router";
 import { Shell } from "./shell/Shell";
 import { connectWorker, type Connection } from "./workerClient";
@@ -99,6 +104,16 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <BoxScorePage params={params} />;
     case "game-log":
       return <GameLog params={params} />;
+    case "league-leaders":
+      return <LeagueLeaders params={params} />;
+    case "player-ratings":
+      return <PlayerRatings />;
+    case "player-stats":
+      return <PlayerStats params={params} />;
+    case "team-stats":
+      return <TeamStats params={params} />;
+    case "injuries":
+      return <Injuries />;
     default:
       return <Placeholder page={page} params={params} />;
   }
