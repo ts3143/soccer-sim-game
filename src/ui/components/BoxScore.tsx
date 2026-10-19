@@ -1,19 +1,31 @@
-/** Box score for a Match lab result: team stats, key events and both teams' players. */
-import type { LabTeam } from "../../common/api";
+/**
+ * A match's box score (Match lab and the game's Box score page): team stats, key events and
+ * both teams' players. `renderName` lets the game link player names to their profiles.
+ */
+import type { ReactNode } from "react";
 import type { MatchResult, PlayerMatchStats } from "../../common/match";
 import { crestUrl } from "../crests";
 import { minuteLabel } from "./matchText";
 
+interface Side {
+  name: string;
+  code: string;
+  abbr: string;
+  /** Shown when known (the Match lab); saved match records don't keep it. */
+  formation?: string;
+}
+
 interface Props {
-  home: LabTeam;
-  away: LabTeam;
+  home: Side;
+  away: Side;
   players: Record<number, { name: string; shirtNumber: number | null }>;
   result: MatchResult;
+  renderName?: (pid: number, name: string) => ReactNode;
 }
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-export function BoxScore({ home, away, players, result }: Props) {
+export function BoxScore({ home, away, players, result, renderName }: Props) {
   const name = (pid: number | null) => (pid === null ? "" : (players[pid]?.name ?? `#${pid}`));
   const [h, a] = result.teams;
   const rows: [string, string, string][] = [
@@ -48,8 +60,8 @@ export function BoxScore({ home, away, players, result }: Props) {
           </div>
           <div className="small text-body-secondary">
             {result.extraTime ? "after extra time" : "full time"}
-            {result.penalties ? ` · ${result.penalties} on penalties` : ""} · {home.formation} vs{" "}
-            {away.formation}
+            {result.penalties ? ` · ${result.penalties} on penalties` : ""}
+            {home.formation && away.formation ? ` · ${home.formation} vs ${away.formation}` : ""}
           </div>
         </div>
         <img src={crestUrl(away.code)} alt="" width={36} height={42} />
@@ -118,6 +130,7 @@ export function BoxScore({ home, away, players, result }: Props) {
           title={side === 0 ? home.name : away.name}
           rows={result.players.filter((p) => p.side === side)}
           players={players}
+          renderName={renderName}
         />
       ))}
     </div>
@@ -128,10 +141,12 @@ function PlayerTable({
   title,
   rows,
   players,
+  renderName,
 }: {
   title: string;
   rows: PlayerMatchStats[];
   players: Props["players"];
+  renderName?: Props["renderName"];
 }) {
   const ordered = [...rows].sort(
     (a, b) => (a.startedInSlot ?? 99) - (b.startedInSlot ?? 99) || b.minutes - a.minutes,
@@ -160,7 +175,9 @@ function PlayerTable({
             <tr key={p.pid}>
               <td className="text-end text-body-secondary">{players[p.pid]?.shirtNumber ?? ""}</td>
               <td>
-                {players[p.pid]?.name ?? p.pid}
+                {renderName
+                  ? renderName(p.pid, players[p.pid]?.name ?? `#${p.pid}`)
+                  : (players[p.pid]?.name ?? p.pid)}
                 {p.yellowCards > 0 && " 🟨"}
                 {p.redCards > 0 && " 🟥"}
                 {p.injuryDays > 0 && " ✚"}

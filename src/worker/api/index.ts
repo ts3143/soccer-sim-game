@@ -18,6 +18,7 @@ import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../v
 import { getClubLab, searchPlayers } from "../views/clubLab";
 import { getCups, getSchedule, getStandings } from "../views/competitions";
 import { getDashboard, markAllInboxRead } from "../views/dashboard";
+import { getBoxScore, getGameLog } from "../views/matches";
 import { getPlayer, getTeamSquad } from "../views/players";
 import { getSeasonLab } from "../views/seasonLab";
 import { getLeagueShell } from "../views/shell";
@@ -68,6 +69,14 @@ export function createHandlers(
 
     async getPlayer(lid, pid) {
       return getPlayer(lid, pid);
+    },
+
+    async getBoxScore(lid, fid) {
+      return getBoxScore(lid, fid);
+    },
+
+    async getGameLog(lid, cid, season) {
+      return getGameLog(lid, cid, season);
     },
 
     async getStandings(lid, leagueId, season) {

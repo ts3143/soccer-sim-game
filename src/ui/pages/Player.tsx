@@ -1,14 +1,15 @@
 /**
- * Player profile, part 1 (SPEC §11): bio, contract, value, mood with its breakdown,
- * condition and injury, ratings, position OVRs and transfer history. The radar chart, the
- * OVR/POT history and career stats arrive in M5 chunk 5.
+ * Player profile (SPEC §11): bio, contract, value, mood with its breakdown, condition and
+ * injury, ratings, position OVRs, transfer history, the ratings radar, OVR/POT history and
+ * career stats.
  */
 import type { ReactNode } from "react";
 import type { PlayerView } from "../../common/api";
+import { RadarChart, RatingHistoryChart } from "../components/charts";
 import { TeamLink } from "../components/links";
 import { formatDate, formatEuros } from "../format";
 import { PageHeader } from "../shell/PageHeader";
-import { useShell } from "../shell/Shell";
+import { seasonLabel, useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
 
@@ -303,9 +304,115 @@ export function Player({ params }: { params: string[] }) {
           )}
         </div>
       </section>
-      <p className="small text-body-secondary">
-        The radar chart, OVR/POT history and career stats arrive in M5 chunk 5.
-      </p>
+      <div className="row g-3 mb-3">
+        <section className="col-lg-5">
+          <div className="card h-100">
+            <div className="card-body">
+              <h2 className="h6">Profile</h2>
+              <div className="d-flex justify-content-center">
+                <RadarChart axes={view.radar} />
+              </div>
+            </div>
+          </div>
+        </section>
+        <section className="col-lg-7">
+          <div className="card h-100">
+            <div className="card-body">
+              <h2 className="h6">OVR and POT over time</h2>
+              <RatingHistoryChart points={view.history} />
+            </div>
+          </div>
+        </section>
+      </div>
+      <Career view={view} />
     </>
+  );
+}
+
+/** Career stats: a row per season, club and competition, season totals and the career's. */
+function Career({ view }: { view: PlayerView }) {
+  if (view.career.length === 0) {
+    return <p className="small text-body-secondary">No senior appearances yet.</p>;
+  }
+  const seasons = [...new Set(view.career.map((r) => r.season))];
+  const total = (rows: PlayerView["career"]) => {
+    const apps = rows.reduce((s, r) => s + r.appearances, 0);
+    const ratingSum = rows.reduce((s, r) => s + (r.rating ?? 0) * r.appearances, 0);
+    return {
+      appearances: apps,
+      starts: rows.reduce((s, r) => s + r.starts, 0),
+      minutes: rows.reduce((s, r) => s + r.minutes, 0),
+      goals: rows.reduce((s, r) => s + r.goals, 0),
+      assists: rows.reduce((s, r) => s + r.assists, 0),
+      yellowCards: rows.reduce((s, r) => s + r.yellowCards, 0),
+      redCards: rows.reduce((s, r) => s + r.redCards, 0),
+      rating: apps > 0 ? ratingSum / apps : null,
+    };
+  };
+  const cells = (t: ReturnType<typeof total>) => (
+    <>
+      <td className="text-end">{t.appearances}</td>
+      <td className="text-end">{t.starts}</td>
+      <td className="text-end">{t.minutes}</td>
+      <td className="text-end">{t.goals}</td>
+      <td className="text-end">{t.assists}</td>
+      <td className="text-end">{t.rating === null ? "" : t.rating.toFixed(2)}</td>
+      <td className="text-end">{t.yellowCards}</td>
+      <td className="text-end">{t.redCards}</td>
+    </>
+  );
+  return (
+    <section className="card mb-3" data-testid="career">
+      <div className="card-body">
+        <h2 className="h6">Career</h2>
+        <div className="table-responsive">
+          <table className="table table-sm small align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Season</th>
+                <th>Club</th>
+                <th>Competition</th>
+                <th className="text-end">Apps</th>
+                <th className="text-end">Starts</th>
+                <th className="text-end">Min</th>
+                <th className="text-end">G</th>
+                <th className="text-end">A</th>
+                <th className="text-end">Rating</th>
+                <th className="text-end">YC</th>
+                <th className="text-end">RC</th>
+              </tr>
+            </thead>
+            <tbody>
+              {seasons.map((season) => {
+                const rows = view.career.filter((r) => r.season === season);
+                return [
+                  ...rows.map((r) => (
+                    <tr key={`${season}-${r.club.cid}-${r.competition}`}>
+                      <td>{seasonLabel(season)}</td>
+                      <td>
+                        <TeamLink team={r.club} />
+                      </td>
+                      <td>{r.competitionName}</td>
+                      {cells(total([r]))}
+                    </tr>
+                  )),
+                  rows.length > 1 ? (
+                    <tr key={`${season}-total`} className="table-light fw-semibold">
+                      <td>{seasonLabel(season)}</td>
+                      <td colSpan={2}>Season total</td>
+                      {cells(total(rows))}
+                    </tr>
+                  ) : null,
+                ];
+              })}
+              <tr className="fw-semibold border-top">
+                <td colSpan={3}>Career</td>
+                {cells(total(view.career))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   );
 }

@@ -7,8 +7,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ClubOverviewRow, LabBatch, LabLiveStart, LabMatch } from "../../common/api";
 import type { MatchEvent, MatchResult, Period } from "../../common/match";
 import { toWorker } from "../workerClient";
-import { BoxScore } from "./BoxScore";
-import { feedLine, minuteLabel } from "./matchText";
+import { BoxScore } from "../components/BoxScore";
+import { feedLine, minuteLabel } from "../components/matchText";
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 

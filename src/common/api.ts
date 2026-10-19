@@ -344,6 +344,47 @@ export interface PlayerView {
   }[];
   freeAgentSince: string | null;
   retiredSeason: number | null;
+  /** Every development update: OVR and POT over time. */
+  history: { date: string; season: number; ovr: number; pot: number }[];
+  /** The profile radar (config `radarAxes`): each axis is the mean of its ratings. */
+  radar: { axis: string; value: number }[];
+  /** Season rows per club and competition, oldest first. */
+  career: {
+    season: number;
+    club: TeamRef;
+    competition: string;
+    competitionName: string;
+    appearances: number;
+    starts: number;
+    minutes: number;
+    goals: number;
+    assists: number;
+    rating: number | null;
+    yellowCards: number;
+    redCards: number;
+    cleanSheets: number;
+  }[];
+}
+
+/** A box score page: the fixture, and the saved match record if it's still kept. */
+export interface BoxScoreView {
+  match: MatchView;
+  /** null: not played yet, or the record was pruned (other clubs' matches are kept 2 seasons). */
+  result: MatchResult | null;
+  players: Record<number, { name: string; shirtNumber: number | null }>;
+}
+
+/** A club's season of matches (Game Log). */
+export interface GameLogView {
+  team: TeamRef;
+  season: number;
+  matches: {
+    match: MatchView;
+    venue: "H" | "A" | "N";
+    opponent: TeamRef;
+    result: FormResult | null;
+  }[];
+  record: { won: number; drawn: number; lost: number; goalsFor: number; goalsAgainst: number };
 }
 
 /** Win, draw or loss, for form guides. */
@@ -711,6 +752,8 @@ export interface WorkerApi {
   getDashboard(lid: number): DashboardView;
   getTeamSquad(lid: number, cid: number): TeamSquadView;
   getPlayer(lid: number, pid: number): PlayerView;
+  getBoxScore(lid: number, fid: number): BoxScoreView;
+  getGameLog(lid: number, cid: number, season: number | null): GameLogView;
   getStandings(lid: number, leagueId: string | null, season: number | null): StandingsView;
   getCups(lid: number, competition: string | null, season: number | null): CupView;
   /** `week`: the Monday of the week to show (null: the current week). */

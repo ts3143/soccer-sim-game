@@ -934,5 +934,22 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Tests:** a squad and profile test (incl. a free agent's profile); 232 tests in all.
 - **Browser checks:** 13 more in `check-m5` (squad rows and summary, academy, sorting by OVR, opening a profile, its bio, contract, mood breakdown, 22 ratings, 10 position OVRs, transfer history, another club's player, the top-bar link to your squad). All pass.
 
+**Chunk 5: Player profile part 2, Box score, Game Log** (`src/worker/views/matches.ts`, `src/ui/components/charts.tsx`)
+- **Charts** (in-house SVG, no library):
+  - the ratings **radar** over the config's 8 grouped axes (each the mean of its ratings), each axis labelled with its value;
+  - **OVR and POT over time**, one point per development update: OVR solid and POT dashed in one blue, with a legend; hovering shows a guide line and that update's values.
+- **Career stats** on the profile: a row per season, club and competition (apps, starts, minutes, goals, assists, average rating, cards), season totals when there are several rows, and the career total. Past seasons are read from IndexedDB through the `pid` index.
+- **Box score** (`/l/:lid/box-score/:fid`):
+  - the match header (date, competition, round, leg, venue) and links to both clubs' game logs;
+  - the saved record's team stats, key events and both line-ups with ratings, with player names linking to profiles.
+  - Unplayed fixtures, and other clubs' matches older than two seasons, say so instead.
+- **Game Log** (`/l/:lid/game-log/:cid/:season`):
+  - a club's matches in every competition: date, competition, venue, opponent, result badge and the score (to the box score);
+  - the season's W/D/L and goals;
+  - team and season dropdowns.
+- **Shared code:** the box score component and the match-text helpers moved to `src/ui/components` for the game, the Match lab and M6's watch-live screen. The box score's formation line is optional (saved records don't keep it), and names can be links.
+- **Tests:** the players test now also covers history, radar, career, the game log and box scores (played and unplayed); 232 tests in all.
+- **Browser checks:** 10 more in `check-m5` (radar axes, history hover, career rows, a result's box score, box-score player links, the game log, its team dropdown, another club's box score, the Match lab still working). All pass.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

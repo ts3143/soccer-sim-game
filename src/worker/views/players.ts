@@ -18,7 +18,7 @@ import { marketValue, yearsLeft } from "../market/market";
 import { clubLevels, moodAtClub } from "../market/renewals";
 import { leagueLevel } from "../market/transfers";
 import { currentCondition, isInjured } from "../season/squads";
-import { leagueTables, seasonFixtures, teamRef } from "./common";
+import { competitionName, leagueTables, seasonFixtures, teamRef } from "./common";
 
 const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
 const positionOrder = (p: Player) => POSITIONS.indexOf(p.position);
@@ -206,5 +206,50 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
     })),
     freeAgentSince: p.freeAgentSince,
     retiredSeason: p.retiredSeason,
+    history: history.map((h) => ({ date: h.date, season: h.season, ovr: h.ovr, pot: h.pot })),
+    radar: Object.entries(ratingsConfig.radarAxes).map(([axis, codes]) => ({
+      axis,
+      value: Math.round(
+        codes.reduce((s, code) => s + (now[RATING_CODES.indexOf(code)] ?? 0), 0) /
+          Math.max(1, codes.length),
+      ),
+    })),
+    career: await careerOf(session, pid, game.season, clubs),
   };
+}
+
+/** A player's season rows, every club and competition, oldest first (SPEC §10.3). */
+async function careerOf(
+  session: Awaited<ReturnType<typeof openLeague>>,
+  pid: number,
+  season: number,
+  clubs: ReadonlyMap<number, Club>,
+): Promise<PlayerView["career"]> {
+  const past = (await session.db.getAllFromIndex("playerStats", "pid", pid)).filter(
+    (r) => r.season < season,
+  );
+  const current = session.cache
+    .getAll("playerStats")
+    .filter((r) => r.pid === pid && r.season === season);
+  const order = (id: string) => {
+    const leagues = competitionsConfig.leagues.map((l) => l.id);
+    return leagues.includes(id) ? leagues.indexOf(id) : 10;
+  };
+  return [...past, ...current]
+    .sort((a, b) => a.season - b.season || order(a.competition) - order(b.competition))
+    .map((r) => ({
+      season: r.season,
+      club: teamRef(clubs.get(r.cid)),
+      competition: r.competition,
+      competitionName: competitionName(r.competition),
+      appearances: r.appearances,
+      starts: r.starts,
+      minutes: r.minutes,
+      goals: r.goals,
+      assists: r.assists,
+      rating: r.appearances > 0 ? Math.round((r.ratingTotal / r.appearances) * 100) / 100 : null,
+      yellowCards: r.yellowCards,
+      redCards: r.redCards,
+      cleanSheets: r.cleanSheets,
+    }));
 }

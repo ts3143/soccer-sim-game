@@ -4,8 +4,10 @@
  */
 import { useEffect, useState } from "react";
 import { Inspector } from "./inspector/Inspector";
+import { BoxScorePage } from "./pages/BoxScorePage";
 import { Cups } from "./pages/Cups";
 import { Dashboard } from "./pages/Dashboard";
+import { GameLog } from "./pages/GameLog";
 import { Home } from "./pages/Home";
 import { Inbox } from "./pages/Inbox";
 import { NewLeague } from "./pages/NewLeague";
@@ -93,6 +95,10 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <Squad params={params} />;
     case "player":
       return <Player params={params} />;
+    case "box-score":
+      return <BoxScorePage params={params} />;
+    case "game-log":
+      return <GameLog params={params} />;
     default:
       return <Placeholder page={page} params={params} />;
   }
