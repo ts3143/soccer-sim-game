@@ -598,5 +598,44 @@ For information:
 - Free agents are shortlisted separately: on rating alone, club players crowded them out, and no free agents were signed at all.
 - The AI doesn't sell surplus players on its own initiative; buyers find them. Clubs at 25 seniors stop buying.
 
+**Chunk 6: loans** (`src/worker/market/loans.ts`, `src/common/status.ts`)
+- **Who a loanee belongs to:** he is registered with the loan club (status "loan", `cid` = loan club). He plays, trains and develops there, with its coaching and his minutes there. His contract, renewals, expiry warnings and transfer value stay with the parent (`contractClub`). Every squad, strength, training and development check now counts loanees where they play (`isSenior`).
+- **Wages** are split by the loan's wage share (0, 50 or 100% paid by the loan club, the rest by the parent), in the month-end books and in squad cost and wage room. Fee amortisation stays with the parent.
+- **Length:** season-long (to 30 June), or half a season from the summer (to 1 January). January loans run to the season's end. No recall, no option to buy.
+- **Returns:** half-season loanees return on 1 January, after that day's development update. Season-long loanees return on 1 July, the first preseason step, before contracts expire. The user is told who is back.
+- **A loanee can't play against his parent club** (filtered out of the matchday squad).
+- **AI loans:**
+  - **Listing:** a club lists young prospects who won't get minutes: 21 or under, outside its best 16, POT within 8 of its XI level. It must keep 20 seniors and have at most 4 out on loan.
+  - **Taking (needs):** a club takes a listed player when he fills one of its needs and would rank in its best 14 (at most 2 loanees in).
+  - **Placement:** each market day, every club with listed prospects tries to place its best (by POT) with the club at about his level (XI level from 4 below to 6 above his OVR) where he'd rank highest. The borrower pays half his wage if it has the room, otherwise the parent pays it all.
+- **Your side:**
+  - `proposeLoan(pid, cid, length, wageShare)` loans your player out to an AI club, or another club's player in.
+  - An AI borrower takes him if he'd rank in its best 14, paying at most half (all for a player who'd start).
+  - An AI lender lends a young player (23 or under for you) outside its best 16 who'd play for you, for at least half his wage.
+  - Squad, loan and wage-room limits apply on both sides, and the player must be willing.
+  - A loanee can't be bought; his parent renews him.
+- **Harness fix:** the young players' development checks now count a player's minutes wherever he played, against the club he played most for. Before, loanees counted as benched at their parent club (the benched check read 2.5).
+- 6 loan tests:
+  - loan dates;
+  - moving and returning, with the wage split;
+  - who is listed;
+  - a loanee never facing his parent, over a real half-season;
+  - the weak-loan exploit: full minutes in a league 12 below him grow a player less than full minutes at his level, and both beat the bench;
+  - AI loans in the market.
+
+  A save test covers your loans out and in, refusals, a loanee not for sale, and a half-season loanee back on 1 January. 217 tests in all.
+
+**Numbers** (3 worlds × 20 seasons):
+- 0.3 loans per club a season (about 19 a season in the world), 2.2 transfers and 0.3 free-agent signings;
+- young players' development: well-played 18–21s +3.96 a year (3.76 before; target 4–8, gated from chunk 8); benched +1.37 ✓;
+- players beating their displayed POT rise to 39% (cap 32%), because players now move to where they'd play, while POT assumes their current club's minutes. That's for chunk 8's POT work;
+- parity 11.0% (see chunk 5);
+- 4.1 s a season.
+
+**Judgment calls (chunk 6)**
+- **Academy loans:** SPEC §7.2's "promote, loan or release" at 17–18 works as promote then loan. A promoted 18-year-old outside the best 16 is listed, and a loan needs a pro contract to split.
+- **AI wage shares** of 50% (or 0% when the borrower has no wage room) stand in for negotiation. The user picks 0, 50 or 100%.
+- **Placements** go to the club at about his level where he'd rank highest, so the challenge factor helps his development.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

@@ -26,6 +26,7 @@ import { bestXi } from "../core/lineup";
 import { slotOvr } from "../core/ovr";
 import { Random } from "../core/random";
 import { seasonDate } from "../schedule/calendar";
+import { LOANS, loanEnd, loanHome, loanList, loansInByClub, rankAt, startLoan } from "./loans";
 import { contractAsks, contractEnd, preferredYears } from "./market";
 import { clubRevenue } from "./renewals";
 import {
@@ -62,6 +63,7 @@ export const AI_MARKET = {
   /** Candidates priced per need, best first: players at clubs, and free agents. */
   shortlist: 60,
   freeAgentShortlist: 15,
+  loanShortlist: 15,
   /** Most a buyer pays: market value × this (× contender for a contending club). */
   buyerFactor: 1.4,
   contenderFactor: 1.2,
@@ -188,9 +190,11 @@ function candidatePools(players: readonly Player[], status: Player["status"]): P
 interface Choice {
   p: Player;
   fee: number;
+  /** The wage the buyer pays (a loan: its share). */
   wage: number;
   years: number;
   score: number;
+  loan: boolean;
 }
 
 /** The best deal a club can make for its need, or null. */
@@ -198,7 +202,7 @@ function bestChoice(
   world: MarketWorld,
   club: Club,
   need: Need,
-  pools: { atClubs: Pools; free: Pools },
+  pools: { atClubs: Pools; free: Pools; loanable: Pools; loansIn: Map<number, number> },
   snap: MarketSnapshot,
   date: string,
   deadline: boolean,
@@ -244,7 +248,20 @@ function bestChoice(
       strategy === "developing" && age <= 23 ? m.youthBonus * Math.max(0, p.pot - p.ovr) : 0;
     const cost = (fee / TRANSFERS.budget.feeYears + wage) / (0.01 * base);
     const score = rating + youth - m.costPerPercent * cost;
-    if (!best || score > best.score) best = { p, fee, wage, years, score };
+    if (!best || score > best.score) best = { p, fee, wage, years, score, loan: false };
+  }
+  // Loans: young players another AI club would lend, if he'd play here.
+  if ((pools.loansIn.get(club.cid) ?? 0) < LOANS.maxIn) {
+    const squad = snap.seniors.get(club.cid) ?? [];
+    for (const p of inReach(pools.loanable, need, club.cid, m.loanShortlist)) {
+      if (p.status !== "club" || rankAt(squad, p) >= LOANS.playsIfRankBelow) continue;
+      if (!moodToward(world, p, club, date, snap).willing) continue;
+      const wage = (p.contract?.wage ?? 0) * LOANS.aiWageShare;
+      const filler = need.filler && wage <= m.fillerWageShare * base;
+      if (wage > budgets.wageRoom && !filler) continue;
+      const score = slotOvr(p, need.slot) - m.costPerPercent * (wage / (0.01 * base));
+      if (!best || score > best.score) best = { p, fee: 0, wage, years: 0, score, loan: true };
+    }
   }
   return best;
 }
@@ -270,7 +287,7 @@ const signedSince = (players: readonly Player[], cid: number, opens: string) =>
       (t) =>
         t.toCid === cid &&
         t.date >= opens &&
-        (t.type === "transfer" || t.type === "freeAgent") &&
+        (t.type === "transfer" || t.type === "freeAgent" || t.type === "loan") &&
         p.cid === cid,
     ),
   ).length;
@@ -294,6 +311,8 @@ export function marketDay(
   const pools = {
     atClubs: candidatePools(world.players, "club"),
     free: candidatePools(world.players, "freeAgent"),
+    loanable: candidatePools(loanList(world, date, snap), "club"),
+    loansIn: loansInByClub(world.players),
   };
   const closes = seasonDate(
     season,
@@ -335,12 +354,71 @@ export function marketDay(
       continue;
     }
     const sellerCid = p.status === "club" ? (p.cid as number) : null;
-    const done = completeTransfer(world, {
-      pid: p.pid,
-      toCid: club.cid,
-      fee: choice.fee,
-      wage: choice.wage,
-      expires: contractEnd(season, choice.years, date),
+    const done = choice.loan
+      ? startLoan(world, {
+          pid: p.pid,
+          toCid: club.cid,
+          until: loanEnd(season, date, "season"),
+          wageShare: LOANS.aiWageShare,
+          date,
+          season,
+        })
+      : completeTransfer(world, {
+          pid: p.pid,
+          toCid: club.cid,
+          fee: choice.fee,
+          wage: choice.wage,
+          expires: contractEnd(season, choice.years, date),
+          date,
+          season,
+        });
+    for (const pid of done.changed) log.changed.add(pid);
+    log.transactions.push(...done.transactions);
+    log.messages.push(...done.messages);
+    log.moved = true;
+    if (choice.loan) pools.loansIn.set(club.cid, (pools.loansIn.get(club.cid) ?? 0) + 1);
+    refreshSnapshot(world, snap, sellerCid === null ? [club.cid] : [club.cid, sellerCid]);
+  }
+  placeLoans(world, season, date, snap, rng, log, pools.loansIn);
+  return log;
+}
+
+/**
+ * Loan placements: each AI club with listed prospects tries to place one (the best by POT)
+ * with a club at about his level where he'd play (SPEC §7.4: minutes for development).
+ */
+function placeLoans(
+  world: MarketWorld,
+  season: number,
+  date: string,
+  snap: MarketSnapshot,
+  rng: Random,
+  log: MarketLog,
+  inCount: Map<number, number>,
+) {
+  const listed = loanList(world, date, snap);
+  const byParent = new Map<number, Player[]>();
+  for (const p of listed)
+    byParent.set(p.cid as number, [...(byParent.get(p.cid as number) ?? []), p]);
+  for (const cid of rng.shuffle([...byParent.keys()].sort((a, b) => a - b))) {
+    if (!rng.bool(AI_MARKET.actChance)) continue;
+    const prospect = [...(byParent.get(cid) ?? [])].sort(
+      (a, b) => b.pot - a.pot || a.pid - b.pid,
+    )[0];
+    if (!prospect || prospect.status !== "club") continue;
+    const home = loanHome(
+      world,
+      prospect,
+      snap,
+      (club) => clubBudgets(world, club).wageRoom,
+      inCount,
+    );
+    if (!home || !moodToward(world, prospect, home.club, date, snap).willing) continue;
+    const done = startLoan(world, {
+      pid: prospect.pid,
+      toCid: home.club.cid,
+      until: loanEnd(season, date, "season"),
+      wageShare: home.wageShare,
       date,
       season,
     });
@@ -348,7 +426,7 @@ export function marketDay(
     log.transactions.push(...done.transactions);
     log.messages.push(...done.messages);
     log.moved = true;
-    refreshSnapshot(world, snap, sellerCid === null ? [club.cid] : [club.cid, sellerCid]);
+    inCount.set(home.club.cid, (inCount.get(home.club.cid) ?? 0) + 1);
+    refreshSnapshot(world, snap, [cid, home.club.cid]);
   }
-  return log;
 }

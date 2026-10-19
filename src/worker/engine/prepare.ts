@@ -4,6 +4,7 @@
  * pre-match sliders for clubs on Auto. M3's rotation AI replaces the selection with
  * condition- and fixture-aware choices.
  */
+import { isSenior } from "../../common/status";
 import type { StyleModifiers } from "../../common/config/competitions";
 import { formationById, formationsConfig } from "../../common/config/formations";
 import type { Position } from "../../common/config/ratings";
@@ -46,7 +47,7 @@ function pickBench(rest: Player[], size: number): Player[] {
 
 /** Matchday squad for a club: best XI in its formation plus up to 9 substitutes. */
 export function teamInput(club: Club, squad: readonly Player[]): EngineTeamInput {
-  const available = squad.filter((p) => p.status === "club" && p.injury === null);
+  const available = squad.filter((p) => isSenior(p) && p.injury === null);
   const formation = formationById(club.tactics.formation);
   const xi = bestXi(available, formation);
   const lineup = xi.playerIndexBySlot.map((i) => (available[i] as Player).pid);

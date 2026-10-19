@@ -3,6 +3,7 @@
  * picking both sides' tactics. A stand-in until rotation, condition and injuries arrive
  * (M3 chunk 4), which replace how the two squads are chosen, not how a fixture is played.
  */
+import { isSenior } from "../../common/status";
 import type { Club, Player } from "../../common/schema";
 import { aiSliders } from "../engine/aiTactics";
 import { simulateMatch } from "../engine/match";
@@ -13,7 +14,7 @@ import type { PlayFixture } from "./season";
 export function fullStrengthPlay(clubs: readonly Club[], players: readonly Player[]): PlayFixture {
   const squads = new Map<number, Player[]>();
   for (const p of players) {
-    if (p.cid !== null && p.status === "club") squads.set(p.cid, [...(squads.get(p.cid) ?? []), p]);
+    if (p.cid !== null && isSenior(p)) squads.set(p.cid, [...(squads.get(p.cid) ?? []), p]);
   }
   const inputs = new Map<number, EngineTeamInput>(
     clubs.map((c) => [c.cid, teamInput(c, squads.get(c.cid) ?? [])]),

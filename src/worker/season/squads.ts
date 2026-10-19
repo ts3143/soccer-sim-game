@@ -15,6 +15,7 @@
  *   nothing to play for), the club's regular starters give way to fringe players.
  * The same AI picks the user's club in simulated matches.
  */
+import { isSenior } from "../../common/status";
 import { addDays, ageOn, exactAge } from "../../common/dates";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
 import { formationById } from "../../common/config/formations";
@@ -141,7 +142,7 @@ export function trainingInjuries(
 ): Injured[] {
   const medical = new Map(clubs.map((club) => [club.cid, effectiveDials(club).medical]));
   const squad = players
-    .filter((p) => p.cid !== null && (p.status === "club" || p.status === "academy"))
+    .filter((p) => p.cid !== null && (isSenior(p) || p.status === "academy"))
     .sort((a, b) => a.pid - b.pid);
   const out: Injured[] = [];
   for (let day = addDays(from, 1); day <= to; day = addDays(day, 1)) {
@@ -258,7 +259,7 @@ export function pickMatchday(
   const s = c.selection;
   const medical = effectiveDials(club).medical;
   const fit = (p: Player) => !isInjured(p, ctx.date);
-  const seniors = squad.filter((p) => p.status === "club" && fit(p));
+  const seniors = squad.filter((p) => isSenior(p) && fit(p));
   let pool = seniors;
   if (seniors.length < config.rosterRules.minSeniorForMatch) {
     const academy = squad
@@ -358,7 +359,7 @@ export function squadPlay(
     byPid.clear();
     for (const p of players) {
       byPid.set(p.pid, p);
-      if (p.cid !== null && (p.status === "club" || p.status === "academy")) {
+      if (p.cid !== null && (isSenior(p) || p.status === "academy")) {
         squads.set(p.cid, [...(squads.get(p.cid) ?? []), p]);
       }
     }
@@ -384,7 +385,7 @@ export function squadPlay(
     let value = strengthCache.get(key);
     if (value === undefined) {
       const best = (squads.get(cid) ?? [])
-        .filter((p) => p.status === "club" && !isInjured(p, date))
+        .filter((p) => isSenior(p) && !isInjured(p, date))
         .map((p) => p.ovr)
         .sort((a, b) => b - a)
         .slice(0, 11);
@@ -427,7 +428,10 @@ export function squadPlay(
     const side = (cid: number) => {
       const club = clubById.get(cid);
       if (!club) throw new Error(`Unknown club ${cid}`);
-      return pickMatchday(club, squads.get(cid) ?? [], context(fixture, cid), config, c);
+      // A loanee can't play against his parent club (SPEC §7.4).
+      const opponent = fixture.homeCid === cid ? fixture.awayCid : fixture.homeCid;
+      const squad = (squads.get(cid) ?? []).filter((p) => p.loan?.parentCid !== opponent);
+      return pickMatchday(club, squad, context(fixture, cid), config, c);
     };
     const home = side(fixture.homeCid);
     const away = side(fixture.awayCid);

@@ -4,7 +4,15 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { GameMeta, Offer, Player } from "../../common/schema";
 import { askingPrice, seniorsOf } from "../market/transfers";
 import { loopWorld, play } from "./game";
-import { bidForPlayer, contractTalks, respondToOffer, signPlayer, userOffers } from "./market";
+import { lendable, rankAt } from "../market/loans";
+import {
+  bidForPlayer,
+  contractTalks,
+  proposeLoan,
+  respondToOffer,
+  signPlayer,
+  userOffers,
+} from "./market";
 import { createLeague, openLeague, type LeagueSession } from "./session";
 
 beforeAll(() => {
@@ -132,6 +140,69 @@ describe("the user's transfers", () => {
       expect((session.cache.get("meta", "game") as GameMeta).date).toBe("2026-08-31");
       await expect(bidForPlayer(session, p.pid, asking)).rejects.toThrow(/window is closed/);
       await expect(signPlayer(session, p.pid, 3)).rejects.toThrow(/window is closed/);
+    },
+  );
+
+  it(
+    "loans players out and in, and gets a half-season loanee back on 1 January",
+    SLOW,
+    async () => {
+      // An ENG2 club: stronger clubs' reserves would play for it, so it can borrow.
+      const USER = 21;
+      const league = await createLeague({ name: "Loans", seed: "market-loans", userCid: USER });
+      const session = await openLeague(league.lid);
+      const world = loopWorld(session, 2026);
+      const mine = seniorsOf(world.players, USER);
+      const clubs = world.clubs.filter((c) => c.cid !== USER);
+      // Out: a squad player to an AI club where he'd start, paying half his wage.
+      const outgoing = mine[14] as Player;
+      const host = clubs.find(
+        (c) =>
+          rankAt(seniorsOf(world.players, c.cid), outgoing) < 11 &&
+          contractTalks(session, outgoing.pid).mood.willing,
+      );
+      const out = await proposeLoan(session, outgoing.pid, host?.cid ?? 1, "half", 0.5);
+      expect(out).toMatchObject({ accepted: true });
+      expect(session.cache.get("players", outgoing.pid)).toMatchObject({
+        status: "loan",
+        cid: host?.cid,
+        loan: { parentCid: USER, until: "2027-01-01", wageShare: 0.5 },
+      });
+      // In: a young player another club would lend, who'd play for the user.
+      const incoming = world.players.find(
+        (p) =>
+          p.cid !== USER &&
+          p.status === "club" &&
+          lendable(world, p, "2026-07-01", undefined, 23) &&
+          rankAt(seniorsOf(world.players, USER), p) < 14,
+      ) as Player;
+      expect(incoming).toBeDefined();
+      const stingy = await proposeLoan(session, incoming.pid, USER, "season", 0);
+      expect(stingy).toMatchObject({ accepted: false });
+      const fair = await proposeLoan(session, incoming.pid, USER, "season", 0.5);
+      if (fair.accepted) {
+        expect(session.cache.get("players", incoming.pid)).toMatchObject({
+          status: "loan",
+          cid: USER,
+        });
+      } else {
+        expect(fair.message).toMatch(/doesn't want|wage room|full squad/);
+      }
+      // A loanee can't be bought, and his contract stays with his parent club.
+      await expect(bidForPlayer(session, outgoing.pid, 1_000_000)).rejects.toThrow(/not at a club/);
+      expect(contractTalks(session, outgoing.pid).kind).toBe("renewal");
+
+      await play(session, "untilEndOfSeason");
+      const back = session.cache.get("players", outgoing.pid);
+      expect(back).toMatchObject({ status: "club", cid: USER, loan: null });
+      expect(back?.transfers.at(-1)).toMatchObject({
+        type: "loan",
+        date: "2027-01-01",
+        toCid: USER,
+      });
+      expect(session.cache.getAll("inbox").some((m) => /back from loan/.test(m.subject))).toBe(
+        true,
+      );
     },
   );
 });

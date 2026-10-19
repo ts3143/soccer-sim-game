@@ -246,7 +246,7 @@ console.log(
   `  ${"per club a season: expired / renewed".padEnd(34)} ${avg("contractsExpired").toFixed(1)} / ${avg("renewals").toFixed(1)}`,
 );
 console.log(
-  `  ${"per club a season: transfers / free agents".padEnd(34)} ${avg("transfers").toFixed(1)} / ${avg("freeAgentSignings").toFixed(1)}`,
+  `  ${"per club a season: transfers / free agents / loans".padEnd(34)} ${avg("transfers").toFixed(1)} / ${avg("freeAgentSignings").toFixed(1)} / ${avg("loans").toFixed(1)}`,
 );
 console.log(`  ${"transfer fees / revenue".padEnd(34)} ${money("feesToRevenue")}`);
 console.log(`  ${"seniors per club (first → last)".padEnd(34)} ${firstLast("seniorsPerClub")}`);

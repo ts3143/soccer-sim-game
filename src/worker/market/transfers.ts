@@ -16,6 +16,7 @@
  *   from 80% of it the club counters with its price; below, it says no), then the player
  *   agrees personal terms (his mood toward the buying club and his wage ask).
  */
+import { contractClub, isSenior, wageShareFor } from "../../common/status";
 import { exactAge } from "../../common/dates";
 import type { Club, ClubSeason, InboxMessage, Player, TransactionRow } from "../../common/schema";
 import { targetPosition } from "../club/board";
@@ -91,7 +92,7 @@ export const euros = (amount: number): string => euroFormat.format(amount);
 /** A club's seniors, best first. */
 export const seniorsOf = (players: readonly Player[], cid: number): Player[] =>
   players
-    .filter((p) => p.cid === cid && p.status === "club")
+    .filter((p) => p.cid === cid && isSenior(p))
     .sort((a, b) => b.ovr - a.ovr || a.pid - b.pid);
 
 /** Annual squad cost: wages plus the year's share of transfer fees (SPEC §6.4). */
@@ -99,9 +100,13 @@ export function squadCost(players: readonly Player[], cid: number) {
   let wages = 0;
   let amortisation = 0;
   for (const p of players) {
-    if (p.cid !== cid || (p.status !== "club" && p.status !== "academy")) continue;
-    wages += p.contract?.wage ?? 0;
-    amortisation += p.feeBalance?.perYear ?? 0;
+    if (p.status === "academy" && p.cid === cid) {
+      wages += p.contract?.wage ?? 0;
+      continue;
+    }
+    // Loanees: the wage split by the loan's share; fees stay with the parent club.
+    wages += (p.contract?.wage ?? 0) * wageShareFor(p, cid);
+    if (contractClub(p) === cid) amortisation += p.feeBalance?.perYear ?? 0;
   }
   return { wages, amortisation, total: wages + amortisation };
 }
@@ -290,7 +295,7 @@ export function moodToward(
 }
 
 /** Lowest shirt number free at the club (1 is kept for goalkeepers). */
-function freeShirtNumber(players: readonly Player[], cid: number, gk: boolean): number {
+export function freeShirtNumber(players: readonly Player[], cid: number, gk: boolean): number {
   const taken = new Set(players.filter((p) => p.cid === cid).map((p) => p.shirtNumber));
   for (let n = gk ? 1 : 2; n < 100; n++) if (!taken.has(n)) return n;
   return 99;

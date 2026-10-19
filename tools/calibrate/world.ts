@@ -314,6 +314,7 @@ export function simulateWorld(
       renewals: (count("renewal") + count("renewal", days.transactions)) / clubs.length,
       transfers: count("transfer", days.transactions) / clubs.length,
       freeAgentSignings: count("freeAgent", days.transactions) / clubs.length,
+      loans: count("loan", days.transactions) / clubs.length,
       feesToRevenue:
         days.transactions.filter((t) => t.type === "transfer").reduce((a, t) => a + t.fee, 0) /
         Math.max(
@@ -328,9 +329,16 @@ export function simulateWorld(
     const changes = [...start].flatMap(([pid, before]) => {
       const p = players.find((x) => x.pid === pid);
       if (!p || p.status === "retired") return [];
-      const club = before.cid === null ? undefined : minutes.get(before.cid);
-      const played =
-        before.cid === null ? 0 : (club?.get(pid) ?? 0) / (available.get(before.cid) ?? 1);
+      // His minutes wherever he played (loans and transfers), against the club he played
+      // most for.
+      let total = 0;
+      let main: number | null = null;
+      for (const [cid, club] of minutes) {
+        const m = club.get(pid) ?? 0;
+        total += m;
+        if (m > 0 && (main === null || m > (minutes.get(main)?.get(pid) ?? 0))) main = cid;
+      }
+      const played = main === null ? 0 : total / (available.get(main) ?? 1);
       return [{ age: before.age, delta: p.ovr - before.ovr, share: played }];
     });
     const young = changes.filter((c) => c.age >= 18 && c.age < 22);

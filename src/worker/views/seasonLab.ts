@@ -2,6 +2,7 @@
  * M3 Season lab (developer-only; the game screens replace it in M5): everything the page
  * shows about the current season, read from the open league's cache.
  */
+import { isSenior } from "../../common/status";
 import type {
   SeasonLabKnockout,
   SeasonLabMatch,
@@ -135,9 +136,7 @@ export async function getSeasonLab(lid: number): Promise<SeasonLabView> {
       ]),
     );
 
-  const injured = players.filter(
-    (p) => p.cid !== null && p.status === "club" && isInjured(p, game.date),
-  );
+  const injured = players.filter((p) => p.cid !== null && isSenior(p) && isInjured(p, game.date));
   const byClub = new Map<number, number>();
   for (const p of injured) byClub.set(p.cid as number, (byClub.get(p.cid as number) ?? 0) + 1);
 

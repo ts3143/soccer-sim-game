@@ -189,8 +189,14 @@ export function settleMonths(
   if (ends.length === 0) return;
   const wageBill = new Map<number, number>();
   for (const p of world.players) {
-    if (p.cid !== null && p.contract && (p.status === "club" || p.status === "loan")) {
+    if (p.cid !== null && p.contract && p.status === "club") {
       wageBill.set(p.cid, (wageBill.get(p.cid) ?? 0) + p.contract.wage);
+    } else if (p.contract && p.status === "loan" && p.loan && p.cid !== null) {
+      // A loanee's wage is split between the loan club and his parent club (SPEC §7.4).
+      const loanPart = p.contract.wage * p.loan.wageShare;
+      wageBill.set(p.cid, (wageBill.get(p.cid) ?? 0) + loanPart);
+      const parent = p.loan.parentCid;
+      wageBill.set(parent, (wageBill.get(parent) ?? 0) + p.contract.wage - loanPart);
     }
   }
   for (const end of ends) {

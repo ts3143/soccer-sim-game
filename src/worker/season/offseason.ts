@@ -11,6 +11,7 @@
  * the save (src/worker/league/game.ts) and the headless tools run exactly the same code.
  * Each decision draws from its own seeded stream, e.g. `${seed}/dev/${date}/${pid}`.
  */
+import { isSenior } from "../../common/status";
 import { addDays, exactAge } from "../../common/dates";
 import { clubDefinitions } from "../../common/config/clubs";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
@@ -33,6 +34,7 @@ import { roundWage, WAGE_STEEPNESS, wageAgeFactor } from "../generate/contracts"
 import { generateAcademyPlayer } from "../generate/youth";
 import { FREE_AGENT_CONTEXT } from "../generate/world";
 import { playoffId, type SeasonOutcome, type SeasonState } from "./season";
+import { returnLoans } from "../market/loans";
 import { aiRenewals, expireContracts } from "../market/renewals";
 import { resetForPreseason } from "./squads";
 import { effectiveDials } from "../club/standing";
@@ -153,7 +155,7 @@ function clubContexts(world: LoopWorld): Map<number, ClubContext> {
   const out = new Map<number, ClubContext>();
   for (const club of world.clubs) {
     const own = world.players.filter((p) => p.cid === club.cid);
-    const seniors = own.filter((p) => p.status === "club");
+    const seniors = own.filter(isSenior);
     const academy = own.filter((p) => p.status === "academy");
     const pool = seniors.length >= 11 ? seniors : [...seniors, ...academy];
     const xi = pool.length >= 11 ? bestXi(pool, formationById(club.tactics.formation)).meanOvr : 50;
@@ -550,12 +552,13 @@ export function promoteToSquadSize(world: LoopWorld, season: number, date: strin
 }
 
 /**
- * Every preseason step in order: expiring contracts, free agents moving on, youth intake,
+ * Every preseason step in order: loans returning, expiring contracts, free agents moving on, youth intake,
  * academy decisions, the AI's summer renewals, then AI academy promotions up to squad size.
  */
 export function preseasonTurnover(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
   const steps: ((w: LoopWorld, s: number, d: string) => Partial<TurnoverLog>)[] = [
+    (w, s, d) => returnLoans(w, d, s),
     expireContracts,
     freeAgentDepartures,
     youthIntake,

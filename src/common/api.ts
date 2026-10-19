@@ -351,6 +351,12 @@ export interface BidReply {
   talks: ContractTalks;
 }
 
+/** An AI club's answer to a loan the user proposed. */
+export interface LoanReply {
+  accepted: boolean;
+  message: string;
+}
+
 /** A bid by or for the user's club this season. */
 export interface OfferView {
   oid: number;
@@ -390,6 +396,14 @@ export interface WorkerApi {
   signPlayer(lid: number, pid: number, years: number): ContractTalks;
   getOffers(lid: number): OfferView[];
   respondToOffer(lid: number, oid: number, accept: boolean): OfferView[];
+  /** Loan a player out (to `cid`) or in (`cid` = your club); `wageShare`: the loan club's. */
+  proposeLoan(
+    lid: number,
+    pid: number,
+    cid: number,
+    length: "half" | "season",
+    wageShare: number,
+  ): LoanReply;
 }
 
 export interface UiEvents {

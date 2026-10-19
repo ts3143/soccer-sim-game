@@ -7,8 +7,9 @@
  * personal terms with the player (signPlayer). A free agent needs only the second step.
  */
 import { exactAge } from "../../common/dates";
-import type { BidReply, ContractTalks, OfferView } from "../../common/api";
+import type { BidReply, ContractTalks, LoanReply, OfferView } from "../../common/api";
 import type { GameMeta, IdCounters, Offer, Player } from "../../common/schema";
+import { contractClub } from "../../common/status";
 import {
   contractAsks,
   contractEnd,
@@ -17,6 +18,15 @@ import {
   signContract,
   yearsLeft,
 } from "../market/market";
+import {
+  LOANS,
+  type LoanLength,
+  lendable,
+  loanEnd,
+  loansIn,
+  rankAt,
+  startLoan,
+} from "../market/loans";
 import { clubRevenue, moodAtClub } from "../market/renewals";
 import {
   askingPrice,
@@ -76,13 +86,14 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
   const game = meta<GameMeta>(session, "game");
   const world = loopWorld(session, game.season);
   const p = session.cache.get("players", pid);
-  if (!p || (p.status !== "club" && p.status !== "freeAgent")) {
+  if (!p || (p.status !== "club" && p.status !== "freeAgent" && p.status !== "loan")) {
     throw new Error(`Player ${pid} is not at a club or a free agent`);
   }
   const user = world.clubs.find((c) => c.cid === game.userCid);
   const club = world.clubs.find((c) => c.cid === p.cid);
   if (!user) throw new Error("The save has no user club");
-  const kind = p.status === "freeAgent" ? "freeAgent" : p.cid === user.cid ? "renewal" : "transfer";
+  const kind =
+    p.status === "freeAgent" ? "freeAgent" : contractClub(p) === user.cid ? "renewal" : "transfer";
   const mood =
     kind === "renewal" ? moodAtClub(world, p, game.date) : moodToward(world, p, user, game.date);
   const left = yearsLeft(p, game.date);
@@ -345,4 +356,81 @@ export function userOffers(session: LeagueSession): OfferView[] {
         incoming: o.toCid === game.userCid,
       };
     });
+}
+
+/**
+ * Proposes a loan (SPEC §7.4): one of the user's players to an AI club (`cid`), or an AI
+ * club's player to the user's club (`cid` = his club). `wageShare` is the loan club's
+ * share of the wage (0, 0.5 or 1). An AI club borrows a player who'd rank in its best 14,
+ * paying at most half his wage (all of it for one who'd start); it lends a young player
+ * (23 or under) outside its best 16 who'd play for the user, for at least half.
+ */
+export function proposeLoan(
+  session: LeagueSession,
+  pid: number,
+  cid: number,
+  length: LoanLength,
+  wageShare: number,
+): Promise<LoanReply> {
+  return queued(session, async () => {
+    const { game } = marketOpen(session);
+    if (![0, 0.5, 1].includes(wageShare)) throw new Error("The wage share is 0, 50 or 100%");
+    const world = loopWorld(session, game.season);
+    const p = world.players.find((x) => x.pid === pid);
+    const to = world.clubs.find((c) => c.cid === cid);
+    if (!p || !to || p.status !== "club" || p.cid === null) {
+      throw new Error(`Player ${pid} can't go on loan now`);
+    }
+    if (p.cid === cid) throw new Error("He is already at that club");
+    const out = p.cid === game.userCid;
+    if (!out && cid !== game.userCid) throw new Error("You can only loan players in or out");
+    const name = fullName(p);
+    const refuse = (message: string): LoanReply => ({ accepted: false, message });
+    const squad = seniorsOf(world.players, cid);
+    const wage = (p.contract?.wage ?? 0) * wageShare;
+    const budgets = clubBudgets(world, to);
+    const rank = rankAt(squad, p);
+    let reply: LoanReply | null = null;
+    if (squad.length >= TRANSFERS.maxSeniors) reply = refuse(`${to.name} have a full squad`);
+    else if (loansIn(world.players, cid) >= LOANS.maxIn)
+      reply = refuse(`${to.name} already have ${LOANS.maxIn} loanees`);
+    else if (wage > budgets.wageRoom) reply = refuse(`The wage is over ${to.name}'s wage room`);
+    else if (!moodToward(world, p, to, game.date).willing)
+      reply = refuse(`${name} doesn't want to join ${to.name}`);
+    else if (out) {
+      if (rank >= LOANS.playsIfRankBelow) reply = refuse(`${to.name} don't see him playing`);
+      else if (wageShare > 0.5 && rank >= 11)
+        reply = refuse(`${to.name} would pay half his wage at most`);
+    } else {
+      const parent = world.clubs.find((c) => c.cid === p.cid);
+      if (!lendable(world, p, game.date, undefined, LOANS.userMaxAge))
+        reply = refuse(`${parent?.name ?? "His club"} won't lend him`);
+      else if (rank >= LOANS.playsIfRankBelow)
+        reply = refuse(
+          `${parent?.name ?? "His club"} want him to play: he'd be a reserve with you`,
+        );
+      else if (wageShare < 0.5)
+        reply = refuse(`${parent?.name ?? "His club"} want at least half his wage paid`);
+    }
+    if (reply) return reply;
+    const until = loanEnd(game.season, game.date, length);
+    const log = startLoan(world, {
+      pid,
+      toCid: cid,
+      until,
+      wageShare,
+      date: game.date,
+      season: game.season,
+    });
+    for (const x of world.players) if (log.changed.has(x.pid)) session.cache.put("players", x);
+    saveTransactions(session, log.transactions);
+    saveMessages(session, log.messages);
+    for (const o of session.cache.getAll("offers")) {
+      if (o.pid === pid && (o.status === "open" || o.status === "accepted")) {
+        session.cache.put("offers", { ...o, status: "expired" });
+      }
+    }
+    await session.cache.flush();
+    return { accepted: true, message: `${name} joins ${to.name} on loan until ${until}.` };
+  });
 }

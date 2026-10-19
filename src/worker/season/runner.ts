@@ -16,6 +16,7 @@ import type { MatchResult } from "../../common/match";
 import { addDays } from "../../common/dates";
 import type { ClubSeason, Fixture, InboxMessage, TransactionRow } from "../../common/schema";
 import { marketDay, marketDays, type NewOffer } from "../market/aiMarket";
+import { returnLoans } from "../market/loans";
 import { aiRenewals, contractWarning } from "../market/renewals";
 import { seasonDate } from "../schedule/calendar";
 import { developmentUpdate, type LoopWorld } from "./offseason";
@@ -202,6 +203,13 @@ export function runDays(
         const reminder = contractWarning(world, state.season, day, true);
         if (reminder) out.messages.push(reminder);
       }
+    }
+    // Half-season loans end on 1 January, after that day's development update.
+    if (world.players.some((p) => p.status === "loan" && p.loan && p.loan.until <= day)) {
+      const back = returnLoans(world, day, state.season);
+      for (const pid of back.changed) out.changed.add(pid);
+      out.messages.push(...back.messages);
+      squads.regroup();
     }
     for (const marketDate of market.filter((m) => m.date === day)) {
       // The AI's transfers and free-agent signings, and its bids for the user's players.

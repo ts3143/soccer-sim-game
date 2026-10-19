@@ -7,6 +7,7 @@
  * - The user's inbox: a list of his players in their final six months when the winter
  *   window opens, a reminder the day before deadline day, and who left on 1 July.
  */
+import { contractClub } from "../../common/status";
 import { exactAge } from "../../common/dates";
 import type { Club, ClubSeason, InboxMessage, Player, TransactionRow } from "../../common/schema";
 import { clubStrength } from "../club/standing";
@@ -76,7 +77,7 @@ export function moodAtClub(
   date: string,
   levels: ReturnType<typeof clubLevels> = clubLevels(world, date),
 ): Mood | null {
-  const club = world.clubs.find((c) => c.cid === p.cid);
+  const club = world.clubs.find((c) => c.cid === contractClub(p));
   const season = club ? world.clubSeasons.get(club.cid) : undefined;
   if (!club || !season) return null;
   const games = season.won + season.drawn + season.lost;
@@ -150,7 +151,7 @@ export function aiRenewals(
   for (const club of world.clubs) {
     if (club.cid === world.userCid) continue;
     const squad = world.players
-      .filter((p) => p.cid === club.cid && p.status === "club")
+      .filter((p) => contractClub(p) === club.cid)
       .sort((a, b) => b.ovr - a.ovr || a.pid - b.pid);
     const rank = new Map(squad.map((p, i) => [p.pid, i]));
     const xi =
@@ -199,9 +200,7 @@ export function aiRenewals(
 
 /** The user's players whose contracts end this 30 June. */
 export const expiringForUser = (world: ContractWorld, date: string): Player[] =>
-  world.players.filter(
-    (p) => p.cid === world.userCid && p.status === "club" && yearsLeft(p, date) === 1,
-  );
+  world.players.filter((p) => contractClub(p) === world.userCid && yearsLeft(p, date) === 1);
 
 /** Inbox: the January list of final-year players, or the reminder before deadline day. */
 export function contractWarning(

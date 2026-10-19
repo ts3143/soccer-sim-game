@@ -14,6 +14,7 @@
  * - AI dials, each preseason: rich clubs spend more, clubs short of cash less. The user's
  *   club keeps the dials the user set.
  */
+import { isSenior } from "../../common/status";
 import { clubDefinitions } from "../../common/config/clubs";
 import type { CompetitionsConfig } from "../../common/config/competitions";
 import { competitionsConfig } from "../../common/config/competitions";
@@ -45,7 +46,7 @@ const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x
 /** Mean OVR of a club's 11 best fit seniors on `date`. */
 export function clubStrength(players: readonly Player[], cid: number, date: string): number {
   const best = players
-    .filter((p) => p.cid === cid && p.status === "club" && !isInjured(p, date))
+    .filter((p) => p.cid === cid && isSenior(p) && !isInjured(p, date))
     .map((p) => p.ovr)
     .sort((a, b) => b - a)
     .slice(0, 11);

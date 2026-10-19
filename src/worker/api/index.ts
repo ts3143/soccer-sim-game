@@ -5,6 +5,7 @@ import { acceptJobOffer, gameState, play } from "../league/game";
 import {
   bidForPlayer,
   contractTalks,
+  proposeLoan,
   renewContract,
   respondToOffer,
   signPlayer,
@@ -96,6 +97,10 @@ export function createHandlers(
 
     async getOffers(lid) {
       return userOffers(await openLeague(lid));
+    },
+
+    async proposeLoan(lid, pid, cid, length, wageShare) {
+      return proposeLoan(await openLeague(lid), pid, cid, length, wageShare);
     },
 
     async respondToOffer(lid, oid, accept) {

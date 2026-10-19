@@ -3,6 +3,7 @@
  * in M5). Everything is computed from the saved league, so the page also proves the
  * save reproduces each club's strength.
  */
+import { isSenior } from "../../common/status";
 import type {
   ClubChoice,
   ClubOverviewRow,
@@ -33,7 +34,7 @@ export function getClubChoices(): ClubChoice[] {
 }
 
 const seniorsOf = (players: Player[], cid: number) =>
-  players.filter((p) => p.cid === cid && p.status === "club");
+  players.filter((p) => p.cid === cid && isSenior(p));
 
 function clubXi(club: Club, players: Player[]): { seniors: Player[]; xi: XiPick } {
   const seniors = seniorsOf(players, club.cid);
@@ -72,7 +73,7 @@ export async function getLeagueOverview(lid: number): Promise<LeagueOverview> {
     };
   });
 
-  const seniors = players.filter((p) => p.status === "club");
+  const seniors = players.filter(isSenior);
   const counts = new Map<number, number>();
   for (const p of seniors) counts.set(p.ovr, (counts.get(p.ovr) ?? 0) + 1);
   const bands = ratingsConfig.ovrBands.map((band, i) => {
