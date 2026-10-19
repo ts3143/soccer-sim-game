@@ -7,7 +7,9 @@ import { Inspector } from "./inspector/Inspector";
 import { BoxScorePage } from "./pages/BoxScorePage";
 import { Cups } from "./pages/Cups";
 import { Dashboard } from "./pages/Dashboard";
+import { Finances } from "./pages/Finances";
 import { GameLog } from "./pages/GameLog";
+import { History } from "./pages/History";
 import { Home } from "./pages/Home";
 import { Inbox } from "./pages/Inbox";
 import { Injuries } from "./pages/Injuries";
@@ -17,10 +19,13 @@ import { Placeholder } from "./pages/Placeholder";
 import { Player } from "./pages/Player";
 import { PlayerRatings } from "./pages/PlayerRatings";
 import { PlayerStats } from "./pages/PlayerStats";
+import { PowerRankings } from "./pages/PowerRankings";
 import { Schedule } from "./pages/Schedule";
 import { Squad } from "./pages/Squad";
 import { Standings } from "./pages/Standings";
+import { TeamHistory } from "./pages/TeamHistory";
 import { TeamStats } from "./pages/TeamStats";
+import { Transactions } from "./pages/Transactions";
 import { Link, parseRoute, usePath } from "./router";
 import { Shell } from "./shell/Shell";
 import { connectWorker, type Connection } from "./workerClient";
@@ -114,6 +119,16 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <TeamStats params={params} />;
     case "injuries":
       return <Injuries />;
+    case "history":
+      return <History />;
+    case "team-history":
+      return <TeamHistory params={params} />;
+    case "transactions":
+      return <Transactions params={params} />;
+    case "power-rankings":
+      return <PowerRankings />;
+    case "finances":
+      return <Finances params={params} />;
     default:
       return <Placeholder page={page} params={params} />;
   }

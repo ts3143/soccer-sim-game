@@ -18,6 +18,13 @@ import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../v
 import { getClubLab, searchPlayers } from "../views/clubLab";
 import { getCups, getSchedule, getStandings } from "../views/competitions";
 import { getDashboard, markAllInboxRead } from "../views/dashboard";
+import {
+  getFinances,
+  getHistory,
+  getPowerRankings,
+  getTeamHistory,
+  getTransactions,
+} from "../views/history";
 import { getBoxScore, getGameLog } from "../views/matches";
 import { getPlayer, getTeamSquad } from "../views/players";
 import {
@@ -104,6 +111,26 @@ export function createHandlers(
 
     async getInjuries(lid) {
       return getInjuries(lid);
+    },
+
+    async getHistory(lid) {
+      return getHistory(lid);
+    },
+
+    async getTeamHistory(lid, cid) {
+      return getTeamHistory(lid, cid);
+    },
+
+    async getTransactions(lid, season) {
+      return getTransactions(lid, season);
+    },
+
+    async getPowerRankings(lid) {
+      return getPowerRankings(lid);
+    },
+
+    async getFinances(lid, season) {
+      return getFinances(lid, season);
     },
 
     async getStandings(lid, leagueId, season) {

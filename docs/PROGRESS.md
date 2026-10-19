@@ -968,5 +968,32 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Tests:** a stats test over a month of matches (leaders sorted, 22 ratings each, competition filtering, team stats with xG and possession averaging 50%, injuries sorted); 233 tests in all.
 - **Browser checks:** 12 more in `check-m5` (leader categories and league tabs, ratings paging, position filter, 22 rating columns, name search, player stats, per 90 with its minimum, the competition dropdown, team stats, injuries order). All pass.
 
+**Chunk 7: History, Team History, Transactions, Power Rankings, Finances** (`src/worker/views/history.ts`)
+- **History** (`/l/:lid/history`): one card per finished season, newest first.
+  - Each league's champions, promoted clubs (with the play-off winner), relegated clubs, Player of the Year and Golden Boot (with his goals).
+  - The cup winners.
+  - Everything comes from the award rows, so it stays right after players retire or clubs move league. Before the first season ends, the page says when it starts.
+- **Team History** (`/l/:lid/team-history/:cid`, any club):
+  - a row per season, newest first: league, finish, record, goals, points, top league scorer and honours. This season shows "now".
+  - Above the table, a tally of trophies, promotions and play-off wins, with the seasons on hover. Relegations show in the season rows only.
+- **Transactions** (`/l/:lid/transactions/:season`):
+  - every move of the season in plain words: transfers with fees, loans, free signings, renewals, releases, contracts ending, academy promotions and retirements;
+  - newest first, with filters by type and club, a search box and the season dropdown. Your club's rows are highlighted.
+  - The Club lab's transfer log at `/dev` uses the same wording now.
+- **Power Rankings** (`/l/:lid/power-rankings`):
+  - the score is the strength of the best XI available today, plus 3 for each goal of league goal difference per game (capped at ±2);
+  - also shown: full strength (nobody injured), form, goal difference per game and league position;
+  - it opens on your league, and "All leagues" ranks all 62 clubs.
+- **Finances** (`/l/:lid/finances/:season`), all clubs:
+  - revenue (player sales included), expenses, profit, cash, squad cost as a share of revenue (red above the 70% FFP limit) and reputation, with a league filter.
+  - **This season:** cash today, the wage bill at today's contracts, squad cost projected on this season's budget, and each club's FFP status (ok, warned, banned).
+  - **Past seasons:** cash at the season's end and the squad cost the 30 June check measured.
+- **Tests:** a full-season test of all five views, live and after the season (234 tests in all).
+- **Browser checks:** `check-m5` adds 17 checks.
+  - Before the season ends: the empty History, the current Team History row, transactions with fees, the type and club filters, rankings in order for one league and all 62 clubs, the finances table with FFP badges and its league filter.
+  - Then it plays the season out with the Play menu and checks: the History card (champions, promotions, play-offs, relegations, awards, cups), the champion's link, the finished season in Team History, last season's transactions (retirements included) and last season's books.
+  - All pass, as do the M4 checks (their transfer-log count now reads the new wording).
+- **Judgment call:** ZenGM's power rankings blend team rating with margin of victory, so this score does the same: strength plus goal difference per game. It is weighted so that a goal a game is worth about 3 points of XI strength.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

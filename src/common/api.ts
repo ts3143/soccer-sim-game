@@ -495,6 +495,96 @@ export interface InjuriesView {
   }[];
 }
 
+/** League History (SPEC §10.5): each finished season's honours, newest first. */
+export interface HistoryView {
+  seasons: {
+    season: number;
+    leagues: {
+      id: string;
+      name: string;
+      champion: TeamRef | null;
+      promoted: TeamRef[];
+      playoffWinner: TeamRef | null;
+      relegated: TeamRef[];
+      playerOfTheYear: { pid: number | null; name: string; club: TeamRef | null } | null;
+      goldenBoot: {
+        pid: number | null;
+        name: string;
+        club: TeamRef | null;
+        goals: number | null;
+      } | null;
+    }[];
+    cups: { id: string; name: string; winner: TeamRef | null }[];
+  }[];
+}
+
+/** A club's history: every season's league finish and honours. */
+export interface TeamHistoryView {
+  team: TeamRef;
+  seasons: {
+    season: number;
+    leagueId: string;
+    leagueName: string;
+    finish: number | null;
+    played: number;
+    won: number;
+    drawn: number;
+    lost: number;
+    points: number;
+    goalsFor: number;
+    goalsAgainst: number;
+    honours: string[];
+    topScorer: { pid: number; name: string; goals: number } | null;
+    current: boolean;
+  }[];
+  /** Trophies and promotions, counted. */
+  honours: { label: string; seasons: number[] }[];
+}
+
+/** Transactions: a season's log (transfers, loans, signings, renewals, releases, promotions, retirements). */
+export interface TransactionsView {
+  season: number;
+  rows: { xid: number; date: string; type: string; text: string; fee: number; cids: number[] }[];
+}
+
+/** Power Rankings: clubs by current strength and form. */
+export interface PowerRankingsView {
+  rows: {
+    team: TeamRef;
+    leagueId: string;
+    /** Best fit XI now (injuries count) and at full strength. */
+    strength: number;
+    fullStrength: number;
+    form: FormResult[];
+    /** League goal difference per game this season. */
+    goalDifferencePerGame: number;
+    position: number | null;
+    /** strength + 3 × goal difference per game (capped at ±2). */
+    score: number;
+  }[];
+}
+
+/** Finances overview of every club (SPEC §11): the current season, or a finished one. */
+export interface FinancesView {
+  season: number;
+  current: boolean;
+  rows: {
+    team: TeamRef;
+    leagueId: string;
+    revenue: number;
+    expenses: number;
+    profit: number;
+    /** Now (current season) or at the season's end. */
+    cash: number;
+    /** A year (current season only). */
+    wages: number | null;
+    /** Squad cost over revenue: projected now, or the season's FFP ratio. */
+    squadCostRatio: number | null;
+    ffp: "ok" | "warned" | "banned" | null;
+    reputation: number;
+  }[];
+}
+
 /** Win, draw or loss, for form guides. */
 export type FormResult = "W" | "D" | "L";
 
@@ -867,6 +957,11 @@ export interface WorkerApi {
   getPlayerStats(lid: number, season: number | null, competition: string | null): PlayerStatsView;
   getTeamStats(lid: number, leagueId: string | null, season: number | null): TeamStatsView;
   getInjuries(lid: number): InjuriesView;
+  getHistory(lid: number): HistoryView;
+  getTeamHistory(lid: number, cid: number): TeamHistoryView;
+  getTransactions(lid: number, season: number | null): TransactionsView;
+  getPowerRankings(lid: number): PowerRankingsView;
+  getFinances(lid: number, season: number | null): FinancesView;
   getStandings(lid: number, leagueId: string | null, season: number | null): StandingsView;
   getCups(lid: number, competition: string | null, season: number | null): CupView;
   /** `week`: the Monday of the week to show (null: the current week). */

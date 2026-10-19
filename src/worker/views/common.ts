@@ -4,7 +4,7 @@
  */
 import type { FormResult, MatchView, TableRowView, TableZone, TeamRef } from "../../common/api";
 import { competitionsConfig } from "../../common/config/competitions";
-import type { Club, Fixture, GameMeta, SeasonMeta } from "../../common/schema";
+import type { Club, Fixture, GameMeta, SeasonMeta, TransactionRow } from "../../common/schema";
 import type { StoreValue } from "idb";
 import type { LeagueDBSchema } from "../db/schema";
 import type { LeagueSession } from "../league/session";
@@ -134,4 +134,29 @@ export async function seasonRows<S extends SeasonStore>(
     getAllFromIndex(store: string, index: string, key: number): Promise<unknown[]>;
   };
   return (await db.getAllFromIndex(store, "season", season)) as StoreValue<LeagueDBSchema, S>[];
+}
+
+/** A transaction as one line, from its name snapshots (they read after players are pruned). */
+export function describeTransaction(t: Pick<TransactionRow, "type" | "names">): string {
+  const [player = "?", a = "", b = ""] = t.names;
+  switch (t.type) {
+    case "transfer":
+      return `${player} moves from ${a} to ${b}`;
+    case "freeAgent":
+      return `${player} signs for ${t.names.at(-1) ?? ""} on a free`;
+    case "loan":
+      return `${player} joins ${b} on loan from ${a}`;
+    case "renewal":
+      return `${player} renews at ${a}`;
+    case "release":
+      return / \(contract ended\)$/.test(a)
+        ? `${player} leaves ${a.replace(/ \(contract ended\)$/, "")} at the end of his contract`
+        : `${player} released by ${a}`;
+    case "academyPromotion":
+      return `${player} promoted from ${a}'s academy`;
+    case "retirement":
+      return `${player} retires`;
+    default:
+      return t.names.join(", ");
+  }
 }

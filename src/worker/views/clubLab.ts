@@ -11,7 +11,7 @@ import type {
   PlayerSearchRow,
 } from "../../common/api";
 import { daysBetween, exactAge } from "../../common/dates";
-import type { GameMeta, Player, TransactionRow } from "../../common/schema";
+import type { GameMeta, Player } from "../../common/schema";
 import { contractClub, isSenior } from "../../common/status";
 import { operatingRevenue, totalOf } from "../finance/finance";
 import { FFP, transferBanned } from "../finance/ffp";
@@ -22,26 +22,11 @@ import { loansIn, loansOut } from "../market/loans";
 import { marketValue, yearsLeft } from "../market/market";
 import { moodAtClub } from "../market/renewals";
 import { clubBudgets, marketSnapshot, squadCost } from "../market/transfers";
+import { describeTransaction } from "./common";
 
 const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
 
 const TRANSFER_TYPES = new Set(["transfer", "freeAgent", "loan", "renewal", "release"]);
-
-function describe(t: TransactionRow): string {
-  const [player, from, to] = t.names;
-  switch (t.type) {
-    case "transfer":
-      return `${player}: ${from} → ${to}`;
-    case "freeAgent":
-      return `${player} signs for ${to ?? from} on a free`;
-    case "loan":
-      return `${player}: loan ${from} → ${to}`;
-    case "renewal":
-      return `${player} renews at ${from}`;
-    default:
-      return `${player} released by ${from}`;
-  }
-}
 
 export async function getClubLab(lid: number): Promise<ClubLabView> {
   const session = await openLeague(lid);
@@ -153,7 +138,7 @@ export async function getClubLab(lid: number): Promise<ClubLabView> {
       .filter((t) => t.season === game.season && TRANSFER_TYPES.has(t.type))
       .sort((a, b) => b.xid - a.xid)
       .slice(0, 80)
-      .map((t) => ({ date: t.date, type: t.type, text: describe(t), fee: t.fee })),
+      .map((t) => ({ date: t.date, type: t.type, text: describeTransaction(t), fee: t.fee })),
     inbox: cache
       .getAll("inbox")
       .sort((a, b) => b.mid - a.mid)
