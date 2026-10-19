@@ -383,6 +383,18 @@ const bySeason = (key: string) =>
     return xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
   });
 info(
+  "ENG1 champion points by season",
+  bySeason("championPointsENG1")
+    .map((x) => x.toFixed(0))
+    .join(" "),
+);
+info(
+  "top six losing to bottom six by season",
+  bySeason("top6LoseToBottom6Pct")
+    .map((x) => (x * 100).toFixed(0))
+    .join(" "),
+);
+info(
   "median squad cost by season",
   bySeason("medianSquadCostRatio")
     .map((x) => (x * 100).toFixed(0))

@@ -45,13 +45,17 @@ export interface PotentialInput {
 }
 
 /**
- * Expected share of minutes for a player of `ovr` at a club whose XI averages `xi`. Fitted
- * in M3 to the minutes the rotation AI actually gives (one season, all seniors): players
- * 10 points below the XI play ~5%, at XI level ~75%, the best ~85%.
+ * Expected minutes: a logistic in his gap to the club's XI level, from `floor` (far below)
+ * to `cap`. Refitted in M4 to the minutes seniors actually get over the following season
+ * (rotation, injuries, loans and moves included): 10 below the XI ~25%, 6 below ~45%, at XI
+ * level ~75%, the best ~83%. (M3's fit, without loans and transfers: 0.85 / (1 + e^−(d+4.4)/2.1).)
  */
+export const MINUTES_FIT = { floor: 0.07, cap: 0.83, mid: -6.3, width: 3 };
+
+/** Expected share of minutes for a player of `ovr` at a club whose XI averages `xi`. */
 export function expectedMinutesShare(ovr: number, xi: number): number {
-  const d = ovr - xi;
-  return 0.85 / (1 + Math.exp(-(d + 4.4) / 2.1));
+  const f = MINUTES_FIT;
+  return f.floor + (f.cap - f.floor) / (1 + Math.exp(-(ovr - xi - f.mid) / f.width));
 }
 
 export function estimatePotential(input: PotentialInput, rng: Random, arcs = POT_ARCS): number {

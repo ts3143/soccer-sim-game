@@ -7,7 +7,7 @@ import { ratingsConfig, type Position, type Side } from "../../common/config/rat
 import type { Player } from "../../common/schema";
 import type { Random } from "../core/random";
 import { sampleYouthNationality } from "./identity";
-import { generatePlayer } from "./player";
+import { capCeiling, generatePlayer } from "./player";
 
 export const ACADEMY_POSITIONS: [Position, number][] = [
   ["GK", 10], ["CB", 18], ["FB", 12], ["WB", 4], ["DM", 8],
@@ -33,7 +33,7 @@ export const YOUTH_QUALITY = {
    * expected level for his club and age. The best youngsters, who earn minutes first, are
    * also the ones with most room to grow.
    */
-  talentHeadroom: 8,
+  talentHeadroom: 2,
 };
 
 export interface AcademyClub {
@@ -84,8 +84,10 @@ export function generateAcademyPlayer(
     seasonStart,
   );
   if (q.talentHeadroom !== 0) {
-    const ceiling = player.hidden.ceiling + talent * q.talentHeadroom;
-    player.hidden.ceiling = Math.min(98, Math.max(player.ovr, Math.round(ceiling)));
+    player.hidden.ceiling = capCeiling(
+      player.hidden.ceiling + talent * q.talentHeadroom,
+      player.ovr,
+    );
   }
   return player;
 }

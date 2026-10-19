@@ -155,7 +155,24 @@ export const TRAIT_RATES = { injuryProne: 0.1, hothead: 0.08, moodTraitCounts: [
  * every generated player (opening squads, free agents, youth intake); tuned in M3 with
  * development speed so the world's quality stays stable over decades.
  */
-export const CEILING_HEADROOM = { perYear: 1.1, sdShare: 0.2, sdBase: 1.5 };
+export const CEILING_HEADROOM = {
+  /** 1.1 until M4: young players hit their ceilings by ~21 and peaked too early. */
+  perYear: 2,
+  sdShare: 0.2,
+  sdBase: 1.5,
+  /**
+   * Soft cap (M4 tuning): a ceiling above `from` keeps only `keep` of the excess, so room
+   * to grow for ordinary prospects doesn't flood the world with stars.
+   */
+  softCap: { from: 72, keep: 0.5 },
+};
+
+/** A ceiling after the soft cap, never below current OVR, at most 98. */
+export function capCeiling(raw: number, ovr: number): number {
+  const c = CEILING_HEADROOM.softCap;
+  const capped = raw > c.from ? c.from + (raw - c.from) * c.keep : raw;
+  return Math.min(98, Math.max(ovr, Math.round(capped)));
+}
 
 export function ceilingHeadroom(rng: Random, age: number): number {
   const h = CEILING_HEADROOM;
@@ -186,7 +203,7 @@ export function generatePlayer(
   const ovrs = positionOvrs(ratings);
   const position = bestPosition(ovrs);
   const ovr = Math.max(...ovrs);
-  const ceiling = Math.min(98, Math.round(ovr + ceilingHeadroom(rng, spec.age)));
+  const ceiling = capCeiling(ovr + ceilingHeadroom(rng, spec.age), ovr);
 
   const traitCount = rng.weightedIndex(TRAIT_RATES.moodTraitCounts);
   const moodTraits = rng.shuffle(MOOD_TRAITS).slice(0, traitCount).sort();

@@ -5,12 +5,15 @@
  */
 import { BOARD } from "../../src/worker/club/board";
 import { STANDING } from "../../src/worker/club/standing";
-import { DEV } from "../../src/worker/core/development";
+import { AGE_CURVES, DEV } from "../../src/worker/core/development";
+import { MINUTES_FIT } from "../../src/worker/core/potential";
 import { COEFFICIENTS } from "../../src/worker/engine/coefficients";
 import { CEILING_HEADROOM } from "../../src/worker/generate/player";
 import { FINANCE } from "../../src/worker/finance/finance";
 import { YOUTH_QUALITY } from "../../src/worker/generate/youth";
+import { AI_MARKET } from "../../src/worker/market/aiMarket";
 import { MARKET } from "../../src/worker/market/market";
+import { TRANSFERS } from "../../src/worker/market/transfers";
 import { RENEWALS } from "../../src/worker/market/renewals";
 import { SQUAD_COEFFICIENTS } from "../../src/worker/season/coefficients";
 import { TURNOVER } from "../../src/worker/season/offseason";
@@ -27,6 +30,10 @@ const TARGETS: Record<string, object> = {
   board: BOARD,
   market: MARKET,
   renewals: RENEWALS,
+  minutes: MINUTES_FIT,
+  ageCurves: AGE_CURVES,
+  aiMarket: AI_MARKET,
+  transfers: TRANSFERS,
 };
 
 function merge(target: Record<string, unknown>, patch: Record<string, unknown>, path: string) {

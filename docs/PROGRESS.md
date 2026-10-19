@@ -762,5 +762,30 @@ Each point of parity gained cost about one champion point, so the two real-world
 - More rotation went in through `restRegulars` (low-stakes matches) rather than the weak-opponent factor alone, which didn't change selection.
 - Wages rise 15% rather than adding running costs: wages are the spend the M4 targets watch (squad cost, wage share), and they also ease talent concentration.
 
+**Chunk 10: tuning II — development and world shape** (decision pending from T on the champion's points)
+- **POT minutes refit:** `expectedMinutesShare` is refitted to the minutes seniors actually get over the next season in the M4 world (rotation, injuries, loans and moves): floor 7%, cap 83%, midpoint 6.3 below the XI level, width 3 (`MINUTES_FIT`). Before, 10 below the XI meant ~5%; now ~25%, as measured. It's still the expected minutes at his current club (SPEC §4.4). Re-measured after the development changes, it still fits.
+- **Diagnosis:**
+  - All 75+ players after 20 seasons came from youth intake. Youth ceilings were too generous at the top: a talent bonus of 8 per sd.
+  - Young regulars had only ~6 points of ceiling room (a quarter under 2): growth was front-loaded (×3 to 22) while ceilings allowed ~1.1 points a year to 27. So they hit their ceilings around 21 and peaked early.
+- **Changes:**
+  - youth talent headroom 8 → 2 per sd;
+  - ceiling room 1.1 → 2.0 points a year to 27;
+  - a soft cap on ceilings above 72, which keep half the excess (`CEILING_HEADROOM.softCap`);
+  - young-growth boost ×3 → ×2.5.
+- Harness: overrides now also cover the minutes fit, age curves, the AI market and transfers. The report prints champion points and parity per season.
+
+**Numbers** (3 worlds × 20 seasons):
+- **Now pass:**
+  - young regulars +4.19 a year;
+  - wonderkids 0.58 per league;
+  - senior mean OVR −0.9;
+  - 75+ share +0.0 points;
+  - peak age (27–29: 64.8, 24–26: 64.6);
+  - parity 16.8% (target 17%).
+- **Still pass:** all M2/M3 and money gates.
+- **Fail:**
+  - **ENG1 champion 78.5 points** (band 82–100). It's low from season 1 (79), with talent spread more evenly. Over 20 tuning runs, every setting that held stars stable kept the champion at 78–82: rotation, randomness, contender spending and academy quality were all tried.
+  - **Beating displayed POT 15.8%** (band 18–32%). The minutes fit matches reality, so the forecasts are slightly optimistic with more ceiling room.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.
