@@ -10,7 +10,7 @@ import {
 } from "../../common/config/formations";
 import { RATING_INDEX as R, type Position } from "../../common/config/ratings";
 import type { SliderSettings } from "../../common/schema";
-import type { Random } from "../core/random";
+import { Random } from "../core/random";
 import type { Coefficients } from "./coefficients";
 import {
   computeTeamRatings,
@@ -120,6 +120,8 @@ export interface TeamState {
   needsAttention: boolean;
   /** Pre-match strength edge over the opponent (team-rating points; > 0 = stronger). */
   edge: number;
+  /** Form on the day: added to every team rating for the match (coefficients.form). */
+  form: number;
 }
 
 export interface MatchState {
@@ -389,6 +391,7 @@ export function initTeam(
     nextAiCheck: 55 * 60,
     needsAttention: false,
     edge: 0,
+    form: 0,
   };
   refreshTeam(team, c);
   return team;
@@ -422,6 +425,11 @@ export function refreshTeam(team: TeamState, c: Coefficients): void {
     team.sliders,
     c,
   );
+  if (team.form !== 0) {
+    for (const key of Object.keys(team.ratings) as (keyof TeamRatings)[]) {
+      team.ratings[key] += team.form;
+    }
+  }
   team.pickers = Object.fromEntries(
     PICKER_KINDS.map((k) => [k, buildPicker(team, k, c)]),
   ) as Record<PickerKind, Picker>;
@@ -448,6 +456,14 @@ export function initState(input: MatchInput, rng: Random, c: Coefficients): Matc
   const firstKickoff: TeamSide = rng.bool() ? 0 : 1;
   const home = initTeam(input.home, 0, rng, c);
   const away = initTeam(input.away, 1, rng, c);
+  if (c.form.sd > 0) {
+    // Its own stream, so the match's other draws are the same with or without form.
+    const formRng = Random.fromSeed(`${input.seed}/form`);
+    for (const team of [home, away]) {
+      team.form = formRng.normal(0, c.form.sd);
+      refreshTeam(team, c);
+    }
+  }
   home.edge = overall(home.ratings) - overall(away.ratings);
   away.edge = -home.edge;
   const added = rng.int(c.addedTime.firstHalf[0] as number, c.addedTime.firstHalf[1] as number);

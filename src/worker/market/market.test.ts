@@ -59,7 +59,7 @@ describe("market value", () => {
 
 describe("wages, mood and demands", () => {
   it("matches the fitted market wage", () => {
-    expect(marketWage(65, 27, 200_000_000)).toBeCloseTo(5_620_000, -4);
+    expect(marketWage(65, 27, 200_000_000)).toBeCloseTo(6_463_000, -4);
     expect(marketWage(65, 27, 800_000_000)).toBeGreaterThan(marketWage(65, 27, 200_000_000));
     expect(marketWage(65, 19, 200_000_000)).toBeLessThan(marketWage(65, 27, 200_000_000));
   });

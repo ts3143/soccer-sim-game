@@ -45,6 +45,8 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-16 | M4 plan | Opening squads carry notional past transfer fees, about 30% of squad cost, with wages about 70% of the M1 levels; squad cost stays 50–65% of revenue. TV pools and shares, and cup prize money per round, are set per league and per cup in config. The AI never acts for the user's club. M4 adds a developer-only Club lab page. | Per-player wages ran ~2× real-world because the whole wage budget went to ~23 players with no past fees. The spec gave no TV or prize amounts. | SPEC §6.2, §6.3; MILESTONES M4; `competitions_mvp.json` |
 | 2026-10-18 | M4 chunk 3 | Contract years count by window: a summer deal's first year is the current season; a January deal's years start next season, the half season on top. A renewal must extend the contract. | SPEC §7.6 said only "1–5 years". Counting a renewal's years after the current season would have allowed 6-season deals in summer. Approved by T. | SPEC §7.6; `market/market.ts` (`contractEnd`) |
 | 2026-10-18 | M4 chunk 4 | Mood gains a small ambition penalty: a player clearly better than his club (more than 6 OVR above its best-XI level, young players credited with half their headroom to POT) loses up to 0.1 mood (0.2 with Fame or Winning). The gap counts only as far as stronger clubs exist. | T asked that good, young or ambitious players be harder to keep, but very subtly, so talent doesn't drain to the big clubs. Over 20 seasons it moves top-six parity by about 0.5 points (within noise). | SPEC §4.6; `market/market.ts` (`MARKET.mood.ambition`) |
+| 2026-10-19 | M4 chunk 8 | New 20-season targets in `calibration_targets.json`: median wages 35–65% of revenue every season, transfer fees 5–45% of revenue, senior mean OVR within ±1.5 of season 1, the 75+ share within ±1.5 points, and 27–29s rated at least as high as younger bands. The squad cost ratio (50–68%) must hold every season. | MILESTONES M4 asked for a stable world and plausible wages and fees without numbers. Approved by T. | `data/config/calibration_targets.json`; `tools/calibrate/world-report.ts` |
+| 2026-10-19 | M4 chunk 9 | Parity is fixed mainly with match randomness (rating gaps decide each step a little less), plus a little more rotation by big clubs; the transfer market isn't damped. | With AI transfers, upsets fell to ~10% (target 13–22%), while the top/bottom strength gap stays near the opening world's. T's choice (options A, then B). | SPEC §8 (engine coefficients); `engine/coefficients.ts`, `season/coefficients.ts` |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -717,6 +719,48 @@ All other M2/M3 gates pass.
    - running costs rise with cash.
 3. **World shape:** too many 75+ seniors (+4.6 points); peak age a hair early; young regulars a hair slow. Development coefficients, and the transfer market's pull of stars to clubs where they play.
 4. **POT forecasts:** players now move to where they play, so the displayed POT (current club's minutes) is beaten 39% of the time. The forecast should expect a talented player to find minutes.
+
+**Chunk 9: tuning I — parity and money** (T, 2026-10-19: parity mainly with match randomness, plus a little more big-club rotation)
+- **Form on the day** (new engine coefficient, SPEC §8.2): each team's seven ratings move by a normal draw (sd 6 team-rating points) for the whole match, from its own seeded stream.
+- **Engine:**
+  - slope 0.22 → 0.18 (rating gaps decide each step a little less);
+  - chance base −1.08 → −1.14, which brings goals back to 2.79 (form raises scoring).
+  - All M2 engine gates pass: draws 22.5% (they were 23.4% before; any per-match randomness makes results more decisive).
+- **Rotation:**
+  - `restRegulars` 8 → 14: low-stakes matches, such as early cup rounds and games against much weaker sides, see more rotation;
+  - weak-opponent factor 0.85 → 0.8 (on its own it barely changes selection).
+- **Money:** the going wage in contract asks rises 15% above the opening-contract fit (`MARKET.wage.at65` 5.62M → 6.46M). Clubs now spend their revenue, and higher wages leave less for transfers, so talent concentrates less.
+- **Engine harness fix:** `pnpm calibrate --overrides` now applies to the engine harness too (it was ignored).
+- **Every-season gates** average each season over the worlds, so they don't widen with more worlds.
+
+| Setting (3 worlds unless noted) | Top six lose to bottom six | Champion points |
+|---|---|---|
+| Before chunk 9 | 9.9% | 87.7 |
+| slope 0.14 | 12.6% | 83.6 |
+| slope 0.18 + form 6 | 13.0% | 83.8 |
+| + wages +15% | 14.9% | 83.7 |
+| Committed (chance −1.14, rotation 14), 6 worlds | 14.4% | 82.6 |
+| Committed, 3 worlds (CI) | 14.9% | 82.7 |
+
+Each point of parity gained cost about one champion point, so the two real-world targets pull against each other with today's talent spread. Run-to-run noise is about ±1 point on both.
+
+**Numbers now** (3 worlds × 20 seasons):
+- all per-season, M3 and money gates pass:
+  - parity 14.9%, champion 82.7, assists 18.3;
+  - squad cost 54–64% every season; wages 44–61%; fees 25% of revenue; negative cash at worst 6%;
+  - 2.5 transfers per club a season;
+- cash builds up more slowly: median 240% of revenue by the last season (390% before);
+- still failing (chunk 10):
+  - young regulars' growth 3.94 (4–8);
+  - beating displayed POT 38.8% (≤ 32%);
+  - senior mean OVR −1.7 (±1.5);
+  - 75+ share +4.9 points (±1.5);
+  - peak age (27–29: 63.7 against 24–26: 65.0).
+
+**Judgment calls (chunk 9)**
+- Form on the day rather than only a lower slope: for the same parity it kept a little more of the champion's points and goals.
+- More rotation went in through `restRegulars` (low-stakes matches) rather than the weak-opponent factor alone, which didn't change selection.
+- Wages rise 15% rather than adding running costs: wages are the spend the M4 targets watch (squad cost, wage share), and they also ease talent concentration.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

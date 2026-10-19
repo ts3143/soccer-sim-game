@@ -263,6 +263,7 @@ Computed from the starting XI by slot (config: `formations_tactics.json`): Passi
 - **Set Pieces** = the designated taker's delivery quality (`stp`) only. Aerial ability counts once in the set-piece matchup, through the Aerial rating.
 - **Team OVR** = regression of the seven ratings onto goal difference, shown 0–100. Until enough sim data exists, use a hand-weighted placeholder; club `strength` in the club data means the mean slot OVR of the club's best XI in its default formation (see 8.3).
 - Home advantage is a small engine coefficient tuned to the calibration targets.
+- **Form on the day** (T, 2026-10-19): each team's ratings move by a small random amount for the whole match (seeded), so a weaker side has its good days. Its spread is an engine coefficient tuned with the calibration targets (parity: top six losing to bottom six).
 
 ### 8.3 Tactics
 - **Formations:** presets only. MVP: 4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2. Defined for later: 4-1-4-1, 3-4-3, 5-4-1. Each preset defines 11 slots with position groups and sides.

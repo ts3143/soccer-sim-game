@@ -12,7 +12,12 @@ export const COEFFICIENTS = {
   /** Log-odds bonus for the home side on each contested step (0 at neutral venues). */
   homeAdvantage: 0.09,
   /** Log-odds per 10 points of team-rating difference, per chain step. */
-  slope: 0.22,
+  slope: 0.18,
+  /**
+   * Form on the day: each team's ratings move by a normal draw with this spread (team-
+   * rating points) for the whole match, so a weaker side has its good days (0 = off).
+   */
+  form: { sd: 6 },
 
   buildUp: {
     /** Short build-up from the defensive third: Passing vs Pressing. */
@@ -32,8 +37,8 @@ export const COEFFICIENTS = {
     base: 0.2,
   },
   chance: {
-    /** Final third → shot: Attack vs Defence. */
-    base: -1.08,
+    /** Final third → shot: Attack vs Defence (−1.08 before form on the day, M4 tuning). */
+    base: -1.14,
     /** Direct play makes quicker but scrappier chances: log-odds per directness step. */
     directPenalty: 0.07,
     /** A blocked shot falls back to the attackers (another chance) this often. */

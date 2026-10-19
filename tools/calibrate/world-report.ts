@@ -12,8 +12,8 @@
  * Gated in M3 (T, 2026-10-14): all of the above except young regulars' growth. Gated
  * from M4 (chunk 8): young regulars' growth, promoted clubs' survival, negative cash,
  * squad cost ratios, wage and fee levels, the world's shape (mean OVR, 75+ share, peak
- * age; T 2026-10-15) and the two exploit checks. Bands not in calibration_targets.json
- * are marked "proposed" until T approves them.
+ * age; T 2026-10-15) and the two exploit checks, with bands from calibration_targets.json
+ * (the M4 ones approved by T, 2026-10-19).
  */
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -220,18 +220,9 @@ row(
 
 // ---------------------------------------------------------------------------
 // M4: economy, market and world shape (MILESTONES M4 "Accept").
-// Bands marked "proposed" aren't in calibration_targets.json yet: proposed in M4 chunk 8,
-// for T to approve (data/ changes need his approval).
-const PROPOSED = {
-  /** Senior mean OVR, last season against season 1. */
-  meanOvrDrift: 1.5,
-  /** Share of seniors rated 75+, last season against season 1 (percentage points). */
-  elite75Drift: 0.015,
-  /** Median wages / revenue, every season. */
-  wageRatio: [0.35, 0.65] as [number, number],
-  /** Transfer fees / revenue, mean over seasons. */
-  feeRatio: [0.05, 0.45] as [number, number],
-};
+// Bands from calibration_targets.json worldStability20Seasons (the M4 ones approved by
+// T, 2026-10-19).
+const W = "worldStability20Seasons";
 console.log("\nEconomy, market and world shape (M4)");
 const perSeason = (key: string) => runs.flatMap((r) => r.seasons.map((m) => m[key] ?? 0));
 const lastOf = (key: string) =>
@@ -247,45 +238,48 @@ row(
   true,
   worstCash < 0.15,
 );
-const costs = perSeason("medianSquadCostRatio");
-row(
-  "medianSquadCostRatio (range)",
-  `${pctText(Math.min(...costs))}-${pctText(Math.max(...costs))}`,
-  "50-68% of revenue, every season",
-  true,
-  Math.min(...costs) >= 0.5 && Math.max(...costs) <= 0.68,
-);
-const wages = perSeason("medianWageRatio");
-row(
-  "median wages / revenue (range)",
-  `${pctText(Math.min(...wages))}-${pctText(Math.max(...wages))}`,
-  `${pctText(PROPOSED.wageRatio[0])}-${pctText(PROPOSED.wageRatio[1])}, every season (proposed)`,
-  true,
-  Math.min(...wages) >= PROPOSED.wageRatio[0] && Math.max(...wages) <= PROPOSED.wageRatio[1],
-);
+// Each season's value averaged over the worlds, so the check doesn't widen with more worlds.
+const everySeason = (name: string, key: string, b: Band) => {
+  const xs = Array.from({ length: SEASONS }, (_, i) => {
+    const values = runs.map((r) => r.seasons[i]?.[key] ?? 0);
+    return values.reduce((a, v) => a + v, 0) / Math.max(1, values.length);
+  });
+  row(
+    `${name} (range)`,
+    `${pctText(Math.min(...xs))}-${pctText(Math.max(...xs))}`,
+    `${pctText(b.tol[0])}-${pctText(b.tol[1])}, every season`,
+    true,
+    Math.min(...xs) >= b.tol[0] && Math.max(...xs) <= b.tol[1],
+  );
+};
+everySeason("medianSquadCostRatio", "medianSquadCostRatio", band(W, "medianSquadCostRatio"));
+everySeason("medianWageRatio", "medianWageRatio", band(W, "medianWageRatio"));
 const fees = avg("feesToRevenue");
+const feeBand = band(W, "transferFeesToRevenue");
 row(
-  "transfer fees / revenue",
+  "transferFeesToRevenue",
   pctText(fees),
-  `${pctText(PROPOSED.feeRatio[0])}-${pctText(PROPOSED.feeRatio[1])} (proposed)`,
+  `${pctText(feeBand.tol[0])}-${pctText(feeBand.tol[1])}`,
   true,
-  fees >= PROPOSED.feeRatio[0] && fees <= PROPOSED.feeRatio[1],
+  fees >= feeBand.tol[0] && fees <= feeBand.tol[1],
 );
 const meanDrift = lastOf("seniorMeanOvr") - firstOf("seniorMeanOvr");
+const meanBand = band(W, "seniorMeanOvrDrift");
 row(
-  "senior mean OVR (last − season 1)",
+  "seniorMeanOvrDrift (last − season 1)",
   `${meanDrift >= 0 ? "+" : ""}${meanDrift.toFixed(1)}`,
-  `within ±${PROPOSED.meanOvrDrift} (proposed)`,
+  `within ${meanBand.tol[0]} to +${meanBand.tol[1]}`,
   SEASONS >= 10,
-  Math.abs(meanDrift) <= PROPOSED.meanOvrDrift,
+  meanDrift >= meanBand.tol[0] && meanDrift <= meanBand.tol[1],
 );
 const eliteDrift = lastOf("elite75Share") - firstOf("elite75Share");
+const eliteBand = band(W, "elite75ShareDrift");
 row(
-  "seniors rated 75+ (last − season 1)",
+  "elite75ShareDrift (last − season 1)",
   `${eliteDrift >= 0 ? "+" : ""}${(eliteDrift * 100).toFixed(1)} pts`,
-  `within ±${(PROPOSED.elite75Drift * 100).toFixed(1)} pts (proposed)`,
+  `within ±${(eliteBand.tol[1] * 100).toFixed(1)} pts`,
   SEASONS >= 10,
-  Math.abs(eliteDrift) <= PROPOSED.elite75Drift,
+  eliteDrift >= eliteBand.tol[0] && eliteDrift <= eliteBand.tol[1],
 );
 const peak = lastOf("ovrAge27to29");
 const younger = Math.max(lastOf("ovrAge21to23"), lastOf("ovrAge24to26"));

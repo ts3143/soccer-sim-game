@@ -13,6 +13,7 @@ import { COEFFICIENTS } from "../../src/worker/engine/coefficients";
 import { generateWorld } from "../../src/worker/generate/world";
 import { fitTeamOvr, RATING_KEYS, ratingCentring } from "./fit";
 import { averageSeasons, perMatch, seasonMetrics, type SeasonMetrics } from "./metrics";
+import { applyOverrides } from "./overrides";
 import { League } from "./runs";
 
 interface Band {
@@ -33,6 +34,9 @@ const SEASONS = Number(option("--seasons", "2"));
 /** Several generated worlds, so one world's random formation draw doesn't decide calibration. */
 const WORLDS = Number(option("--worlds", "3"));
 const SEED = option("--seed", "calibrate");
+// In-memory coefficient overrides for tuning runs, as in the world harness.
+const OVERRIDES = option("--overrides", "");
+if (OVERRIDES) console.log("Overrides:", JSON.stringify(applyOverrides(OVERRIDES)));
 const CHECK = args.includes("--check");
 
 const targets = JSON.parse(

@@ -39,7 +39,8 @@ export const MARKET = {
   },
   /** Fitted on the opening contracts (log wage on OVR, club revenue and age). */
   wage: {
-    at65: 5_620_000,
+    /** 5.62M fitted on the opening contracts, +15% (M4 tuning: clubs spend their revenue). */
+    at65: 6_463_000,
     perOvr: 0.108,
     revenueRef: 200_000_000,
     revenuePower: 0.289,
