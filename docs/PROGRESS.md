@@ -9,7 +9,7 @@ Claude Code updates this file at the end of each milestone.
 | M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
 | M3 Season loop | **Accepted** (T, 2026-10-16) | All M3 gates pass locally, in CI (`calibrate --world --check`, 16 checks) and on the Cloudflare preview (Season lab 19/19, Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Young regulars' growth and world shape gated in M4 (T). See "M3 notes" below. |
 | M4 Economy and market | **Accepted** (T, 2026-10-19) | All gates pass locally, in CI (`calibrate --check`, `calibrate --world --check` with the M4 economy, world-shape and exploit gates; 222 tests) and on the Cloudflare preview (Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. Champion band 76–100 for the MVP (revisit with Europe). See "M4 notes" below. |
-| M5 Core UI | In progress | Plan approved (8 chunks). See "M5 notes" below. |
+| M5 Core UI | Built; T's local test next | All 8 chunks built. 234 tests; headless Chrome against the production build: game pages 90/90, full-season sweep 43/43 (a season and rollover with only the Play menu, every page at six points, no real names, no console errors), Club lab 19/19, Season lab 21/21, M1 18/18. See "M5 notes" below. |
 | M6 Management UI | Not started | |
 | M7 Polish and release v0.1 | Not started | |
 
@@ -846,7 +846,7 @@ Each point of parity gained cost about one champion point, so the two real-world
   - cash still builds up (about 2× revenue after 20 seasons);
   - the champion band is to be revisited with European competition.
 
-## M5 notes (2026-10-19, in progress)
+## M5 notes (2026-10-19)
 **Plan** (approved by T): 8 chunks of about an hour.
 1. App shell, routing, Play menu, Manage Leagues and the new league screen.
 2. Shared table component, Dashboard and Inbox.
@@ -994,6 +994,54 @@ Each point of parity gained cost about one champion point, so the two real-world
   - Then it plays the season out with the Play menu and checks: the History card (champions, promotions, play-offs, relegations, awards, cups), the champion's link, the finished season in Team History, last season's transactions (retirements included) and last season's books.
   - All pass, as do the M4 checks (their transfer-log count now reads the new wording).
 - **Judgment call:** ZenGM's power rankings blend team rating with margin of victory, so this score does the same: strength plus goal difference per game. It is weighted so that a goal a game is worth about 3 points of XI strength.
+
+**Chunk 8: browser checks for every page, real-names sweep, docs, handover**
+- **The browser checks moved into the repo** (`tools/browser-checks/`, run with `pnpm browsercheck`; README). Until now they lived in a temporary folder.
+  - A runner builds the reference data (seed "browser"'s first club XI and the real names to look for), checks a server is up, and runs each script against it.
+  - They drive the installed Google Chrome through `playwright-core`, a new dev-only dependency. It downloads no browser and isn't part of the game build. They need Chrome, so they run locally, not in CI.
+- **Full-season sweep** (`sweep.mjs`, the M5 acceptance check). It starts a league as a top-flight club, then plays with only the Play menu:
+  - until the summer window closes;
+  - one week at a time to the winter window;
+  - to the end of the season, through promotion and relegation, and into the next preseason.
+- At each of the six stages it opens every sidebar page and checks:
+  - the page loads without errors and shows its data where data should exist (e.g. 62 clubs on Finances, the top ten on League Leaders once matches are played, History once the season is over);
+  - no real club names and no console errors;
+  - a player profile and a box score open.
+  - It also fails if the sidebar gains a page that the sweep doesn't check.
+- **Cross-checks** at every stage:
+  - the record on the Dashboard, the Standings and Team History match (P, W, D, L, points);
+  - the Power Rankings position matches the Standings;
+  - after the season, History's champions top the final table.
+- **Big tables, timed** with a season of data: every senior and free agent (over 1,500) on one Player Ratings page in 0.3 s, sorted again by a rating in 0.3 s; the season's 366 transactions on one page; per 90 on Player Stats. Over 102 page loads the median is 64 ms and the slowest 77 ms.
+- **Real names:** the build check (`pnpm build`) keeps `based_on` and every real club name out of the bundle. The browser checks read the text of every game page at every stage of the sweep, plus the Generation and Season lab pages, and find none.
+- **Tidy-up:** the page list lost its chunk numbers. The placeholder now appears only on the two M6 pages (Free Agents, Transfer Market).
+- **Docs:** README (the game's pages, `/dev`, `pnpm browsercheck`), this summary.
+
+### M5 summary
+- **Built:**
+  - the game UI, ZenGM-style: a top bar with the Play menu, the date, phase, window and your club; a sidebar by section; team and season dropdowns; every page at its own URL;
+  - Manage Leagues and the new league screen;
+  - Dashboard and Inbox;
+  - Standings, Cups (with the play-offs) and Weekly Schedule;
+  - Squad (contract-expiry badges), the Player profile (bio, contract, mood, condition, ratings, radar, OVR/POT history, career, transfers), Box score and Game Log;
+  - League Leaders, Player Ratings, Player Stats, Team Stats and Injuries;
+  - History (league and team), Transactions, Power Rankings and the finances of all clubs.
+  - One shared table (sort, filter, pages) and in-house SVG charts. Every page reads typed views from the worker; past seasons come from IndexedDB.
+- **Decisions** (Deviations table): the Inbox moved into M5; the developer pages stay at `/dev` through M6; charts and routing are built in-house.
+- **Judgment calls:**
+  - no Stop button on the Play menu (a season takes seconds);
+  - one team dropdown for all 62 clubs;
+  - the League Leaders rating minimum (40% of the most appearances);
+  - Team Stats falls back to goals and clean sheets once match records are pruned;
+  - Power Rankings = XI strength plus goal difference per game.
+- **Acceptance:**
+  - a full season and the rollover play with only the Play menu, and every page shows its data at six points of the season, cross-checked between pages (the sweep);
+  - no real club names in the bundle or on any page.
+- **Known edges, for later:**
+  - trading, tactics, the line-up, watching matches live and the "You're fired" screen are M6. Until then the Club lab at `/dev` is the only place to trade;
+  - box scores of other clubs' matches older than two seasons are pruned by design, so those pages say so;
+  - the browser checks run locally only (they need Chrome);
+  - Firefox untested (see Open issues).
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

@@ -1,4 +1,4 @@
-/** A league page not built yet: says which M5 chunk (or M6) brings it. */
+/** A league page not built yet (the M6 pages): says it comes with the Management UI. */
 import { leaguePath } from "../router";
 import { PageHeader } from "../shell/PageHeader";
 import { pageOf } from "../shell/pages";
@@ -31,9 +31,7 @@ export function Placeholder({ page, params }: { page: string; params: string[] }
         }
       />
       <p className="text-body-secondary" data-testid="placeholder">
-        {def.m6
-          ? `${def.title} arrives with the Management UI (M6).`
-          : `${def.title} arrives in M5 chunk ${def.chunk ?? "?"}.`}
+        {def.title} arrives with the Management UI (M6).
       </p>
     </>
   );
