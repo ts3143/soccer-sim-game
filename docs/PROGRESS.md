@@ -1094,5 +1094,23 @@ Each point of parity gained cost about one champion point, so the two real-world
 - The 20-season calibration gate (`calibrate --world --check`) still passes: simulated play is unchanged.
 - **Fixed on the way:** hype after a watched match used the clubs' strength after the match's injuries. The watched path now picks the squads too (unused), so the day's caches match a simulated day.
 
+**Chunk 3: Watch live, before and during** (`src/ui/pages/Live.tsx`, `src/ui/components/LineupEditor.tsx`, `src/worker/league/live.ts`)
+- **Before kick-off:** the live page opens on your line-up for this match.
+  - It uses the Tactics editor (now a shared component): drag or click to swap, the formation, the sliders and the team ratings.
+  - Changes apply to the match at once, for this match only; your saved Tactics stay as they are. Only players fit to play are listed.
+  - **Auto** = the AI's rotation for this fixture (with its importance and fixture congestion, as in a simulated match). **My saved line-up** goes back to your Tactics.
+  - Each change restarts the match from kick-off with the new team on the same random stream. Re-applying the same line-up gives the identical match.
+  - The opponent's XI and formation are shown alongside. Changes are refused once the match has kicked off ("make changes at a pause", chunk 4).
+- **During the match:**
+  - the scoreboard with crests, score, clock (Kick-off, Half-time, Full time) and the scorers under each team;
+  - Play / Pause, a **speed slider** (Slow, Steady, Normal, Fast, Very fast: 1 to 12 possessions a step), remembered in your browser, and To full time;
+  - the commentary, newest first, with badges for goals, cards, subs and injuries;
+  - stats: a possession bar, shots, on target, xG, pass accuracy, corners, fouls and cards;
+  - both teams' players with energy bars (green, amber below 70, red below 50), bookings and injuries, subs and windows used, and the bench.
+- **Worker:** new calls `getLiveLineup` and `setLiveLineup` (modes as given, re-slotted, Auto, saved). `TacticsMode` gains "saved" (the Tactics page's Reset can use it too).
+- **Tests:** a pre-match test (the editor shows the match's line-up; a swap applies; Auto and saved; outsiders left out; no change after kick-off; an unchanged restart gives the identical result); 239 tests in all.
+- **Browser checks:** `m6` adds 5 (the pre-match screen and the opponent's XI, a change and My saved line-up, the speed and the line-up surviving a reload, energy draining with the newcomer playing, the scorers). 28/28 pass, as do all the other checks.
+- **Judgment calls:** the speed is a per-browser setting (local storage), not saved in the league. Empty slots in the pre-match line-up are filled at once with the best fit player, since a match needs eleven.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

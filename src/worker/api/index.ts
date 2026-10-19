@@ -2,7 +2,14 @@ import type { UiEvents, WorkerApi, WorkerKind } from "../../common/api";
 import type { ApiHandlers, RpcHost } from "../../common/rpc";
 import { listLeagues } from "../db/globalDb";
 import { acceptJobOffer, gameState, play } from "../league/game";
-import { changeLive, getLive, stepLive, watchNextMatch } from "../league/live";
+import {
+  changeLive,
+  getLive,
+  getLiveLineup,
+  setLiveLineup,
+  stepLive,
+  watchNextMatch,
+} from "../league/live";
 import {
   bidForPlayer,
   contractTalks,
@@ -182,6 +189,12 @@ export function createHandlers(
     },
     async changeLiveMatch(lid, changes, from) {
       return changeLive(await openLeague(lid), changes, from);
+    },
+    async getLiveLineup(lid) {
+      return getLiveLineup(await openLeague(lid));
+    },
+    async setLiveLineup(lid, setup, mode) {
+      return setLiveLineup(await openLeague(lid), setup, mode);
     },
 
     getSeasonLab,

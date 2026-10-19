@@ -45,7 +45,7 @@ function context(session: LeagueSession, cid: number | null) {
   return { game, club, players, pickable, byPid: new Map(pickable.map((p) => [p.pid, p])) };
 }
 
-function view(
+export function tacticsView(
   club: Club,
   setup: TacticsSetup,
   pickable: readonly Player[],
@@ -129,7 +129,7 @@ export async function getTactics(lid: number, cid: number | null): Promise<Tacti
   const { game, club, players, pickable, byPid } = context(session, cid);
   const user = club.cid === game.userCid;
   const setup = user ? currentSetup(club, players, game.date) : autoSetup(club, players, game.date);
-  return view(club, setup, pickable, byPid, game.date, user);
+  return tacticsView(club, setup, pickable, byPid, game.date, user);
 }
 
 export async function previewTactics(
@@ -141,7 +141,9 @@ export async function previewTactics(
   const { game, club, players, pickable, byPid } = context(session, null);
   const ids = new Set(byPid.keys());
   let next: TacticsSetup;
-  if (mode === "auto") {
+  if (mode === "saved") {
+    next = currentSetup(club, players, game.date);
+  } else if (mode === "auto") {
     const pick = autoSetup(
       { ...club, tactics: { ...club.tactics, formation: setup.formation } },
       players,
@@ -153,7 +155,7 @@ export async function previewTactics(
     next = mode === "reslot" ? reslot(clean, setup.formation, byPid) : clean;
   }
   checkSetup(next, ids);
-  return view(club, next, pickable, byPid, game.date, true);
+  return tacticsView(club, next, pickable, byPid, game.date, true);
 }
 
 export async function saveTactics(lid: number, setup: TacticsSetup): Promise<TacticsView> {

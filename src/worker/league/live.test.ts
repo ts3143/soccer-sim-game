@@ -4,7 +4,14 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { GameMeta } from "../../common/schema";
 import { getTactics, saveTactics } from "../views/tactics";
 import { gameState, play } from "./game";
-import { forgetRunningMatch, getLive, stepLive, watchNextMatch } from "./live";
+import {
+  forgetRunningMatch,
+  getLive,
+  getLiveLineup,
+  setLiveLineup,
+  stepLive,
+  watchNextMatch,
+} from "./live";
 import { setWageShare } from "./market";
 import { createLeague, openLeague, type LeagueSession } from "./session";
 
@@ -138,4 +145,61 @@ describe("watching a match live", () => {
       JSON.stringify(straight.session.cache.get("matches", one.fid)?.result),
     );
   });
+
+  it(
+    "changes the line-up for this match before kick-off, and only then",
+    { timeout: 180_000 },
+    async () => {
+      const plain = await league("Unchanged");
+      await watchNextMatch(plain.session);
+      const reference = await stepLive(plain.session, Infinity, 0);
+
+      const { session } = await league("Pre-match");
+      await watchNextMatch(session);
+      const before = getLiveLineup(session);
+      const kickoff = getLive(session, 0);
+      if (!kickoff) throw new Error("no live match");
+      expect(before.setup.slots).toEqual(
+        kickoff.teams[kickoff.userSide].onPitch.map((p) => p?.pid),
+      );
+      expect(before.reserves.every((p) => p.injury === null)).toBe(true);
+
+      // Re-applying the same line-up restarts the match unchanged.
+      await setLiveLineup(session, before.setup, "asIs");
+
+      const sub = before.setup.bench[0] ?? -1;
+      const swapped = await setLiveLineup(
+        session,
+        {
+          ...before.setup,
+          slots: before.setup.slots.map((pid, i) => (i === 9 ? sub : pid)),
+          bench: before.setup.bench.map((pid, i) =>
+            i === 0 ? (before.setup.slots[9] ?? pid) : pid,
+          ),
+        },
+        "asIs",
+      );
+      expect(swapped.setup.slots[9]).toBe(sub);
+      expect(getLive(session, 0)?.teams[kickoff.userSide].onPitch[9]?.pid).toBe(sub);
+      expect(getLive(session, 0)?.clock).toBe(0);
+
+      const auto = await setLiveLineup(session, swapped.setup, "auto");
+      expect(auto.setup.slots.every((pid) => pid !== null)).toBe(true);
+      const saved = await setLiveLineup(session, auto.setup, "saved");
+      expect(saved.setup).toEqual(before.setup);
+
+      const outsider = session.cache.getAll("players").find((p) => p.cid === 5)?.pid ?? -1;
+      // Players who can't play for the club are left out.
+      const cleaned = await setLiveLineup(session, { ...saved.setup, bench: [outsider] }, "asIs");
+      expect(cleaned.setup.bench).toEqual([]);
+      await setLiveLineup(session, saved.setup, "asIs");
+
+      await stepLive(session, 1, 0);
+      await expect(setLiveLineup(session, saved.setup, "asIs")).rejects.toThrow(/kicked off/);
+      const end = await stepLive(session, Infinity, 0);
+      expect(JSON.stringify(session.cache.get("matches", end.fid)?.result)).toBe(
+        JSON.stringify(plain.session.cache.get("matches", reference.fid)?.result),
+      );
+    },
+  );
 });

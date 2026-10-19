@@ -212,6 +212,69 @@ await page.locator('[data-testid="live-link"]').click();
 await page.locator('[data-testid="live-scoreboard"]').waitFor({ timeout: 30_000 });
 check("the top-bar link goes back to the match", (await clockText()) === "Kick-off");
 
+// --- Chunk 3: before kick-off, and the live screen -------------------------------------------------
+const preXi = page.locator('[data-testid="pre-match"] [data-testid="tactics-xi"] tbody tr');
+const preReserves = page.locator(
+  '[data-testid="pre-match"] [data-testid="tactics-reserves"] tbody tr',
+);
+check(
+  "before kick-off: your line-up for this match and the opponent's XI",
+  (await preXi.count()) === 11 &&
+    (await page.locator('[data-testid="opponent-xi"] tbody tr').count()) === 11 &&
+    /for this match only/.test(await page.locator('[data-testid="pre-match"]').innerText()),
+);
+const savedXi = await names(preXi);
+const newcomer = await nameIn(preReserves.first());
+await preReserves.first().dragTo(preXi.nth(10));
+await settle(
+  (n) =>
+    document
+      .querySelectorAll('[data-testid="pre-match"] [data-testid="tactics-xi"] tbody tr')[10]
+      ?.textContent.includes(n),
+  newcomer,
+);
+await page.locator('[data-testid="use-saved"]').click();
+await settle(
+  (n) =>
+    !document
+      .querySelectorAll('[data-testid="pre-match"] [data-testid="tactics-xi"] tbody tr')[10]
+      ?.textContent.includes(n),
+  newcomer,
+);
+check(
+  "a change applies to the match, and My saved line-up goes back",
+  JSON.stringify(await names(preXi)) === JSON.stringify(savedXi),
+);
+await preReserves.first().dragTo(preXi.nth(10));
+await settle(
+  (n) =>
+    document
+      .querySelectorAll('[data-testid="pre-match"] [data-testid="tactics-xi"] tbody tr')[10]
+      ?.textContent.includes(n),
+  newcomer,
+);
+
+const speed = page.locator("#live-speed");
+await speed.focus();
+await page.keyboard.press("End");
+await settle(
+  () => document.querySelector('[data-testid="live-speed-label"]')?.textContent === "Very fast",
+);
+await page.reload();
+await page.locator('[data-testid="pre-match"]').waitFor({ timeout: 30_000 });
+check(
+  "the speed slider and the match's line-up survive a reload",
+  (await page.locator('[data-testid="live-speed-label"]').innerText()) === "Very fast" &&
+    (await nameIn(preXi.nth(10))) === newcomer,
+);
+await speed.focus();
+await page.keyboard.press("Home");
+await page.keyboard.press("ArrowRight");
+await page.keyboard.press("ArrowRight");
+await settle(
+  () => document.querySelector('[data-testid="live-speed-label"]')?.textContent === "Normal",
+);
+
 await page.locator('[data-testid="live-play"]').click();
 await page.waitForFunction(
   () =>
@@ -225,6 +288,22 @@ await page.waitForFunction(
 await page.locator('[data-testid="live-play"]').click(); // pause
 const paused = minuteOf(await clockText());
 await page.waitForTimeout(800);
+const energies = async (team) =>
+  (
+    await page
+      .locator(`[data-testid="${team}"] [data-testid="energy-row"] td:last-child`)
+      .allInnerTexts()
+  ).map(Number);
+const mine = await energies("my-team");
+check(
+  "the live screen shows both teams' energy, draining as they play, and the newcomer is playing",
+  mine.length === 11 &&
+    (await energies("their-team")).length === 11 &&
+    mine.some((e) => e < 95) &&
+    (await page.locator('[data-testid="pre-match"]').count()) === 0 &&
+    (await page.locator('[data-testid="my-team"]').innerText()).includes(newcomer),
+  `energy ${Math.min(...mine)}–${Math.max(...mine)}`,
+);
 check(
   "Kick off plays the match with a feed and stats; Pause stops it",
   minuteOf(await clockText()) === paused &&
@@ -246,6 +325,16 @@ await page.locator('[data-testid="live-done"]').waitFor({ timeout: 60_000 });
 const finalScore = (await page.locator('[data-testid="live-score"]').innerText()).replace(
   /\s/g,
   "",
+);
+const goals = finalScore.split("–").map(Number);
+const scorerCount = async (side) => {
+  const text = (await page.locator(`[data-testid="scorers-${side}"]`).innerText()).trim();
+  return text === "" ? 0 : text.split(", ").length;
+};
+check(
+  "the scoreboard lists the scorers",
+  (await scorerCount(0)) === goals[0] && (await scorerCount(1)) === goals[1],
+  finalScore,
 );
 check(
   "To full time finishes the match and saves the day",

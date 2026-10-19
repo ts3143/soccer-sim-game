@@ -10,11 +10,19 @@
  * finished with the live result (runner `resume`): the other matches, money, tables,
  * board and cup draws, through the same code as a simulated day.
  */
-import type { LiveChanges, LiveMatchView, LiveTeamView, PlayReport } from "../../common/api";
+import type {
+  LiveChanges,
+  LiveMatchView,
+  LiveTeamView,
+  PlayReport,
+  TacticsMode,
+  TacticsSetup,
+  TacticsView,
+} from "../../common/api";
 import { formationById, formationsConfig, slotLabel } from "../../common/config/formations";
 import type { Club, Fixture, GameMeta, Player } from "../../common/schema";
 import { effectiveDials } from "../club/standing";
-import { cleanSetup, selectable } from "../club/tactics";
+import { checkSetup, cleanSetup, reslot, selectable } from "../club/tactics";
 import { maximizeAssignment } from "../core/assignment";
 import { slotOvr } from "../core/ovr";
 import { Random, type RandomState } from "../core/random";
@@ -34,6 +42,7 @@ import type { EngineTeamInput, TeamSide } from "../engine/types";
 import { fixtureSetup } from "../season/season";
 import { currentCondition, isInjured, squadPlay } from "../season/squads";
 import { competitionName, teamRef } from "../views/common";
+import { tacticsView } from "../views/tactics";
 import {
   assertNotLive,
   ensureSeason,
@@ -97,37 +106,38 @@ export function forgetRunningMatch(session: LeagueSession): void {
   running.delete(session);
 }
 
-/**
- * The user's matchday squad for a watched match: his saved line-up (or the AI's pick),
- * with players who can't play today replaced by the best fit players left, the bench
- * topped up from the AI's, today's condition, his sliders, and no AI in-game changes.
- */
-export function userTeamInput(
-  club: Club,
-  players: readonly Player[],
-  fixture: Fixture,
-  ai: EngineTeamInput,
-): EngineTeamInput {
-  const date = fixture.date;
+/** Who can play for the user's club in this match: fit, pickable, not on loan from the opponent. */
+function availableFor(club: Club, players: readonly Player[], fixture: Fixture): Player[] {
   const opponent = fixture.homeCid === club.cid ? fixture.awayCid : fixture.homeCid;
-  const medical = effectiveDials(club).medical;
-  const available = selectable(players, club.cid, date).filter(
-    (p) => !isInjured(p, date) && p.loan?.parentCid !== opponent,
+  return selectable(players, club.cid, fixture.date).filter(
+    (p) => !isInjured(p, fixture.date) && p.loan?.parentCid !== opponent,
   );
+}
+
+const setupOf = (input: EngineTeamInput): TacticsSetup => ({
+  formation: input.formation,
+  sliders: { ...input.sliders },
+  slots: [...input.lineup],
+  bench: [...input.bench],
+});
+
+/**
+ * A matchday squad from a line-up: empty slots get the best fit players left (the AI's
+ * XI if too few are left), the bench is kept and topped up from `topUp`, condition is
+ * today's, and the AI makes no in-game changes (the user does).
+ */
+function inputFromSetup(
+  club: Club,
+  setup: TacticsSetup,
+  available: readonly Player[],
+  date: string,
+  fallbackXi: readonly number[],
+  topUp: readonly number[],
+): EngineTeamInput {
+  const medical = effectiveDials(club).medical;
   const byPid = new Map(available.map((p) => [p.pid, p]));
-  const formation = formationById(club.tactics.formation);
-  const saved = club.tactics.lineup
-    ? cleanSetup(
-        {
-          formation: formation.id,
-          sliders: club.tactics.sliders,
-          slots: club.tactics.lineup.slots,
-          bench: club.tactics.lineup.bench,
-        },
-        new Set(byPid.keys()),
-      )
-    : null;
-  let slots: (number | null)[] = saved ? [...saved.slots] : [...ai.lineup];
+  const formation = formationById(setup.formation);
+  let slots = [...setup.slots];
   const empty = slots.flatMap((pid, i) => (pid === null ? [i] : []));
   if (empty.length > 0) {
     const used = new Set(slots);
@@ -140,13 +150,13 @@ export function userTeamInput(
         slots[empty[k] as number] = (pool[j] as Player).pid;
       });
     } else {
-      slots = [...ai.lineup]; // too few fit players for the saved shape: the AI's pick
+      slots = [...fallbackXi]; // too few fit players for this shape: the AI's pick
     }
   }
   const xi = slots as number[];
   const inXi = new Set(xi);
   const bench: number[] = [];
-  for (const pid of [...(saved?.bench ?? []), ...ai.bench, ...ai.lineup]) {
+  for (const pid of [...setup.bench, ...topUp]) {
     if (bench.length >= formationsConfig.benchSize) break;
     if (!inXi.has(pid) && !bench.includes(pid) && byPid.has(pid)) bench.push(pid);
   }
@@ -160,10 +170,123 @@ export function userTeamInput(
       ...enginePlayer(p),
       condition: currentCondition(p, date, medical),
     })),
-    sliders: { ...club.tactics.sliders },
+    sliders: { ...setup.sliders },
     aiInGame: false,
     medicalDial: medical,
   };
+}
+
+/**
+ * The user's matchday squad for a watched match: his saved line-up (or the AI's pick),
+ * with players who can't play today replaced, the bench topped up from the AI's, today's
+ * condition and his sliders.
+ */
+export function userTeamInput(
+  club: Club,
+  players: readonly Player[],
+  fixture: Fixture,
+  ai: EngineTeamInput,
+): EngineTeamInput {
+  const available = availableFor(club, players, fixture);
+  const saved = club.tactics.lineup
+    ? cleanSetup(
+        {
+          formation: club.tactics.formation,
+          sliders: club.tactics.sliders,
+          slots: club.tactics.lineup.slots,
+          bench: club.tactics.lineup.bench,
+        },
+        new Set(available.map((p) => p.pid)),
+      )
+    : { ...setupOf(ai), sliders: { ...club.tactics.sliders } };
+  return inputFromSetup(club, saved, available, fixture.date, ai.lineup, [
+    ...ai.bench,
+    ...ai.lineup,
+  ]);
+}
+
+/** Restarts the match from kick-off with a new line-up (before kick-off only). */
+function restart(live: Running, user: EngineTeamInput): void {
+  const { input } = live.state;
+  const userHome = live.row.side === 0;
+  const opponent = userHome ? input.away : input.home;
+  const sliders = aiSliders(
+    opponent,
+    user,
+    !userHome && !input.neutralVenue,
+    input.style.directness,
+  );
+  const them = { ...opponent, sliders };
+  live.state = startMatch({ ...input, home: userHome ? user : them, away: userHome ? them : user });
+}
+
+const kickedOff = (state: MatchState) => state.clock > 0 || state.inPlaySeconds > 0;
+
+/** What the pre-match line-up editor needs: the fixture, the club and who can play. */
+function lineupContext(session: LeagueSession, live: Running) {
+  const game = meta<GameMeta>(session, "game");
+  const season = loadSeason(session);
+  const world = loopWorld(session, game.season);
+  const fixture = season.fixtures.find((f) => f.fid === live.row.fid);
+  const club = world.clubs.find((c) => c.cid === game.userCid);
+  if (!fixture || !club) throw new Error("The live match's fixture or club is missing");
+  const available = availableFor(club, world.players, fixture);
+  /** The AI's pick for the user's club in this match, in `formation`. */
+  const aiPick = (formation: string) => {
+    const clubs = world.clubs.map((c) =>
+      c.cid === club.cid ? { ...c, tactics: { ...c.tactics, formation } } : c,
+    );
+    const both = squadPlay(season, clubs, world.players).prepare(fixture);
+    return live.row.side === 0 ? both.home : both.away;
+  };
+  return {
+    fixture,
+    club,
+    world,
+    available,
+    byPid: new Map(available.map((p) => [p.pid, p])),
+    aiPick,
+  };
+}
+
+export function getLiveLineup(session: LeagueSession): TacticsView {
+  const live = load(session);
+  const ctx = lineupContext(session, live);
+  const input = live.row.side === 0 ? live.state.input.home : live.state.input.away;
+  return tacticsView(ctx.club, setupOf(input), ctx.available, ctx.byPid, ctx.fixture.date, true);
+}
+
+/** Before kick-off: the user's line-up for this match only; the match restarts from kick-off. */
+export function setLiveLineup(
+  session: LeagueSession,
+  setup: TacticsSetup,
+  mode: TacticsMode,
+): Promise<TacticsView> {
+  return queued(session, async () => {
+    const live = load(session);
+    if (kickedOff(live.state)) {
+      throw new Error("The match has kicked off: make changes at a pause.");
+    }
+    const ctx = lineupContext(session, live);
+    const ids = new Set(ctx.byPid.keys());
+    let next: TacticsSetup;
+    if (mode === "saved") {
+      const ai = ctx.aiPick(ctx.club.tactics.formation);
+      next = setupOf(userTeamInput(ctx.club, ctx.world.players, ctx.fixture, ai));
+    } else if (mode === "auto") {
+      next = { ...setupOf(ctx.aiPick(setup.formation)), sliders: { ...setup.sliders } };
+    } else {
+      const clean = cleanSetup({ ...setup, slots: [...setup.slots] }, ids);
+      next = mode === "reslot" ? reslot(clean, setup.formation, ctx.byPid) : clean;
+    }
+    checkSetup(next, ids);
+    const ai = ctx.aiPick(next.formation);
+    const user = inputFromSetup(ctx.club, next, ctx.available, ctx.fixture.date, ai.lineup, []);
+    restart(live, user);
+    save(session, live);
+    await session.cache.flush();
+    return tacticsView(ctx.club, setupOf(user), ctx.available, ctx.byPid, ctx.fixture.date, true);
+  });
 }
 
 /**

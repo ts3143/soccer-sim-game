@@ -492,8 +492,11 @@ export interface TacticsSetup {
   bench: number[];
 }
 
-/** How `previewTactics` treats the setup: as given, re-slotted into its formation, or the AI's pick. */
-export type TacticsMode = "asIs" | "reslot" | "auto";
+/**
+ * How a setup is taken: as given, re-slotted into its formation, the AI's pick, or the
+ * user's saved line-up again.
+ */
+export type TacticsMode = "asIs" | "reslot" | "auto" | "saved";
 
 export interface TacticsPlayerView {
   pid: number;
@@ -1093,6 +1096,13 @@ export interface WorkerApi {
   stepLiveMatch(lid: number, possessions: number, from: number): LiveMatchView;
   /** The user's changes at a pause (subs, formation, sliders). */
   changeLiveMatch(lid: number, changes: LiveChanges, from: number): LiveMatchView;
+  /** Before kick-off: the user's line-up for this match, as the Tactics editor shows it. */
+  getLiveLineup(lid: number): TacticsView;
+  /**
+   * Before kick-off: changes the line-up for this match only ("auto" = the AI's rotation
+   * for this fixture, "saved" = the saved Tactics line-up). The match restarts from kick-off.
+   */
+  setLiveLineup(lid: number, setup: TacticsSetup, mode: TacticsMode): TacticsView;
   getHistory(lid: number): HistoryView;
   getTeamHistory(lid: number, cid: number): TeamHistoryView;
   getTransactions(lid: number, season: number | null): TransactionsView;
