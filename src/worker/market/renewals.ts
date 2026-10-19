@@ -9,6 +9,7 @@
  */
 import { exactAge } from "../../common/dates";
 import type { Club, ClubSeason, InboxMessage, Player, TransactionRow } from "../../common/schema";
+import { clubStrength } from "../club/standing";
 import {
   contractAsks,
   contractEnd,
@@ -62,8 +63,19 @@ function yearsAtClub(p: Player, date: string): number {
   return Math.max(0, exactAge(joined, date));
 }
 
-/** His mood toward his current club. */
-export function moodAtClub(world: ContractWorld, p: Player, date: string): Mood | null {
+/** Every club's best-XI OVR and the strongest, for ambition (SPEC §4.6). */
+export function clubLevels(world: ContractWorld, date: string) {
+  const byClub = new Map(world.clubs.map((c) => [c.cid, clubStrength(world.players, c.cid, date)]));
+  return { byClub, top: Math.max(0, ...byClub.values()) };
+}
+
+/** His mood toward his current club (`levels` from clubLevels, if already known). */
+export function moodAtClub(
+  world: ContractWorld,
+  p: Player,
+  date: string,
+  levels: ReturnType<typeof clubLevels> = clubLevels(world, date),
+): Mood | null {
   const club = world.clubs.find((c) => c.cid === p.cid);
   const season = club ? world.clubSeasons.get(club.cid) : undefined;
   if (!club || !season) return null;
@@ -75,6 +87,7 @@ export function moodAtClub(world: ContractWorld, p: Player, date: string): Mood 
     success: season.boardConfidence ?? 50,
     minutesShare: games > 0 ? minutes / (games * 90) : 0.4,
     yearsAtClub: yearsAtClub(p, date),
+    levels: { club: levels.byClub.get(club.cid) ?? 0, top: levels.top, date },
   });
 }
 
@@ -133,6 +146,7 @@ export function aiRenewals(
 ): ContractLog {
   const log = emptyLog();
   const r = RENEWALS;
+  const levels = clubLevels(world, date);
   for (const club of world.clubs) {
     if (club.cid === world.userCid) continue;
     const squad = world.players
@@ -153,7 +167,7 @@ export function aiRenewals(
       const old = age >= r.oldAge;
       const wanted = old ? place < r.oldTop : place < r.keepTop || prospect;
       if (!wanted) continue;
-      const mood = moodAtClub(world, p, date);
+      const mood = moodAtClub(world, p, date, levels);
       if (!mood?.willing) continue;
       // His preferred length, or the shortest that runs past his current contract.
       let years = old ? 1 : Math.min(5, preferredYears(age));

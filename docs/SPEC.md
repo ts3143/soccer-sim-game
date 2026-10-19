@@ -106,6 +106,7 @@ Name, nationality (+ optional second nationality, ~8%), birth date, birthplace, 
 
 ### 4.6 Mood
 - ZenGM-style mood score from components: team success, hype, facilities, market size, playing time, loyalty (years at club). Traits change how much each component counts.
+  - **Ambition** (T, 2026-10-18), kept very subtle: a player clearly better than his club (more than about 6 OVR above its best-XI level, counting part of a young player's potential) is slightly less happy there, more so with Fame or Winning. It counts only as far as stronger clubs exist, and it must not drain talent to the big clubs.
 - Mood affects **only** contract negotiation: willingness to negotiate and the wage asked. No chemistry, no "upset players play worse".
 - `[v1.1]` Squad role promises (starter / rotation / prospect): breaking one hurts mood and can trigger a transfer request.
 

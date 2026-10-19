@@ -311,7 +311,10 @@ export interface SeasonLabView {
   };
 }
 
-/** Contract talks with a player (renewals; transfers and free agents from M4 chunks 4–5). */
+/**
+ * Talks with a player: a renewal (one of the user's), a transfer (personal terms once his
+ * club accepts a fee) or a free agent. Mood and asks are toward the user's club.
+ */
 export interface ContractTalks {
   pid: number;
   name: string;
@@ -319,6 +322,9 @@ export interface ContractTalks {
   age: number;
   ovr: number;
   pot: number;
+  kind: "renewal" | "transfer" | "freeAgent";
+  /** His club's name (null for a free agent). */
+  club: string | null;
   wage: number;
   expires: string | null;
   yearsLeft: number;
@@ -329,6 +335,35 @@ export interface ContractTalks {
   asks: { years: number; wage: number; expires: string }[];
   windowOpen: boolean;
   userPlayer: boolean;
+  /** Transfer: the fee his club accepted (null until a bid is accepted). */
+  feeAgreed: number | null;
+  /** The user's transfer budget and wage room (a year) now (SPEC §6.3). */
+  budget: { transfer: number; wageRoom: number };
+}
+
+/** A club's answer to the user's bid. */
+export interface BidReply {
+  outcome: "accepted" | "countered" | "rejected";
+  fee: number;
+  /** The club's asking price when it counters. */
+  counter: number | null;
+  message: string;
+  talks: ContractTalks;
+}
+
+/** A bid by or for the user's club this season. */
+export interface OfferView {
+  oid: number;
+  pid: number;
+  name: string;
+  from: string;
+  to: string;
+  fee: number;
+  status: "open" | "accepted" | "rejected" | "expired" | "completed";
+  /** The day the window closes; the bid lapses once that day is played. */
+  expires: string;
+  /** A bid for one of the user's players. */
+  incoming: boolean;
 }
 
 export interface WorkerApi {
@@ -351,6 +386,10 @@ export interface WorkerApi {
   markInboxRead(lid: number, mid: number): void;
   getContractTalks(lid: number, pid: number): ContractTalks;
   renewContract(lid: number, pid: number, years: number): ContractTalks;
+  bidForPlayer(lid: number, pid: number, fee: number): BidReply;
+  signPlayer(lid: number, pid: number, years: number): ContractTalks;
+  getOffers(lid: number): OfferView[];
+  respondToOffer(lid: number, oid: number, accept: boolean): OfferView[];
 }
 
 export interface UiEvents {

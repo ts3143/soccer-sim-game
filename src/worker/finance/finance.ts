@@ -53,7 +53,8 @@ export const FINANCE = {
   dials: { base: 0.03, perLevel: 0.11 },
 };
 
-export type RevenueKind = "matchday" | "broadcast" | "merit" | "prize" | "commercial";
+export type RevenueKind =
+  "matchday" | "broadcast" | "merit" | "prize" | "commercial" | "playerSales";
 export type ExpenseKind = "wages" | keyof BudgetDials;
 
 const leagueOf = (id: string, config: CompetitionsConfig): LeagueConfig => {
@@ -139,6 +140,10 @@ export function debit(books: ClubBooks, kind: string, amount: number): void {
 
 export const totalOf = (record: Record<string, number>): number =>
   Object.values(record).reduce((sum, v) => sum + v, 0);
+
+/** Revenue from running the club: everything but player sales (the next budget base). */
+export const operatingRevenue = (revenue: Record<string, number>): number =>
+  totalOf(revenue) - (revenue.playerSales ?? 0);
 
 // ---------------------------------------------------------------------------
 // When money moves
@@ -304,7 +309,7 @@ export function openSeasonBooks(
   const out = new Map<number, ClubSeason>();
   for (const club of clubs) {
     const prev = last.get(club.cid);
-    const revenue = prev ? totalOf(prev.revenue) : 0;
+    const revenue = prev ? operatingRevenue(prev.revenue) : 0;
     const reputation = prev?.reputation ?? 50;
     const budgetBase = revenue > 0 ? revenue : club.revenueAnchor;
     club.ticketPrice = ticketPrice(reputation, leagueOf(club.leagueId, config));

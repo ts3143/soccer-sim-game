@@ -170,6 +170,11 @@ export interface Club {
    * league creation. Absent in pre-M4 saves (derived on first use).
    */
   commercial?: { base: number; reputation: number };
+  /**
+   * The user's one budget control (SPEC §6.3): the share of the FFP headroom kept for
+   * wages, the rest backing transfer fees. Absent: half each.
+   */
+  wageShare?: number;
   /** Facilities quality 0–100: follows the Facilities dial slowly (absent = 50). */
   facilitiesLevel?: number;
   /**
@@ -404,15 +409,24 @@ export interface MatchRecord {
 // ---------------------------------------------------------------------------
 // offers, transactions, inbox, awards (filled from M3/M4)
 
+/**
+ * A bid for a player (M4). `fromCid` makes it to `toCid`, the player's club (null for a
+ * free agent). Open: awaiting the receiving club's answer (bids for the user's players).
+ * Accepted: fee agreed, personal terms next. Completed: the player moved.
+ */
 export interface Offer {
   oid: number;
   pid: number;
   fromCid: number;
   toCid: number | null;
   kind: "transfer" | "loan" | "contract";
-  status: "open" | "accepted" | "rejected" | "expired";
+  status: "open" | "accepted" | "rejected" | "expired" | "completed";
   fee: number;
+  /** Last day it stands: the window's deadline day. */
   expires: string;
+  /** When it was made (absent in rows written before M4). */
+  date?: string;
+  season?: number;
 }
 
 export interface TransactionRow {

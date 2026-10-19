@@ -6,7 +6,11 @@
 import { exactAge } from "../../src/common/dates";
 import { competitionsConfig } from "../../src/common/config/competitions";
 import type { Club, ClubSeason, Player } from "../../src/common/schema";
-import { closeSeasonBooks, openSeasonBooks, totalOf } from "../../src/worker/finance/finance";
+import {
+  closeSeasonBooks,
+  openSeasonBooks,
+  operatingRevenue,
+} from "../../src/worker/finance/finance";
 import { preseasonBoard, targetPosition } from "../../src/worker/club/board";
 import { generateWorld } from "../../src/worker/generate/world";
 import {
@@ -272,7 +276,7 @@ export function simulateWorld(
     const lastDay = state.fixtures.reduce((d, f) => (f.date > d ? f.date : d), seasonStart);
     closeSeasonBooks(loop, season, lastDay);
     const rows = [...loop.clubSeasons.values()];
-    const revenueOf = (r: ClubSeason) => totalOf(r.revenue);
+    const revenueOf = (r: ClubSeason) => operatingRevenue(r.revenue);
     const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0;
     const wageRatio = rows.map((r) => (r.expenses.wages ?? 0) / Math.max(1, revenueOf(r)));
     const mix = (kinds: string[]) =>

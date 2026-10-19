@@ -10,15 +10,8 @@ import type {
 } from "../../common/schema";
 import { listLeagues } from "../db/globalDb";
 import { openLeagueDb } from "../db/leagueDb";
-import {
-  acceptJobOffer,
-  contractTalks,
-  gameState,
-  play,
-  pruneMatchRecords,
-  pruneRetiredPlayers,
-  renewContract,
-} from "./game";
+import { acceptJobOffer, gameState, play, pruneMatchRecords, pruneRetiredPlayers } from "./game";
+import { contractTalks, renewContract } from "./market";
 import { closeLeague, createLeague, openLeague } from "./session";
 
 beforeAll(() => {

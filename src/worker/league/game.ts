@@ -12,7 +12,7 @@
  * matches are played. Each Play action processes days in order (events first, then
  * matches) and saves once at the end.
  */
-import { addDays, exactAge } from "../../common/dates";
+import { addDays } from "../../common/dates";
 import { competitionsConfig } from "../../common/config/competitions";
 import {
   PLAYER_STAT_TOTALS,
@@ -24,7 +24,7 @@ import {
   type SeasonMeta,
 } from "../../common/schema";
 import type { MatchResult } from "../../common/match";
-import type { ContractTalks, GameState, PlayOption, PlayReport } from "../../common/api";
+import type { GameState, PlayOption, PlayReport } from "../../common/api";
 import { updateLeagueSummary } from "../db/globalDb";
 import { seasonDate } from "../schedule/calendar";
 import {
@@ -36,9 +36,6 @@ import {
 } from "../season/offseason";
 import { closeSeasonBooks, openSeasonBooks, settleMonths } from "../finance/finance";
 import { BOARD, jobOffers, preseasonBoard } from "../club/board";
-import { clubStrength } from "../club/standing";
-import { contractAsks, contractEnd, marketValue, signContract, yearsLeft } from "../market/market";
-import { clubRevenue, moodAtClub } from "../market/renewals";
 import { runDays, type NewMessage } from "../season/runner";
 import {
   applyMoves,
@@ -51,7 +48,7 @@ import {
 } from "../season/season";
 import type { LeagueSession } from "./session";
 
-const meta = <T>(session: LeagueSession, key: string): T => {
+export const meta = <T>(session: LeagueSession, key: string): T => {
   const row = session.cache.get("meta", key) as T | undefined;
   if (row === undefined) throw new Error(`Save has no meta row "${key}"`);
   return row;
@@ -68,7 +65,7 @@ export function openWindow(date: string, season: number, config = competitionsCo
 }
 
 /** The save's clubs and players as the in-memory season code works on them (cache objects). */
-function loopWorld(session: LeagueSession, season: number): LoopWorld {
+export function loopWorld(session: LeagueSession, season: number): LoopWorld {
   const game = meta<GameMeta>(session, "game");
   const ids = { ...meta<IdCounters>(session, "ids") };
   const reputation = new Map<number, number>();
@@ -94,12 +91,12 @@ function loopWorld(session: LeagueSession, season: number): LoopWorld {
 }
 
 /** Saves the clubs and club-season rows the season code changed in place (cash, books). */
-function saveBooks(session: LeagueSession, world: LoopWorld): void {
+export function saveBooks(session: LeagueSession, world: LoopWorld): void {
   for (const club of world.clubs) session.cache.put("clubs", club);
   for (const row of world.clubSeasons.values()) session.cache.put("clubSeasons", row);
 }
 
-function saveTransactions(session: LeagueSession, rows: readonly NewTransaction[]): void {
+export function saveTransactions(session: LeagueSession, rows: readonly NewTransaction[]): void {
   const ids = { ...meta<IdCounters>(session, "ids") };
   for (const row of rows) session.cache.put("transactions", { xid: ids.xid++, ...row });
   session.cache.put("meta", ids, "ids");
@@ -158,7 +155,7 @@ export function ensureSeason(session: LeagueSession): void {
   if (message) saveMessages(session, [message]);
 }
 
-function saveMessages(session: LeagueSession, rows: readonly NewMessage[]): void {
+export function saveMessages(session: LeagueSession, rows: readonly NewMessage[]): void {
   const ids = { ...meta<IdCounters>(session, "ids") };
   for (const row of rows) session.cache.put("inbox", { mid: ids.mid++, ...row });
   session.cache.put("meta", ids, "ids");
@@ -204,69 +201,6 @@ export function gameState(session: LeagueSession): GameState {
         }
       : null,
   };
-}
-
-/** Contract talks with one of the user's players: his mood and what he asks per length. */
-export function contractTalks(session: LeagueSession, pid: number): ContractTalks {
-  const game = meta<GameMeta>(session, "game");
-  const world = loopWorld(session, game.season);
-  const p = session.cache.get("players", pid);
-  const club = world.clubs.find((c) => c.cid === p?.cid);
-  if (!p || !club) throw new Error(`No player ${pid} at a club`);
-  const league = world.clubs.filter((c) => c.leagueId === club.leagueId);
-  const level =
-    league.reduce((s, c) => s + clubStrength(world.players, c.cid, game.date), 0) /
-    Math.max(1, league.length);
-  const mood = moodAtClub(world, p, game.date);
-  const left = yearsLeft(p, game.date);
-  return {
-    pid,
-    name: `${p.firstName} ${p.lastName}`.trim(),
-    position: p.position,
-    age: Math.floor(exactAge(p.birthDate, game.date)),
-    ovr: p.ovr,
-    pot: p.pot,
-    wage: p.contract?.wage ?? 0,
-    expires: p.contract?.expires ?? null,
-    yearsLeft: left,
-    value: marketValue(p, game.date, level),
-    mood: mood ?? { value: 0, components: {}, willing: false },
-    asks: contractAsks(p, game.date, clubRevenue(world, club), mood?.value ?? 0, left === 1).map(
-      (a) => ({ ...a, expires: contractEnd(game.season, a.years, game.date) }),
-    ),
-    windowOpen: openWindow(game.date, game.season) !== null,
-    userPlayer: p.cid === game.userCid,
-  };
-}
-
-/** Renews one of the user's players at his ask for `years` (only in a window, SPEC §7.6). */
-export async function renewContract(session: LeagueSession, pid: number, years: number) {
-  const game = meta<GameMeta>(session, "game");
-  const talks = contractTalks(session, pid);
-  if (!talks.userPlayer) throw new Error("You can only renew your own players");
-  if (!talks.windowOpen) throw new Error("Contracts can only be renewed in a transfer window");
-  if (!talks.mood.willing) throw new Error(`${talks.name} won't negotiate with your club`);
-  const ask = talks.asks.find((a) => a.years === years);
-  const p = session.cache.get("players", pid);
-  if (!ask || !p) throw new Error(`No ask for ${years} years`);
-  const expires = contractEnd(game.season, years, game.date);
-  if (expires <= (p.contract?.expires ?? "")) {
-    throw new Error(`A renewal must run past ${p.contract?.expires ?? "the current contract"}`);
-  }
-  signContract(p, ask.wage, expires, game.date);
-  session.cache.put("players", p);
-  saveTransactions(session, [
-    {
-      season: game.season,
-      date: game.date,
-      type: "renewal",
-      pids: [pid],
-      cids: [game.userCid],
-      names: [talks.name, session.cache.get("clubs", game.userCid)?.name ?? ""],
-      fee: 0,
-    },
-  ]);
-  await session.cache.flush();
 }
 
 /** The sacked user takes one of his job offers: the game goes on at that club. */
@@ -413,6 +347,7 @@ function processDays(
   saveBooks(session, world);
   saveMessages(session, days.messages);
   saveTransactions(session, days.transactions);
+  expireOffers(session, game.date);
   saveSeason(session, state, stored.movesApplied);
   session.cache.put("meta", game, "game");
   return {
@@ -422,6 +357,15 @@ function processDays(
     events: days.events,
     phase: game.phase,
   };
+}
+
+/** Bids still standing when their window closed lapse (deadline day processed). */
+function expireOffers(session: LeagueSession, date: string): void {
+  for (const offer of session.cache.getAll("offers")) {
+    if ((offer.status === "open" || offer.status === "accepted") && date >= offer.expires) {
+      session.cache.put("offers", { ...offer, status: "expired" });
+    }
+  }
 }
 
 /** 1 June: promotion and relegation (SPEC §3.1). */
@@ -558,21 +502,33 @@ async function advanceToPreseason(session: LeagueSession): Promise<PlayReport> {
   cache.evict("playerStats", (r) => r.season < season);
   cache.evict("awards", (r) => r.season < season);
   cache.evict("transactions", (r) => r.season < season);
+  // Bids are kept for their season only.
+  for (const offer of cache.getAll("offers")) {
+    if ((offer.season ?? 0) < season) cache.delete("offers", offer.oid);
+  }
+  await cache.flush();
 
   await pruneMatchRecords(db, season, game.userCid);
   await pruneRetiredPlayers(session, season);
   return { from, to: game.date, matchesPlayed: 0, events: [], phase: game.phase };
 }
 
-/** Play actions on a save run one at a time, even when two tabs press Play together. */
+/**
+ * Actions on a save (Play, and the user's market actions) run one at a time, even when two
+ * tabs act together.
+ */
 const queues = new WeakMap<LeagueSession, Promise<unknown>>();
+
+export function queued<T>(session: LeagueSession, task: () => Promise<T>): Promise<T> {
+  const previous = queues.get(session) ?? Promise.resolve();
+  const run = previous.catch(() => undefined).then(task);
+  queues.set(session, run);
+  return run;
+}
 
 /** Runs one Play-menu action and saves the result. */
 export function play(session: LeagueSession, option: PlayOption): Promise<PlayReport> {
-  const previous = queues.get(session) ?? Promise.resolve();
-  const run = previous.catch(() => undefined).then(() => runPlay(session, option));
-  queues.set(session, run);
-  return run;
+  return queued(session, () => runPlay(session, option));
 }
 
 async function runPlay(session: LeagueSession, option: PlayOption): Promise<PlayReport> {

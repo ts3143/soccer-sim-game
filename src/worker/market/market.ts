@@ -7,8 +7,10 @@
  * where "rated OVR" credits young players with part of their headroom to POT.
  *
  * Mood (−1 to 1, ZenGM-style) from team success, hype, facilities, market size, playing
- * time and loyalty, weighted by his mood traits. It affects only contract talks: below
- * −0.6 he won't negotiate; otherwise happier players ask less.
+ * time and loyalty, weighted by his mood traits, less a small ambition penalty when he has
+ * clearly outgrown the club (T, 2026-10-18: kept subtle so talent doesn't drain to the big
+ * clubs). It affects only contract talks: below −0.6 he won't negotiate; otherwise happier
+ * players ask less.
  *
  * Wage demand per contract length: the market wage for his OVR and age at a club of this
  * size (fitted on the opening contracts), adjusted for the length (he asks more for a
@@ -57,6 +59,15 @@ export const MARKET = {
       winning: ["success"],
       money: [],
     } as Record<MoodTrait, string[]>,
+    /**
+     * Ambition: once his level (OVR, plus part of a young player's headroom to POT) is more
+     * than `from` above the club's best-XI level, mood falls by up to `penalty`, reached at
+     * `from + span`. The gap counts only as far as stronger clubs exist, so no one outgrows
+     * the strongest. Fame or Winning doubles it. Subtle by design: a star at a small club
+     * asks a few per cent more and is a little readier to leave, no more. (A club's best
+     * player is typically 3–7 above its XI level, hence `from`.)
+     */
+    ambition: { penalty: 0.1, from: 6, span: 10, potentialShare: 0.5, traits: ["fame", "winning"] },
     refuseBelow: -0.6,
     /** Ask × (1 − perMood × mood); "money" players ask this much more. */
     perMood: 0.15,
@@ -115,6 +126,11 @@ export interface MoodContext {
   minutesShare: number;
   /** Seasons at the club. */
   yearsAtClub: number;
+  /**
+   * For ambition (omitted: no ambition penalty): the club's best-XI OVR, the strongest
+   * club's, and the date.
+   */
+  levels?: { club: number; top: number; date: string };
 }
 
 export interface Mood {
@@ -142,8 +158,22 @@ export function playerMood(p: Player, ctx: MoodContext): Mood {
     total += w * value;
     weights += w;
   }
-  const value = weights > 0 ? total / weights : 0;
+  let value = weights > 0 ? total / weights : 0;
+  if (ctx.levels) {
+    const a = m.ambition;
+    const { club, top, date } = ctx.levels;
+    const gap = Math.min(playerLevel(p, date) - club, top - club);
+    components.ambition = -clamp((gap - a.from) / a.span, 0, 1);
+    const doubled = p.moodTraits.some((t) => a.traits.includes(t));
+    value = clamp(value + components.ambition * a.penalty * (doubled ? 2 : 1), -1, 1);
+  }
   return { value, components, willing: value >= m.refuseBelow };
+}
+
+/** His level for ambition: OVR, crediting a young player with part of his headroom. */
+export function playerLevel(p: Player, date: string): number {
+  const youth = clamp((27 - exactAge(p.birthDate, date)) / 6, 0, 1);
+  return p.ovr + MARKET.mood.ambition.potentialShare * youth * Math.max(0, p.pot - p.ovr);
 }
 
 /** The contract length a player wants, by age. */

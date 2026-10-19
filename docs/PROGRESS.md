@@ -44,6 +44,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-15 | M3 chunk 8 | The well-played 18–21 growth target (+4 to +8 a year) is reported in M3 and gated in M4, together with world-shape checks: a stable senior OVR distribution and a peak around 27–29. | After tuning, 16 of 17 season-loop checks passed; settings that pushed young regulars past +4 also broke the wonderkid rate and inflated the top end. Transfers and loans (M4) change who plays young. | MILESTONES M3, M4; `tools/calibrate/world-report.ts` |
 | 2026-10-16 | M4 plan | Opening squads carry notional past transfer fees, about 30% of squad cost, with wages about 70% of the M1 levels; squad cost stays 50–65% of revenue. TV pools and shares, and cup prize money per round, are set per league and per cup in config. The AI never acts for the user's club. M4 adds a developer-only Club lab page. | Per-player wages ran ~2× real-world because the whole wage budget went to ~23 players with no past fees. The spec gave no TV or prize amounts. | SPEC §6.2, §6.3; MILESTONES M4; `competitions_mvp.json` |
 | 2026-10-18 | M4 chunk 3 | Contract years count by window: a summer deal's first year is the current season; a January deal's years start next season, the half season on top. A renewal must extend the contract. | SPEC §7.6 said only "1–5 years". Counting a renewal's years after the current season would have allowed 6-season deals in summer. Approved by T. | SPEC §7.6; `market/market.ts` (`contractEnd`) |
+| 2026-10-18 | M4 chunk 4 | Mood gains a small ambition penalty: a player clearly better than his club (more than 6 OVR above its best-XI level, young players credited with half their headroom to POT) loses up to 0.1 mood (0.2 with Fame or Winning). The gap counts only as far as stronger clubs exist. | T asked that good, young or ambitious players be harder to keep, but very subtly, so talent doesn't drain to the big clubs. Over 20 seasons it moves top-six parity by about 0.5 points (within noise). | SPEC §4.6; `market/market.ts` (`MARKET.mood.ambition`) |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -483,7 +484,7 @@ For information:
   - A length he doesn't want: +5% per year away from his preferred length (4 years up to 24, 3 to 29, 2 to 32, then 1).
   - Final year: +10% (SPEC §3.1).
   - Mood: × (1 − 0.15 × mood). "Money" players: +10%.
-- **Mood** (−1 to 1, ZenGM-style): team success (the board's results score), hype, facilities, market size, playing time and loyalty (years at the club). Each trait doubles its components: fame → market, hype and playing time (SPEC §4.4), loyalty → loyalty, winning → success. Below −0.6 he won't negotiate.
+- **Mood** (−1 to 1, ZenGM-style): team success (the board's results score), hype, facilities, market size, playing time and loyalty (years at the club). Each trait doubles its components: fame → market, hype and playing time (SPEC §4.5), loyalty → loyalty, winning → success. Below −0.6 he won't negotiate.
 - **Contract lengths:** a summer deal counts this season as its first year. A January deal's years start next season, with the half season left on top ("two and a half years"). A renewal must run past the current contract.
 - **The contract year** (replaces M3's rollover):
   - 1 July: contracts that ended on 30 June expire, and the players become free agents. A transaction is logged, and the user's inbox lists who left.
@@ -514,6 +515,47 @@ For information:
 - Mood's "success" component is the board's live confidence, so a club doing better than expected is attractive.
 - Final-year players pay the 10% premium in both windows; the AI renews regulars in summer with two years left, to avoid that premium.
 - An expiring player's fee balance is cleared. Yearly amortisation, and the write-off of any balance left, is booked with FFP in chunk 7.
+
+**Chunk 4: transfers I** (`src/worker/market/transfers.ts`, `src/worker/league/market.ts`)
+- **Ambition in mood** (approved by T, kept subtle; see Deviations). Without it, a star at a small club was as happy as anyone there.
+- **Strategy:**
+  - contending when the board's target is fourth or better (ENG1 title and top four, GER1 title and top four, ENG2 promotion);
+  - selling with negative cash or a squad cost above 70% of the budget base;
+  - otherwise developing.
+- **Budgets** (SPEC §6.3):
+  - The FFP headroom is 70% of the budget base less wages and the year's fee amortisation.
+  - One control (`Club.wageShare`, default half) splits the headroom between wage room and fees. A fee counts against the headroom spread over four years.
+  - The transfer budget is also capped by cash, less a 10% reserve, plus half the projected profit. Negative cash freezes transfers.
+- **Asking price** (SPEC §7.3) = market value × importance × strategy × an unhappiness discount:
+  - Importance by squad rank: starters ×1.3, ranks 12–16 ×1, ranks 17–22 ×0.8, the rest ×0.6.
+  - Strategy: a contender wants ×1.2 more for a starter in summer and ×1.5 in January. A developing club wants ×1.2 for players 23 or under and takes ×0.85 for those 30 or over. A seller takes ×0.9.
+  - Unhappiness: up to 15% off when the player's mood at the club is negative.
+  - Market value is exponential in OVR (×5 per 10 points), so two average players' fees never buy a star (exploit test).
+- **The deal** (two steps):
+  1. The selling club accepts a bid at its asking price, counters from 80% of it (naming its price), and rejects anything lower.
+  2. The player agrees terms at his ask for the chosen length, with his mood toward the buying club. Expected minutes come from where he'd rank in the new squad.
+  - The fee is paid up front, the seller books it as player sales, and the buyer amortises it over the new contract.
+  - Player sales stay out of the next season's budget base (`operatingRevenue`).
+  - A new signing gets the lowest free shirt number.
+- **Your side** (worker API):
+  - `getContractTalks` now covers renewals, transfers and free agents, with your transfer budget and wage room.
+  - `bidForPlayer` makes a bid; `signPlayer` agrees personal terms; `respondToOffer` accepts or rejects a bid for your players; `getOffers` lists bids.
+  - Bids live in the save's offers store and lapse once deadline day is played. They're kept for their season.
+  - Signing needs an open window, a willing player, a wage within your wage room, a fee within your budget and a squad below 25 seniors.
+  - Market actions run in the same queue as Play.
+- 7 transfer unit tests (star-for-two exploit, importance and contract length, contender and seller pricing, bid thresholds, budgets and the cash freeze, ambition, completing a deal). 2 save tests cover the whole user flow: bid steps, signing, a free agent, rejecting and accepting a bid for your player, and bids lapsing at the deadline. 205 tests in all.
+- AI buying and selling (chunk 5) will use the same functions; until then nothing makes the AI bid.
+
+**Numbers** (3 worlds × 20 seasons; no AI transfers yet, so only ambition moves them):
+- the same edge picture as chunk 3: champion 84.1 points ✓, assists 19.4 ✓, parity 12.98% (reported as 0.130, floor 13%), POT check 32.3% (cap 32%);
+- with 6 worlds, ambition off against on: parity 13.8% against 13.3%, POT check 31.6% against 31.5%. All pass with 6 worlds.
+
+**Judgment calls (chunk 4)**
+- **Importance by OVR rank**, not by position: simple and close to ZenGM's value-by-rank. Position needs come with AI buying (chunk 5).
+- **The user sees no asking price:** a counter reveals it once a bid is within 80%. ZenGM's trade screen likewise says only what the AI would accept.
+- **Bids for your players** are answered by you. On acceptance the player agrees terms with the buyer at his preferred length, or the move falls through (an inbox message says why).
+- **The wage room binds new signings only.** Renewals, yours and the AI's, are judged by FFP at season end (chunk 7), as in ZenGM, where teams can re-sign their own players over the cap.
+- A seller's unamortised balance leaves with the player. Booking the profit or loss on a sale against that balance comes with FFP (chunk 7).
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

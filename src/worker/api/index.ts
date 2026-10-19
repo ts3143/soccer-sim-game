@@ -1,7 +1,15 @@
 import type { UiEvents, WorkerApi, WorkerKind } from "../../common/api";
 import type { ApiHandlers, RpcHost } from "../../common/rpc";
 import { listLeagues } from "../db/globalDb";
-import { acceptJobOffer, contractTalks, gameState, play, renewContract } from "../league/game";
+import { acceptJobOffer, gameState, play } from "../league/game";
+import {
+  bidForPlayer,
+  contractTalks,
+  renewContract,
+  respondToOffer,
+  signPlayer,
+  userOffers,
+} from "../league/market";
 import { createLeague, deleteLeague, openLeague } from "../league/session";
 import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector";
 import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
@@ -74,6 +82,26 @@ export function createHandlers(
       const session = await openLeague(lid);
       await renewContract(session, pid, years);
       return contractTalks(session, pid);
+    },
+
+    async bidForPlayer(lid, pid, fee) {
+      return bidForPlayer(await openLeague(lid), pid, fee);
+    },
+
+    async signPlayer(lid, pid, years) {
+      const session = await openLeague(lid);
+      await signPlayer(session, pid, years);
+      return contractTalks(session, pid);
+    },
+
+    async getOffers(lid) {
+      return userOffers(await openLeague(lid));
+    },
+
+    async respondToOffer(lid, oid, accept) {
+      const session = await openLeague(lid);
+      await respondToOffer(session, oid, accept);
+      return userOffers(session);
     },
 
     async markInboxRead(lid, mid) {
