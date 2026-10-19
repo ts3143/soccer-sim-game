@@ -27,6 +27,11 @@ export interface ClubChoice {
   leagueId: string;
   leagueName: string;
   strength: number;
+  city: string;
+  reputation: number;
+  /** Season-1 revenue (whole euros). */
+  revenue: number;
+  primaryColor: string;
 }
 
 export interface NewLeagueInput {
@@ -209,6 +214,446 @@ export interface GameState {
   fired: { date: string; offers: { cid: number; name: string; leagueId: string }[] } | null;
 }
 
+/** A league table row on the Standings page (form and home/away only for the live season). */
+export interface StandingsRow extends TableRowView {
+  form: FormResult[] | null;
+  /** "W-D-L" at home and away. */
+  home: string | null;
+  away: string | null;
+}
+
+export interface StandingsView {
+  leagueId: string;
+  leagueName: string;
+  season: number;
+  /** The season being played (live table), or a finished one (final positions). */
+  current: boolean;
+  rows: StandingsRow[];
+  /** What each coloured zone means in this league. */
+  zones: { zone: Exclude<TableZone, null>; label: string }[];
+  /** A finished season's outcome: champions, promoted, play-off winners, relegated. */
+  notes: string[];
+}
+
+/** One knockout tie (one match, or two legs) on the Cups page. */
+export interface CupTie {
+  home: TeamRef;
+  away: TeamRef;
+  legs: MatchView[];
+  /** Two-legged ties: the aggregate, e.g. "3–2". */
+  aggregate: string | null;
+  winner: TeamRef | null;
+}
+
+export interface CupView {
+  id: string;
+  name: string;
+  season: number;
+  /** Every knockout competition (cups and play-offs), for the tabs. */
+  competitions: { id: string; name: string }[];
+  rounds: { name: string; date: string | null; ties: CupTie[] }[];
+  winner: TeamRef | null;
+}
+
+/** The Weekly Schedule: one week's fixtures in every competition (weeks run Monday–Sunday). */
+export interface ScheduleView {
+  season: number;
+  weeks: { start: string; end: string; matches: number }[];
+  /** Start (Monday) of the week shown. */
+  week: string;
+  matches: MatchView[];
+}
+
+/** One player on the Squad page. */
+export interface SquadPlayerView {
+  pid: number;
+  name: string;
+  shirtNumber: number | null;
+  position: string;
+  secondary: string[];
+  age: number;
+  nationality: string;
+  foot: string;
+  ovr: number;
+  pot: number;
+  /** club, academy, loan (here on loan) or loanedOut (his contract is here, he plays elsewhere). */
+  status: "club" | "academy" | "loan" | "loanedOut";
+  loan: string | null;
+  condition: number;
+  injury: { type: string; until: string } | null;
+  wage: number | null;
+  expires: string | null;
+  /** His contract ends this 30 June (SPEC §11: the expiry badge). */
+  expiring: boolean;
+  value: number;
+  /** Mood toward his club (−1 to 1); null for academy players. */
+  mood: number | null;
+  season: { appearances: number; goals: number; assists: number; rating: number | null };
+}
+
+export interface TeamSquadView {
+  team: TeamRef & { leagueId: string; leagueName: string; position: number | null };
+  formation: string;
+  /** Mean OVR of the best fit XI. */
+  strength: number;
+  averageAge: number;
+  /** A year, for the players whose contracts the club holds. */
+  wageBill: number;
+  players: SquadPlayerView[];
+  academy: SquadPlayerView[];
+  loanedOut: SquadPlayerView[];
+}
+
+/** The player profile (SPEC §11). */
+export interface PlayerView {
+  pid: number;
+  name: string;
+  position: string;
+  secondary: string[];
+  age: number;
+  birthDate: string;
+  nationality: string;
+  nationality2: string | null;
+  foot: string;
+  heightCm: number;
+  shirtNumber: number | null;
+  ovr: number;
+  pot: number;
+  status: string;
+  team: TeamRef | null;
+  /** On loan: where he plays and his parent club. */
+  loan: { at: TeamRef; parent: TeamRef; until: string; wageShare: number } | null;
+  contract: { wage: number; expires: string; yearsLeft: number; feeRemaining: number } | null;
+  value: number;
+  mood: {
+    value: number;
+    willing: boolean;
+    components: Record<string, number>;
+    traits: string[];
+  } | null;
+  condition: number;
+  injury: { type: string; until: string } | null;
+  ratings: { code: string; name: string; group: string; value: number; change: number | null }[];
+  positionOvrs: { position: string; ovr: number }[];
+  transfers: {
+    date: string;
+    type: string;
+    from: TeamRef | null;
+    to: TeamRef | null;
+    fee: number;
+  }[];
+  freeAgentSince: string | null;
+  retiredSeason: number | null;
+  /** Every development update: OVR and POT over time. */
+  history: { date: string; season: number; ovr: number; pot: number }[];
+  /** The profile radar (config `radarAxes`): each axis is the mean of its ratings. */
+  radar: { axis: string; value: number }[];
+  /** Season rows per club and competition, oldest first. */
+  career: {
+    season: number;
+    club: TeamRef;
+    competition: string;
+    competitionName: string;
+    appearances: number;
+    starts: number;
+    minutes: number;
+    goals: number;
+    assists: number;
+    rating: number | null;
+    yellowCards: number;
+    redCards: number;
+    cleanSheets: number;
+  }[];
+}
+
+/** A box score page: the fixture, and the saved match record if it's still kept. */
+export interface BoxScoreView {
+  match: MatchView;
+  /** null: not played yet, or the record was pruned (other clubs' matches are kept 2 seasons). */
+  result: MatchResult | null;
+  players: Record<number, { name: string; shirtNumber: number | null }>;
+}
+
+/** A club's season of matches (Game Log). */
+export interface GameLogView {
+  team: TeamRef;
+  season: number;
+  matches: {
+    match: MatchView;
+    venue: "H" | "A" | "N";
+    opponent: TeamRef;
+    result: FormResult | null;
+  }[];
+  record: { won: number; drawn: number; lost: number; goalsFor: number; goalsAgainst: number };
+}
+
+/** League Leaders: the top ten in each category, one league and season. */
+export interface LeagueLeadersView {
+  leagueId: string;
+  leagueName: string;
+  season: number;
+  categories: {
+    key: string;
+    label: string;
+    /** e.g. "min. 8 appearances" for the rating category. */
+    note: string | null;
+    rows: { pid: number; name: string; club: TeamRef; value: number; display: string }[];
+  }[];
+}
+
+/** Player Ratings: every active player and free agent with his 22 ratings. */
+export interface PlayerRatingsView {
+  codes: { code: string; name: string }[];
+  rows: {
+    pid: number;
+    name: string;
+    club: TeamRef | null;
+    leagueId: string | null;
+    status: string;
+    position: string;
+    age: number;
+    ovr: number;
+    pot: number;
+    /** In `codes` order. */
+    ratings: number[];
+  }[];
+}
+
+/** Player Stats: one row per player and club for a season (all or one competition). */
+export interface PlayerStatsView {
+  season: number;
+  competition: string | null;
+  competitions: { id: string; name: string }[];
+  rows: {
+    pid: number;
+    name: string;
+    club: TeamRef;
+    leagueId: string;
+    position: string;
+    age: number;
+    appearances: number;
+    starts: number;
+    minutes: number;
+    goals: number;
+    assists: number;
+    xg: number;
+    xa: number;
+    shots: number;
+    shotsOnTarget: number;
+    keyPasses: number;
+    passes: number;
+    passesCompleted: number;
+    tackles: number;
+    interceptions: number;
+    yellowCards: number;
+    redCards: number;
+    saves: number;
+    cleanSheets: number;
+    rating: number | null;
+  }[];
+}
+
+/** Team Stats: each club's season in its league, from the saved match records. */
+export interface TeamStatsView {
+  leagueId: string;
+  leagueName: string;
+  season: number;
+  /** False when the season's match records have been pruned (only results remain). */
+  detailed: boolean;
+  rows: {
+    team: TeamRef;
+    played: number;
+    goalsFor: number;
+    goalsAgainst: number;
+    xgFor: number | null;
+    xgAgainst: number | null;
+    shotsFor: number | null;
+    shotsAgainst: number | null;
+    possession: number | null;
+    passAccuracy: number | null;
+    corners: number | null;
+    fouls: number | null;
+    yellowCards: number | null;
+    redCards: number | null;
+    cleanSheets: number | null;
+  }[];
+}
+
+/** Injuries: every injured player in the world now. */
+export interface InjuriesView {
+  date: string;
+  rows: {
+    pid: number;
+    name: string;
+    club: TeamRef;
+    leagueId: string;
+    position: string;
+    ovr: number;
+    type: string;
+    until: string;
+    daysLeft: number;
+  }[];
+}
+
+/** League History (SPEC §10.5): each finished season's honours, newest first. */
+export interface HistoryView {
+  seasons: {
+    season: number;
+    leagues: {
+      id: string;
+      name: string;
+      champion: TeamRef | null;
+      promoted: TeamRef[];
+      playoffWinner: TeamRef | null;
+      relegated: TeamRef[];
+      playerOfTheYear: { pid: number | null; name: string; club: TeamRef | null } | null;
+      goldenBoot: {
+        pid: number | null;
+        name: string;
+        club: TeamRef | null;
+        goals: number | null;
+      } | null;
+    }[];
+    cups: { id: string; name: string; winner: TeamRef | null }[];
+  }[];
+}
+
+/** A club's history: every season's league finish and honours. */
+export interface TeamHistoryView {
+  team: TeamRef;
+  seasons: {
+    season: number;
+    leagueId: string;
+    leagueName: string;
+    finish: number | null;
+    played: number;
+    won: number;
+    drawn: number;
+    lost: number;
+    points: number;
+    goalsFor: number;
+    goalsAgainst: number;
+    honours: string[];
+    topScorer: { pid: number; name: string; goals: number } | null;
+    current: boolean;
+  }[];
+  /** Trophies and promotions, counted. */
+  honours: { label: string; seasons: number[] }[];
+}
+
+/** Transactions: a season's log (transfers, loans, signings, renewals, releases, promotions, retirements). */
+export interface TransactionsView {
+  season: number;
+  rows: { xid: number; date: string; type: string; text: string; fee: number; cids: number[] }[];
+}
+
+/** Power Rankings: clubs by current strength and form. */
+export interface PowerRankingsView {
+  rows: {
+    team: TeamRef;
+    leagueId: string;
+    /** Best fit XI now (injuries count) and at full strength. */
+    strength: number;
+    fullStrength: number;
+    form: FormResult[];
+    /** League goal difference per game this season. */
+    goalDifferencePerGame: number;
+    position: number | null;
+    /** strength + 3 × goal difference per game (capped at ±2). */
+    score: number;
+  }[];
+}
+
+/** Finances overview of every club (SPEC §11): the current season, or a finished one. */
+export interface FinancesView {
+  season: number;
+  current: boolean;
+  rows: {
+    team: TeamRef;
+    leagueId: string;
+    revenue: number;
+    expenses: number;
+    profit: number;
+    /** Now (current season) or at the season's end. */
+    cash: number;
+    /** A year (current season only). */
+    wages: number | null;
+    /** Squad cost over revenue: projected now, or the season's FFP ratio. */
+    squadCostRatio: number | null;
+    ffp: "ok" | "warned" | "banned" | null;
+    reputation: number;
+  }[];
+}
+
+/** Win, draw or loss, for form guides. */
+export type FormResult = "W" | "D" | "L";
+
+/** The Dashboard (M5, SPEC §11): the user's club at a glance. */
+export interface DashboardView {
+  user: TeamRef & { leagueId: string; leagueName: string };
+  position: number | null;
+  record: {
+    played: number;
+    won: number;
+    drawn: number;
+    lost: number;
+    points: number;
+    goalsFor: number;
+    goalsAgainst: number;
+  };
+  /** Last five results, oldest first, in every competition. */
+  form: FormResult[];
+  nextMatch: (MatchView & { opponentPosition: number | null; opponentForm: FormResult[] }) | null;
+  upcoming: MatchView[];
+  recent: MatchView[];
+  /** The user's league table. */
+  table: TableRowView[];
+  board: { target: string; confidence: number | null };
+  alerts: {
+    injured: { pid: number; name: string; position: string; type: string; until: string }[];
+    tired: { pid: number; name: string; position: string; condition: number }[];
+    /** Players whose contracts end this 30 June. */
+    expiring: number;
+    /** Open bids for the user's players. */
+    bids: number;
+  };
+  /** The user's best performers this season (by average rating, 3+ appearances). */
+  topPlayers: {
+    pid: number;
+    name: string;
+    position: string;
+    appearances: number;
+    goals: number;
+    assists: number;
+    rating: number;
+  }[];
+  inbox: InboxMessage[];
+  unread: number;
+  cash: number;
+}
+
+/** What the app shell needs for an open league (M5): names, clubs, leagues, the game state. */
+export interface LeagueShell {
+  lid: number;
+  name: string;
+  userCid: number;
+  /** The first season of every save (season pickers run from it to the current one). */
+  firstSeason: number;
+  clubs: {
+    cid: number;
+    name: string;
+    short: string;
+    abbr: string;
+    code: string;
+    leagueId: string;
+    colors: { primary: string; secondary: string; tertiary: string };
+  }[];
+  leagues: { id: string; name: string }[];
+  state: GameState;
+  /** Unread inbox messages. */
+  unread: number;
+}
+
 export interface PlayReport {
   from: string;
   to: string;
@@ -222,14 +667,16 @@ export interface PlayReport {
 
 export type TableZone = "champions" | "promoted" | "playoffs" | "relegated" | null;
 
-export interface SeasonLabTeam {
+/** A club as pages show it (crest code, names). */
+export interface TeamRef {
   cid: number;
   name: string;
   abbr: string;
   code: string;
 }
 
-export interface SeasonLabTableRow extends SeasonLabTeam {
+/** One row of a league table, with its zone. */
+export interface TableRowView extends TeamRef {
   position: number;
   played: number;
   won: number;
@@ -242,7 +689,8 @@ export interface SeasonLabTableRow extends SeasonLabTeam {
   zone: TableZone;
 }
 
-export interface SeasonLabMatch {
+/** A fixture as pages show it. */
+export interface MatchView {
   fid: number;
   date: string;
   competition: string;
@@ -250,12 +698,16 @@ export interface SeasonLabMatch {
   round: string;
   leg: 1 | 2 | null;
   neutral: boolean;
-  home: SeasonLabTeam;
-  away: SeasonLabTeam;
+  home: TeamRef;
+  away: TeamRef;
   /** "2–1", "1–1 aet, 4–3 pens"; null if not played yet. */
   score: string | null;
   winnerCid: number | null;
 }
+
+export type SeasonLabTeam = TeamRef;
+export type SeasonLabTableRow = TableRowView;
+export type SeasonLabMatch = MatchView;
 
 export interface SeasonLabKnockout {
   id: string;
@@ -494,6 +946,27 @@ export interface WorkerApi {
   stepLabMatch(id: number, possessions: number): LabLiveStep;
   runLabBatch(lid: number, matches: number): LabBatch;
   getGameState(lid: number): GameState;
+  getLeagueShell(lid: number): LeagueShell;
+  getDashboard(lid: number): DashboardView;
+  getTeamSquad(lid: number, cid: number): TeamSquadView;
+  getPlayer(lid: number, pid: number): PlayerView;
+  getBoxScore(lid: number, fid: number): BoxScoreView;
+  getGameLog(lid: number, cid: number, season: number | null): GameLogView;
+  getLeagueLeaders(lid: number, leagueId: string | null, season: number | null): LeagueLeadersView;
+  getPlayerRatings(lid: number): PlayerRatingsView;
+  getPlayerStats(lid: number, season: number | null, competition: string | null): PlayerStatsView;
+  getTeamStats(lid: number, leagueId: string | null, season: number | null): TeamStatsView;
+  getInjuries(lid: number): InjuriesView;
+  getHistory(lid: number): HistoryView;
+  getTeamHistory(lid: number, cid: number): TeamHistoryView;
+  getTransactions(lid: number, season: number | null): TransactionsView;
+  getPowerRankings(lid: number): PowerRankingsView;
+  getFinances(lid: number, season: number | null): FinancesView;
+  getStandings(lid: number, leagueId: string | null, season: number | null): StandingsView;
+  getCups(lid: number, competition: string | null, season: number | null): CupView;
+  /** `week`: the Monday of the week to show (null: the current week). */
+  getSchedule(lid: number, week: string | null): ScheduleView;
+  markAllInboxRead(lid: number): void;
   playGame(lid: number, option: PlayOption): PlayReport;
   getSeasonLab(lid: number): SeasonLabView;
   acceptJobOffer(lid: number, cid: number): GameState;

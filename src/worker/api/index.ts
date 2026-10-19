@@ -16,7 +16,26 @@ import { createLeague, deleteLeague, openLeague } from "../league/session";
 import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector";
 import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
 import { getClubLab, searchPlayers } from "../views/clubLab";
+import { getCups, getSchedule, getStandings } from "../views/competitions";
+import { getDashboard, markAllInboxRead } from "../views/dashboard";
+import {
+  getFinances,
+  getHistory,
+  getPowerRankings,
+  getTeamHistory,
+  getTransactions,
+} from "../views/history";
+import { getBoxScore, getGameLog } from "../views/matches";
+import { getPlayer, getTeamSquad } from "../views/players";
+import {
+  getInjuries,
+  getLeagueLeaders,
+  getPlayerRatings,
+  getPlayerStats,
+  getTeamStats,
+} from "../views/stats";
 import { getSeasonLab } from "../views/seasonLab";
+import { getLeagueShell } from "../views/shell";
 
 /** The worker's implementation of WorkerApi. The compiler checks it against the contract. */
 export function createHandlers(
@@ -49,6 +68,86 @@ export function createHandlers(
     startLabMatch,
     stepLabMatch,
     runLabBatch,
+
+    async getLeagueShell(lid) {
+      return getLeagueShell(lid);
+    },
+
+    async getDashboard(lid) {
+      return getDashboard(lid);
+    },
+
+    async getTeamSquad(lid, cid) {
+      return getTeamSquad(lid, cid);
+    },
+
+    async getPlayer(lid, pid) {
+      return getPlayer(lid, pid);
+    },
+
+    async getBoxScore(lid, fid) {
+      return getBoxScore(lid, fid);
+    },
+
+    async getGameLog(lid, cid, season) {
+      return getGameLog(lid, cid, season);
+    },
+
+    async getLeagueLeaders(lid, leagueId, season) {
+      return getLeagueLeaders(lid, leagueId, season);
+    },
+
+    async getPlayerRatings(lid) {
+      return getPlayerRatings(lid);
+    },
+
+    async getPlayerStats(lid, season, competition) {
+      return getPlayerStats(lid, season, competition);
+    },
+
+    async getTeamStats(lid, leagueId, season) {
+      return getTeamStats(lid, leagueId, season);
+    },
+
+    async getInjuries(lid) {
+      return getInjuries(lid);
+    },
+
+    async getHistory(lid) {
+      return getHistory(lid);
+    },
+
+    async getTeamHistory(lid, cid) {
+      return getTeamHistory(lid, cid);
+    },
+
+    async getTransactions(lid, season) {
+      return getTransactions(lid, season);
+    },
+
+    async getPowerRankings(lid) {
+      return getPowerRankings(lid);
+    },
+
+    async getFinances(lid, season) {
+      return getFinances(lid, season);
+    },
+
+    async getStandings(lid, leagueId, season) {
+      return getStandings(lid, leagueId, season);
+    },
+
+    async getCups(lid, competition, season) {
+      return getCups(lid, competition, season);
+    },
+
+    async getSchedule(lid, week) {
+      return getSchedule(lid, week);
+    },
+
+    async markAllInboxRead(lid) {
+      await markAllInboxRead(lid);
+    },
 
     async getGameState(lid) {
       return gameState(await openLeague(lid));

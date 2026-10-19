@@ -3,47 +3,19 @@
  * shows about the current season, read from the open league's cache.
  */
 import { isSenior } from "../../common/status";
-import type {
-  SeasonLabKnockout,
-  SeasonLabMatch,
-  SeasonLabTableRow,
-  SeasonLabTeam,
-  SeasonLabView,
-  TableZone,
-} from "../../common/api";
+import type { SeasonLabKnockout, SeasonLabMatch, SeasonLabView } from "../../common/api";
 import { exactAge } from "../../common/dates";
 import { competitionsConfig } from "../../common/config/competitions";
-import type { Club, Fixture, GameMeta, Player, SeasonMeta } from "../../common/schema";
+import type { Fixture, GameMeta, Player } from "../../common/schema";
 import { gameState } from "../league/game";
 import { openLeague } from "../league/session";
 import { PLAYOFF_ROUNDS } from "../schedule/calendar";
-import { leagueTable } from "../schedule/standings";
 import { playoffId } from "../season/season";
+import { competitionName, leagueTables, scoreText, teamRef } from "./common";
 import { isInjured } from "../season/squads";
 
-const team = (club: Club | undefined): SeasonLabTeam => ({
-  cid: club?.cid ?? -1,
-  name: club?.name ?? "?",
-  abbr: club?.abbr ?? "?",
-  code: club?.code ?? "",
-});
-
-function competitionName(id: string): string {
-  const league = competitionsConfig.leagues.find((l) => l.id === id);
-  if (league) return league.name;
-  const cup = competitionsConfig.cups.find((c) => c.id === id);
-  if (cup) return cup.name;
-  const po = competitionsConfig.leagues.find((l) => playoffId(l.id) === id);
-  return po ? `${po.name} play-offs` : id;
-}
-
-function score(f: Fixture): string | null {
-  const r = f.result;
-  if (!r) return null;
-  const base = `${r.homeGoals}–${r.awayGoals}`;
-  if (r.penalties) return `${base} aet, ${r.penalties.replace("-", "–")} pens`;
-  return r.extraTime ? `${base} aet` : base;
-}
+const team = teamRef;
+const score = scoreText;
 
 const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
 
@@ -51,7 +23,6 @@ export async function getSeasonLab(lid: number): Promise<SeasonLabView> {
   const session = await openLeague(lid);
   const { cache } = session;
   const game = cache.get("meta", "game") as GameMeta;
-  const stored = cache.get("meta", "season") as SeasonMeta;
   const clubs = new Map(cache.getAll("clubs").map((c) => [c.cid, c]));
   const players = cache.getAll("players");
   const fixtures = cache
@@ -74,37 +45,7 @@ export async function getSeasonLab(lid: number): Promise<SeasonLabView> {
   const userClub = clubs.get(game.userCid);
   const state = gameState(session);
 
-  const leagues = competitionsConfig.leagues.map((league) => {
-    const cids = stored.leagueClubs[league.id] ?? [];
-    const rows = leagueTable(
-      cids,
-      fixtures.filter((f) => f.competition === league.id),
-      {
-        tieBreakers: league.tieBreakers,
-        drawSeed: `${game.seed}/table/${league.id}/${game.season}`,
-      },
-    );
-    const po = league.promotion?.playoffPositions ?? [];
-    const zone = (pos: number): TableZone =>
-      pos === 1
-        ? "champions"
-        : league.promotion && pos <= league.promotion.automatic
-          ? "promoted"
-          : po.includes(pos)
-            ? "playoffs"
-            : league.relegation && pos > rows.length - league.relegation.places
-              ? "relegated"
-              : null;
-    return {
-      id: league.id,
-      name: league.name,
-      rows: rows.map((r): SeasonLabTableRow => ({
-        ...r,
-        ...team(clubs.get(r.cid)),
-        zone: zone(r.position),
-      })),
-    };
-  });
+  const leagues = leagueTables(session, fixtures);
 
   const played = fixtures.filter((f) => f.result);
   const lastDate = played.at(-1)?.date ?? null;

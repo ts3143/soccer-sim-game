@@ -1,13 +1,34 @@
 /**
- * Developer inspector (M1 generation, M2 match lab, M3 season lab, M4 club lab). Temporary page: the game UI replaces it in M5.
- * Create, open and delete league saves, and check what the generator produced.
+ * The game UI (M5): starts the game worker, then shows the page for the URL (src/ui/router):
+ * Manage Leagues, New league, a league page inside the app shell, or the developer pages.
  */
 import { useEffect, useState } from "react";
-import type { WorkerStatus } from "../common/api";
-import type { LeagueSummary } from "../common/schema";
-import { LeagueManager } from "./inspector/LeagueManager";
-import { LeagueView } from "./inspector/LeagueView";
-import { connectWorker, onWorkerEvent, toWorker, type Connection } from "./workerClient";
+import { Inspector } from "./inspector/Inspector";
+import { BoxScorePage } from "./pages/BoxScorePage";
+import { Cups } from "./pages/Cups";
+import { Dashboard } from "./pages/Dashboard";
+import { Finances } from "./pages/Finances";
+import { GameLog } from "./pages/GameLog";
+import { History } from "./pages/History";
+import { Home } from "./pages/Home";
+import { Inbox } from "./pages/Inbox";
+import { Injuries } from "./pages/Injuries";
+import { LeagueLeaders } from "./pages/LeagueLeaders";
+import { NewLeague } from "./pages/NewLeague";
+import { Placeholder } from "./pages/Placeholder";
+import { Player } from "./pages/Player";
+import { PlayerRatings } from "./pages/PlayerRatings";
+import { PlayerStats } from "./pages/PlayerStats";
+import { PowerRankings } from "./pages/PowerRankings";
+import { Schedule } from "./pages/Schedule";
+import { Squad } from "./pages/Squad";
+import { Standings } from "./pages/Standings";
+import { TeamHistory } from "./pages/TeamHistory";
+import { TeamStats } from "./pages/TeamStats";
+import { Transactions } from "./pages/Transactions";
+import { Link, parseRoute, usePath } from "./router";
+import { Shell } from "./shell/Shell";
+import { connectWorker, type Connection } from "./workerClient";
 
 const errorText = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -22,71 +43,93 @@ export function App() {
       .catch((e: unknown) => setError(errorText(e)));
   }, []);
 
-  return (
-    <main className="container-xl py-4">
-      <header className="mb-4">
-        <h1 className="h3 mb-1">Soccer Sim Game</h1>
-        <p className="text-body-secondary mb-0">
-          Developer inspector: M1 generation, M2 match lab, M3 season lab and M4 club lab. A
-          temporary page; the game screens arrive in M5.
-        </p>
-      </header>
-      {error && <div className="alert alert-danger">Could not start the game worker: {error}</div>}
-      {!connection && !error && <p>Starting the game worker…</p>}
-      {connection?.status === "blocked" && (
+  if (error) {
+    return (
+      <main className="container py-4">
+        <div className="alert alert-danger">Could not start the game worker: {error}</div>
+      </main>
+    );
+  }
+  if (!connection) return <p className="container py-4">Starting the game…</p>;
+  if (connection.status === "blocked") {
+    return (
+      <main className="container py-4">
         <div className="alert alert-warning">
           The game is already open in another tab. Close that tab, then reload this one.
         </div>
-      )}
-      {connection?.status === "ready" && <Inspector />}
-    </main>
-  );
-}
-
-function Inspector() {
-  const [leagues, setLeagues] = useState<LeagueSummary[] | null>(null);
-  const [selected, setSelected] = useState<number | null>(null);
-
-  useEffect(() => {
-    const off = onWorkerEvent("leaguesChanged", ({ leagues: list }) => {
-      setLeagues(list);
-      setSelected((lid) => (lid !== null && list.some((l) => l.lid === lid) ? lid : null));
-    });
-    toWorker("listLeagues")
-      .then((list) => {
-        setLeagues(list);
-        setSelected((lid) => lid ?? list[list.length - 1]?.lid ?? null);
-      })
-      .catch(() => setLeagues([]));
-    return off;
-  }, []);
-
-  if (!leagues) return <p>Loading saves…</p>;
-  return (
-    <>
-      <LeagueManager leagues={leagues} selected={selected} onSelect={setSelected} />
-      {selected !== null && <LeagueView key={selected} lid={selected} />}
-      <WorkerFooter />
-    </>
-  );
-}
-
-function WorkerFooter() {
-  const [status, setStatus] = useState<WorkerStatus | null>(null);
-  useEffect(() => {
-    const off = onWorkerEvent("tabsChanged", ({ connectedTabs }) =>
-      setStatus((s) => (s ? { ...s, connectedTabs } : s)),
+      </main>
     );
-    toWorker("getStatus")
-      .then(setStatus)
-      .catch(() => setStatus(null));
-    return off;
-  }, []);
-  if (!status) return null;
-  return (
-    <footer className="small text-body-secondary border-top pt-2">
-      Game worker: {status.kind === "shared" ? "shared" : "dedicated (single-tab fallback)"} ·{" "}
-      {status.connectedTabs} tab{status.connectedTabs === 1 ? "" : "s"} connected
-    </footer>
-  );
+  }
+  return <Routes />;
+}
+
+function Routes() {
+  const route = parseRoute(usePath());
+  switch (route.kind) {
+    case "home":
+      return <Home />;
+    case "new":
+      return <NewLeague />;
+    case "dev":
+      return <Inspector />;
+    case "league":
+      return (
+        <Shell key={route.lid} lid={route.lid}>
+          <LeaguePage page={route.page} params={route.params} />
+        </Shell>
+      );
+    default:
+      return (
+        <main className="container py-4">
+          <p>There's nothing here.</p>
+          <Link to="/">Back to your leagues</Link>
+        </main>
+      );
+  }
+}
+
+/** The league page for the URL; pages not built yet show a placeholder. */
+function LeaguePage({ page, params }: { page: string; params: string[] }) {
+  switch (page) {
+    case "dashboard":
+      return <Dashboard />;
+    case "inbox":
+      return <Inbox />;
+    case "standings":
+      return <Standings params={params} />;
+    case "cups":
+      return <Cups params={params} />;
+    case "schedule":
+      return <Schedule params={params} />;
+    case "squad":
+      return <Squad params={params} />;
+    case "player":
+      return <Player params={params} />;
+    case "box-score":
+      return <BoxScorePage params={params} />;
+    case "game-log":
+      return <GameLog params={params} />;
+    case "league-leaders":
+      return <LeagueLeaders params={params} />;
+    case "player-ratings":
+      return <PlayerRatings />;
+    case "player-stats":
+      return <PlayerStats params={params} />;
+    case "team-stats":
+      return <TeamStats params={params} />;
+    case "injuries":
+      return <Injuries />;
+    case "history":
+      return <History />;
+    case "team-history":
+      return <TeamHistory params={params} />;
+    case "transactions":
+      return <Transactions params={params} />;
+    case "power-rankings":
+      return <PowerRankings />;
+    case "finances":
+      return <Finances params={params} />;
+    default:
+      return <Placeholder page={page} params={params} />;
+  }
 }

@@ -30,6 +30,10 @@ export function getClubChoices(): ClubChoice[] {
     leagueId: club.league,
     leagueName: leagueById(club.league).name,
     strength: club.strength,
+    city: club.city,
+    reputation: club.reputation,
+    revenue: club.revenue,
+    primaryColor: club.colors.primary,
   }));
 }
 
