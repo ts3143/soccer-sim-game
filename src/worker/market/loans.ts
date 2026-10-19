@@ -12,6 +12,7 @@
  * loans himself (src/worker/league/market.ts).
  */
 import { exactAge } from "../../common/dates";
+import { transferBanned } from "../finance/ffp";
 import type { Club, Player } from "../../common/schema";
 import { freeShirtNumber, type MarketSnapshot, seniorsOf, type TransferLog } from "./transfers";
 import type { ContractWorld } from "./renewals";
@@ -218,7 +219,8 @@ export function loanHome(
   const l = LOANS.placeLevel;
   let best: { club: Club; wageShare: number; rank: number } | null = null;
   for (const club of world.clubs) {
-    if (club.cid === p.cid || club.cid === world.userCid) continue;
+    if (club.cid === p.cid || club.cid === world.userCid || transferBanned(club, snap.date))
+      continue;
     const level = snap.levels.byClub.get(club.cid) ?? 0;
     if (level < p.ovr - l.below || level > p.ovr + l.above) continue;
     const squad = snap.seniors.get(club.cid) ?? [];

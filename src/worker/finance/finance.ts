@@ -18,6 +18,8 @@
  *
  * Everything is whole euros, credited to the club's cash and its season row's breakdown.
  */
+import { contractClub } from "../../common/status";
+import { ffpCheck, type FfpResult } from "./ffp";
 import { addDays } from "../../common/dates";
 import {
   competitionsConfig,
@@ -177,16 +179,19 @@ export function monthEnds(from: string, to: string): string[] {
 
 /**
  * Month-end flows for every club for the month-ends in (from, to]: wages, dials,
- * commercial, and the TV equal share (August–May).
+ * commercial, the TV equal share (August–May), and a twelfth of each transfer fee's
+ * yearly amortisation (non-cash: it lowers the player's balance and counts for FFP).
+ * Returns the players whose fee balance changed.
  */
 export function settleMonths(
   world: FinanceWorld,
   from: string,
   to: string,
   config: CompetitionsConfig = competitionsConfig,
-): void {
+): Set<number> {
+  const changed = new Set<number>();
   const ends = monthEnds(from, to);
-  if (ends.length === 0) return;
+  if (ends.length === 0) return changed;
   const wageBill = new Map<number, number>();
   for (const p of world.players) {
     if (p.cid !== null && p.contract && p.status === "club") {
@@ -202,6 +207,16 @@ export function settleMonths(
   for (const end of ends) {
     const month = Number(end.slice(5, 7));
     const tvMonth = month >= 8 || month <= 5;
+    for (const p of world.players) {
+      const holder = contractClub(p);
+      if (!p.feeBalance || p.feeBalance.remaining <= 0 || holder === null) continue;
+      const row = world.clubSeasons.get(holder);
+      if (!row) continue;
+      const charge = Math.min(p.feeBalance.remaining, Math.round(p.feeBalance.perYear / 12));
+      p.feeBalance = { ...p.feeBalance, remaining: p.feeBalance.remaining - charge };
+      row.amortisation = (row.amortisation ?? 0) + charge;
+      changed.add(p.pid);
+    }
     for (const club of world.clubs) {
       const b = books(world, club.cid);
       if (!b) continue;
@@ -221,6 +236,7 @@ export function settleMonths(
       }
     }
   }
+  return changed;
 }
 
 /** Gate receipts for a played home match (none at neutral venues). */
@@ -284,20 +300,25 @@ export function meritIncome(
 // Season boundaries
 
 /**
- * Closes a season's books on 30 June: the month-ends since `from`, then each club's
- * season-end cash snapshot.
+ * Closes a season's books on 30 June: the month-ends since `from`, each club's
+ * season-end cash snapshot, then the FFP check (src/worker/finance/ffp.ts). Returns the
+ * players whose fee balance changed and the user's FFP messages.
  */
 export function closeSeasonBooks(
   world: FinanceWorld,
   season: number,
   from: string,
+  userCid: number,
   config: CompetitionsConfig = competitionsConfig,
-): void {
-  settleMonths(world, from, `${season + 1}-06-30`, config);
+): FfpResult {
+  const changed = settleMonths(world, from, `${season + 1}-06-30`, config);
   for (const club of world.clubs) {
     const row = world.clubSeasons.get(club.cid);
     if (row) row.cashEnd = club.cash;
   }
+  const result = ffpCheck(world, season, userCid, config);
+  for (const pid of changed) result.changed.add(pid);
+  return result;
 }
 
 /**

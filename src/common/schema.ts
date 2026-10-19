@@ -171,6 +171,11 @@ export interface Club {
    */
   commercial?: { base: number; reputation: number };
   /**
+   * FFP standing (SPEC §6.4): warned after a season over the ratio; a second in a row bans
+   * signings until `bannedUntil` (the next summer window's deadline day).
+   */
+  ffp?: { warned: boolean; bannedUntil: string | null };
+  /**
    * The user's one budget control (SPEC §6.3): the share of the FFP headroom kept for
    * wages, the rest backing transfer fees. Absent: half each.
    */
@@ -205,7 +210,12 @@ export interface ClubSeason {
   cashEnd: number | null;
   boardExpectation: string | null;
   boardConfidence: number | null;
+  /** Wages and fee amortisation over revenue (with profit on sales), set at season end (FFP). */
   squadCostRatio: number | null;
+  /** The season's transfer-fee amortisation (non-cash, SPEC §6.3), month by month. */
+  amortisation?: number;
+  /** Profit on player sales (fee less the player's unamortised balance; can be negative). */
+  salesProfit?: number;
   /** Revenue the season's budget dials are costed against (last season's, or the anchor). */
   budgetBase?: number;
   /** Board confidence at the start of the season (it moves toward the live value). */

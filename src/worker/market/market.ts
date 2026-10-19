@@ -236,6 +236,7 @@ export const contractEnd = (season: number, years: number, date: string): string
  */
 export function signContract(p: Player, wage: number, expires: string, date: string): void {
   p.contract = { wage, expires };
+  if (p.feeBalance && p.feeBalance.remaining <= 0) p.feeBalance = null;
   if (p.feeBalance && p.feeBalance.remaining > 0) {
     const years = Math.max(1, yearsLeft(p, date));
     p.feeBalance = {

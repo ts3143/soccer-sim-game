@@ -274,7 +274,7 @@ export function simulateWorld(
 
     // Money: month-ends to 30 June and the season's cash snapshot, before anyone moves on.
     const lastDay = state.fixtures.reduce((d, f) => (f.date > d ? f.date : d), seasonStart);
-    closeSeasonBooks(loop, season, lastDay);
+    const ffp = closeSeasonBooks(loop, season, lastDay, -1);
     const rows = [...loop.clubSeasons.values()];
     const revenueOf = (r: ClubSeason) => operatingRevenue(r.revenue);
     const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0;
@@ -285,6 +285,9 @@ export function simulateWorld(
     Object.assign(metrics, {
       negativeCashShare: clubs.filter((c) => c.cash < 0).length / clubs.length,
       medianWageRatio: median(wageRatio),
+      medianSquadCostRatio: median(rows.map((r) => r.squadCostRatio ?? 0)),
+      ffpBreachShare: ffp.breaches.length / clubs.length,
+      ffpBanShare: ffp.bans.length / clubs.length,
       medianCashToRevenue: median(rows.map((r) => (r.cashEnd ?? 0) / Math.max(1, revenueOf(r)))),
       revenueShareMatchday: mix(["matchday"]),
       revenueShareBroadcast: mix(["broadcast", "merit"]),

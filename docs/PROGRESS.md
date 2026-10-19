@@ -637,5 +637,36 @@ For information:
 - **AI wage shares** of 50% (or 0% when the borrower has no wage room) stand in for negotiation. The user picks 0, 50 or 100%.
 - **Placements** go to the club at about his level where he'd rank highest, so the challenge factor helps his development.
 
+**Chunk 7: FFP with fee amortisation** (`src/worker/finance/ffp.ts`)
+- **Amortisation:** each month-end writes a twelfth of every fee's yearly charge off the player's balance and books it to the club holding his contract (the parent for a loanee), as a non-cash item (`ClubSeason.amortisation`). Squad cost and budgets count only fees still on the books. A renewal re-spreads what's left, and a fully amortised balance is cleared.
+- **Profit on sales:** the fee less the player's unamortised balance (`ClubSeason.salesProfit`, can be negative). The fee itself is still booked as player-sales revenue in cash, and kept out of the next budget base.
+- **The 30 June check** (in `closeSeasonBooks`, so the save and the harness run the same code), for every club, the AI's included:
+  - squad cost ratio = (wages + amortisation) / (operating revenue + profit on sales), stored in `ClubSeason.squadCostRatio`;
+  - over 70%: a warning; over 70% while warned: a transfer ban until the next summer window's deadline day (`Club.ffp`);
+  - a season within 70% clears the warning;
+  - the user gets an inbox message for a warning or a ban.
+- **A ban** stops all signings: transfers, free agents and loans in, for AI clubs (skipped as buyers, borrowers and loan homes) and for the user (bids, signings and loan-ins are refused). Selling and renewing are still allowed.
+- **A warned AI club switches to selling** (its players come cheaper; see chunk 4).
+- **Cash freeze** (SPEC §6.4): negative cash makes the transfer budget zero (from chunk 4), so no fees are paid. Free agents and loans within wage room are still possible.
+- Contract talks now show the user's squad cost ratio against the limit, and any warning or ban.
+- 4 FFP tests (monthly amortisation to the contract holder, profit on a sale, warning then ban then a clean season, a banned club out of the market and a warned one selling), plus save checks: every club's ratio set on 30 June, amortisation booked, and a banned user refused. 221 tests in all.
+
+**Numbers** (3 worlds × 20 seasons):
+- median squad cost 59% → 56% of revenue (target 50–68% ✓, gated in chunk 8); 8.9% of clubs over 70% a season, 2.0% banned;
+- negative cash 1% → 2% ✓;
+- 3.4 transfers per club a season, fees 33% of revenue. Counting only fees still on the books frees headroom.
+- **Cash still piles up**, to a median of 390% of revenue by the last season:
+  - transfer fees move money between clubs, so they can't drain the system;
+  - wages (52%) and running costs (~34%, the dials at 70) leave a ~14% surplus a year.
+
+  That's a tuning question for chunks 9–10 (wage levels, dial costs, or spending of cash).
+- Parity falls to 9.9% with more deals (see chunk 5, T's decision at chunk 9); assists 20.1 (cap 20, noise).
+
+**Judgment calls (chunk 7)**
+- **The penalty ladder** follows SPEC's MVP default: a warning, then a ban for the next window (the summer), cleared by one clean season.
+- **"Transfer ban" means no signings of any kind,** loans and free agents included, as in a real registration embargo. Sales and renewals are allowed.
+- **A loss on a sale** (fee below the balance) lowers FFP revenue, the mirror of a profit.
+- A balance left when a contract expires isn't written off separately: monthly charges run it down to zero over the contract.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

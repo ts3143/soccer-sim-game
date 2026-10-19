@@ -10,6 +10,7 @@ import { exactAge } from "../../common/dates";
 import type { BidReply, ContractTalks, LoanReply, OfferView } from "../../common/api";
 import type { GameMeta, IdCounters, Offer, Player } from "../../common/schema";
 import { contractClub } from "../../common/status";
+import { FFP, transferBanned } from "../finance/ffp";
 import {
   contractAsks,
   contractEnd,
@@ -77,6 +78,14 @@ function marketOpen(session: LeagueSession) {
   return { game, window };
 }
 
+/** Fails while the user's club is under an FFP transfer ban (SPEC §6.4). */
+function notBanned(session: LeagueSession, date: string) {
+  const user = session.cache.get("clubs", meta<GameMeta>(session, "game").userCid);
+  if (user && transferBanned(user, date)) {
+    throw new Error(`FFP: your club can't sign anyone until ${user.ffp?.bannedUntil ?? ""}`);
+  }
+}
+
 /**
  * Talks with a player: with one of the user's (a renewal), at another club (a transfer:
  * personal terms once the fee is agreed) or a free agent. His mood toward the user's club,
@@ -123,7 +132,14 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
     windowOpen: openWindow(game.date, game.season) !== null,
     userPlayer: kind === "renewal",
     feeAgreed: kind === "transfer" ? (agreedOffer(session, user.cid, pid)?.fee ?? null) : null,
-    budget: { transfer: budgets.transfer, wageRoom: budgets.wageRoom },
+    budget: {
+      transfer: budgets.transfer,
+      wageRoom: budgets.wageRoom,
+      squadCostRatio: budgets.squadCost / Math.max(1, budgets.base),
+      ffpLimit: FFP.ratio,
+      warned: user.ffp?.warned ?? false,
+      bannedUntil: transferBanned(user, game.date) ? (user.ffp?.bannedUntil ?? null) : null,
+    },
   };
 }
 
@@ -174,6 +190,7 @@ export function bidForPlayer(session: LeagueSession, pid: number, fee: number): 
     }
     if (seller.cid === user.cid) throw new Error("He is already your player");
     if (!Number.isInteger(fee) || fee <= 0) throw new Error("A bid is a whole number of euros");
+    notBanned(session, game.date);
     if (agreedOffer(session, user.cid, pid)) throw new Error("A fee is already agreed");
     const budgets = clubBudgets(world, user);
     if (user.cash < 0) throw new Error("Negative cash: transfers are frozen (SPEC §6.4)");
@@ -223,6 +240,7 @@ export function signPlayer(session: LeagueSession, pid: number, years: number) {
     const { game } = marketOpen(session);
     const talks = contractTalks(session, pid);
     if (talks.kind === "renewal") throw new Error("He is already your player: renew him instead");
+    notBanned(session, game.date);
     const offer = agreedOffer(session, game.userCid, pid);
     const at = session.cache.get("players", pid)?.cid ?? null;
     if (talks.kind === "transfer" && (!offer || offer.toCid !== at)) {
@@ -384,6 +402,7 @@ export function proposeLoan(
     if (p.cid === cid) throw new Error("He is already at that club");
     const out = p.cid === game.userCid;
     if (!out && cid !== game.userCid) throw new Error("You can only loan players in or out");
+    if (!out) notBanned(session, game.date);
     const name = fullName(p);
     const refuse = (message: string): LoanReply => ({ accepted: false, message });
     const squad = seniorsOf(world.players, cid);

@@ -235,6 +235,12 @@ console.log(
   `  ${"median wages / revenue (first → last)".padEnd(34)} ${firstLastPct("medianWageRatio")}`,
 );
 console.log(
+  `  ${"median squad cost / revenue (first → last)".padEnd(34)} ${firstLastPct("medianSquadCostRatio")} (target 50-68%, gated in chunk 8)`,
+);
+console.log(
+  `  ${"FFP: clubs over 70% / banned a season".padEnd(34)} ${money("ffpBreachShare")} / ${money("ffpBanShare")}`,
+);
+console.log(
   `  ${"clubs with negative cash (first → last season)".padEnd(34)} ${firstLastPct("negativeCashShare")}`,
 );
 console.log(

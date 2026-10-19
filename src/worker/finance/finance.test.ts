@@ -139,7 +139,7 @@ describe("a season's money", () => {
   });
   runDays(loop, state, "2026-07-01", { limit: null });
   const lastDay = state.fixtures.reduce((d, f) => (f.date > d ? f.date : d), "2026-07-01");
-  closeSeasonBooks(loop, 2026, lastDay);
+  closeSeasonBooks(loop, 2026, lastDay, 0);
 
   it("lands each league's season-1 revenue near the clubs' anchors", SLOW, () => {
     for (const league of competitionsConfig.leagues) {

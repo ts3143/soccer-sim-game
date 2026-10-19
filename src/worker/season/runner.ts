@@ -185,7 +185,7 @@ export function runDays(
     if (options.limit !== null && day > options.limit) break;
 
     squads.train(out.date, day);
-    settleMonths(world, out.date, day, config);
+    for (const pid of settleMonths(world, out.date, day, config)) out.changed.add(pid);
     for (const event of events.filter((e) => e.date === day)) {
       out.events.push(event);
       if (event.kind === "winterUpdate") {
@@ -262,7 +262,7 @@ export function runDays(
   }
   if (!out.ended && options.limit !== null && options.limit > out.date) {
     squads.train(out.date, options.limit);
-    settleMonths(world, out.date, options.limit, config);
+    for (const pid of settleMonths(world, out.date, options.limit, config)) out.changed.add(pid);
     out.date = options.limit;
   }
   for (const pid of squads.changed) out.changed.add(pid);

@@ -404,7 +404,8 @@ function proceedToPromotionRelegation(session: LeagueSession): PlayReport {
   if (processing > game.date) game.date = processing;
   // Month-end money up to 1 June, in the clubs' leagues of this season.
   const books = loopWorld(session, game.season);
-  settleMonths(books, from, game.date);
+  const amortised = settleMonths(books, from, game.date);
+  for (const p of books.players) if (amortised.has(p.pid)) session.cache.put("players", p);
   saveBooks(session, books);
   const clubs = session.cache.getAll("clubs").map((c) => ({ ...c }));
   applyMoves(clubs, outcome.moves);
@@ -498,8 +499,10 @@ async function advanceToPreseason(session: LeagueSession): Promise<PlayReport> {
   // 1 July: summer development for the season just played, then youth intake, academy
   // decisions and the squad top-up (src/worker/season/offseason.ts).
   const world = loopWorld(session, old);
-  // 30 June: the season's last month-ends and its cash snapshot.
-  closeSeasonBooks(world, old, from);
+  // 30 June: the season's last month-ends, its cash snapshot and the FFP check.
+  const ffp = closeSeasonBooks(world, old, from, game.userCid);
+  for (const p of world.players) if (ffp.changed.has(p.pid)) cache.put("players", p);
+  saveMessages(session, ffp.messages);
   saveBooks(session, world);
   const turnover = summerTransition(world, loadSeason(session));
   for (const p of world.players) if (turnover.changed.has(p.pid)) cache.put("players", p);

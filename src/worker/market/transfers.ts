@@ -106,7 +106,9 @@ export function squadCost(players: readonly Player[], cid: number) {
     }
     // Loanees: the wage split by the loan's share; fees stay with the parent club.
     wages += (p.contract?.wage ?? 0) * wageShareFor(p, cid);
-    if (contractClub(p) === cid) amortisation += p.feeBalance?.perYear ?? 0;
+    if (contractClub(p) === cid && p.feeBalance && p.feeBalance.remaining > 0) {
+      amortisation += Math.min(p.feeBalance.perYear, p.feeBalance.remaining);
+    }
   }
   return { wages, amortisation, total: wages + amortisation };
 }
@@ -117,8 +119,9 @@ const budgetBaseOf = (world: TransferWorld, club: Club) =>
 /** The club's transfer strategy now. */
 export function clubStrategy(world: TransferWorld, club: Club): Strategy {
   const base = budgetBaseOf(world, club);
-  if (club.cash < 0 || squadCost(world.players, club.cid).total > TRANSFERS.budget.ffpRatio * base)
-    return "selling";
+  const over = squadCost(world.players, club.cid).total > TRANSFERS.budget.ffpRatio * base;
+  // Negative cash, a squad cost over the FFP ratio, or an FFP warning: the club sells.
+  if (club.cash < 0 || over || club.ffp?.warned) return "selling";
   const row = world.clubSeasons.get(club.cid);
   const target = row ? targetPosition(row.leagueId, row.boardExpectation) : 99;
   return target <= TRANSFERS.strategy.contendingFrom ? "contending" : "developing";
@@ -132,6 +135,8 @@ export interface Budgets {
   squadCost: number;
   /** The FFP limit on squad cost (70% of the budget base). */
   limit: number;
+  /** The budget base (last season's operating revenue). */
+  base: number;
 }
 
 /** Transfer budget and wage room (SPEC §6.3); `wageShare` is the user's control (0–1). */
@@ -161,6 +166,7 @@ export function clubBudgets(
     wageRoom: Math.round(headroom * share),
     squadCost: cost,
     limit: Math.round(limit),
+    base: Math.round(base),
   };
 }
 
@@ -326,6 +332,11 @@ export function completeTransfer(world: TransferWorld, deal: Deal): TransferLog 
   if (deal.fee > 0) {
     debit({ club: buyer, season: buyerRow }, "transfers", deal.fee);
     if (seller && sellerRow) credit({ club: seller, season: sellerRow }, "playerSales", deal.fee);
+  }
+  // FFP: profit on the sale is the fee less his unamortised balance (SPEC §6.4).
+  if (sellerRow) {
+    sellerRow.salesProfit =
+      (sellerRow.salesProfit ?? 0) + deal.fee - (p.feeBalance?.remaining ?? 0);
   }
   const type = fromCid === null ? "freeAgent" : "transfer";
   p.transfers.push({

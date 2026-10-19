@@ -337,8 +337,18 @@ export interface ContractTalks {
   userPlayer: boolean;
   /** Transfer: the fee his club accepted (null until a bid is accepted). */
   feeAgreed: number | null;
-  /** The user's transfer budget and wage room (a year) now (SPEC §6.3). */
-  budget: { transfer: number; wageRoom: number };
+  /**
+   * The user's transfer budget and wage room (a year) now (SPEC §6.3), his squad cost as a
+   * share of revenue against the FFP limit, and any FFP warning or ban (SPEC §6.4).
+   */
+  budget: {
+    transfer: number;
+    wageRoom: number;
+    squadCostRatio: number;
+    ffpLimit: number;
+    warned: boolean;
+    bannedUntil: string | null;
+  };
 }
 
 /** A club's answer to the user's bid. */

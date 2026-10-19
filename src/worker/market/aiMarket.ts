@@ -26,6 +26,7 @@ import { bestXi } from "../core/lineup";
 import { slotOvr } from "../core/ovr";
 import { Random } from "../core/random";
 import { seasonDate } from "../schedule/calendar";
+import { transferBanned } from "../finance/ffp";
 import { LOANS, loanEnd, loanHome, loanList, loansInByClub, rankAt, startLoan } from "./loans";
 import { contractAsks, contractEnd, preferredYears } from "./market";
 import { clubRevenue } from "./renewals";
@@ -322,6 +323,7 @@ export function marketDay(
   const order = rng.shuffle(world.clubs.filter((c) => c.cid !== world.userCid));
   for (const club of order) {
     if (!rng.bool(AI_MARKET.actChance)) continue;
+    if (transferBanned(club, date)) continue; // FFP ban: no signings this window
     if (signedSince(world.players, club.cid, opens) >= maxSignings) continue;
     const need = needOf(club, snap.seniors.get(club.cid) ?? []);
     if (!need) continue;

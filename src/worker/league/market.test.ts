@@ -131,6 +131,13 @@ describe("the user's transfers", () => {
       }
       await expect(respondToOffer(session, 901, true)).rejects.toThrow(/No open bid/);
 
+      // Under an FFP ban the user can't bid or borrow.
+      const club = session.cache.get("clubs", 0);
+      if (club)
+        session.cache.put("clubs", { ...club, ffp: { warned: true, bannedUntil: "2026-08-31" } });
+      await expect(bidForPlayer(session, target(session).pid, 1_000_000)).rejects.toThrow(/FFP/);
+      if (club) session.cache.put("clubs", club);
+
       // A fee agreed in the window lapses once deadline day is played.
       const p = target(session);
       const asking = askingPrice(loopWorld(session, 2026), p, "2026-07-01").asking;

@@ -203,6 +203,9 @@ describe("the season loop in a save", () => {
     // Last season closed with a cash snapshot; the new one is budgeted on its revenue.
     const closed = session.cache.getAll("clubSeasons").filter((c) => c.season === 2026);
     expect(closed.every((c) => c.cashEnd === session.cache.get("clubs", c.cid)?.cash)).toBe(true);
+    // The FFP check ran for every club on 30 June.
+    expect(closed.every((c) => c.squadCostRatio !== null && c.squadCostRatio > 0.2)).toBe(true);
+    expect(closed.some((c) => (c.amortisation ?? 0) > 0)).toBe(true);
     // The new season's tables start empty, in the clubs' new leagues.
     const rows = session.cache.getAll("clubSeasons").filter((c) => c.season === 2027);
     for (const row of rows) {
