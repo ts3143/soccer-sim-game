@@ -200,6 +200,23 @@ export interface Club {
    * follow this. Absent = the dials themselves.
    */
   budgetEffect?: BudgetDials;
+  /**
+   * Players the user released under contract (M6, SPEC §7.6): their wages are still paid
+   * monthly until their contracts would have ended, any fee left keeps being amortised,
+   * and both count toward the squad cost.
+   */
+  released?: ReleasedContract[];
+}
+
+export interface ReleasedContract {
+  pid: number;
+  name: string;
+  /** Euros a year, still owed. */
+  wage: number;
+  /** The old contract's end date (30 June). */
+  until: string;
+  /** His transfer fee not yet amortised: it keeps being amortised on the same schedule. */
+  fee?: { remaining: number; perYear: number };
 }
 
 export interface ClubSeason {
@@ -337,6 +354,8 @@ export interface Player {
   /** ISO date he became a free agent (null otherwise). */
   freeAgentSince: string | null;
   retiredSeason: number | null;
+  /** On the user's transfer list (M6): AI clubs that need him bid around the asking price. */
+  listed?: { asking: number; date: string };
 }
 
 // ---------------------------------------------------------------------------

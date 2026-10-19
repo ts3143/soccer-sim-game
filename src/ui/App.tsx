@@ -29,6 +29,7 @@ import { Tactics } from "./pages/Tactics";
 import { TeamHistory } from "./pages/TeamHistory";
 import { TeamStats } from "./pages/TeamStats";
 import { Transactions } from "./pages/Transactions";
+import { TransferMarket } from "./pages/TransferMarket";
 import { Link, parseRoute, usePath } from "./router";
 import { Shell } from "./shell/Shell";
 import { connectWorker, type Connection } from "./workerClient";
@@ -128,6 +129,8 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <Live />;
     case "free-agents":
       return <FreeAgents />;
+    case "transfer-market":
+      return <TransferMarket params={params} />;
     case "history":
       return <History />;
     case "team-history":

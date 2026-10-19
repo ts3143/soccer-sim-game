@@ -183,6 +183,22 @@ export function monthEnds(from: string, to: string): string[] {
  * yearly amortisation (non-cash: it lowers the player's balance and counts for FFP).
  * Returns the players whose fee balance changed.
  */
+/**
+ * Wages a club still owes a year for players it released (SPEC §7.6), as of `date`
+ * (default: every one still on its list; month-end payments drop the finished ones).
+ */
+export function owedWages(club: Pick<Club, "released">, date = ""): number {
+  return (club.released ?? []).reduce((sum, r) => (r.until >= date ? sum + r.wage : sum), 0);
+}
+
+/** Fee amortisation a club still carries a year for players it released. */
+export function owedAmortisation(club: Pick<Club, "released">): number {
+  return (club.released ?? []).reduce(
+    (sum, r) => sum + (r.fee ? Math.min(r.fee.perYear, r.fee.remaining) : 0),
+    0,
+  );
+}
+
 export function settleMonths(
   world: FinanceWorld,
   from: string,
@@ -217,11 +233,22 @@ export function settleMonths(
       row.amortisation = (row.amortisation ?? 0) + charge;
       changed.add(p.pid);
     }
+    // Released players' fees go on being amortised by the club that released them.
+    for (const club of world.clubs) {
+      const row = world.clubSeasons.get(club.cid);
+      if (!row || !club.released) continue;
+      for (const r of club.released) {
+        if (!r.fee || r.fee.remaining <= 0) continue;
+        const charge = Math.min(r.fee.remaining, Math.round(r.fee.perYear / 12));
+        r.fee = { ...r.fee, remaining: r.fee.remaining - charge };
+        row.amortisation = (row.amortisation ?? 0) + charge;
+      }
+    }
     for (const club of world.clubs) {
       const b = books(world, club.cid);
       if (!b) continue;
       const league = config.leagues.find((l) => l.id === b.season.leagueId);
-      debit(b, "wages", (wageBill.get(club.cid) ?? 0) / 12);
+      debit(b, "wages", ((wageBill.get(club.cid) ?? 0) + owedWages(club, end)) / 12);
       const base = b.season.budgetBase ?? club.revenueAnchor;
       for (const dial of ["coaching", "youth", "medical", "facilities"] as const) {
         debit(b, dial, dialCost(club.budget[dial], base) / 12);
@@ -235,6 +262,13 @@ export function settleMonths(
         );
       }
     }
+  }
+  // Released players drop off once their old contracts have run out and their fees are paid.
+  const last = ends[ends.length - 1] ?? to;
+  const owing = (r: NonNullable<Club["released"]>[number]) =>
+    r.until >= last || (r.fee?.remaining ?? 0) > 0;
+  for (const club of world.clubs) {
+    if (club.released?.some((r) => !owing(r))) club.released = club.released.filter(owing);
   }
   return changed;
 }

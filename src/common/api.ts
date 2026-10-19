@@ -346,6 +346,10 @@ export interface PlayerView {
     fee: number;
   }[];
   freeAgentSince: string | null;
+  /** On the user's transfer list (his own players only). */
+  listed: { asking: number; date: string } | null;
+  /** The game date (for what a release would cost). */
+  today: string;
   retiredSeason: number | null;
   /** Every development update: OVR and POT over time. */
   history: { date: string; season: number; ovr: number; pot: number }[];
@@ -645,6 +649,56 @@ export interface FreeAgentsView {
   /** FFP transfer ban until this date, if any. */
   banned: string | null;
   fired: boolean;
+}
+
+/** The Transfer Market page (M6): your squad for listing, offers, loans, and what you owe. */
+export interface TransferMarketView {
+  date: string;
+  window: { id: string; closes: string } | null;
+  budget: {
+    transfer: number;
+    wageRoom: number;
+    seniors: number;
+    maxSeniors: number;
+    squadCostRatio: number;
+    ffpLimit: number;
+    banned: string | null;
+    /** Wages still owed a year to released players. */
+    owed: number;
+  };
+  /** The user's seniors (loanees in left out), with their listing and open bids for them. */
+  squad: {
+    pid: number;
+    name: string;
+    position: Position;
+    age: number;
+    ovr: number;
+    pot: number;
+    value: number;
+    wage: number;
+    expires: string | null;
+    listed: { asking: number; date: string } | null;
+    openBids: number;
+  }[];
+  offers: OfferView[];
+  loansOut: LoanRow[];
+  loansIn: LoanRow[];
+  released: { pid: number; name: string; wage: number; until: string }[];
+  fired: boolean;
+}
+
+/** A loan the user's club is part of: the other club, the end date and who pays the wage. */
+export interface LoanRow {
+  pid: number;
+  name: string;
+  position: Position;
+  age: number;
+  ovr: number;
+  /** The loan club (loans out) or the parent club (loans in). */
+  club: TeamRef;
+  until: string;
+  /** The loan club's share of the wage (0, 0.5 or 1). */
+  wageShare: number;
 }
 
 /** Injuries: every injured player in the world now. */
@@ -1060,6 +1114,8 @@ export interface ClubLabView {
 /** A market search in the Club lab. */
 export interface PlayerSearch {
   position?: string;
+  /** Only players at clubs in this league. */
+  leagueId?: string;
   minOvr?: number;
   maxOvr?: number;
   maxAge?: number;
@@ -1130,6 +1186,11 @@ export interface WorkerApi {
   getTeamStats(lid: number, leagueId: string | null, season: number | null): TeamStatsView;
   getInjuries(lid: number): InjuriesView;
   getFreeAgents(lid: number): FreeAgentsView;
+  getTransferMarket(lid: number): TransferMarketView;
+  /** Lists one of the user's players at an asking price, or takes him off the list (null). */
+  listPlayer(lid: number, pid: number, asking: number | null): TransferMarketView;
+  /** Releases one of the user's players; returns what it costs, in words. */
+  releasePlayer(lid: number, pid: number): string;
   /** A club's line-up (null = the user's). */
   getTactics(lid: number, cid: number | null): TacticsView;
   /** The user's unsaved line-up as the page would show it (re-slotted or the AI's pick). */

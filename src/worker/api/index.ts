@@ -13,7 +13,9 @@ import {
 import {
   bidForPlayer,
   contractTalks,
+  listPlayer,
   proposeLoan,
+  releasePlayer,
   renewContract,
   respondToOffer,
   setWageShare,
@@ -24,7 +26,7 @@ import { createLeague, deleteLeague, openLeague } from "../league/session";
 import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector";
 import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
 import { getClubLab, searchPlayers } from "../views/clubLab";
-import { getFreeAgents } from "../views/market";
+import { getFreeAgents, getTransferMarket } from "../views/market";
 import { getTactics, previewTactics, saveTactics } from "../views/tactics";
 import { getCups, getSchedule, getStandings } from "../views/competitions";
 import { getDashboard, markAllInboxRead } from "../views/dashboard";
@@ -124,6 +126,16 @@ export function createHandlers(
     },
     async getFreeAgents(lid) {
       return getFreeAgents(lid);
+    },
+    async getTransferMarket(lid) {
+      return getTransferMarket(lid);
+    },
+    async listPlayer(lid, pid, asking) {
+      await listPlayer(await openLeague(lid), pid, asking);
+      return getTransferMarket(lid);
+    },
+    async releasePlayer(lid, pid) {
+      return releasePlayer(await openLeague(lid), pid);
     },
     async getTactics(lid, cid) {
       return getTactics(lid, cid);

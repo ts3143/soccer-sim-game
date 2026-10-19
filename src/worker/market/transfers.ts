@@ -21,7 +21,7 @@ import { exactAge } from "../../common/dates";
 import type { Club, ClubSeason, InboxMessage, Player, TransactionRow } from "../../common/schema";
 import { targetPosition } from "../club/board";
 import { clubStrength } from "../club/standing";
-import { credit, debit, dialCost } from "../finance/finance";
+import { owedAmortisation, owedWages, credit, debit, dialCost } from "../finance/finance";
 import { marketValue, type Mood, playerMood, signContract, yearsLeft } from "./market";
 import { clubLevels, moodAtClub, type ContractWorld } from "./renewals";
 
@@ -147,7 +147,8 @@ export function clubBudgets(
 ): Budgets {
   const b = TRANSFERS.budget;
   const base = budgetBaseOf(world, club);
-  const cost = squadCost(world.players, club.cid).total;
+  // Released players' wages and fees still count until they are paid (SPEC §7.6).
+  const cost = squadCost(world.players, club.cid).total + owedWages(club) + owedAmortisation(club);
   const limit = b.ffpRatio * base;
   const headroom = Math.max(0, limit - cost);
   const { coaching, youth, medical, facilities } = club.budget;
@@ -326,6 +327,7 @@ export function completeTransfer(world: TransferWorld, deal: Deal): TransferLog 
   const buyer = world.clubs.find((c) => c.cid === deal.toCid);
   const buyerRow = world.clubSeasons.get(deal.toCid);
   if (!p || !buyer || !buyerRow) throw new Error(`Can't complete deal for player ${deal.pid}`);
+  delete p.listed; // off the transfer list once he moves
   const fromCid = p.status === "club" ? p.cid : null;
   const seller = world.clubs.find((c) => c.cid === fromCid);
   const sellerRow = fromCid === null ? undefined : world.clubSeasons.get(fromCid);

@@ -1164,5 +1164,27 @@ Each point of parity gained cost about one champion point, so the two real-world
   - the profile button.
   - 47/47 pass. The sweep now opens Free Agents too, and all other checks pass.
 
+**Chunk 6: Transfer Market, the transfer list, releasing** (`src/ui/pages/TransferMarket.tsx`, `src/ui/components/MarketDialogs.tsx`, `src/worker/views/market.ts`, `src/worker/league/market.ts`)
+- **Transfer Market page** (`/l/:lid/transfer-market/:tab`, now in the sidebar). The window, transfer budget, wage room, squad size, squad cost against the FFP limit and anything owed to released players sit above four tabs:
+  - **Search:** other clubs' players by position, league, minimum OVR and maximum age (the best 100), with value, wage and contract end; **Bid** opens the contract window, **Loan** proposes a loan in.
+  - **Your listed players:** the transfer list (asking price, date listed, open bids), and all your players with **List**, **Loan out** and **Release**, plus the released players still being paid.
+  - **Incoming offers:** open bids for your players with Accept and Reject, and every bid this season both ways.
+  - **Loans:** your players out on loan and the loanees at your club, with the loan club's wage share.
+- **The transfer list** (T's decision): you set an asking price. On their market days AI clubs that need his position bid between 85% and 100% of it (no more than they think he's worth or can afford). He's preferred over other candidates, a listed player isn't held back by your squad size, and his bids don't count against the two-open-bids cap. Unlisted players still get the occasional bid, as before. Moving club takes him off the list.
+- **Releasing** (T's decision, as ZenGM):
+  - he joins the free-agent pool at once;
+  - the club keeps paying his wage monthly until his contract would have ended;
+  - any transfer fee not yet amortised goes on being amortised on the same schedule.
+  - Both count in the wage room, the squad cost and the FFP books, so a release frees a squad place and saves nothing. Not loanees or academy players.
+  - The release dialog says what it still costs.
+- **Profile buttons** for your players: List for transfer (or the listed price), Loan out, Release.
+- **Judgment call:** the first draft wrote the unamortised fee off at once. The test showed that briefly freed wage room the season-end FFP check would take back. Keeping the fee on its schedule, like the wage, means releasing leaves the books exactly as they were.
+- **Worker:** new calls `getTransferMarket`, `listPlayer` and `releasePlayer`; the search gains a league filter. Clubs carry `released` (wage, end date, fee left); players carry `listed`.
+- **Tests** (3 new, 246 in all):
+  - what a club still owes over time;
+  - a release: he leaves, the wage room doesn't rise, his fee stays on schedule, and over a window the club pays exactly the wages and amortisation it would have paid keeping him;
+  - listed players draw AI bids between 85% and 100% of the price; unlisting works.
+- **Browser checks:** `m6` adds 10 (search and its filter, listing, the release dialog and the release, the agreed transfer completing once a place is free, a loan out answered, the Loans tab, incoming offers, no real names). The sweep now opens the Transfer Market too.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

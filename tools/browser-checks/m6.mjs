@@ -500,6 +500,7 @@ await squadRows.first().waitFor({ timeout: 30_000 });
 const valueHead = page.locator('[data-testid="squad-table"] thead th', { hasText: "Value" });
 await valueHead.click();
 await valueHead.click(); // cheapest first
+const target = await squadRows.first().locator("td:nth-child(2) a").innerText();
 await squadRows.first().getByRole("button", { name: "Bid" }).click();
 await modal.locator('[data-testid="bid-step"]').waitFor({ timeout: 15_000 });
 const value = Number(await modal.locator("#contract-fee").inputValue());
@@ -533,6 +534,151 @@ check(
 );
 await page.keyboard.press("Escape");
 await modal.waitFor({ state: "detached", timeout: 5_000 });
+
+// --- Chunk 6: Transfer Market, listing, releasing, loans ------------------------------------------
+const dialogNote = page.locator('[data-testid="dialog-note"]');
+const marketTab = (name) => page.locator('[data-testid="market-tabs"]').getByRole("link", { name });
+await page
+  .locator('[data-testid="sidebar"]')
+  .getByRole("link", { name: "Transfer Market", exact: true })
+  .click();
+const searchRows = page.locator('[data-testid="market-search"] tbody tr');
+await searchRows.first().waitFor({ timeout: 30_000 });
+check(
+  "Transfer Market opens on Search: other clubs' players with values and wages, and your budget",
+  (await searchRows.count()) === 25 &&
+    /Transfer budget[\s\S]*Wage room[\s\S]*Seniors/.test(
+      await page.locator('[data-testid="market-summary"]').innerText(),
+    ),
+);
+await page.locator('select[aria-label="Position"]').selectOption("ST");
+await page.waitForFunction(
+  () =>
+    [...document.querySelectorAll('[data-testid="market-search"] tbody tr td:nth-child(3)')].every(
+      (td) => td.textContent === "ST",
+    ) && document.querySelectorAll('[data-testid="market-search"] tbody tr').length > 0,
+  null,
+  { timeout: 15_000 },
+);
+check("the search filters by position", true);
+
+await marketTab("Your listed players").click();
+const marketSquad = page.locator('[data-testid="market-squad"] tbody tr');
+await marketSquad.first().waitFor({ timeout: 30_000 });
+const listing = await marketSquad.nth(1).locator("td a").first().innerText();
+await marketSquad.nth(1).getByRole("button", { name: "List" }).click();
+await page.locator('[data-testid="list-confirm"]').click();
+await dialogNote.waitFor({ timeout: 15_000 });
+await page.keyboard.press("Escape");
+await page.waitForFunction(
+  (n) => document.querySelector('[data-testid="listed-players"]')?.textContent.includes(n),
+  listing,
+  { timeout: 15_000 },
+);
+check("listing a player puts him on your transfer list at a price", true, listing);
+
+const seniorsBefore = Number(
+  (await page.locator('[data-testid="market-summary"]').innerText()).match(/Seniors (\d+)/)?.[1],
+);
+const leaving = marketSquad.last();
+const leaver = await leaving.locator("td a").first().innerText();
+await leaving.getByRole("button", { name: "Release" }).click();
+await page.locator('[data-testid="release-dialog"]').waitFor();
+check(
+  "releasing says what it still costs",
+  /keep paying[\s\S]*saves no money/.test(
+    await page.locator('[data-testid="release-dialog"]').innerText(),
+  ),
+);
+await page.locator('[data-testid="release-confirm"]').click();
+await dialogNote.waitFor({ timeout: 15_000 });
+await page.keyboard.press("Escape");
+await page.locator('[data-testid="released"]').waitFor({ timeout: 15_000 });
+const seniorsAfter = Number(
+  (await page.locator('[data-testid="market-summary"]').innerText()).match(/Seniors (\d+)/)?.[1],
+);
+check(
+  "a released player leaves and is listed as still paid",
+  seniorsAfter === seniorsBefore - 1 &&
+    (await page.locator('[data-testid="released"]').innerText()).includes(leaver) &&
+    /Owed to released players/.test(
+      await page.locator('[data-testid="market-summary"]').innerText(),
+    ),
+  `${leaver}, seniors ${seniorsBefore} → ${seniorsAfter}`,
+);
+
+// With a place free, the transfer agreed in the window goes through.
+await sidebar("Squad").click();
+await squadRows.first().waitFor({ timeout: 30_000 });
+await picker.selectOption(dorset);
+await page.waitForFunction((cid) => location.pathname.endsWith(`/squad/${cid}`), dorset);
+await page
+  .locator('[data-testid="squad-table"] tbody tr', { hasText: target })
+  .getByRole("button", { name: "Bid" })
+  .click();
+await modal.getByText(/Fee agreed/).waitFor({ timeout: 15_000 });
+await pickTerms();
+await modal.locator('[data-testid="agree-contract"]').click();
+await note.waitFor({ timeout: 15_000 });
+check(
+  "the agreed transfer completes once there is room",
+  /joins your club/.test(await note.innerText()),
+  await note.innerText(),
+);
+await page.keyboard.press("Escape");
+
+await page
+  .locator('[data-testid="sidebar"]')
+  .getByRole("link", { name: "Transfer Market", exact: true })
+  .click();
+await marketTab("Your listed players").click();
+await marketSquad.first().waitFor({ timeout: 30_000 });
+const youngest = marketSquad.filter({ hasNot: page.locator(".badge") }).last();
+await youngest.getByRole("button", { name: "Loan out" }).click();
+const loanClub = page.locator("#loan-club");
+await loanClub.selectOption({ index: 5 });
+await page.locator('[data-testid="loan-confirm"]').click();
+await dialogNote.waitFor({ timeout: 15_000 });
+const loanReply = await dialogNote.innerText();
+check("a loan out gets an answer", loanReply.length > 10, loanReply);
+await page.keyboard.press("Escape");
+await marketTab("Loans").click();
+await page.locator('[data-testid="loans-out"]').waitFor({ timeout: 15_000 });
+check(
+  "the Loans tab lists loans out and in",
+  (await page.locator('[data-testid="loans-in"]').count()) === 1,
+);
+
+// A week of the window: AI clubs bid, the listed player draws bids near his price.
+await page.locator('[data-testid="play-button"]').click();
+await page.locator('[data-testid="play-menu"]').getByRole("button", { name: "One week" }).click();
+await page.waitForFunction(
+  () => !document.querySelector('[data-testid="play-button"]')?.disabled,
+  null,
+  { timeout: 120_000 },
+);
+await marketTab(/Incoming offers/).click();
+await page.locator('[data-testid="all-offers"]').waitFor({ timeout: 15_000 });
+const openOffers = page.locator('[data-testid="open-offers"] tbody tr');
+if ((await openOffers.count()) > 0) {
+  const n = await openOffers.count();
+  await openOffers.first().getByRole("button", { name: "Reject" }).click();
+  await page.waitForFunction(
+    (k) => document.querySelectorAll('[data-testid="open-offers"] tbody tr').length < k,
+    n,
+    { timeout: 15_000 },
+  );
+  check(
+    "an incoming bid can be rejected",
+    /rejected/.test(await page.locator('[data-testid="all-offers"]').innerText()),
+  );
+} else {
+  check(
+    "Incoming offers says when there are no open bids",
+    (await page.locator('[data-testid="no-offers"]').count()) === 1,
+  );
+}
+await leakCheck("the Transfer Market");
 
 await page.locator('[data-testid="play-button"]').click();
 await page

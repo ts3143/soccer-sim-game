@@ -480,3 +480,84 @@ export function setWageShare(session: LeagueSession, share: number) {
     await session.cache.flush();
   });
 }
+
+/**
+ * Puts one of the user's players on the transfer list at `asking` euros, or takes him off
+ * (null). AI clubs that need his position bid around the price on their market days.
+ */
+export function listPlayer(session: LeagueSession, pid: number, asking: number | null) {
+  return queued(session, async () => {
+    assertNotLive(session);
+    const game = employed(session);
+    const p = session.cache.get("players", pid);
+    if (!p || p.status !== "club" || p.cid !== game.userCid) {
+      throw new Error("You can only list your own players");
+    }
+    if (asking === null) delete p.listed;
+    else {
+      if (!Number.isInteger(asking) || asking <= 0) {
+        throw new Error("The asking price is a whole number of euros");
+      }
+      p.listed = { asking, date: game.date };
+    }
+    session.cache.put("players", p);
+    await session.cache.flush();
+  });
+}
+
+/**
+ * Releases one of the user's players (SPEC §7.6, as ZenGM): he joins the free-agent pool at
+ * once, and the club keeps paying his wage monthly until his contract would have ended.
+ * Any transfer fee not yet amortised goes on being amortised on the same schedule, so a
+ * release saves nothing: it only frees a place in the squad.
+ */
+export function releasePlayer(session: LeagueSession, pid: number): Promise<string> {
+  return queued(session, async () => {
+    assertNotLive(session);
+    const game = employed(session);
+    const world = loopWorld(session, game.season);
+    const p = world.players.find((x) => x.pid === pid);
+    const club = world.clubs.find((c) => c.cid === game.userCid);
+    if (!p || !club || p.status !== "club" || p.cid !== club.cid || !p.contract) {
+      throw new Error("You can only release your own players (not loanees or academy players)");
+    }
+    const name = fullName(p);
+    const { wage, expires } = p.contract;
+    const fee = p.feeBalance && p.feeBalance.remaining > 0 ? { ...p.feeBalance } : undefined;
+    club.released = [
+      ...(club.released ?? []),
+      { pid, name, wage, until: expires, ...(fee && { fee }) },
+    ];
+    p.feeBalance = null;
+    p.status = "freeAgent";
+    p.cid = null;
+    p.contract = null;
+    p.freeAgentSince = game.date;
+    p.shirtNumber = null;
+    delete p.listed;
+    p.transfers.push({
+      date: game.date,
+      season: game.season,
+      fromCid: club.cid,
+      toCid: null,
+      fee: 0,
+      type: "release",
+    });
+    session.cache.put("players", p);
+    saveBooks(session, world);
+    saveTransactions(session, [
+      {
+        season: game.season,
+        date: game.date,
+        type: "release",
+        pids: [pid],
+        cids: [club.cid],
+        names: [name, club.name],
+        fee: 0,
+      },
+    ]);
+    closeOffersFor(session, pid);
+    await session.cache.flush();
+    return `${name} is released. You keep paying his ${euros(wage)} a year until ${expires}.`;
+  });
+}
