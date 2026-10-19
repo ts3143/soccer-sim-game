@@ -27,5 +27,6 @@ export async function getLeagueShell(lid: number): Promise<LeagueShell> {
       .sort((a, b) => a.name.localeCompare(b.name)),
     leagues: competitionsConfig.leagues.map((l) => ({ id: l.id, name: l.name })),
     state: gameState(session),
+    unread: session.cache.getAll("inbox").filter((m) => !m.read).length,
   };
 }

@@ -199,6 +199,14 @@ function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }
                       className={`nav-link py-1 ${current === p.key ? "active fw-semibold" : ""}`}
                     >
                       {p.title}
+                      {p.key === "inbox" && shell.unread > 0 && (
+                        <span
+                          className="badge rounded-pill text-bg-primary ms-2"
+                          data-testid="unread"
+                        >
+                          {shell.unread}
+                        </span>
+                      )}
                     </Link>
                   )}
                 </li>

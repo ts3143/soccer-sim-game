@@ -214,6 +214,53 @@ export interface GameState {
   fired: { date: string; offers: { cid: number; name: string; leagueId: string }[] } | null;
 }
 
+/** Win, draw or loss, for form guides. */
+export type FormResult = "W" | "D" | "L";
+
+/** The Dashboard (M5, SPEC §11): the user's club at a glance. */
+export interface DashboardView {
+  user: TeamRef & { leagueId: string; leagueName: string };
+  position: number | null;
+  record: {
+    played: number;
+    won: number;
+    drawn: number;
+    lost: number;
+    points: number;
+    goalsFor: number;
+    goalsAgainst: number;
+  };
+  /** Last five results, oldest first, in every competition. */
+  form: FormResult[];
+  nextMatch: (MatchView & { opponentPosition: number | null; opponentForm: FormResult[] }) | null;
+  upcoming: MatchView[];
+  recent: MatchView[];
+  /** The user's league table. */
+  table: TableRowView[];
+  board: { target: string; confidence: number | null };
+  alerts: {
+    injured: { pid: number; name: string; position: string; type: string; until: string }[];
+    tired: { pid: number; name: string; position: string; condition: number }[];
+    /** Players whose contracts end this 30 June. */
+    expiring: number;
+    /** Open bids for the user's players. */
+    bids: number;
+  };
+  /** The user's best performers this season (by average rating, 3+ appearances). */
+  topPlayers: {
+    pid: number;
+    name: string;
+    position: string;
+    appearances: number;
+    goals: number;
+    assists: number;
+    rating: number;
+  }[];
+  inbox: InboxMessage[];
+  unread: number;
+  cash: number;
+}
+
 /** What the app shell needs for an open league (M5): names, clubs, leagues, the game state. */
 export interface LeagueShell {
   lid: number;
@@ -232,6 +279,8 @@ export interface LeagueShell {
   }[];
   leagues: { id: string; name: string }[];
   state: GameState;
+  /** Unread inbox messages. */
+  unread: number;
 }
 
 export interface PlayReport {
@@ -247,14 +296,16 @@ export interface PlayReport {
 
 export type TableZone = "champions" | "promoted" | "playoffs" | "relegated" | null;
 
-export interface SeasonLabTeam {
+/** A club as pages show it (crest code, names). */
+export interface TeamRef {
   cid: number;
   name: string;
   abbr: string;
   code: string;
 }
 
-export interface SeasonLabTableRow extends SeasonLabTeam {
+/** One row of a league table, with its zone. */
+export interface TableRowView extends TeamRef {
   position: number;
   played: number;
   won: number;
@@ -267,7 +318,8 @@ export interface SeasonLabTableRow extends SeasonLabTeam {
   zone: TableZone;
 }
 
-export interface SeasonLabMatch {
+/** A fixture as pages show it. */
+export interface MatchView {
   fid: number;
   date: string;
   competition: string;
@@ -275,12 +327,16 @@ export interface SeasonLabMatch {
   round: string;
   leg: 1 | 2 | null;
   neutral: boolean;
-  home: SeasonLabTeam;
-  away: SeasonLabTeam;
+  home: TeamRef;
+  away: TeamRef;
   /** "2–1", "1–1 aet, 4–3 pens"; null if not played yet. */
   score: string | null;
   winnerCid: number | null;
 }
+
+export type SeasonLabTeam = TeamRef;
+export type SeasonLabTableRow = TableRowView;
+export type SeasonLabMatch = MatchView;
 
 export interface SeasonLabKnockout {
   id: string;
@@ -520,6 +576,8 @@ export interface WorkerApi {
   runLabBatch(lid: number, matches: number): LabBatch;
   getGameState(lid: number): GameState;
   getLeagueShell(lid: number): LeagueShell;
+  getDashboard(lid: number): DashboardView;
+  markAllInboxRead(lid: number): void;
   playGame(lid: number, option: PlayOption): PlayReport;
   getSeasonLab(lid: number): SeasonLabView;
   acceptJobOffer(lid: number, cid: number): GameState;

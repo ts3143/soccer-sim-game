@@ -4,7 +4,9 @@
  */
 import { useEffect, useState } from "react";
 import { Inspector } from "./inspector/Inspector";
+import { Dashboard } from "./pages/Dashboard";
 import { Home } from "./pages/Home";
+import { Inbox } from "./pages/Inbox";
 import { NewLeague } from "./pages/NewLeague";
 import { Placeholder } from "./pages/Placeholder";
 import { Link, parseRoute, usePath } from "./router";
@@ -71,5 +73,12 @@ function Routes() {
 
 /** The league page for the URL; pages not built yet show a placeholder. */
 function LeaguePage({ page, params }: { page: string; params: string[] }) {
-  return <Placeholder page={page} params={params} />;
+  switch (page) {
+    case "dashboard":
+      return <Dashboard />;
+    case "inbox":
+      return <Inbox />;
+    default:
+      return <Placeholder page={page} params={params} />;
+  }
 }

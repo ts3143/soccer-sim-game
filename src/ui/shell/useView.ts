@@ -1,0 +1,37 @@
+/**
+ * Loads a page's view from the worker and reloads it after every Play action or game
+ * change (the shell's `version`), or when `key` changes (e.g. another club or season).
+ */
+import { useEffect, useRef, useState } from "react";
+import { useShell } from "./Shell";
+
+const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+export function useView<T>(key: string, load: () => Promise<T>) {
+  const { version } = useShell();
+  const [data, setData] = useState<{ key: string; value: T } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // The latest loader, updated after each render (declared first, so it runs first).
+  const loader = useRef(load);
+  useEffect(() => {
+    loader.current = load;
+  });
+
+  useEffect(() => {
+    let live = true;
+    loader
+      .current()
+      .then((value) => {
+        if (!live) return;
+        setData({ key, value });
+        setError(null);
+      })
+      .catch((e: unknown) => live && setError(errorText(e)));
+    return () => {
+      live = false;
+    };
+  }, [key, version]);
+
+  // While another key loads, keep showing nothing rather than the previous key's data.
+  return { data: data?.key === key ? data.value : null, error };
+}

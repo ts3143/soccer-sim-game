@@ -879,5 +879,25 @@ Each point of parity gained cost about one champion point, so the two real-world
   - no Stop button on the Play menu (a whole season takes ~2 s in the browser);
   - one team dropdown for all 62 clubs, grouped by league, as ZenGM.
 
+**Chunk 2: shared table, Dashboard, Inbox**
+- **Shared table** (`src/ui/components/DataTable.tsx`, logic in `table.ts`):
+  - click a heading to sort (numbers start high to low, empty values last, stable ties);
+  - an optional filter box; pages of 10, 25, 50, 100 or all rows.
+  - Later pages reuse it.
+- **Links:** `TeamLink` (crest and name, to the club's squad), `PlayerLink` (to the profile), `ScoreLink` (to the box score), plus form badges.
+- **`useView`** loads a page's data and reloads it after every Play action.
+- **Shared view helpers** (`src/worker/views/common.ts`): club labels, competition names, match lines, league tables with zones, results and form. The Season lab uses them too.
+- **Dashboard** (new call `getDashboard`):
+  - your position, record, goal difference and last five results;
+  - the next match (date, competition, venue, the opponent's position and form), what's coming up and recent results (linked to box scores);
+  - a seven-row slice of your league table around you, with zones;
+  - the season's top performers by average rating (3+ appearances);
+  - the board's target and confidence (a coloured bar), and cash;
+  - **alerts:** injured players with return dates, tired players (under 75% condition), contracts ending in June, open bids for your players;
+  - the latest inbox messages.
+- **Inbox:** newest first, filters by kind (board, contracts, transfers, FFP), opening a message marks it read, and "Mark all read" (new call `markAllInboxRead`). The sidebar shows the unread count.
+- **Tests:** table sorting and paging, the Dashboard and mark-all-read (230 in all).
+- **Browser checks:** `check-m5` adds 14 checks (the Dashboard after the first match, the mini table, board, alerts, unread count, reading messages, mark all read, sorting the top performers both ways, player links). All pass, as do M3's.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

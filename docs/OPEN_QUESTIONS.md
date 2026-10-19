@@ -73,7 +73,7 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 1 | The developer pages once the game UI exists | Kept at a hidden `/dev` address through M6 (the Club lab is the only place to trade until M6); removed in M7 |
 | 2 | The Inbox page (M6 in the plan) | Moved into M5: the Dashboard previews the inbox |
 | 3 | Charts and routing | Built in-house, no new libraries (as ZenGM) |
-| 4 | Look | Bootstrap with dense ZenGM-like tables, crests and club colours as accents; T sees a screenshot after chunk 1 |
+| 4 | Look | Bootstrap with dense ZenGM-like tables, crests and club colours as accents; T reviews it on the localhost preview (no screenshots) |
 | 5 | Watch live | Stays in M6 with Tactics (T, no change) |
 
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
