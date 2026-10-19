@@ -27,6 +27,11 @@ export interface ClubChoice {
   leagueId: string;
   leagueName: string;
   strength: number;
+  city: string;
+  reputation: number;
+  /** Season-1 revenue (whole euros). */
+  revenue: number;
+  primaryColor: string;
 }
 
 export interface NewLeagueInput {
@@ -207,6 +212,26 @@ export interface GameState {
   nextUserFixture: Fixture | null;
   /** Set when the board has sacked the user: play stops until he takes a job offer. */
   fired: { date: string; offers: { cid: number; name: string; leagueId: string }[] } | null;
+}
+
+/** What the app shell needs for an open league (M5): names, clubs, leagues, the game state. */
+export interface LeagueShell {
+  lid: number;
+  name: string;
+  userCid: number;
+  /** The first season of every save (season pickers run from it to the current one). */
+  firstSeason: number;
+  clubs: {
+    cid: number;
+    name: string;
+    short: string;
+    abbr: string;
+    code: string;
+    leagueId: string;
+    colors: { primary: string; secondary: string; tertiary: string };
+  }[];
+  leagues: { id: string; name: string }[];
+  state: GameState;
 }
 
 export interface PlayReport {
@@ -494,6 +519,7 @@ export interface WorkerApi {
   stepLabMatch(id: number, possessions: number): LabLiveStep;
   runLabBatch(lid: number, matches: number): LabBatch;
   getGameState(lid: number): GameState;
+  getLeagueShell(lid: number): LeagueShell;
   playGame(lid: number, option: PlayOption): PlayReport;
   getSeasonLab(lid: number): SeasonLabView;
   acceptJobOffer(lid: number, cid: number): GameState;

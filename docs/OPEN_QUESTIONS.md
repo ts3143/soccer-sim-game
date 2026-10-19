@@ -67,6 +67,15 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 5 | Champion points (82–100) conflict with stable stars and realistic parity | MVP band 76–100 (target 84); revisit with European competition |
 | 6 | Players beating their displayed POT | Target 20% (14–30%), was 25% |
 
+## A7. M5 planning, answered by T (Oct 19 2026)
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | The developer pages once the game UI exists | Kept at a hidden `/dev` address through M6 (the Club lab is the only place to trade until M6); removed in M7 |
+| 2 | The Inbox page (M6 in the plan) | Moved into M5: the Dashboard previews the inbox |
+| 3 | Charts and routing | Built in-house, no new libraries (as ZenGM) |
+| 4 | Look | Bootstrap with dense ZenGM-like tables, crests and club colours as accents; T sees a screenshot after chunk 1 |
+| 5 | Watch live | Stays in M6 with Tactics (T, no change) |
+
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.
 1. **Hidden traits** (Injury Prone, Hothead) are generated and affect the sim from the MVP but are never shown until scouting arrives in v1.1.

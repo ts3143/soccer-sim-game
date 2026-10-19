@@ -16,3 +16,38 @@
 tr[role="button"] {
   cursor: pointer;
 }
+
+/* App shell (M5): sidebar beside the page on wide screens, a toggled panel on narrow ones. */
+.app-sidebar {
+  width: 210px;
+  flex: 0 0 210px;
+  padding-top: 1rem;
+  position: sticky;
+  top: 60px;
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+.app-sidebar .nav-link {
+  color: var(--bs-body-color);
+}
+.app-sidebar .nav-link.active {
+  color: var(--bs-primary);
+  background: var(--bs-primary-bg-subtle);
+}
+.app-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+@media (max-width: 991.98px) {
+  .app-sidebar {
+    display: none;
+  }
+  .app-sidebar.open {
+    display: block;
+    position: fixed;
+    z-index: 1020;
+    left: 0;
+    height: calc(100vh - 60px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  }
+}

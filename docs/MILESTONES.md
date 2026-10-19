@@ -101,7 +101,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 ## M5 — Core UI
 **Build**
 - App shell mirroring ZenGM: top bar with Play menu, sidebar sections, team dropdown on team pages.
-- New league screen; Dashboard; Standings; Cups; Weekly Schedule; Squad (with contract-expiry badges); Player profile (incl. radar chart and OVR/POT history); Box score / Game log; League Leaders; Player Ratings; Player Stats; Team Stats; Injuries; History (league and team); Transactions; Power Rankings; Finances overview of all clubs.
+- New league screen; Dashboard; Inbox (moved from M6, T 2026-10-19); Standings; Cups; Weekly Schedule; Squad (with contract-expiry badges); Player profile (incl. radar chart and OVR/POT history); Box score / Game log; League Leaders; Player Ratings; Player Stats; Team Stats; Injuries; History (league and team); Transactions; Power Rankings; Finances overview of all clubs.
 
 **Accept**
 - A full season can be played start to finish using only the Play menu, and every listed page renders correct data.
@@ -114,7 +114,7 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 - Tactics page (formation dropdown, drag-and-drop slots and bench, sliders, live team ratings; no Auto toggle: they apply to matches the user watches).
 - Watch live: pre-match temporary changes, live feed, stats, energy bars, subs, sliders, pause/adjust, half-time screen.
 - Transfer Market (Search, Your listed players, Incoming offers, Loans), Free Agents, Contract negotiation modal.
-- Youth Academy; Finances/Facilities (own club); Inbox; Settings; Manage Leagues; "You're fired" flow.
+- Youth Academy; Finances/Facilities (own club); Settings; Manage Leagues; "You're fired" flow. (Inbox moved to M5.)
 
 **Accept**
 - T can run his club through 3+ seasons entirely in the UI: sign, sell, loan, renew, set tactics, watch and change a match live, promote academy players.

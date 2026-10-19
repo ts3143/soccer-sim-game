@@ -17,6 +17,7 @@ import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector"
 import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
 import { getClubLab, searchPlayers } from "../views/clubLab";
 import { getSeasonLab } from "../views/seasonLab";
+import { getLeagueShell } from "../views/shell";
 
 /** The worker's implementation of WorkerApi. The compiler checks it against the contract. */
 export function createHandlers(
@@ -49,6 +50,10 @@ export function createHandlers(
     startLabMatch,
     stepLabMatch,
     runLabBatch,
+
+    async getLeagueShell(lid) {
+      return getLeagueShell(lid);
+    },
 
     async getGameState(lid) {
       return gameState(await openLeague(lid));

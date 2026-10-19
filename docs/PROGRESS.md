@@ -9,7 +9,7 @@ Claude Code updates this file at the end of each milestone.
 | M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
 | M3 Season loop | **Accepted** (T, 2026-10-16) | All M3 gates pass locally, in CI (`calibrate --world --check`, 16 checks) and on the Cloudflare preview (Season lab 19/19, Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Young regulars' growth and world shape gated in M4 (T). See "M3 notes" below. |
 | M4 Economy and market | **Accepted** (T, 2026-10-19) | All gates pass locally, in CI (`calibrate --check`, `calibrate --world --check` with the M4 economy, world-shape and exploit gates; 222 tests) and on the Cloudflare preview (Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. Champion band 76–100 for the MVP (revisit with Europe). See "M4 notes" below. |
-| M5 Core UI | Not started | |
+| M5 Core UI | In progress | Plan approved (8 chunks). See "M5 notes" below. |
 | M6 Management UI | Not started | |
 | M7 Polish and release v0.1 | Not started | |
 
@@ -49,6 +49,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-19 | M4 chunk 9 | Parity is fixed mainly with match randomness (rating gaps decide each step a little less), plus a little more rotation by big clubs; the transfer market isn't damped. | With AI transfers, upsets fell to ~10% (target 13–22%), while the top/bottom strength gap stays near the opening world's. T's choice (options A, then B). | SPEC §8 (engine coefficients); `engine/coefficients.ts`, `season/coefficients.ts` |
 | 2026-10-19 | M4 chunk 10 | ENG1 champion points target 90 (82–100) → 84 (76–100) for the MVP. | With stable stars, a later peak and realistic parity, talent spreads evenly and the champion averages ~78–80 points. Real 85–90-point champions come from money concentration, much of it European, which is out of MVP scope. Revisit when Europe is added. Approved by T (option A). | `calibration_targets.json` perSeason |
 | 2026-10-19 | M4 chunk 10 | Players beating their displayed POT: target 25% (18–32%) → 20% (14–30%). | With more ceiling room for prospects, released and stalled young players fall short of the forecast; measured 15.8%. Approved by T. | SPEC §4.4; `calibration_targets.json` development |
+| 2026-10-19 | M5 plan | The Inbox page moves from M6 to M5; the developer pages stay at a hidden `/dev` address through M6. Charts and routing are built in-house. | The Dashboard previews the inbox; until M6's transfer screens, the Club lab is the only place to trade. Approved by T. | MILESTONES M5, M6 |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -844,6 +845,39 @@ Each point of parity gained cost about one champion point, so the two real-world
   - champion, peak age and wonderkids are near their edges;
   - cash still builds up (about 2× revenue after 20 seasons);
   - the champion band is to be revisited with European competition.
+
+## M5 notes (2026-10-19, in progress)
+**Plan** (approved by T): 8 chunks of about an hour.
+1. App shell, routing, Play menu, Manage Leagues and the new league screen.
+2. Shared table component, Dashboard and Inbox.
+3. Standings, Cups and Weekly Schedule.
+4. Squad and Player profile, part 1.
+5. Player profile, part 2 (radar, OVR/POT history, career stats), Box score and Game log.
+6. Stats pages: League Leaders, Player Ratings, Player Stats, Team Stats, Injuries.
+7. History (league and team), Transactions, Power Rankings, the all-clubs finances overview.
+8. Browser checks for every page, the real-names sweep, docs and handover.
+
+**Chunk 1: app shell, routing, Play menu, Manage Leagues, New league** (`src/ui/router.tsx`, `src/ui/shell/`, `src/ui/pages/`)
+- **Router** (in-house, as ZenGM): the URL is the source of truth.
+  - Paths: `/` (Manage Leagues), `/new`, `/dev` (developer pages), `/l/:lid` (Dashboard) and `/l/:lid/:page/...`.
+  - Links are real `<a>` elements, so new tabs work. Back, forward and reloads work.
+- **Shell:**
+  - **Top bar:** the Play menu (the phase's options; shows "Playing…" while it runs), the date, season, phase and window, the save's name, and your club (crest, link to its squad). It's edged in your club's primary colour.
+  - **Sidebar:** sections General, League, Team, Players and Stats, plus Tools. The M6 pages are shown greyed. On narrow screens it opens from a Menu button.
+  - **Banner when sacked:** your job offers to accept. The full "You're fired" screen comes in M6.
+- **Page header** with the team dropdown (any club, grouped by league) and the season dropdown; changing either navigates.
+- Pages not built yet show which chunk brings them.
+- **Manage Leagues:** your saves, newest played first, with Play and a two-step Delete.
+- **New league:** league tabs, then club cards (crest, colour, city, squad strength, revenue), a name and an optional seed.
+- **Worker:** new call `getLeagueShell`: names, clubs, leagues and game state. Club choices now also carry city, reputation, revenue and colour.
+- The developer inspector moved to `/dev` unchanged.
+- **Tests:** 3 router tests and a shell view test (226 in all).
+- **Browser checks:**
+  - new `check-m5` passes: the empty home page, the new league screen, starting a league, the top bar, sidebar links, the season and team dropdowns, back, a deep link after a reload, Play → Until next match, the save in Manage Leagues, `/dev`, no real names, no console errors;
+  - the M1, M3 and M4 checks now run at `/dev`, and all pass.
+- **Judgment calls:**
+  - no Stop button on the Play menu (a whole season takes ~2 s in the browser);
+  - one team dropdown for all 62 clubs, grouped by league, as ZenGM.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.
