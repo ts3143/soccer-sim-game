@@ -264,6 +264,88 @@ export interface ScheduleView {
   matches: MatchView[];
 }
 
+/** One player on the Squad page. */
+export interface SquadPlayerView {
+  pid: number;
+  name: string;
+  shirtNumber: number | null;
+  position: string;
+  secondary: string[];
+  age: number;
+  nationality: string;
+  foot: string;
+  ovr: number;
+  pot: number;
+  /** club, academy, loan (here on loan) or loanedOut (his contract is here, he plays elsewhere). */
+  status: "club" | "academy" | "loan" | "loanedOut";
+  loan: string | null;
+  condition: number;
+  injury: { type: string; until: string } | null;
+  wage: number | null;
+  expires: string | null;
+  /** His contract ends this 30 June (SPEC §11: the expiry badge). */
+  expiring: boolean;
+  value: number;
+  /** Mood toward his club (−1 to 1); null for academy players. */
+  mood: number | null;
+  season: { appearances: number; goals: number; assists: number; rating: number | null };
+}
+
+export interface TeamSquadView {
+  team: TeamRef & { leagueId: string; leagueName: string; position: number | null };
+  formation: string;
+  /** Mean OVR of the best fit XI. */
+  strength: number;
+  averageAge: number;
+  /** A year, for the players whose contracts the club holds. */
+  wageBill: number;
+  players: SquadPlayerView[];
+  academy: SquadPlayerView[];
+  loanedOut: SquadPlayerView[];
+}
+
+/** The player profile (SPEC §11). */
+export interface PlayerView {
+  pid: number;
+  name: string;
+  position: string;
+  secondary: string[];
+  age: number;
+  birthDate: string;
+  nationality: string;
+  nationality2: string | null;
+  foot: string;
+  heightCm: number;
+  shirtNumber: number | null;
+  ovr: number;
+  pot: number;
+  status: string;
+  team: TeamRef | null;
+  /** On loan: where he plays and his parent club. */
+  loan: { at: TeamRef; parent: TeamRef; until: string; wageShare: number } | null;
+  contract: { wage: number; expires: string; yearsLeft: number; feeRemaining: number } | null;
+  value: number;
+  mood: {
+    value: number;
+    willing: boolean;
+    components: Record<string, number>;
+    traits: string[];
+  } | null;
+  condition: number;
+  injury: { type: string; until: string } | null;
+  ratings: { code: string; name: string; group: string; value: number; change: number | null }[];
+  positionOvrs: { position: string; ovr: number }[];
+  transfers: {
+    date: string;
+    type: string;
+    from: TeamRef | null;
+    to: TeamRef | null;
+    fee: number;
+  }[];
+  freeAgentSince: string | null;
+  retiredSeason: number | null;
+}
+
 /** Win, draw or loss, for form guides. */
 export type FormResult = "W" | "D" | "L";
 
@@ -627,6 +709,8 @@ export interface WorkerApi {
   getGameState(lid: number): GameState;
   getLeagueShell(lid: number): LeagueShell;
   getDashboard(lid: number): DashboardView;
+  getTeamSquad(lid: number, cid: number): TeamSquadView;
+  getPlayer(lid: number, pid: number): PlayerView;
   getStandings(lid: number, leagueId: string | null, season: number | null): StandingsView;
   getCups(lid: number, competition: string | null, season: number | null): CupView;
   /** `week`: the Monday of the week to show (null: the current week). */

@@ -917,5 +917,22 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Tests:** a full-season test of all three views: the live table, play-off semis with aggregates, and the past season's final table, notes and cup (231 tests in all).
 - **Browser checks:** 12 more in `check-m5` (zones and their legend, league tabs, position order, the cup's rounds and ties, the play-off tab, the schedule's days, next week, only my club). All pass.
 
+**Chunk 4: Squad and Player profile, part 1** (`src/worker/views/players.ts`)
+- **Squad** (`/l/:lid/squad/:cid`, any club via the team dropdown):
+  - a summary: league position, formation, best-XI strength, average age, wage bill, counts;
+  - the seniors (loanees in included) in position order: shirt number, name with badges (contract expires this June, injured, on loan), position (+ how many others he plays), age, OVR, POT, condition (coloured below 90% and 75%), market value, wage, contract end, mood, and this season's appearances, goals, assists and average rating;
+  - players out on loan, and the academy.
+  - Every column sorts.
+- **Player profile, part 1** (`/l/:lid/player/:pid`, current and pruned-but-saved players):
+  - **Bio:** OVR and POT, positions, market value, age and birth date, nationality, foot, height, shirt number.
+  - **Contract:** wage, end date, seasons left, an expiry badge, the fee still to amortise, and loan terms.
+  - **Condition and injury.**
+  - **Mood:** the value, whether he'd negotiate, a bar per component (team success, hype, facilities, market size, playing time, loyalty, ambition) and his traits.
+  - **The 22 ratings** by group, with each one's change since the last development update, and OVR at all 10 positions.
+  - **Transfer history:** transfers, loans, free signings, promotions, releases, with fees.
+- Rating display groups added to the ratings config (`ratingGroups`).
+- **Tests:** a squad and profile test (incl. a free agent's profile); 232 tests in all.
+- **Browser checks:** 13 more in `check-m5` (squad rows and summary, academy, sorting by OVR, opening a profile, its bio, contract, mood breakdown, 22 ratings, 10 position OVRs, transfer history, another club's player, the top-bar link to your squad). All pass.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

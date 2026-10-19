@@ -49,6 +49,8 @@ export interface OvrScaling {
 
 export interface RatingsConfig {
   ratingNames: Record<RatingCode, string>;
+  /** Display group of each rating (Physical, Mental, Attacking, …). */
+  ratingGroups: Record<RatingCode, string>;
   /** Which age-curve group each rating develops with. */
   ageCurveGroupOf: Record<RatingCode, AgeCurveGroup>;
   radarAxes: Record<string, RatingCode[]>;
@@ -119,6 +121,10 @@ function parse(json: typeof raw): RatingsConfig {
 
   return {
     ratingNames: Object.fromEntries(json.ratings.map((r) => [r.code, r.name])) as Record<
+      RatingCode,
+      string
+    >,
+    ratingGroups: Object.fromEntries(json.ratings.map((r) => [r.code, r.group])) as Record<
       RatingCode,
       string
     >,

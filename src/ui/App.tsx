@@ -10,7 +10,9 @@ import { Home } from "./pages/Home";
 import { Inbox } from "./pages/Inbox";
 import { NewLeague } from "./pages/NewLeague";
 import { Placeholder } from "./pages/Placeholder";
+import { Player } from "./pages/Player";
 import { Schedule } from "./pages/Schedule";
+import { Squad } from "./pages/Squad";
 import { Standings } from "./pages/Standings";
 import { Link, parseRoute, usePath } from "./router";
 import { Shell } from "./shell/Shell";
@@ -87,6 +89,10 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <Cups params={params} />;
     case "schedule":
       return <Schedule params={params} />;
+    case "squad":
+      return <Squad params={params} />;
+    case "player":
+      return <Player params={params} />;
     default:
       return <Placeholder page={page} params={params} />;
   }
