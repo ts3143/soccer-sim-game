@@ -320,6 +320,70 @@ check(
   `${resumed}' (paused at ${paused}')`,
 );
 
+// --- Chunk 4: changes during the match ----------------------------------------------------------
+const changes = page.locator('[data-testid="changes"]');
+const myCard = () => page.locator('[data-testid="my-team"]').innerText();
+await changes.waitFor({ timeout: 15_000 });
+check(
+  "paused mid-match, the changes screen says a substitution now uses a window",
+  (await page.locator('[data-testid="changes-title"]').innerText()) === "Paused" &&
+    /use 1 of your 3 remaining windows/.test(await changes.innerText()),
+);
+const subSelect = (i) =>
+  page.locator('[data-testid="changes-subs"] tbody tr').nth(i).locator("select");
+const firstOption = async (i) =>
+  (await subSelect(i).locator("option").nth(1).getAttribute("value")) ?? "";
+await subSelect(9).selectOption(await firstOption(9));
+await page.locator('[data-testid="apply-changes"]').click();
+await settle(() =>
+  /Subs 1\/5 · windows 1\/3/.test(
+    document.querySelector('[data-testid="my-team"]')?.textContent ?? "",
+  ),
+);
+check(
+  "a substitution during play comes on and uses a window",
+  (await page.locator('[data-testid="live-feed"] .badge', { hasText: "Sub" }).count()) >= 1,
+);
+const formationNow = await page.locator("#live-formation").inputValue();
+const nextFormation = formationNow === "4-4-2" ? "4-3-3" : "4-4-2";
+await page.locator("#live-formation").selectOption(nextFormation);
+await page.locator("#live-slider-mentality").focus();
+await page.keyboard.press("ArrowRight");
+await page.locator('[data-testid="apply-changes"]').click();
+await settle(
+  (f) => document.querySelector('[data-testid="my-team"] h2')?.textContent.includes(f),
+  nextFormation,
+);
+check("the formation and sliders change mid-match", (await myCard()).includes(nextFormation));
+
+// Play on to half-time: it stops there by itself (and for any injury or red card on the way).
+let title = "";
+for (let i = 0; i < 8 && title !== "Half-time"; i++) {
+  await page.locator('[data-testid="resume"]').click();
+  await changes.waitFor({ timeout: 90_000 });
+  title = await page.locator('[data-testid="changes-title"]').innerText();
+}
+check(
+  "play stops by itself at half-time with the changes screen",
+  title === "Half-time" && (await clockText()) === "Half-time",
+  title,
+);
+check(
+  "at half-time substitutions don't use a window",
+  /don't use a window/.test(await changes.innerText()),
+);
+const used = Number((await myCard()).match(/Subs (\d)\/5/)?.[1] ?? 0);
+await subSelect(4).selectOption(await firstOption(4));
+await page.locator('[data-testid="apply-changes"]').click();
+await settle(
+  (n) =>
+    new RegExp(`Subs ${n}/5 · windows 1/3`).test(
+      document.querySelector('[data-testid="my-team"]')?.textContent ?? "",
+    ),
+  used + 1,
+);
+check("a half-time substitution is free", true, `subs ${used + 1}/5, windows 1/3`);
+
 await page.locator('[data-testid="live-end"]').click();
 await page.locator('[data-testid="live-done"]').waitFor({ timeout: 60_000 });
 const finalScore = (await page.locator('[data-testid="live-score"]').innerText()).replace(

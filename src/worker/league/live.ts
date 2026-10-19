@@ -13,6 +13,7 @@
 import type {
   LiveChanges,
   LiveMatchView,
+  LivePause,
   LiveTeamView,
   PlayReport,
   TacticsMode,
@@ -38,7 +39,7 @@ import {
   type MatchState,
 } from "../engine/match";
 import { enginePlayer } from "../engine/prepare";
-import type { EngineTeamInput, TeamSide } from "../engine/types";
+import type { EngineTeamInput, MatchEvent, Period, TeamSide } from "../engine/types";
 import { fixtureSetup } from "../season/season";
 import { currentCondition, isInjured, squadPlay } from "../season/squads";
 import { competitionName, teamRef } from "../views/common";
@@ -372,23 +373,65 @@ async function finishDay(session: LeagueSession, live: Running): Promise<PlayRep
   return { ...report, live: null };
 }
 
+/**
+ * Why play stopped by itself (the user's call: auto-pause): a break (half-time, before
+ * extra time, its half-time), or one of the user's players injured or sent off. Pure, for tests.
+ */
+export function pauseFor(
+  events: readonly MatchEvent[],
+  side: TeamSide,
+  periodBefore: Period,
+  state: Pick<MatchState, "atBreak" | "finished" | "period">,
+): LivePause | null {
+  for (const e of events) {
+    if (e.type === "injury" && e.side === side && !e.replaced) {
+      return { reason: "injury", pid: e.pid };
+    }
+    if (e.type === "card" && e.side === side && e.card !== "yellow") {
+      return { reason: "redCard", pid: e.pid };
+    }
+  }
+  if (state.finished || !state.atBreak || state.period === periodBefore) return null;
+  if (state.period === "second") return { reason: "halfTime", pid: null };
+  if (state.period === "extraFirst") return { reason: "extraTime", pid: null };
+  if (state.period === "extraSecond") return { reason: "extraTimeBreak", pid: null };
+  return null;
+}
+
+/**
+ * Plays up to `possessions` possessions. With `autoPause` it stops early at a break or
+ * when one of the user's players is injured or sent off (the view says why); without it
+ * ("To full time") it plays straight on. At full time the day is finished and saved.
+ */
 export function stepLive(
   session: LeagueSession,
   possessions: number,
   from: number,
+  autoPause = true,
 ): Promise<LiveMatchView> {
   return queued(session, async () => {
     const live = load(session);
-    stepMatch(live.state, Math.max(1, Math.floor(possessions)));
-    if (live.state.finished) {
+    const { state } = live;
+    const target = Math.max(1, Math.floor(possessions));
+    let pause: LivePause | null = null;
+    if (!autoPause) stepMatch(state, target);
+    else {
+      for (let n = 0; n < target && !state.finished && pause === null; n++) {
+        const seen = state.feed.length;
+        const period = state.period;
+        stepMatch(state, 1);
+        pause = pauseFor(state.feed.slice(seen), live.row.side, period, state);
+      }
+    }
+    if (state.finished) {
       const view = liveView(session, live, from);
       return { ...view, report: await finishDay(session, live) };
     }
-    if (live.state.atBreak || live.state.clock - live.savedClock >= SAVE_EVERY_SECONDS) {
+    if (pause !== null || state.atBreak || state.clock - live.savedClock >= SAVE_EVERY_SECONDS) {
       save(session, live);
       await session.cache.flush();
     }
-    return liveView(session, live, from);
+    return { ...liveView(session, live, from), pause };
   });
 }
 
@@ -423,6 +466,7 @@ function liveView(session: LeagueSession, live: Running, from: number): LiveMatc
         name: p ? `${p.firstName} ${p.lastName}`.trim() : `#${ps.input.pid}`,
         position: p?.position ?? "CM",
         shirtNumber: p?.shirtNumber ?? null,
+        ovr: p?.ovr ?? 0,
       };
     }
   }
@@ -488,6 +532,7 @@ function liveView(session: LeagueSession, live: Running, from: number): LiveMatc
     feedLength: state.feed.length,
     teams: [team(0), team(1)],
     players,
+    pause: null,
     report: null,
   };
 }

@@ -5,7 +5,14 @@
  * teams' energy bars and benches. In-match changes and the half-time screen follow.
  */
 import { useEffect, useRef, useState } from "react";
-import type { LiveMatchView, LiveTeamView, TacticsView } from "../../common/api";
+import type {
+  LiveChanges,
+  LiveMatchView,
+  LivePause,
+  LiveTeamView,
+  TacticsView,
+} from "../../common/api";
+import { formationsConfig } from "../../common/config/formations";
 import type { MatchEvent } from "../../common/match";
 import { LineupEditor } from "../components/LineupEditor";
 import { feedLine, minuteLabel, type FeedContext } from "../components/matchText";
@@ -98,6 +105,10 @@ function feedLines(
   return lines.reverse();
 }
 
+const isHalfTime = (view: LiveMatchView) =>
+  view.atBreak && view.period === "second" && view.clock === 45 * 60;
+const MVP_FORMATIONS = formationsConfig.formations.filter((f) => f.mvp).map((f) => f.id);
+
 const energyClass = (e: number) => (e >= 70 ? "bg-success" : e >= 50 ? "bg-warning" : "bg-danger");
 
 export function Live() {
@@ -107,6 +118,7 @@ export function Live() {
   const [feed, setFeed] = useState<MatchEvent[]>([]);
   const [missing, setMissing] = useState(false);
   const [running, setRunning] = useState(false);
+  const [pause, setPause] = useState<LivePause | null>(null);
   const [speed, setSpeed] = useState(storedSpeed);
   const [error, setError] = useState<string | null>(null);
   const busy = useRef(false);
@@ -134,14 +146,18 @@ export function Live() {
     };
   }, [shell.lid]);
 
-  const step = async (possessions: number) => {
+  const step = async (possessions: number, autoPause = true) => {
     if (busy.current || !view || view.report) return;
     busy.current = true;
     try {
-      const next = await toWorker("stepLiveMatch", shell.lid, possessions, feed.length);
+      const next = await toWorker("stepLiveMatch", shell.lid, possessions, feed.length, autoPause);
       setFeed((f) => [...f, ...next.events]);
       setView(next);
       setLineup(null);
+      if (next.pause) {
+        setRunning(false);
+        setPause(next.pause);
+      }
       if (next.report) setRunning(false);
     } catch (e) {
       setError(errorText(e));
@@ -203,7 +219,10 @@ export function Live() {
           <button
             type="button"
             className="btn btn-success"
-            onClick={() => setRunning((r) => !r)}
+            onClick={() => {
+              setPause(null);
+              setRunning((r) => !r);
+            }}
             data-testid="live-play"
           >
             {running ? "Pause" : view.clock === 0 ? "Kick off" : "Play"}
@@ -237,7 +256,8 @@ export function Live() {
               className="btn btn-outline-secondary btn-sm"
               onClick={() => {
                 setRunning(false);
-                void step(Infinity);
+                setPause(null);
+                void step(Infinity, false);
               }}
               data-testid="live-end"
               title="Plays the rest straight away. Your team makes no changes on the way."
@@ -246,6 +266,21 @@ export function Live() {
             </button>
           )}
         </div>
+      )}
+      {!preMatch && !running && !done && view.clock > 0 && (
+        <ChangesPanel
+          key={`${view.feedLength}/${view.teams[view.userSide].subsUsed}`}
+          view={view}
+          pause={pause ?? (isHalfTime(view) ? { reason: "halfTime", pid: null } : null)}
+          onApplied={(next) => {
+            setFeed((f) => [...f, ...next.events]);
+            setView(next);
+          }}
+          onResume={() => {
+            setPause(null);
+            setRunning(true);
+          }}
+        />
       )}
       {preMatch ? (
         <div className="row g-3" data-testid="pre-match">
@@ -353,7 +388,7 @@ function Scoreboard({
     ? "Full time"
     : view.clock === 0
       ? "Kick-off"
-      : view.atBreak && view.period === "second" && view.clock === 45 * 60
+      : isHalfTime(view)
         ? "Half-time"
         : minuteLabel(view.clock, view.period);
   const side = (t: LiveTeamView, s: 0 | 1, align: "start" | "end") => (
@@ -490,6 +525,224 @@ function TeamCard({ team, name }: { team: LiveTeamView; name: (pid: number) => s
         </div>
         <div className="text-body-secondary">
           Bench: {team.bench.map((b) => `${name(b.pid)} (${b.position})`).join(", ") || "none"}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const PAUSE_TITLES: Record<LivePause["reason"], string> = {
+  halfTime: "Half-time",
+  extraTime: "Extra time to come",
+  extraTimeBreak: "Extra time: half-time",
+  injury: "Injury",
+  redCard: "Sent off",
+};
+
+/**
+ * The pause screen (SPEC §11): substitutions, formation and sliders for the user's club.
+ * All substitutions made together use one window during play; at a break they're free.
+ */
+function ChangesPanel({
+  view,
+  pause,
+  onApplied,
+  onResume,
+}: {
+  view: LiveMatchView;
+  pause: LivePause | null;
+  onApplied: (view: LiveMatchView) => void;
+  onResume: () => void;
+}) {
+  const { shell } = useShell();
+  const mine = view.teams[view.userSide];
+  const [subs, setSubs] = useState<Record<number, number>>({});
+  const [formation, setFormation] = useState(mine.formation);
+  const [sliders, setSliders] = useState(mine.sliders);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const name = (pid: number) => view.players[pid]?.name ?? `#${pid}`;
+  const subsLeft = mine.subLimit - mine.subsUsed;
+  const windowsLeft = mine.windowLimit - mine.windowsUsed;
+  const free = view.atBreak;
+  const canSub = subsLeft > 0 && (free || windowsLeft > 0);
+  const chosen = Object.values(subs);
+  const pending = Object.keys(subs).length;
+  const changed =
+    pending > 0 ||
+    formation !== mine.formation ||
+    JSON.stringify(sliders) !== JSON.stringify(mine.sliders);
+
+  const apply = async () => {
+    const changes: LiveChanges = {};
+    if (pending > 0) {
+      changes.subs = Object.entries(subs).map(([out, inPid]) => ({ outPid: Number(out), inPid }));
+    }
+    if (formation !== mine.formation) changes.formation = formation;
+    if (JSON.stringify(sliders) !== JSON.stringify(mine.sliders)) changes.sliders = sliders;
+    setSaving(true);
+    setError(null);
+    try {
+      onApplied(await toWorker("changeLiveMatch", shell.lid, changes, view.feedLength));
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const who = pause?.pid != null ? name(pause.pid) : "";
+  const keeperOff =
+    pause?.reason === "redCard" && pause.pid !== null && view.players[pause.pid]?.position === "GK";
+  const message =
+    pause?.reason === "injury"
+      ? `${who} is injured. Bring someone on, or he plays on at low energy.`
+      : pause?.reason === "redCard"
+        ? keeperOff
+          ? `${who} has been sent off, and an outfielder has gone in goal. Bring on your reserve keeper for him if you have one.`
+          : `${who} has been sent off: you're down to ${mine.onPitch.filter((p) => p !== null).length}.`
+        : pause?.reason === "extraTime"
+          ? "Level after 90 minutes. Extra time adds a substitution and a window."
+          : null;
+
+  return (
+    <section
+      className={`card mb-3 ${pause?.reason === "injury" || pause?.reason === "redCard" ? "border-danger" : "border-primary"}`}
+      data-testid="changes"
+    >
+      <div className="card-body">
+        <div className="d-flex flex-wrap align-items-baseline gap-2 mb-2">
+          <h2 className="h5 mb-0" data-testid="changes-title">
+            {pause ? PAUSE_TITLES[pause.reason] : "Paused"}
+          </h2>
+          <span className="small text-body-secondary">
+            Your changes. Substitutions left: {subsLeft}.{" "}
+            {free
+              ? "This is a break, so substitutions now don't use a window."
+              : windowsLeft > 0
+                ? `Substitutions now use 1 of your ${windowsLeft} remaining window${windowsLeft === 1 ? "" : "s"}: make them all together.`
+                : "No substitution windows left."}
+          </span>
+        </div>
+        {message && (
+          <div className="alert alert-warning py-2 small" data-testid="changes-message">
+            {message}
+          </div>
+        )}
+        <div className="row g-3">
+          <div className="col-lg-8">
+            <table className="table table-sm small align-middle mb-0" data-testid="changes-subs">
+              <thead>
+                <tr>
+                  <th>Slot</th>
+                  <th>On the pitch</th>
+                  <th className="text-end">Energy</th>
+                  <th>Replace with</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mine.onPitch.map((p, i) =>
+                  p ? (
+                    <tr key={i} className={p.pid === pause?.pid ? "table-danger" : ""}>
+                      <td className="text-body-secondary">{p.slot}</td>
+                      <td className="text-nowrap">
+                        {name(p.pid)}
+                        {p.booked && <span className="badge text-bg-warning ms-1">Y</span>}
+                        {p.injured && <span className="badge text-bg-danger ms-1">injured</span>}
+                      </td>
+                      <td className={`text-end ${p.energy < 50 ? "text-danger" : ""}`}>
+                        {p.energy}
+                      </td>
+                      <td>
+                        <select
+                          className="form-select form-select-sm"
+                          aria-label={`Replace ${name(p.pid)}`}
+                          value={subs[p.pid] ?? ""}
+                          disabled={!canSub || (pending >= subsLeft && subs[p.pid] === undefined)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setSubs((current) => {
+                              const next = { ...current };
+                              if (value === "") delete next[p.pid];
+                              else next[p.pid] = Number(value);
+                              return next;
+                            });
+                          }}
+                        >
+                          <option value="">—</option>
+                          {mine.bench
+                            .filter((b) => b.pid === subs[p.pid] || !chosen.includes(b.pid))
+                            .map((b) => (
+                              <option key={b.pid} value={b.pid}>
+                                {name(b.pid)} ({b.position}, {view.players[b.pid]?.ovr ?? "?"})
+                              </option>
+                            ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ) : null,
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="col-lg-4">
+            <label htmlFor="live-formation" className="form-label small fw-semibold mb-0">
+              Formation
+            </label>
+            <select
+              id="live-formation"
+              className="form-select form-select-sm mb-3"
+              value={formation}
+              onChange={(e) => setFormation(e.target.value)}
+            >
+              {MVP_FORMATIONS.map((id) => (
+                <option key={id}>{id}</option>
+              ))}
+            </select>
+            {formationsConfig.sliders.map((s) => (
+              <div key={s.key} className="mb-2">
+                <label
+                  htmlFor={`live-slider-${s.key}`}
+                  className="form-label small fw-semibold text-capitalize mb-0"
+                >
+                  {s.key}{" "}
+                  <span className="fw-normal text-body-secondary">
+                    ({sliders[s.key] > 0 ? `+${sliders[s.key]}` : sliders[s.key]})
+                  </span>
+                </label>
+                <input
+                  id={`live-slider-${s.key}`}
+                  type="range"
+                  className="form-range"
+                  min={-2}
+                  max={2}
+                  step={1}
+                  value={sliders[s.key]}
+                  onChange={(e) => setSliders({ ...sliders, [s.key]: Number(e.target.value) })}
+                />
+                <div className="d-flex justify-content-between small text-body-secondary">
+                  <span>{s.low}</span>
+                  <span>{s.high}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {error && <div className="alert alert-danger py-2 small mt-2">{error}</div>}
+        <div className="d-flex gap-2 mt-3">
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!changed || saving}
+            onClick={() => void apply()}
+            data-testid="apply-changes"
+          >
+            Make changes
+            {pending > 0 ? ` (${pending} substitution${pending === 1 ? "" : "s"})` : ""}
+          </button>
+          <button type="button" className="btn btn-success" onClick={onResume} data-testid="resume">
+            {changed ? "Resume without these changes" : "Resume"}
+          </button>
         </div>
       </div>
     </section>

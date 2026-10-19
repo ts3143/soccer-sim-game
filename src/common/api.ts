@@ -592,9 +592,24 @@ export interface LiveMatchView {
   feedLength: number;
   teams: [LiveTeamView, LiveTeamView];
   /** Names of everyone in both squads. */
-  players: Record<number, { name: string; position: Position; shirtNumber: number | null }>;
+  players: Record<
+    number,
+    { name: string; position: Position; shirtNumber: number | null; ovr: number }
+  >;
+  /** Why the last step stopped by itself (auto-pause), if it did. */
+  pause: LivePause | null;
   /** At full time: the match is saved and the day finished. */
   report: PlayReport | null;
+}
+
+/**
+ * Play stops by itself at a break (half-time, before extra time, extra time's half-time)
+ * and when one of the user's players is injured or sent off.
+ */
+export interface LivePause {
+  reason: "halfTime" | "extraTime" | "extraTimeBreak" | "injury" | "redCard";
+  /** The player injured or sent off. */
+  pid: number | null;
 }
 
 /** Changes the user makes at a pause in a live match (subs, formation, sliders). */
@@ -1092,8 +1107,12 @@ export interface WorkerApi {
   saveTactics(lid: number, setup: TacticsSetup): TacticsView;
   /** The live match, with feed events from index `from` (null when none is under way). */
   getLiveMatch(lid: number, from: number): LiveMatchView | null;
-  /** Plays up to `possessions` possessions; at full time the day is finished and saved. */
-  stepLiveMatch(lid: number, possessions: number, from: number): LiveMatchView;
+  /**
+   * Plays up to `possessions` possessions, stopping early at a break or when one of the
+   * user's players is injured or sent off (`autoPause`, off for "To full time"). At full
+   * time the day is finished and saved.
+   */
+  stepLiveMatch(lid: number, possessions: number, from: number, autoPause: boolean): LiveMatchView;
   /** The user's changes at a pause (subs, formation, sliders). */
   changeLiveMatch(lid: number, changes: LiveChanges, from: number): LiveMatchView;
   /** Before kick-off: the user's line-up for this match, as the Tactics editor shows it. */

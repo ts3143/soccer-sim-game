@@ -1112,5 +1112,25 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Browser checks:** `m6` adds 5 (the pre-match screen and the opponent's XI, a change and My saved line-up, the speed and the line-up surviving a reload, energy draining with the newcomer playing, the scorers). 28/28 pass, as do all the other checks.
 - **Judgment calls:** the speed is a per-browser setting (local storage), not saved in the league. Empty slots in the pre-match line-up are filled at once with the best fit player, since a match needs eleven.
 
+**Chunk 4: Watch live, changes** (`src/worker/league/live.ts`, `src/ui/pages/Live.tsx`)
+- **Play stops by itself:**
+  - at half-time, before extra time, and at extra time's half-time;
+  - when one of your players is injured (and not yet replaced) or sent off.
+  - The worker steps one possession at a time and stops at the first of these; the view says why. "To full time" plays straight on with no stops.
+- **The changes screen** opens whenever play is paused (by you or by itself):
+  - a title (Paused, Half-time, Extra time to come, Extra time: half-time, Injury, Sent off) and a plain message for injuries and red cards. A keeper sent off: an outfielder has gone in goal, so bring on your reserve keeper for him;
+  - **substitutions:** each player on the pitch (energy, bookings, injured) with a "Replace with" list of the bench (position and OVR);
+  - the subs and windows left: at a break "substitutions now don't use a window", during play "use 1 of your N remaining windows: make them all together" (all subs applied at once use one window, as the engine's rule);
+  - formation and the three sliders;
+  - **Make changes** (one call to the engine) and **Resume**.
+- **Penalty shoot-outs** run at the end of extra time as before; the scoreboard shows the shoot-out score, and the commentary each kick.
+- **Worker:** `stepLiveMatch` gains `autoPause`; new pure `pauseFor` decides the stops. The players map carries OVR for the bench list.
+- **Tests** (3 new, 242 in all):
+  - `pauseFor` rules (your injuries and red cards only, the three breaks, nothing at full time);
+  - a watched match stops at half-time; a free half-time sub; a sub during play uses one window; formation and sliders change; a bad slider is refused; To full time runs on;
+  - real level knockout matches pause at half-time, before extra time and at its half-time, in that order.
+- **Browser checks:** `m6` adds 6 (the changes screen mid-match, a sub using a window, formation and slider changes, the half-time stop, a free half-time sub). 34/34 pass, as do all other checks.
+- **Judgment call:** auto-pause stops only for your own team's injuries and red cards, not the opponent's, and not for goals.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

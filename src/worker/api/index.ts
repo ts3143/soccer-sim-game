@@ -181,9 +181,9 @@ export function createHandlers(
     async getLiveMatch(lid, from) {
       return getLive(await openLeague(lid), from);
     },
-    async stepLiveMatch(lid, possessions, from) {
+    async stepLiveMatch(lid, possessions, from, autoPause) {
       const session = await openLeague(lid);
-      const view = await stepLive(session, possessions, from);
+      const view = await stepLive(session, possessions, from, autoPause);
       if (view.report) host.broadcast("gameChanged", { lid, state: gameState(session) });
       return view;
     },
