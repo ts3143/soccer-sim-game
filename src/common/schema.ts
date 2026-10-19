@@ -122,13 +122,25 @@ export interface SliderSettings {
   directness: number;
 }
 
+/** The user's saved line-up (M6 Tactics page): who starts in each slot, and the bench. */
+export interface SavedLineup {
+  /** Player ID per formation slot (11, slot order as in the formation config); null = empty. */
+  slots: (number | null)[];
+  /** Substitutes in order (up to the bench size). */
+  bench: number[];
+}
+
 /**
- * A club's saved tactics. AI clubs' are picked by the AI before each match; the user's
- * apply to the matches he watches (simulated matches: the AI manages his club too).
+ * A club's saved tactics. The formation is the club's own in every match. AI clubs'
+ * sliders and line-ups are picked by the AI before each match; the user's sliders and
+ * line-up apply to the matches he watches (simulated matches: the AI picks them for his
+ * club too, within his formation).
  */
 export interface Tactics {
   formation: string;
   sliders: SliderSettings;
+  /** User's club only, once he saves one on the Tactics page. Absent = the AI's pick. */
+  lineup?: SavedLineup;
 }
 
 /** Budget dial levels, 0–100; 50 is a typical club. Coaching/Youth/Medical/Facilities (MVP). */

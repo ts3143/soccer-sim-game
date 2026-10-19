@@ -1,0 +1,175 @@
+/**
+ * The Tactics page (M6, SPEC §11): a club's line-up by slot, the bench and everyone else
+ * who can play, with slot OVRs, condition and the live team ratings. The user edits and
+ * saves his; other clubs show the AI's pick for an ordinary match today.
+ */
+import type { TacticsMode, TacticsPlayerView, TacticsSetup, TacticsView } from "../../common/api";
+import { formationById, formationsConfig, slotLabel } from "../../common/config/formations";
+import { exactAge } from "../../common/dates";
+import type { Club, GameMeta, Player } from "../../common/schema";
+import { effectiveDials } from "../club/standing";
+import {
+  autoSetup,
+  checkSetup,
+  cleanSetup,
+  currentSetup,
+  reslot,
+  selectable,
+  setupRatings,
+} from "../club/tactics";
+import { slotOvr } from "../core/ovr";
+import { queued } from "../league/game";
+import type { LeagueSession } from "../league/session";
+import { openLeague } from "../league/session";
+import { currentCondition, isInjured } from "../season/squads";
+import { teamRef } from "./common";
+
+const RATING_LABELS: Record<string, string> = {
+  passing: "Passing",
+  attack: "Attack",
+  pressing: "Pressing",
+  defence: "Defence",
+  aerial: "Aerial",
+  setPieces: "Set pieces",
+  goalkeeping: "Goalkeeping",
+};
+/** Below this condition a starter's injury risk rises sharply (SPEC §8.4). */
+const RISKY_CONDITION = 75;
+
+function context(session: LeagueSession, cid: number | null) {
+  const game = session.cache.get("meta", "game") as GameMeta;
+  const club = session.cache.get("clubs", cid ?? game.userCid);
+  if (!club) throw new Error(`No club ${cid ?? game.userCid}`);
+  const players = session.cache.getAll("players");
+  const pickable = selectable(players, club.cid, game.date);
+  return { game, club, players, pickable, byPid: new Map(pickable.map((p) => [p.pid, p])) };
+}
+
+function view(
+  club: Club,
+  setup: TacticsSetup,
+  pickable: readonly Player[],
+  byPid: ReadonlyMap<number, Player>,
+  date: string,
+  editable: boolean,
+): TacticsView {
+  const medical = effectiveDials(club).medical;
+  const formation = formationById(setup.formation);
+  const player = (p: Player, inSlot: number | null): TacticsPlayerView => {
+    const slot = inSlot === null ? undefined : formation.slots[inSlot];
+    return {
+      pid: p.pid,
+      name: `${p.firstName} ${p.lastName}`.trim(),
+      position: p.position,
+      secondary: p.secondaryPositions,
+      age: Math.floor(exactAge(p.birthDate, date)),
+      ovr: p.ovr,
+      slotOvr: slot ? Math.round(slotOvr(p, slot)) : p.ovr,
+      condition: Math.round(currentCondition(p, date, medical)),
+      injury:
+        p.injury && isInjured(p, date) ? { type: p.injury.type, until: p.injury.until } : null,
+      academy: p.status === "academy",
+      loanee: p.status === "loan",
+    };
+  };
+  const slots = formation.slots.map((slot, i) => {
+    const p = byPid.get(setup.slots[i] ?? -1);
+    return { label: slotLabel(slot), player: p ? player(p, i) : null };
+  });
+  const bench = setup.bench.flatMap((pid) => {
+    const p = byPid.get(pid);
+    return p ? [player(p, null)] : [];
+  });
+  const named = new Set([...setup.slots, ...setup.bench]);
+  const reserves = pickable
+    .filter((p) => !named.has(p.pid))
+    .sort((a, b) => b.ovr - a.ovr || a.pid - b.pid)
+    .map((p) => player(p, null));
+
+  const warnings: string[] = [];
+  const empty = slots.filter((s) => s.player === null).length;
+  if (empty > 0) warnings.push(`${empty} slot${empty === 1 ? " is" : "s are"} empty.`);
+  for (const s of slots) {
+    const p = s.player;
+    if (!p) continue;
+    if (p.injury) warnings.push(`${p.name} (${s.label}) is injured until ${p.injury.until}.`);
+    else if (p.condition < RISKY_CONDITION) {
+      warnings.push(`${p.name} (${s.label}) is at ${p.condition}% condition: a high injury risk.`);
+    }
+  }
+  if (bench.length > 0 && !bench.some((p) => p.position === "GK")) {
+    warnings.push("No goalkeeper on the bench.");
+  }
+  const injuredSubs = bench.filter((p) => p.injury).length;
+  if (injuredSubs > 0) {
+    warnings.push(`${injuredSubs} injured player${injuredSubs === 1 ? "" : "s"} on the bench.`);
+  }
+
+  const ratings = setupRatings(club, setup, byPid, date);
+  return {
+    team: teamRef(club),
+    editable,
+    saved: club.tactics.lineup !== undefined,
+    setup,
+    slots,
+    bench,
+    reserves,
+    ratings: Object.entries(RATING_LABELS).map(([key, label]) => ({
+      key,
+      label,
+      value: Math.round(ratings[key as keyof typeof ratings] * 10) / 10,
+    })),
+    warnings,
+    benchSize: formationsConfig.benchSize,
+  };
+}
+
+export async function getTactics(lid: number, cid: number | null): Promise<TacticsView> {
+  const session = await openLeague(lid);
+  const { game, club, players, pickable, byPid } = context(session, cid);
+  const user = club.cid === game.userCid;
+  const setup = user ? currentSetup(club, players, game.date) : autoSetup(club, players, game.date);
+  return view(club, setup, pickable, byPid, game.date, user);
+}
+
+export async function previewTactics(
+  lid: number,
+  setup: TacticsSetup,
+  mode: TacticsMode,
+): Promise<TacticsView> {
+  const session = await openLeague(lid);
+  const { game, club, players, pickable, byPid } = context(session, null);
+  const ids = new Set(byPid.keys());
+  let next: TacticsSetup;
+  if (mode === "auto") {
+    const pick = autoSetup(
+      { ...club, tactics: { ...club.tactics, formation: setup.formation } },
+      players,
+      game.date,
+    );
+    next = { ...pick, sliders: setup.sliders };
+  } else {
+    const clean = cleanSetup({ ...setup, slots: [...setup.slots] }, ids);
+    next = mode === "reslot" ? reslot(clean, setup.formation, byPid) : clean;
+  }
+  checkSetup(next, ids);
+  return view(club, next, pickable, byPid, game.date, true);
+}
+
+export async function saveTactics(lid: number, setup: TacticsSetup): Promise<TacticsView> {
+  const session = await openLeague(lid);
+  await queued(session, async () => {
+    const { club, byPid } = context(session, null);
+    checkSetup(setup, new Set(byPid.keys()));
+    session.cache.put("clubs", {
+      ...club,
+      tactics: {
+        formation: setup.formation,
+        sliders: { ...setup.sliders },
+        lineup: { slots: [...setup.slots], bench: [...setup.bench] },
+      },
+    });
+    await session.cache.flush();
+  });
+  return getTactics(lid, null);
+}

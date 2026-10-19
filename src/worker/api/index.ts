@@ -16,6 +16,7 @@ import { createLeague, deleteLeague, openLeague } from "../league/session";
 import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector";
 import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
 import { getClubLab, searchPlayers } from "../views/clubLab";
+import { getTactics, previewTactics, saveTactics } from "../views/tactics";
 import { getCups, getSchedule, getStandings } from "../views/competitions";
 import { getDashboard, markAllInboxRead } from "../views/dashboard";
 import {
@@ -111,6 +112,15 @@ export function createHandlers(
 
     async getInjuries(lid) {
       return getInjuries(lid);
+    },
+    async getTactics(lid, cid) {
+      return getTactics(lid, cid);
+    },
+    async previewTactics(lid, setup, mode) {
+      return previewTactics(lid, setup, mode);
+    },
+    async saveTactics(lid, setup) {
+      return saveTactics(lid, setup);
     },
 
     async getHistory(lid) {

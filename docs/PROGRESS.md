@@ -9,8 +9,8 @@ Claude Code updates this file at the end of each milestone.
 | M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
 | M3 Season loop | **Accepted** (T, 2026-10-16) | All M3 gates pass locally, in CI (`calibrate --world --check`, 16 checks) and on the Cloudflare preview (Season lab 19/19, Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Young regulars' growth and world shape gated in M4 (T). See "M3 notes" below. |
 | M4 Economy and market | **Accepted** (T, 2026-10-19) | All gates pass locally, in CI (`calibrate --check`, `calibrate --world --check` with the M4 economy, world-shape and exploit gates; 222 tests) and on the Cloudflare preview (Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. Champion band 76–100 for the MVP (revisit with Europe). See "M4 notes" below. |
-| M5 Core UI | Built; T's local test next | All 8 chunks built. 234 tests; headless Chrome against the production build: game pages 90/90, full-season sweep 43/43 (a season and rollover with only the Play menu, every page at six points, no real names, no console errors), Club lab 19/19, Season lab 21/21, M1 18/18. See "M5 notes" below. |
-| M6 Management UI | Not started | |
+| M5 Core UI | **Accepted** (T, 2026-10-19) | All checks pass locally, in CI and on the Cloudflare preview and production (game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M5 notes" below. |
+| M6 Management UI | In progress | Plan approved (9 chunks). See "M6 notes" below. |
 | M7 Polish and release v0.1 | Not started | |
 
 ## Deviations from spec
@@ -50,6 +50,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-19 | M4 chunk 10 | ENG1 champion points target 90 (82–100) → 84 (76–100) for the MVP. | With stable stars, a later peak and realistic parity, talent spreads evenly and the champion averages ~78–80 points. Real 85–90-point champions come from money concentration, much of it European, which is out of MVP scope. Revisit when Europe is added. Approved by T (option A). | `calibration_targets.json` perSeason |
 | 2026-10-19 | M4 chunk 10 | Players beating their displayed POT: target 25% (18–32%) → 20% (14–30%). | With more ceiling room for prospects, released and stalled young players fall short of the forecast; measured 15.8%. Approved by T. | SPEC §4.4; `calibration_targets.json` development |
 | 2026-10-19 | M5 plan | The Inbox page moves from M6 to M5; the developer pages stay at a hidden `/dev` address through M6. Charts and routing are built in-house. | The Dashboard previews the inbox; until M6's transfer screens, the Club lab is the only place to trade. Approved by T. | MILESTONES M5, M6 |
+| 2026-10-19 | M6 plan | Releasing a player (user): he leaves at once, his wages are still paid monthly until the contract ends and count for FFP. Academy players 18+ the user hasn't decided on by 1 July get the AI rule, with an inbox reminder in May. Ticket price set in preseason, locked after the first home match, "Auto" = the AI price. Settings: rename and delete the save; the live-match speed is a slider on the Watch live screen. Transfer list: AI clubs that need the position bid around the asking price. A live match is saved as it goes and resumes after the game is closed. | The spec didn't cover releasing, academy players left undecided, when the price can change, what Settings holds or how listing works. Approved by T. | SPEC §6.2, §7.2, §7.6, §11 |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -1042,6 +1043,36 @@ Each point of parity gained cost about one champion point, so the two real-world
   - box scores of other clubs' matches older than two seasons are pruned by design, so those pages say so;
   - the browser checks run locally only (they need Chrome);
   - Firefox untested (see Open issues).
+
+## M6 notes (2026-10-19, in progress)
+**Plan** (approved by T): 9 chunks of about an hour.
+1. Tactics: the saved line-up (formation, XI by slot, bench, sliders), slot OVR, live team ratings, drag and drop, Auto.
+2. Watch live, game side: watching your next match inside the season loop, saved like a simulated match, resumable.
+3. Watch live, before and during: one-match changes and Auto rotation; the feed, score, clock, stats, energy bars, speed slider and Pause.
+4. Watch live, changes: the pause screen (subs, sliders, formation), half-time, injury prompts, extra time and penalties, full time.
+5. The contract negotiation window and Free Agents.
+6. Transfer Market: Search, Your listed players, Incoming offers, Loans; releasing players.
+7. Youth Academy, and your club's Finances and Facilities (dials, ticket price, budgets).
+8. The "You're fired" screen, Settings, the team schedule with Sim and Watch, the full sidebar.
+9. Acceptance: three seasons run entirely in the UI (automated), all browser checks, docs and handover.
+
+**Chunk 1: Tactics** (`src/worker/club/tactics.ts`, `src/worker/views/tactics.ts`, `src/ui/pages/Tactics.tsx`)
+- **Saved line-up:** your club's tactics now hold the XI by slot and the bench order (up to 9), next to the formation and the three sliders. Saves without one get the AI's pick.
+- **Who can be picked:** seniors (loanees in included) and academy players of 16+. Players who leave (sold, loaned out, released) drop out of the saved line-up on their own.
+- **What applies where** (as decided in M2): the formation is your club's in every match. The line-up and sliders apply to the matches you watch; in simulated matches the AI picks them for your club, within your formation, as for every AI club.
+- **The page** (`/l/:lid/tactics/:cid`, Team section):
+  - a formation dropdown (the 5 MVP presets); changing it moves the same eleven into the new slots, each where his slot OVRs add up best;
+  - the XI by slot (RB, LCB-style labels) with OVR in that slot (red when 4+ below his OVR), OVR, condition and age; the bench (9 places); everyone else who can play;
+  - drag a player onto another place to swap them, or click one and then the other (keyboard too). Drop a player on "leave out" to take him out;
+  - the three sliders with their labels and effects;
+  - the seven team ratings at today's condition, on the player OVR scale, updating as you change things, with the change since your saved line-up;
+  - warnings: empty slots, injured starters, starters below 75% condition, no goalkeeper on the bench, injured subs;
+  - Auto (the AI's pick for an ordinary match today), Reset and Save.
+  - Other clubs show the AI's pick, read-only.
+- **Worker:** new calls `getTactics`, `previewTactics` (as given, re-slotted, or Auto) and `saveTactics`. Each checks the rules: MVP formations only, 11 slots, 9 on the bench, nobody twice, only your players, whole slider steps.
+- **Tests:** a tactics test (the AI's pick, re-slotting, slider effects, a keeper up front, empty slots, saving, five rule breaks, a player leaving, an injured starter, another club); 235 tests in all.
+- **Browser checks:** new `m6` check, 14/14 pass (the page, formation change, live ratings from a slider, drag and drop, click to swap, leave out, Auto, save, reload, another club read-only, no real names, no console errors). The full-season sweep now opens Tactics too. All other checks pass.
+- **Judgment call:** team ratings are shown without a single Team OVR, whose weights are still placeholders (TEAM_OVR_WEIGHTS) and haven't been fitted yet.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

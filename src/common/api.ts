@@ -8,7 +8,7 @@
  */
 import type { Position } from "./config/ratings";
 import type { MatchEvent, MatchResult, Period } from "./match";
-import type { Fixture, Foot, InboxMessage, LeagueSummary, Phase } from "./schema";
+import type { Fixture, Foot, InboxMessage, LeagueSummary, Phase, SliderSettings } from "./schema";
 
 export type WorkerKind = "shared" | "dedicated";
 
@@ -477,6 +477,53 @@ export interface TeamStatsView {
     redCards: number | null;
     cleanSheets: number | null;
   }[];
+}
+
+/** A line-up on the Tactics page (M6): formation, the XI by slot, the bench, the sliders. */
+export interface TacticsSetup {
+  formation: string;
+  sliders: SliderSettings;
+  /** Player ID per formation slot (11); null = empty. */
+  slots: (number | null)[];
+  /** Substitutes in order (up to the bench size). */
+  bench: number[];
+}
+
+/** How `previewTactics` treats the setup: as given, re-slotted into its formation, or the AI's pick. */
+export type TacticsMode = "asIs" | "reslot" | "auto";
+
+export interface TacticsPlayerView {
+  pid: number;
+  name: string;
+  position: Position;
+  secondary: Position[];
+  age: number;
+  ovr: number;
+  /** OVR in the slot he fills (wrong foot counted); on the bench and in reserve, his OVR. */
+  slotOvr: number;
+  condition: number;
+  injury: { type: string; until: string } | null;
+  academy: boolean;
+  loanee: boolean;
+}
+
+/** The Tactics page: a club's line-up, who else can play, and the team ratings it gives. */
+export interface TacticsView {
+  team: TeamRef;
+  /** The user's club (other clubs show the AI's pick, read-only). */
+  editable: boolean;
+  /** The user has saved a line-up (otherwise this is the AI's pick). */
+  saved: boolean;
+  /** The setup shown, cleaned of players who can't play for the club any more. */
+  setup: TacticsSetup;
+  slots: { label: string; player: TacticsPlayerView | null }[];
+  bench: TacticsPlayerView[];
+  /** Everyone else who can be picked (seniors, loanees in, academy players 16+). */
+  reserves: TacticsPlayerView[];
+  /** The seven team ratings (player-OVR scale) at today's condition, sliders included. */
+  ratings: { key: string; label: string; value: number }[];
+  warnings: string[];
+  benchSize: number;
 }
 
 /** Injuries: every injured player in the world now. */
@@ -957,6 +1004,12 @@ export interface WorkerApi {
   getPlayerStats(lid: number, season: number | null, competition: string | null): PlayerStatsView;
   getTeamStats(lid: number, leagueId: string | null, season: number | null): TeamStatsView;
   getInjuries(lid: number): InjuriesView;
+  /** A club's line-up (null = the user's). */
+  getTactics(lid: number, cid: number | null): TacticsView;
+  /** The user's unsaved line-up as the page would show it (re-slotted or the AI's pick). */
+  previewTactics(lid: number, setup: TacticsSetup, mode: TacticsMode): TacticsView;
+  /** Saves the user's line-up; it applies to the matches he watches. */
+  saveTactics(lid: number, setup: TacticsSetup): TacticsView;
   getHistory(lid: number): HistoryView;
   getTeamHistory(lid: number, cid: number): TeamHistoryView;
   getTransactions(lid: number, season: number | null): TransactionsView;

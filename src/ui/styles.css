@@ -51,3 +51,15 @@ tr[role="button"] {
     box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
   }
 }
+
+/* Tactics: rows you can drag or pick to swap. */
+.tactics-row {
+  cursor: grab;
+}
+.tactics-row:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}
+.border-dashed {
+  border-style: dashed !important;
+}

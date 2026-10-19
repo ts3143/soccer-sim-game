@@ -1,5 +1,5 @@
 /**
- * `pnpm browsercheck [m1 m3 m4 m5 sweep] [--base URL]`: headless Chrome checks of the game UI
+ * `pnpm browsercheck [m1 m3 m4 m5 m6 sweep] [--base URL]`: headless Chrome checks of the game UI
  * against a running production build (`pnpm build && pnpm preview`). Each check is a script
  * in this folder; with no names, all of them run. Needs Google Chrome installed (the
  * checks drive it through playwright-core; no browser download).
@@ -14,7 +14,7 @@ import { bestXi } from "../../src/worker/core/lineup";
 import { generateWorld } from "../../src/worker/generate/world";
 import { realClubNamesToCheck } from "../real-club-names";
 
-const CHECKS = ["m1", "m3", "m4", "m5", "sweep"];
+const CHECKS = ["m1", "m3", "m4", "m5", "m6", "sweep"];
 const args = process.argv.slice(2);
 let base = "http://localhost:4173";
 const names: string[] = [];

@@ -14,8 +14,18 @@ export interface Formation {
   slots: FormationSlot[];
 }
 
+export interface SliderInfo {
+  key: "mentality" | "pressing" | "directness";
+  /** Labels for the −2 and +2 ends. */
+  low: string;
+  high: string;
+  effect: string;
+}
+
 export interface FormationsConfig {
   formations: Formation[];
+  /** The three tactics sliders (−2…+2), in display order. */
+  sliders: SliderInfo[];
   /** Selection weights for each club's seeded default formation (MVP presets only). */
   defaultFormationWeights: Record<string, number>;
   /** Real rule: subs in normal time, in at most `substitutionWindows` stoppages during play. */
@@ -55,8 +65,14 @@ function parse(json: typeof raw): FormationsConfig {
     weights[id] = weight;
   }
 
+  const sliders = (["mentality", "pressing", "directness"] as const).map((key): SliderInfo => {
+    const info = json.sliders[key];
+    return { key, low: info.low, high: info.high, effect: info.effect };
+  });
+
   return {
     formations,
+    sliders,
     defaultFormationWeights: weights,
     maxSubstitutions: json.substitutions.maxPerMatch,
     substitutionWindows: json.substitutions.windows,
@@ -72,4 +88,21 @@ export function formationById(id: string): Formation {
   const formation = formationsConfig.formations.find((f) => f.id === id);
   if (!formation) throw new Error(`Unknown formation ${id}`);
   return formation;
+}
+
+/** A slot's short label for the Tactics table: RB, LCB-style sides only where they matter. */
+export function slotLabel(slot: FormationSlot): string {
+  const side = slot.side === "C" ? "" : slot.side;
+  switch (slot.position) {
+    case "FB":
+      return `${side}B`;
+    case "WB":
+      return `${side}WB`;
+    case "WM":
+      return `${side}M`;
+    case "W":
+      return `${side}W`;
+    default:
+      return slot.position;
+  }
 }

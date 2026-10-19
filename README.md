@@ -22,7 +22,7 @@ pnpm install
 | `pnpm dev` | Local dev server with hot reload |
 | `pnpm build` | Type check, production build into `dist/`, then check no real club names shipped |
 | `pnpm preview` | Serve the production build locally |
-| `pnpm browsercheck [m1 m3 m4 m5 sweep] [--base URL]` | Headless Chrome checks of the production build (run `pnpm build && pnpm preview` first; needs Google Chrome installed). `m5` checks every game page; `sweep` plays a full season with the Play menu and opens every page at six points of it; `m1`, `m3` and `m4` check the developer pages. With no names, all run (about a minute) |
+| `pnpm browsercheck [m1 m3 m4 m5 m6 sweep] [--base URL]` | Headless Chrome checks of the production build (run `pnpm build && pnpm preview` first; needs Google Chrome installed). `m5` checks every game page, `m6` the management screens; `sweep` plays a full season with the Play menu and opens every page at six points of it; `m1`, `m3` and `m4` check the developer pages. With no names, all run (about a minute) |
 | `pnpm test` | Unit tests (Vitest) |
 | `pnpm lint` | ESLint + Prettier check + type check |
 | `pnpm format` | Format code with Prettier |
@@ -32,7 +32,7 @@ pnpm install
 | `pnpm season [--seasons N] [--seed X] [--quiet]` | Plays seasons headlessly and prints tables, cups, play-offs, promotion and relegation, and the season numbers |
 | `pnpm calendar [--season Y]` | Prints a season's match calendar (league rounds, cup rounds, play-offs) |
 
-**The game** opens on Manage Leagues (`/`), where you start a new league as any club and reopen your saves. Inside a league, the top bar has the Play menu and the date, and the sidebar lists the pages: Dashboard and Inbox; Standings, Cups, Schedule, Power Rankings, Finances, History and Transactions; your Squad, Game Log and Team History (any club through the team dropdown); League Leaders, Player Ratings, Player Stats, Team Stats and Injuries. Player names open profiles and scores open box scores. Every page has its own URL, so links, back and reload work.
+**The game** opens on Manage Leagues (`/`), where you start a new league as any club and reopen your saves. Inside a league, the top bar has the Play menu and the date, and the sidebar lists the pages: Dashboard and Inbox; Standings, Cups, Schedule, Power Rankings, Finances, History and Transactions; your Squad, Tactics, Game Log and Team History (any club through the team dropdown); League Leaders, Player Ratings, Player Stats, Team Stats and Injuries. Player names open profiles and scores open box scores. Every page has its own URL, so links, back and reload work.
 
 The developer pages (`/dev`, under Tools in the sidebar) have four tabs per saved league: **Generation** (M1: the generated world, its checks, clubs and squads), **Match lab** (M2: simulate or watch a match between any two clubs, or simulate 1,000 matches against the targets), **Season lab** (M3: play the season with the Play-menu actions; tables, results, cups, play-offs, injuries, academies, transactions, awards, the board and the inbox) and **Club lab** (M4: every club's finances, FFP and board; your budgets and the fees/wages control; contract talks to renew, bid, sign a free agent or propose a loan; bids for your players; the season's transfer log and the inbox). They stay until M6's transfer and management screens replace the Club lab, and are removed in M7.
 

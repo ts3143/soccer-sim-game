@@ -23,6 +23,7 @@ import { PowerRankings } from "./pages/PowerRankings";
 import { Schedule } from "./pages/Schedule";
 import { Squad } from "./pages/Squad";
 import { Standings } from "./pages/Standings";
+import { Tactics } from "./pages/Tactics";
 import { TeamHistory } from "./pages/TeamHistory";
 import { TeamStats } from "./pages/TeamStats";
 import { Transactions } from "./pages/Transactions";
@@ -119,6 +120,8 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <TeamStats params={params} />;
     case "injuries":
       return <Injuries />;
+    case "tactics":
+      return <Tactics params={params} />;
     case "history":
       return <History />;
     case "team-history":
