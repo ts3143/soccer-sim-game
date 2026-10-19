@@ -41,3 +41,8 @@ export function ageOn(birthDate: string, onDate: string): number {
 export function exactAge(birthDate: string, onDate: string): number {
   return (toDate(onDate).getTime() - toDate(birthDate).getTime()) / (365.2425 * 86_400_000);
 }
+
+/** Whole days from `from` to `to` (ISO dates). */
+export function daysBetween(from: string, to: string): number {
+  return Math.round((toDate(to).getTime() - toDate(from).getTime()) / 86_400_000);
+}

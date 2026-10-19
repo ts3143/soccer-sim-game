@@ -11,7 +11,7 @@ import {
   seasonAwards,
   type SeasonLine,
   startingReputation,
-  topUpSquads,
+  promoteToSquadSize,
   youthIntake,
 } from "./offseason";
 import { runDays } from "./runner";
@@ -211,8 +211,8 @@ describe("preseason", () => {
     }
   });
 
-  it("tops every club up to 22 seniors from its academy, then free agents", () => {
-    // Make room: three clubs lose seniors.
+  it("has AI clubs promote academy prospects up to 22 seniors, never the user's club", () => {
+    // Make room: three clubs lose seniors (the first is the user's).
     for (const club of pre.clubs.slice(0, 3)) {
       const seniors = pre.players.filter((p) => p.cid === club.cid && p.status === "club");
       for (const p of seniors.slice(0, 6)) {
@@ -220,18 +220,18 @@ describe("preseason", () => {
         p.cid = null;
       }
     }
-    const log = topUpSquads(pre, 2027, date);
-    for (const club of pre.clubs) {
-      const seniors = pre.players.filter((p) => p.cid === club.cid && p.status === "club");
-      expect(seniors.length).toBeGreaterThanOrEqual(22);
-      expect(seniors.length).toBeLessThanOrEqual(competitionsConfig.rosterRules.maxSenior);
+    const seniorsOf = (cid: number) =>
+      pre.players.filter((p) => p.cid === cid && p.status === "club").length;
+    const userBefore = seniorsOf(pre.userCid);
+    const log = promoteToSquadSize(pre, 2027, date);
+    expect(seniorsOf(pre.userCid)).toBe(userBefore);
+    for (const club of pre.clubs.slice(1, 3)) {
+      const academy = pre.players.filter(
+        (p) => p.cid === club.cid && p.status === "academy" && exactAge(p.birthDate, date) >= 17,
+      );
+      expect(seniorsOf(club.cid) >= 22 || academy.length === 0).toBe(true);
     }
-    const signings = log.transactions.filter((t) => t.type === "freeAgent");
-    expect(signings.length).toBeGreaterThan(0);
-    for (const t of signings) {
-      const p = pre.players.find((x) => x.pid === t.pids[0]) as Player;
-      expect(p.contract?.wage).toBeGreaterThan(0);
-      expect(p.freeAgentSince).toBeNull();
-    }
+    expect(log.transactions.every((t) => t.type === "academyPromotion")).toBe(true);
+    expect(log.transactions.length).toBeGreaterThan(0);
   });
 });

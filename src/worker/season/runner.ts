@@ -4,8 +4,9 @@
  * same code.
  *
  * Each processed day: training injuries and month-end money for the days since the last
- * one, then the day's dated events (the winter development update on 1 January), then its
- * matches (gate receipts and prize money). When the matches end, TV merit money is paid.
+ * one, then the day's dated events (the winter development update on 1 January), the AI's
+ * market on market days (src/worker/market/aiMarket.ts), then its matches (gate receipts
+ * and prize money). When the matches end, TV merit money is paid.
  * A day is processed when it has a match or an event; the game date is the last day
  * processed.
  */
@@ -14,6 +15,7 @@ import { competitionsConfig, type CompetitionsConfig } from "../../common/config
 import type { MatchResult } from "../../common/match";
 import { addDays } from "../../common/dates";
 import type { ClubSeason, Fixture, InboxMessage, TransactionRow } from "../../common/schema";
+import { marketDay, marketDays, type NewOffer } from "../market/aiMarket";
 import { aiRenewals, contractWarning } from "../market/renewals";
 import { seasonDate } from "../schedule/calendar";
 import { developmentUpdate, type LoopWorld } from "./offseason";
@@ -76,8 +78,10 @@ export interface DaysResult {
   userSacked: string | null;
   /** Messages for the user's inbox. */
   messages: NewMessage[];
-  /** Transactions on the way (renewals). */
+  /** Transactions on the way (renewals, transfers, signings). */
   transactions: Omit<TransactionRow, "xid">[];
+  /** New AI bids for the user's players (to save; he answers them in his inbox). */
+  offers: NewOffer[];
 }
 
 export type NewMessage = Omit<InboxMessage, "mid">;
@@ -117,7 +121,9 @@ export function runDays(
     userSacked: null,
     messages: [],
     transactions: [],
+    offers: [],
   };
+  const market = marketDays(state.season, config);
   const warn = (row: ClubSeason, day: string) => {
     if (row.cid !== world.userCid || (row.boardConfidence ?? 100) >= 40 || row.boardWarned) return;
     row.boardWarned = true;
@@ -170,7 +176,11 @@ export function runDays(
     const nextMatch = nextMatchDate(state);
     if (nextMatch === null) break;
     const nextEvent = events.find((e) => e.date > out.date)?.date ?? null;
-    const day = nextEvent !== null && nextEvent < nextMatch ? nextEvent : nextMatch;
+    const nextMarket = market.find((m) => m.date > out.date)?.date ?? null;
+    const day = [nextEvent, nextMarket].reduce<string>(
+      (d, x) => (x !== null && x < d ? x : d),
+      nextMatch,
+    );
     if (options.limit !== null && day > options.limit) break;
 
     squads.train(out.date, day);
@@ -192,6 +202,15 @@ export function runDays(
         const reminder = contractWarning(world, state.season, day, true);
         if (reminder) out.messages.push(reminder);
       }
+    }
+    for (const marketDate of market.filter((m) => m.date === day)) {
+      // The AI's transfers and free-agent signings, and its bids for the user's players.
+      const log = marketDay(world, state.season, marketDate);
+      for (const pid of log.changed) out.changed.add(pid);
+      out.transactions.push(...log.transactions);
+      out.messages.push(...log.messages);
+      out.offers.push(...log.offers);
+      if (log.moved) squads.regroup();
     }
     const before = state.fixtures.length;
     const today = playDate(state, day, play, config);

@@ -159,6 +159,57 @@ export function clubBudgets(
   };
 }
 
+/**
+ * What valuations and moods need about every club on a day: best-XI levels (and the
+ * strongest), league levels, sorted squads and strategies. Built once per market day and
+ * refreshed for the two clubs after each deal (refreshSnapshot).
+ */
+export interface MarketSnapshot {
+  date: string;
+  levels: { byClub: Map<number, number>; top: number };
+  leagueLevels: Map<string, number>;
+  seniors: Map<number, Player[]>;
+  strategies: Map<number, Strategy>;
+}
+
+export function marketSnapshot(world: TransferWorld, date: string): MarketSnapshot {
+  const snap: MarketSnapshot = {
+    date,
+    levels: clubLevels(world, date),
+    leagueLevels: new Map(),
+    seniors: new Map(),
+    strategies: new Map(),
+  };
+  for (const club of world.clubs) {
+    snap.seniors.set(club.cid, seniorsOf(world.players, club.cid));
+    snap.strategies.set(club.cid, clubStrategy(world, club));
+  }
+  setLeagueLevels(world, snap);
+  return snap;
+}
+
+function setLeagueLevels(world: TransferWorld, snap: MarketSnapshot) {
+  const sums = new Map<string, [number, number]>();
+  for (const club of world.clubs) {
+    const [total, count] = sums.get(club.leagueId) ?? [0, 0];
+    sums.set(club.leagueId, [total + (snap.levels.byClub.get(club.cid) ?? 0), count + 1]);
+  }
+  for (const [id, [total, count]] of sums) snap.leagueLevels.set(id, total / Math.max(1, count));
+}
+
+/** Updates the snapshot for clubs whose squads or money changed. */
+export function refreshSnapshot(world: TransferWorld, snap: MarketSnapshot, cids: number[]) {
+  for (const cid of cids) {
+    const club = world.clubs.find((c) => c.cid === cid);
+    if (!club) continue;
+    snap.seniors.set(cid, seniorsOf(world.players, cid));
+    snap.strategies.set(cid, clubStrategy(world, club));
+    snap.levels.byClub.set(cid, clubStrength(world.players, cid, snap.date));
+  }
+  snap.levels.top = Math.max(0, ...snap.levels.byClub.values());
+  setLeagueLevels(world, snap);
+}
+
 /** Average best-XI OVR of a league's clubs (market value's league level). */
 export function leagueLevel(world: TransferWorld, leagueId: string, date: string): number {
   const clubs = world.clubs.filter((c) => c.leagueId === leagueId);
@@ -180,19 +231,19 @@ export interface Valuation {
   rank: number;
 }
 
-/** What his club asks for him (SPEC §7.3). `level` = his league's level, if known. */
+/** What his club asks for him (SPEC §7.3). */
 export function askingPrice(
   world: TransferWorld,
   p: Player,
   date: string,
-  level?: number,
+  snap: MarketSnapshot = marketSnapshot(world, date),
 ): Valuation {
   const club = world.clubs.find((c) => c.cid === p.cid);
   if (!club) throw new Error(`Player ${p.pid} is not at a club`);
   const s = TRANSFERS.strategy;
-  const value = marketValue(p, date, level ?? leagueLevel(world, club.leagueId, date), formOf(p));
-  const rank = seniorsOf(world.players, club.cid).findIndex((x) => x.pid === p.pid);
-  const strategy = clubStrategy(world, club);
+  const value = marketValue(p, date, snap.leagueLevels.get(club.leagueId) ?? 66, formOf(p));
+  const rank = (snap.seniors.get(club.cid) ?? []).findIndex((x) => x.pid === p.pid);
+  const strategy = snap.strategies.get(club.cid) ?? "developing";
   const age = exactAge(p.birthDate, date);
   let factor = lookup(TRANSFERS.importance, rank < 0 ? 99 : rank);
   if (strategy === "contending" && rank >= 0 && rank < 11) {
@@ -203,7 +254,7 @@ export function askingPrice(
   } else if (strategy === "selling") {
     factor *= s.seller;
   }
-  const mood = moodAtClub(world, p, date)?.value ?? 0;
+  const mood = moodAtClub(world, p, date, snap.levels)?.value ?? 0;
   if (mood < 0) factor *= 1 + TRANSFERS.unhappyDiscount * mood;
   const asking = Math.max(value, Math.round((value * factor) / 10_000) * 10_000);
   return { value, asking: rank < 0 ? value : asking, strategy, rank };
@@ -216,22 +267,25 @@ export function bidOutcome(fee: number, asking: number): BidOutcome {
 }
 
 /** His mood toward a club that wants to sign him (no years there; minutes by his rank). */
-export function moodToward(world: TransferWorld, p: Player, buyer: Club, date: string): Mood {
+export function moodToward(
+  world: TransferWorld,
+  p: Player,
+  buyer: Club,
+  date: string,
+  snap?: MarketSnapshot,
+): Mood {
   const season = world.clubSeasons.get(buyer.cid);
   if (!season) throw new Error(`No season row for club ${buyer.cid}`);
-  const squad = seniorsOf(world.players, buyer.cid).filter((x) => x.pid !== p.pid);
-  const rank = squad.filter((x) => x.ovr > p.ovr).length;
+  const squad = snap?.seniors.get(buyer.cid) ?? seniorsOf(world.players, buyer.cid);
+  const rank = squad.filter((x) => x.pid !== p.pid && x.ovr > p.ovr).length;
+  const levels = snap?.levels ?? clubLevels(world, date);
   return playerMood(p, {
     club: buyer,
     season,
     success: season.boardConfidence ?? 50,
     minutesShare: lookup(TRANSFERS.expectedMinutes, rank),
     yearsAtClub: 0,
-    levels: {
-      club: clubStrength(world.players, buyer.cid, date),
-      top: clubLevels(world, date).top,
-      date,
-    },
+    levels: { club: levels.byClub.get(buyer.cid) ?? 0, top: levels.top, date },
   });
 }
 

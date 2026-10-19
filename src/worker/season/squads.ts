@@ -335,6 +335,8 @@ export interface SquadPlay {
   trainingCount: () => number;
   /** Mean OVR of a club's 11 best fit seniors on a date (cached per day). */
   strength: (cid: number, date: string) => number;
+  /** Re-reads who plays where, after transfers. */
+  regroup: () => void;
 }
 
 /**
@@ -351,12 +353,17 @@ export function squadPlay(
   const clubById = new Map(clubs.map((club) => [club.cid, club]));
   const squads = new Map<number, Player[]>();
   const byPid = new Map<number, Player>();
-  for (const p of players) {
-    byPid.set(p.pid, p);
-    if (p.cid !== null && (p.status === "club" || p.status === "academy")) {
-      squads.set(p.cid, [...(squads.get(p.cid) ?? []), p]);
+  const group = () => {
+    squads.clear();
+    byPid.clear();
+    for (const p of players) {
+      byPid.set(p.pid, p);
+      if (p.cid !== null && (p.status === "club" || p.status === "academy")) {
+        squads.set(p.cid, [...(squads.get(p.cid) ?? []), p]);
+      }
     }
-  }
+  };
+  group();
   const tableCache = new Map<string, TableRow[]>();
   let tableDate = "";
   const tables: Tables = (leagueId) => {
@@ -452,5 +459,9 @@ export function squadPlay(
     training += injured.length;
     return injured;
   };
-  return { play, train, changed, injuries, trainingCount: () => training, strength };
+  const regroup = () => {
+    group();
+    strengthCache.clear();
+  };
+  return { play, train, changed, injuries, trainingCount: () => training, strength, regroup };
 }

@@ -17,7 +17,7 @@
  * length he doesn't want), his mood, and his final year (final-year players are harder to
  * re-sign, SPEC §3.1).
  */
-import { exactAge } from "../../common/dates";
+import { daysBetween, exactAge } from "../../common/dates";
 import type { Club, ClubSeason, MoodTrait, Player } from "../../common/schema";
 import { roundWage } from "../generate/contracts";
 
@@ -77,6 +77,12 @@ export const MARKET = {
     /** Extra asked per year away from the length he wants. */
     perYearOff: 0.05,
     finalYear: 0.1,
+    /**
+     * Free agents (SPEC §7.5, ZenGM-style): asks start high and fall the longer he stays
+     * unsigned, from `start` toward `floor` (× the going wage), losing 63% of the gap every
+     * `days` days.
+     */
+    freeAgent: { start: 1.25, floor: 0.6, days: 60 },
   },
 };
 
@@ -185,6 +191,14 @@ export interface ContractAsk {
   wage: number;
 }
 
+/** A free agent's ask as a share of the going wage, by how long he has been unsigned. */
+export function freeAgentAskFactor(p: Player, date: string): number {
+  if (p.status !== "freeAgent" || !p.freeAgentSince) return 1;
+  const f = MARKET.ask.freeAgent;
+  const days = Math.max(0, daysBetween(p.freeAgentSince, date));
+  return f.floor + (f.start - f.floor) * Math.exp(-days / f.days);
+}
+
 /** Wage asked for each length 1–5 (the club's revenue sets the going rate). */
 export function contractAsks(
   p: Player,
@@ -199,7 +213,7 @@ export function contractAsks(
   const moodFactor =
     (1 - MARKET.mood.perMood * mood) *
     (p.moodTraits.includes("money") ? 1 + MARKET.mood.moneyTrait : 1);
-  const final = finalYear ? 1 + MARKET.ask.finalYear : 1;
+  const final = (finalYear ? 1 + MARKET.ask.finalYear : 1) * freeAgentAskFactor(p, date);
   return [1, 2, 3, 4, 5].map((years) => ({
     years,
     wage: roundWage(

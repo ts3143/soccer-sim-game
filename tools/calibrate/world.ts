@@ -312,7 +312,15 @@ export function simulateWorld(
         summer.transactions.filter((t) => t.names[1]?.endsWith("(contract ended)")).length /
         clubs.length,
       renewals: (count("renewal") + count("renewal", days.transactions)) / clubs.length,
-      topUpSignings: count("freeAgent") / clubs.length,
+      transfers: count("transfer", days.transactions) / clubs.length,
+      freeAgentSignings: count("freeAgent", days.transactions) / clubs.length,
+      feesToRevenue:
+        days.transactions.filter((t) => t.type === "transfer").reduce((a, t) => a + t.fee, 0) /
+        Math.max(
+          1,
+          rows.reduce((a, r) => a + revenueOf(r), 0),
+        ),
+      seniorsPerClub: players.filter((p) => p.status === "club").length / clubs.length,
       freeAgentPool: players.filter((p) => p.status === "freeAgent").length,
     });
     loop.clubSeasons = openSeasonBooks(clubs, loop.clubSeasons, season + 1, -1);

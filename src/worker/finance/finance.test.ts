@@ -13,6 +13,7 @@ import {
   openSeasonBooks,
   prizeIncome,
   ticketPrice,
+  operatingRevenue,
   totalOf,
 } from "./finance";
 
@@ -143,7 +144,9 @@ describe("a season's money", () => {
   it("lands each league's season-1 revenue near the clubs' anchors", SLOW, () => {
     for (const league of competitionsConfig.leagues) {
       const own = clubs.filter((c) => c.leagueId === league.id);
-      const errors = own.map((c) => totalOf(rows.get(c.cid)?.revenue ?? {}) / c.revenueAnchor - 1);
+      const errors = own.map(
+        (c) => operatingRevenue(rows.get(c.cid)?.revenue ?? {}) / c.revenueAnchor - 1,
+      );
       const meanAbs = errors.reduce((s, e) => s + Math.abs(e), 0) / errors.length;
       expect(Math.abs(errors.reduce((s, e) => s + e, 0) / errors.length)).toBeLessThan(0.08);
       expect(meanAbs).toBeLessThan(0.15);
@@ -168,7 +171,9 @@ describe("a season's money", () => {
   it("opens next season's books on last season's revenue", SLOW, () => {
     const next = openSeasonBooks(clubs, rows, 2027, 0);
     const club = clubs[0] as Club;
-    expect(next.get(club.cid)?.budgetBase).toBe(totalOf(rows.get(club.cid)?.revenue ?? {}));
+    expect(next.get(club.cid)?.budgetBase).toBe(
+      operatingRevenue(rows.get(club.cid)?.revenue ?? {}),
+    );
     expect(next.get(club.cid)?.revenue).toEqual({});
   });
 });

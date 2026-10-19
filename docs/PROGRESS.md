@@ -557,5 +557,46 @@ For information:
 - **The wage room binds new signings only.** Renewals, yours and the AI's, are judged by FFP at season end (chunk 7), as in ZenGM, where teams can re-sign their own players over the cap.
 - A seller's unamortised balance leaves with the player. Booking the profit or loss on a sale against that balance comes with FFP (chunk 7).
 
+**Chunk 5: transfers II** (`src/worker/market/aiMarket.ts`)
+- **Market days:** weekly in each window from a week after it opens (summer 8 July to 26 August, winter 8 to 29 January), plus deadline day. They're processing days in the shared runner, so the save and the harness run the same market. The squad AI regroups after every move.
+- **AI buying by need** (from the club's best XI in its default formation):
+  - under 22 seniors: fill the area furthest below its target (3 goalkeepers, 2 per formation slot elsewhere) with anyone fit for the squad;
+  - otherwise: upgrade the weakest XI slot when it's more than 3 below the XI level, with a player at least 3 better there;
+  - it looks no higher than its XI level + 6.
+- **The choice:**
+  - Candidates: the best 60 at other clubs and the best 15 free agents in reach.
+  - Each must be affordable: fee within the transfer budget and at most what he's worth to the buyer (market value × 1.4, × 1.2 more for a contender); wage within the wage room.
+  - The selling club keeps 18 seniors, and the player must be willing.
+  - Score = his rating in the slot, plus half his headroom if he's 23 or under and the buyer is developing, minus 0.3 per 1% of the buyer's budget base the deal costs a year (fee over four years plus wage).
+- **Limits:**
+  - at most one move per club per market day, with a 50% chance to act;
+  - at most 3 signings per club in summer and 2 in winter;
+  - contenders buy no one over 31 except to fill the squad;
+  - nobody buys beyond 25 seniors.
+- **Bids for your players** go to your inbox as open offers (at most 2 at a time, one per player, none on deadline day). Accept or reject them with `respondToOffer`; unanswered bids lapse when the window closes. Bids for players the AI has since signed elsewhere are cancelled.
+- **Free agents** (SPEC §7.5): asks start at 1.25 × the going wage and fall toward 0.6 × (63% of the gap every 60 days). A filler signing may pay up to 1% of the budget base even without wage room.
+- **Top-up replaced:** each summer, AI clubs under 22 seniors still promote their best 17+ academy prospects first. Free-agent signings now happen in the market. Your club is never topped up.
+- **Fix found by the stop-and-resume test:** open bids lapse by date inside the runner too. Before the fix, a long run kept summer bids "open" in memory into January, and a resumed run didn't.
+- 5 AI market tests (market days, needs, AI-to-AI deals within the rules with money conserved and the same deals for the same seed, bids for your players, falling free-agent asks). The save test checks that a played season has AI transfers. 210 tests in all.
+
+**Numbers** (3 worlds × 20 seasons):
+- per club a season: 2.4 transfers, 0.3 free-agent signings, 1.5 contracts expiring, 11 renewals; transfer fees are 21% of revenue;
+- money circulates: clubs with negative cash 1% (9% in chunk 4); wages 42% → 51% of revenue; cash still builds up (median 358% of revenue by the last season), because FFP headroom, not cash, caps spending;
+- promoted clubs' survival is 49%, now in its band (it was 62–67%);
+- seniors per club 23.4 → 22.0; free agents 245 → 333 after the summer; player count drift 7.6% ✓;
+- a season takes 3.9 s (3.3 s before).
+- **Parity falls to 11.3%** (floor 13%), and the POT check rises to 34.9% (cap 32%). Rich clubs buy upgrades:
+  - ENG1's top-six XI averages 74.8 against the bottom six's 61.6, a gap of 13.2;
+  - the opening world starts at a gap of 12.5 (from the real-club data);
+  - without transfers (chunks 3–4), development narrowed it to about 10.5.
+
+  The engine gives too few upsets for a realistic gap, as already found in M2 (11.6% at full strength). This is for T to decide in chunks 9–10: more match randomness, a stronger weak-opponent rotation, or damping the market.
+
+**Judgment calls (chunk 5)**
+- Market days are weekly, plus deadline day, rather than daily (ZenGM runs free agency daily). That's cheaper, and spreads deals through the window.
+- Needs come from the best XI by slot, not from squad depth per position beyond the area targets. That's simple, and close to ZenGM's "fill the weakest starter" AI.
+- Free agents are shortlisted separately: on rating alone, club players crowded them out, and no free agents were signed at all.
+- The AI doesn't sell surplus players on its own initiative; buyers find them. Clubs at 25 seniors stop buying.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

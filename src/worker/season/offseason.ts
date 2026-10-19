@@ -81,10 +81,8 @@ export const TURNOVER = {
     earlyPotAboveXi: 2,
     contractYears: 3,
   },
-  /** Temporary until M4: clubs keep at least this many seniors. */
+  /** AI clubs promote academy prospects up to this many seniors each summer. */
   topUpTo: 22,
-  /** Seniors per formation area a club aims for when signing free agents. */
-  areaTargets: { gk: 3, def: 2, mid: 2, att: 2 },
 };
 
 const AREA: Record<Position, "gk" | "def" | "mid" | "att"> = {
@@ -101,6 +99,8 @@ export interface LoopWorld {
   userCid: number;
   seed: string;
   nextPid: () => number;
+  /** AI bids for the user's players, open until `expires` (at most one per player). */
+  openBids?: { pid: number; fromCid: number; expires: string }[];
 }
 
 export type NewTransaction = Omit<TransactionRow, "xid">;
@@ -530,75 +530,20 @@ export function academyDecisions(world: LoopWorld, season: number, date: string)
 }
 
 /**
- * Temporary until M4 (T, 2026-10-14): clubs below 22 seniors top up, first from their
- * academy (best POT, 17+), then with the free agent who best fills their thinnest area.
- * Applies to the user's club too while it has no transfer market.
+ * 1 July: AI clubs below 22 seniors promote their best academy prospects (17+, by POT)
+ * first. Signings to fill the rest come in the market (src/worker/market/aiMarket.ts),
+ * which replaced M3's free-agent top-up in M4. The user's club is never topped up.
  */
-export function topUpSquads(world: LoopWorld, season: number, date: string): TurnoverLog {
+export function promoteToSquadSize(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
-  const contexts = clubContexts(world);
-  const free = world.players.filter((p) => p.status === "freeAgent");
-  for (const ctx of contexts.values()) {
+  for (const ctx of clubContexts(world).values()) {
+    if (ctx.club.cid === world.userCid) continue;
     while (ctx.seniors.length < TURNOVER.topUpTo) {
       const prospect = [...ctx.academy]
-        .filter((p) => exactAge(p.birthDate, date) >= 17)
+        .filter((p) => p.status === "academy" && exactAge(p.birthDate, date) >= 17)
         .sort((x, y) => y.pot - x.pot || x.pid - y.pid)[0];
-      if (prospect) {
-        promote(prospect, ctx, season, date, log);
-        continue;
-      }
-      // The area furthest below its target (formation slots × 2, three goalkeepers).
-      const formation = formationById(ctx.club.tactics.formation);
-      const slots = { gk: 0, def: 0, mid: 0, att: 0 };
-      for (const slot of formation.slots) slots[AREA[slot.position]]++;
-      const t = TURNOVER.areaTargets;
-      const target = {
-        gk: t.gk,
-        def: slots.def * t.def,
-        mid: slots.mid * t.mid,
-        att: slots.att * t.att,
-      };
-      const have = { gk: 0, def: 0, mid: 0, att: 0 };
-      for (const p of ctx.seniors) have[AREA[p.position]]++;
-      const area = (Object.keys(target) as (keyof typeof target)[]).sort(
-        (x, y) => have[x] - target[x] - (have[y] - target[y]),
-      )[0] as keyof typeof target;
-      const pick =
-        free
-          .filter((p) => p.status === "freeAgent" && AREA[p.position] === area)
-          .sort((x, y) => y.ovr - x.ovr || x.pid - y.pid)[0] ??
-        free
-          .filter((p) => p.status === "freeAgent")
-          .sort((x, y) => y.ovr - x.ovr || x.pid - y.pid)[0];
-      if (!pick) break;
-      const age = exactAge(pick.birthDate, date);
-      pick.status = "club";
-      pick.cid = ctx.club.cid;
-      pick.freeAgentSince = null;
-      pick.contract = {
-        wage: wageFor(ctx, pick.ovr, age, date),
-        expires: `${season + (age >= 30 ? 1 : 2)}-06-30`,
-      };
-      pick.shirtNumber = freeShirtNumber(world, ctx.club.cid, 2);
-      pick.transfers.push({
-        date,
-        season,
-        fromCid: null,
-        toCid: ctx.club.cid,
-        fee: 0,
-        type: "freeAgent",
-      });
-      ctx.seniors.push(pick);
-      log.changed.add(pick.pid);
-      log.transactions.push({
-        season,
-        date,
-        type: "freeAgent",
-        pids: [pick.pid],
-        cids: [ctx.club.cid],
-        names: [fullName(pick), ctx.club.name],
-        fee: 0,
-      });
+      if (!prospect) break;
+      promote(prospect, ctx, season, date, log);
     }
   }
   return log;
@@ -606,8 +551,7 @@ export function topUpSquads(world: LoopWorld, season: number, date: string): Tur
 
 /**
  * Every preseason step in order: expiring contracts, free agents moving on, youth intake,
- * academy decisions, the AI's summer renewals, then the squad top-up (temporary until the
- * transfer market, M4 chunk 5).
+ * academy decisions, the AI's summer renewals, then AI academy promotions up to squad size.
  */
 export function preseasonTurnover(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
@@ -617,7 +561,7 @@ export function preseasonTurnover(world: LoopWorld, season: number, date: string
     youthIntake,
     academyDecisions,
     (w, s, d) => aiRenewals(w, s, d, "summer"),
-    topUpSquads,
+    promoteToSquadSize,
   ];
   for (const step of steps) {
     const part = step(world, season, date);

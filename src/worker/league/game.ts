@@ -36,6 +36,7 @@ import {
 } from "../season/offseason";
 import { closeSeasonBooks, openSeasonBooks, settleMonths } from "../finance/finance";
 import { BOARD, jobOffers, preseasonBoard } from "../club/board";
+import type { NewOffer } from "../market/aiMarket";
 import { runDays, type NewMessage } from "../season/runner";
 import {
   applyMoves,
@@ -82,6 +83,10 @@ export function loopWorld(session: LeagueSession, season: number): LoopWorld {
     clubSeasons,
     userCid: game.userCid,
     seed: game.seed,
+    openBids: session.cache
+      .getAll("offers")
+      .filter((o) => o.status === "open" && o.toCid === game.userCid)
+      .map((o) => ({ pid: o.pid, fromCid: o.fromCid, expires: o.expires })),
     nextPid: () => {
       const pid = ids.pid++;
       session.cache.put("meta", { ...meta<IdCounters>(session, "ids"), pid: ids.pid }, "ids");
@@ -347,6 +352,18 @@ function processDays(
   saveBooks(session, world);
   saveMessages(session, days.messages);
   saveTransactions(session, days.transactions);
+  saveOffers(session, days.offers);
+  // Players the AI signed: bids for them elsewhere no longer stand.
+  const moved = new Set(
+    days.transactions
+      .filter((t) => t.type === "transfer" || t.type === "freeAgent")
+      .flatMap((t) => t.pids),
+  );
+  for (const offer of session.cache.getAll("offers")) {
+    if (moved.has(offer.pid) && (offer.status === "open" || offer.status === "accepted")) {
+      session.cache.put("offers", { ...offer, status: "expired" });
+    }
+  }
   expireOffers(session, game.date);
   saveSeason(session, state, stored.movesApplied);
   session.cache.put("meta", game, "game");
@@ -357,6 +374,12 @@ function processDays(
     events: days.events,
     phase: game.phase,
   };
+}
+
+function saveOffers(session: LeagueSession, rows: readonly NewOffer[]): void {
+  const ids = { ...meta<IdCounters>(session, "ids") };
+  for (const row of rows) session.cache.put("offers", { oid: ids.oid++, ...row });
+  session.cache.put("meta", ids, "ids");
 }
 
 /** Bids still standing when their window closed lapse (deadline day processed). */

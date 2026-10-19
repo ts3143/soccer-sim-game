@@ -9,6 +9,7 @@ import type {
   SeasonMeta,
 } from "../../common/schema";
 import { listLeagues } from "../db/globalDb";
+import { operatingRevenue } from "../finance/finance";
 import { openLeagueDb } from "../db/leagueDb";
 import { acceptJobOffer, gameState, play, pruneMatchRecords, pruneRetiredPlayers } from "./game";
 import { contractTalks, renewContract } from "./market";
@@ -105,8 +106,12 @@ describe("the season loop in a save", () => {
     const subjects = (await db.getAll("inbox")).map((m) => m.subject);
     expect(subjects.some((x) => /contract\(s\) end in June/.test(x))).toBe(true);
     expect(subjects.some((x) => /^Deadline day tomorrow/.test(x))).toBe(true);
-    const renewals = await db.getAllFromIndex("transactions", "season", 2026);
-    expect(renewals.filter((t) => t.type === "renewal").length).toBeGreaterThan(50);
+    const log = await db.getAllFromIndex("transactions", "season", 2026);
+    expect(log.filter((t) => t.type === "renewal").length).toBeGreaterThan(50);
+    // The AI's market: transfers between AI clubs, and bids for the user's players.
+    expect(log.filter((t) => t.type === "transfer").length).toBeGreaterThan(50);
+    const bids = await db.getAll("offers");
+    expect(bids.every((o) => o.toCid === 0 && o.status === "expired")).toBe(true);
   });
 
   it("gives the same season when stopped, reloaded and continued", SLOW, async () => {
@@ -202,7 +207,7 @@ describe("the season loop in a save", () => {
     const rows = session.cache.getAll("clubSeasons").filter((c) => c.season === 2027);
     for (const row of rows) {
       const last = closed.find((c) => c.cid === row.cid);
-      const revenue = Object.values(last?.revenue ?? {}).reduce((a, b) => a + b, 0);
+      const revenue = operatingRevenue(last?.revenue ?? {});
       expect(row.budgetBase).toBe(revenue);
     }
     expect(rows).toHaveLength(62);

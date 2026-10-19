@@ -241,13 +241,15 @@ console.log(
   `  ${"median cash / revenue (first → last)".padEnd(34)} ${firstLastPct("medianCashToRevenue")}`,
 );
 
-console.log("\nContracts (information)");
+console.log("\nContracts and transfers (information)");
 console.log(
   `  ${"per club a season: expired / renewed".padEnd(34)} ${avg("contractsExpired").toFixed(1)} / ${avg("renewals").toFixed(1)}`,
 );
 console.log(
-  `  ${"top-up signings per club a season".padEnd(34)} ${avg("topUpSignings").toFixed(1)} (temporary until chunk 5)`,
+  `  ${"per club a season: transfers / free agents".padEnd(34)} ${avg("transfers").toFixed(1)} / ${avg("freeAgentSignings").toFixed(1)}`,
 );
+console.log(`  ${"transfer fees / revenue".padEnd(34)} ${money("feesToRevenue")}`);
+console.log(`  ${"seniors per club (first → last)".padEnd(34)} ${firstLast("seniorsPerClub")}`);
 console.log(
   `  ${"free agents after the summer (first → last)".padEnd(34)} ${firstLast("freeAgentPool")}`,
 );

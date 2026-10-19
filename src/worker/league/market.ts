@@ -213,7 +213,10 @@ export function signPlayer(session: LeagueSession, pid: number, years: number) {
     const talks = contractTalks(session, pid);
     if (talks.kind === "renewal") throw new Error("He is already your player: renew him instead");
     const offer = agreedOffer(session, game.userCid, pid);
-    if (talks.kind === "transfer" && !offer) throw new Error("Agree a fee with his club first");
+    const at = session.cache.get("players", pid)?.cid ?? null;
+    if (talks.kind === "transfer" && (!offer || offer.toCid !== at)) {
+      throw new Error("Agree a fee with his club first");
+    }
     if (!talks.mood.willing) throw new Error(`${talks.name} won't negotiate with your club`);
     const ask = talks.asks.find((a) => a.years === years);
     if (!ask) throw new Error(`No ask for ${years} years`);
