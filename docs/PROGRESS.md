@@ -1132,5 +1132,37 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Browser checks:** `m6` adds 6 (the changes screen mid-match, a sub using a window, formation and slider changes, the half-time stop, a free half-time sub). 34/34 pass, as do all other checks.
 - **Judgment call:** auto-pause stops only for your own team's injuries and red cards, not the opponent's, and not for goals.
 
+**Chunk 5: contract negotiation and Free Agents** (`src/ui/components/ContractModal.tsx`, `src/ui/pages/FreeAgents.tsx`, `src/worker/views/market.ts`)
+- **One contract window** (SPEC §7.6) for:
+  - renewing your players;
+  - a transfer: first agree a fee with his club (bid, see the counter or the refusal, bid again), then personal terms;
+  - a free agent.
+- **It shows:**
+  - his position, age, OVR, POT, value and current deal;
+  - your transfer budget, wage room, squad size and squad cost against the FFP limit;
+  - his mood (the same breakdown as the profile) and whether he will talk;
+  - the wage he asks for 1 to 5 years, with the end date each gives. Asks over your wage room, or renewals that don't run past his current deal, are greyed out.
+- **What blocks a deal is said up front:** a closed window (renewals and transfers), a player who won't negotiate, an FFP ban, or a full squad. A full squad can still agree a fee, since a sale may follow.
+- **Opened from:**
+  - the Squad page: "Contract" on your players, "Bid" on another club's;
+  - the player profile: "New contract", "Make a bid" or "Offer a contract";
+  - Free Agents.
+  - Esc or "Walk away" closes it.
+- **Free Agents page** (`/l/:lid/free-agents`, now in the sidebar):
+  - every unsigned player with position, age, OVR, POT, value, his lowest yearly ask at your club, his mood toward your club, and days unsigned;
+  - your wage room and squad size;
+  - filters by position, plus "only willing players within my wage room", and search.
+- **Fixed (spec alignment):** you can now sign free agents outside the windows, as SPEC §3.1 says. The M4 code had required an open window. Renewals and transfers still need one. AI clubs still sign free agents only on their market days, which fall inside the windows (see Open issues).
+- **Shared:** the mood breakdown moved to `src/ui/components/Mood.tsx`. Contract talks now carry the squad size.
+- **Tests:** a free-agents test (the list and its asks; a signing outside a window; renewals and bids still need a window); 243 tests in all.
+- **Browser checks:** `m6` adds 13:
+  - the Free Agents page, its filter and signing a free agent;
+  - a renewal from the Squad page;
+  - a lowball bid refused, then a fair bid agreed and personal terms (blocked by a full squad in this run);
+  - outside a window: renewals wait, but free agents can still be signed;
+  - the profile button.
+  - 47/47 pass. The sweep now opens Free Agents too, and all other checks pass.
+
 ## Open issues
+- AI clubs sign free agents only on their market days, inside the windows. SPEC §3.1 says free agents can be signed at any time; the user now can, and the AI rule is for T to decide (changing it would need a calibration run).
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

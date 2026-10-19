@@ -8,6 +8,7 @@ import { BoxScorePage } from "./pages/BoxScorePage";
 import { Cups } from "./pages/Cups";
 import { Dashboard } from "./pages/Dashboard";
 import { Finances } from "./pages/Finances";
+import { FreeAgents } from "./pages/FreeAgents";
 import { GameLog } from "./pages/GameLog";
 import { History } from "./pages/History";
 import { Home } from "./pages/Home";
@@ -125,6 +126,8 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <Tactics params={params} />;
     case "live":
       return <Live />;
+    case "free-agents":
+      return <FreeAgents />;
     case "history":
       return <History />;
     case "team-history":

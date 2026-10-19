@@ -619,6 +619,34 @@ export interface LiveChanges {
   sliders?: Partial<SliderSettings>;
 }
 
+/** The Free Agents page (M6): every unsigned player, his ask and his mood toward the user's club. */
+export interface FreeAgentsView {
+  rows: {
+    pid: number;
+    name: string;
+    position: Position;
+    secondary: Position[];
+    age: number;
+    ovr: number;
+    pot: number;
+    value: number;
+    /** His lowest yearly wage ask (over 1–5 years) at the user's club. */
+    ask: number;
+    mood: number;
+    /** He would negotiate with the user's club. */
+    willing: boolean;
+    daysFree: number;
+  }[];
+  /** The user's wage room (a year) now. */
+  wageRoom: number;
+  seniors: number;
+  maxSeniors: number;
+  windowOpen: boolean;
+  /** FFP transfer ban until this date, if any. */
+  banned: string | null;
+  fired: boolean;
+}
+
 /** Injuries: every injured player in the world now. */
 export interface InjuriesView {
   date: string;
@@ -931,6 +959,8 @@ export interface ContractTalks {
   userPlayer: boolean;
   /** Transfer: the fee his club accepted (null until a bid is accepted). */
   feeAgreed: number | null;
+  /** The user's seniors and the cap (SPEC §7.1): a full squad can't sign anyone. */
+  squad: { seniors: number; max: number };
   /**
    * The user's transfer budget and wage room (a year) now (SPEC §6.3), his squad cost as a
    * share of revenue against the FFP limit, and any FFP warning or ban (SPEC §6.4).
@@ -1099,6 +1129,7 @@ export interface WorkerApi {
   getPlayerStats(lid: number, season: number | null, competition: string | null): PlayerStatsView;
   getTeamStats(lid: number, leagueId: string | null, season: number | null): TeamStatsView;
   getInjuries(lid: number): InjuriesView;
+  getFreeAgents(lid: number): FreeAgentsView;
   /** A club's line-up (null = the user's). */
   getTactics(lid: number, cid: number | null): TacticsView;
   /** The user's unsaved line-up as the page would show it (re-slotted or the AI's pick). */

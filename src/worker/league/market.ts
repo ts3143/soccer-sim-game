@@ -70,10 +70,16 @@ function nextOid(session: LeagueSession): number {
   return oid;
 }
 
-/** Fails unless the user can act in the market now (a window is open and he has a job). */
-function marketOpen(session: LeagueSession) {
+/** Fails if the user has no club (sacked, before he takes a job offer). */
+function employed(session: LeagueSession): GameMeta {
   const game = meta<GameMeta>(session, "game");
   if (game.fired) throw new Error("You have no club: accept a job offer first");
+  return game;
+}
+
+/** Fails unless the user can act in the market now (a window is open and he has a job). */
+function marketOpen(session: LeagueSession) {
+  const game = employed(session);
   const window = openWindow(game.date, game.season);
   if (!window) throw new Error("The transfer window is closed");
   return { game, window };
@@ -133,6 +139,7 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
     windowOpen: openWindow(game.date, game.season) !== null,
     userPlayer: kind === "renewal",
     feeAgreed: kind === "transfer" ? (agreedOffer(session, user.cid, pid)?.fee ?? null) : null,
+    squad: { seniors: seniorsOf(world.players, user.cid).length, max: TRANSFERS.maxSeniors },
     budget: {
       transfer: budgets.transfer,
       wageRoom: budgets.wageRoom,
@@ -234,15 +241,16 @@ export function bidForPlayer(session: LeagueSession, pid: number, fee: number): 
 }
 
 /**
- * Personal terms: signs a player for `years` at his ask, after an agreed fee (a transfer)
- * or straight away (a free agent). The wage must fit the user's wage room and the fee his
- * transfer budget; at most 25 seniors.
+ * Personal terms: signs a player for `years` at his ask, after an agreed fee (a transfer,
+ * in a window) or straight away (a free agent, at any time). The wage must fit the user's
+ * wage room and the fee his transfer budget; at most 25 seniors.
  */
 export function signPlayer(session: LeagueSession, pid: number, years: number) {
   return queued(session, async () => {
     assertNotLive(session);
-    const { game } = marketOpen(session);
     const talks = contractTalks(session, pid);
+    // Free agents can be signed at any time (SPEC §3.1); transfers only in a window.
+    const { game } = talks.kind === "freeAgent" ? { game: employed(session) } : marketOpen(session);
     if (talks.kind === "renewal") throw new Error("He is already your player: renew him instead");
     notBanned(session, game.date);
     const offer = agreedOffer(session, game.userCid, pid);

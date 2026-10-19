@@ -421,6 +421,169 @@ check(
 await page.keyboard.press("Escape");
 await leakCheck("the live match");
 
+// --- Chunk 5: contract talks and Free Agents --------------------------------------------------------
+const modal = page.locator('[data-testid="contract-modal"]');
+const note = page.locator('[data-testid="contract-note"]');
+const pickTerms = async () => {
+  const radios = modal.locator('[data-testid="contract-asks"] input[type="radio"]:not([disabled])');
+  await radios.first().check();
+};
+await page
+  .locator('[data-testid="sidebar"]')
+  .getByRole("link", { name: "Free Agents", exact: true })
+  .click();
+const faRows = page.locator('[data-testid="free-agents"] tbody tr');
+await faRows.first().waitFor({ timeout: 30_000 });
+check(
+  "Free Agents lists unsigned players with their asks, your wage room and squad size",
+  (await faRows.count()) > 10 &&
+    /Wage room[\s\S]*Seniors \d+\/25/.test(
+      await page.locator('[data-testid="free-agents-summary"]').innerText(),
+    ),
+);
+await page.locator("#fa-affordable").check();
+await faRows.first().waitFor();
+const signing = await faRows.first().locator("td").first().innerText();
+await faRows.first().getByRole("button", { name: "Negotiate" }).click();
+await modal.waitFor({ timeout: 15_000 });
+await modal.locator('[data-testid="contract-asks"] tbody tr').first().waitFor({ timeout: 15_000 });
+check(
+  "Negotiate opens the contract window: his asks per length, mood and your budget",
+  /Free agent talks/.test(await modal.locator("h2").first().innerText()) &&
+    (await modal.locator('[data-testid="contract-asks"] tbody tr').count()) === 5 &&
+    /Wage room/.test(await modal.locator('[data-testid="contract-budget"]').innerText()),
+);
+await pickTerms();
+await modal.locator('[data-testid="agree-contract"]').click();
+await note.waitFor({ timeout: 15_000 });
+check(
+  "signing a free agent brings him to your club",
+  /joins your club/.test(await note.innerText()),
+  await note.innerText(),
+);
+await modal.getByRole("button", { name: "Done" }).click();
+await page.waitForFunction(
+  (n) =>
+    ![...document.querySelectorAll('[data-testid="free-agents"] tbody tr td:first-child')].some(
+      (td) => td.textContent === n,
+    ),
+  signing,
+  { timeout: 15_000 },
+);
+check("he is no longer a free agent", true, signing);
+
+await sidebar("Squad").click();
+const squadRows = page.locator('[data-testid="squad-table"] tbody tr');
+await squadRows.first().waitFor({ timeout: 30_000 });
+check(
+  "he is in your squad",
+  (await page.locator('[data-testid="squad-table"]').innerText()).includes(signing),
+);
+const renewing = squadRows.nth(2);
+const renewName = await renewing.locator("td:nth-child(2) a").innerText();
+await renewing.getByRole("button", { name: "Contract" }).click();
+await modal.locator('[data-testid="contract-asks"] tbody tr').first().waitFor({ timeout: 15_000 });
+await pickTerms();
+await modal.locator('[data-testid="agree-contract"]').click();
+await note.waitFor({ timeout: 15_000 });
+check(
+  "a player of yours renews from the Squad page",
+  /signs a new contract/.test(await note.innerText()),
+  `${renewName}: ${await note.innerText()}`,
+);
+await modal.getByRole("button", { name: "Done" }).click();
+
+const dorset = await picker.locator("option", { hasText: "Dorset Cherries" }).getAttribute("value");
+await picker.selectOption(dorset);
+await page.waitForFunction((cid) => location.pathname.endsWith(`/squad/${cid}`), dorset);
+await squadRows.first().waitFor({ timeout: 30_000 });
+const valueHead = page.locator('[data-testid="squad-table"] thead th', { hasText: "Value" });
+await valueHead.click();
+await valueHead.click(); // cheapest first
+await squadRows.first().getByRole("button", { name: "Bid" }).click();
+await modal.locator('[data-testid="bid-step"]').waitFor({ timeout: 15_000 });
+const value = Number(await modal.locator("#contract-fee").inputValue());
+await modal.locator("#contract-fee").fill(String(Math.max(10_000, Math.round(value * 0.3))));
+await modal.locator('[data-testid="make-bid"]').click();
+await note.waitFor({ timeout: 15_000 });
+const lowball = await note.innerText();
+check("a lowball bid is turned down or countered", /reject|want/.test(lowball), lowball);
+await modal.locator("#contract-fee").fill(String(Math.round(value * 1.6)));
+await modal.locator('[data-testid="make-bid"]').click();
+await modal.getByText(/Fee agreed/).waitFor({ timeout: 15_000 });
+check(
+  "a fair bid agrees the fee, and personal terms follow",
+  (await modal.locator('[data-testid="bid-step"]').count()) === 0,
+);
+const fullSquad = await modal.locator('[data-testid="contract-full"]').count();
+let terms = fullSquad ? await modal.locator('[data-testid="contract-full"]').innerText() : "";
+if (!fullSquad) {
+  await pickTerms();
+  await modal.locator('[data-testid="agree-contract"]').click();
+  await note.waitFor({ timeout: 15_000 });
+  terms = await note.innerText();
+}
+check(
+  "personal terms complete the transfer, or the window says the squad is full first",
+  fullSquad
+    ? (await modal.locator('[data-testid="agree-contract"]').isDisabled()) &&
+        /squad is full/.test(terms)
+    : /joins your club/.test(terms),
+  terms,
+);
+await page.keyboard.press("Escape");
+await modal.waitFor({ state: "detached", timeout: 5_000 });
+
+await page.locator('[data-testid="play-button"]').click();
+await page
+  .locator('[data-testid="play-menu"]')
+  .getByRole("button", { name: "Until the window closes" })
+  .click();
+await page.waitForFunction(
+  () => /31 Aug 2026/.test(document.querySelector('[data-testid="game-date"]')?.textContent ?? ""),
+  null,
+  { timeout: 120_000 },
+);
+await page.locator('[data-testid="play-button"]').click();
+await page.locator('[data-testid="play-menu"]').getByRole("button", { name: "One week" }).click();
+await page.waitForFunction(
+  () =>
+    !/31 Aug 2026/.test(document.querySelector('[data-testid="game-date"]')?.textContent ?? "") &&
+    !document.querySelector('[data-testid="play-button"]')?.disabled,
+  null,
+  { timeout: 120_000 },
+);
+await sidebar("Squad").click();
+await squadRows.first().waitFor({ timeout: 30_000 });
+await squadRows.nth(3).getByRole("button", { name: "Contract" }).click();
+await modal.locator('[data-testid="contract-blocked"]').waitFor({ timeout: 15_000 });
+check(
+  "outside a window renewals wait, and the window says so",
+  /window is closed/.test(await modal.locator('[data-testid="contract-blocked"]').innerText()) &&
+    (await modal.locator('[data-testid="agree-contract"]').isDisabled()),
+);
+await modal.getByRole("button", { name: "Walk away" }).click();
+await page
+  .locator('[data-testid="sidebar"]')
+  .getByRole("link", { name: "Free Agents", exact: true })
+  .click();
+await faRows.first().waitFor({ timeout: 30_000 });
+await faRows.first().locator("td a").click();
+await page.locator('[data-testid="profile-talks"]').waitFor({ timeout: 30_000 });
+check(
+  "a free agent's profile offers a contract",
+  (await page.locator('[data-testid="profile-talks"]').innerText()) === "Offer a contract",
+);
+await page.locator('[data-testid="profile-talks"]').click();
+await modal.locator('[data-testid="contract-asks"] tbody tr').first().waitFor({ timeout: 15_000 });
+check(
+  "free agents can still be signed outside a window",
+  (await modal.locator('[data-testid="contract-blocked"]').count()) === 0 ||
+    !/window/.test(await modal.locator('[data-testid="contract-blocked"]').innerText()),
+);
+await page.keyboard.press("Escape");
+await leakCheck("the contract talks");
+
 check("no errors in the console", errors.length === 0, errors.slice(0, 3).join(" | "));
 await context.close();
 console.log(failures === 0 ? "\nAll M6 checks pass." : `\n${failures} check(s) failed.`);

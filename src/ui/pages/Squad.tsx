@@ -1,5 +1,7 @@
 /** Squad (SPEC §11): any club's players, contracts with expiry badges, condition, value, form. */
 import type { SquadPlayerView } from "../../common/api";
+import { useState } from "react";
+import { ContractModal } from "../components/ContractModal";
 import { DataTable, type Column } from "../components/DataTable";
 import { PlayerLink } from "../components/links";
 import { formatDate, formatEuros } from "../format";
@@ -146,6 +148,24 @@ const academyColumns: Column<SquadPlayerView>[] = [
 export function Squad({ params }: { params: string[] }) {
   const { shell } = useShell();
   const cid = params[0] !== undefined ? Number(params[0]) : shell.userCid;
+  const [talking, setTalking] = useState<number | null>(null);
+  const own = cid === shell.userCid;
+  // Talks: a new contract for your own players, a bid for another club's (not loanees).
+  const talks: Column<SquadPlayerView> = {
+    key: "talks",
+    label: "",
+    render: (p) =>
+      p.status === "club" ? (
+        <button
+          type="button"
+          className="btn btn-outline-primary btn-sm py-0"
+          onClick={() => setTalking(p.pid)}
+          data-testid="talks-button"
+        >
+          {own ? "Contract" : "Bid"}
+        </button>
+      ) : null,
+  };
   const { data: view, error } = useView(`squad/${cid}`, () =>
     toWorker("getTeamSquad", shell.lid, cid),
   );
@@ -168,7 +188,7 @@ export function Squad({ params }: { params: string[] }) {
             rows={view.players}
             rowKey={(p) => p.pid}
             pageSize={0}
-            columns={senior}
+            columns={shell.state.fired ? senior : [...senior, talks]}
           />
           {view.loanedOut.length > 0 && (
             <>
@@ -195,6 +215,7 @@ export function Squad({ params }: { params: string[] }) {
           />
         </>
       )}
+      {talking !== null && <ContractModal pid={talking} onClose={() => setTalking(null)} />}
     </>
   );
 }

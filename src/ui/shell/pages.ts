@@ -32,7 +32,7 @@ export const PAGES: PageDef[] = [
   { key: "tactics", title: "Tactics", section: "Team", team: true },
   { key: "game-log", title: "Game Log", section: "Team", team: true, season: true },
   { key: "team-history", title: "Team History", section: "Team", team: true },
-  { key: "free-agents", title: "Free Agents", section: "Players", m6: true },
+  { key: "free-agents", title: "Free Agents", section: "Players" },
   { key: "transfer-market", title: "Transfer Market", section: "Players", m6: true },
   { key: "player", title: "Player", section: "Players", hidden: true },
   { key: "box-score", title: "Box Score", section: "Team", hidden: true },
