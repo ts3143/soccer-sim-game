@@ -85,6 +85,7 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 4 | Settings page | Rename the save and delete the league. The live-match speed is a slider on the Watch live screen, not a setting |
 | 5 | Transfer list | Listing with an asking price makes AI clubs that need the position bid around it in the windows; unlisted players still get occasional bids |
 | 6 | Closing the game mid-match (proposed, no objection) | The live match is saved as it goes and resumes on return: no do-overs |
+| 7 | AI clubs sign free agents only on their market days, inside the windows (SPEC §3.1 says "at any time") | Keep it: the user can sign them at any time, the AI in the windows |
 
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.

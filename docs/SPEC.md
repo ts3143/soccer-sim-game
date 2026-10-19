@@ -62,7 +62,7 @@ A web-based soccer management sim in the mold of the ZenGM games (Basketball GM,
 
 - **Renewals (user and AI) only during the summer and winter windows.** Final-year players are harder to re-sign. There is **no end-of-season re-sign phase**: a player whose contract ends 30 June must be renewed by 31 January, or he leaves as a free agent on 1 July. AI clubs follow the same rule.
   - Made visible to the user: an inbox warning when the January window opens, listing every player in his final six months; a reminder before deadline day; contract-expiry badges on the Squad page.
-- **Free agents can be signed at any time**, inside or outside windows.
+- **Free agents can be signed at any time**, inside or outside windows (by the user; AI clubs sign them on their market days, which fall inside the windows — T, 2026-10-19).
 - **Board can sack the user mid-season** when confidence collapses (see 6.5).
 
 ### 3.2 Scheduling

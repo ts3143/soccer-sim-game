@@ -51,6 +51,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-19 | M4 chunk 10 | Players beating their displayed POT: target 25% (18–32%) → 20% (14–30%). | With more ceiling room for prospects, released and stalled young players fall short of the forecast; measured 15.8%. Approved by T. | SPEC §4.4; `calibration_targets.json` development |
 | 2026-10-19 | M5 plan | The Inbox page moves from M6 to M5; the developer pages stay at a hidden `/dev` address through M6. Charts and routing are built in-house. | The Dashboard previews the inbox; until M6's transfer screens, the Club lab is the only place to trade. Approved by T. | MILESTONES M5, M6 |
 | 2026-10-19 | M6 plan | Releasing a player (user): he leaves at once, his wages are still paid monthly until the contract ends and count for FFP. Academy players 18+ the user hasn't decided on by 1 July get the AI rule, with an inbox reminder in May. Ticket price set in preseason, locked after the first home match, "Auto" = the AI price. Settings: rename and delete the save; the live-match speed is a slider on the Watch live screen. Transfer list: AI clubs that need the position bid around the asking price. A live match is saved as it goes and resumes after the game is closed. | The spec didn't cover releasing, academy players left undecided, when the price can change, what Settings holds or how listing works. Approved by T. | SPEC §6.2, §7.2, §7.6, §11 |
+| 2026-10-19 | M6 chunk 5 | The user can sign free agents at any time; AI clubs sign them only on their market days, inside the windows (as built in M4). | SPEC §3.1 said "at any time" for everyone. Changing the AI would need a calibration run. Kept by T. | SPEC §3.1 |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -1164,5 +1165,4 @@ Each point of parity gained cost about one champion point, so the two real-world
   - 47/47 pass. The sweep now opens Free Agents too, and all other checks pass.
 
 ## Open issues
-- AI clubs sign free agents only on their market days, inside the windows. SPEC §3.1 says free agents can be signed at any time; the user now can, and the AI rule is for T to decide (changing it would need a calibration run).
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.
