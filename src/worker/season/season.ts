@@ -403,16 +403,25 @@ export function playDate(
 ): Fixture[] {
   const today = state.fixtures.filter((f) => f.date === date && !f.result);
   for (const fixture of today) {
-    const result = play(fixture, {
-      seed: `${state.seed}/match:${fixture.fid}`,
-      style: fixtureStyle(state, fixture, config),
-      neutral: fixture.neutral,
-      knockout: knockoutRules(state, fixture),
-    });
+    const result = play(fixture, fixtureSetup(state, fixture, config));
     recordResult(fixture, result);
   }
   progress(state, config);
   return today;
+}
+
+/** How a fixture is played: its random stream, league style, venue and knockout rules. */
+export function fixtureSetup(
+  state: SeasonState,
+  fixture: Fixture,
+  config: CompetitionsConfig = competitionsConfig,
+): FixtureSetup {
+  return {
+    seed: `${state.seed}/match:${fixture.fid}`,
+    style: fixtureStyle(state, fixture, config),
+    neutral: fixture.neutral,
+    knockout: knockoutRules(state, fixture),
+  };
 }
 
 /** Plays the rest of the season. */

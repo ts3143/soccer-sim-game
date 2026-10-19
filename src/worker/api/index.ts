@@ -2,6 +2,7 @@ import type { UiEvents, WorkerApi, WorkerKind } from "../../common/api";
 import type { ApiHandlers, RpcHost } from "../../common/rpc";
 import { listLeagues } from "../db/globalDb";
 import { acceptJobOffer, gameState, play } from "../league/game";
+import { changeLive, getLive, stepLive, watchNextMatch } from "../league/live";
 import {
   bidForPlayer,
   contractTalks,
@@ -165,9 +166,22 @@ export function createHandlers(
 
     async playGame(lid, option) {
       const session = await openLeague(lid);
-      const report = await play(session, option);
+      const report =
+        option === "watchNextMatch" ? await watchNextMatch(session) : await play(session, option);
       host.broadcast("gameChanged", { lid, state: gameState(session) });
       return report;
+    },
+    async getLiveMatch(lid, from) {
+      return getLive(await openLeague(lid), from);
+    },
+    async stepLiveMatch(lid, possessions, from) {
+      const session = await openLeague(lid);
+      const view = await stepLive(session, possessions, from);
+      if (view.report) host.broadcast("gameChanged", { lid, state: gameState(session) });
+      return view;
+    },
+    async changeLiveMatch(lid, changes, from) {
+      return changeLive(await openLeague(lid), changes, from);
     },
 
     getSeasonLab,

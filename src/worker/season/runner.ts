@@ -8,7 +8,8 @@
  * market on market days (src/worker/market/aiMarket.ts), then its matches (gate receipts
  * and prize money). When the matches end, TV merit money is paid.
  * A day is processed when it has a match or an event; the game date is the last day
- * processed.
+ * processed. A match the user watches splits its day (M6): `hold` stops before the day's
+ * matches, `resume` plays them with the watched result and finishes the day.
  */
 import type { SeasonEvent } from "../../common/api";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
@@ -70,6 +71,8 @@ export interface DaysResult {
   changed: Set<number>;
   /** True once the season has no matches left. */
   ended: boolean;
+  /** True when the run stopped on `hold`'s day before its matches (a match to watch). */
+  held: boolean;
   /** Injury lengths (days) in matches and training, and how many were in training. */
   injuries: number[];
   trainingInjuries: number;
@@ -96,6 +99,17 @@ export interface DaysOptions {
   onDay?: (day: string) => void;
   /** Stop processing when the board sacks the user (the save does; the harness doesn't). */
   stopWhenUserSacked?: boolean;
+  /**
+   * Watching a match (M6): on the first day this returns true for (checked after the
+   * day's events, market and training, so a cup tie drawn on the way counts), stop
+   * before the day's matches. The game date becomes that day, its matches still to play.
+   */
+  hold?: (day: string, fixtures: readonly Fixture[]) => boolean;
+  /**
+   * The rest of a held day: its matches (results given for the watched ones, the others
+   * simulated) and everything after them, without its events, market or training again.
+   */
+  resume?: { date: string; results: ReadonlyMap<number, MatchResult> };
   config?: CompetitionsConfig;
 }
 
@@ -116,6 +130,7 @@ export function runDays(
     events: [],
     changed: new Set(),
     ended: false,
+    held: false,
     injuries: [],
     trainingInjuries: 0,
     sackings: [],
@@ -168,7 +183,11 @@ export function runDays(
   };
   const results = new Map<number, MatchResult>();
   const play: PlayFixture = (fixture, setup) => {
-    const result = squads.play(fixture, setup);
+    const watched = options.resume?.results.get(fixture.fid);
+    // A watched match was played live; picking its squads again (unused) leaves the
+    // day's caches (strength before kick-off, for hype) as a simulated match would.
+    if (watched) squads.prepare(fixture);
+    const result = watched ? squads.finish(fixture, watched) : squads.play(fixture, setup);
     results.set(fixture.fid, result);
     return result;
   };
@@ -184,41 +203,50 @@ export function runDays(
     );
     if (options.limit !== null && day > options.limit) break;
 
-    squads.train(out.date, day);
-    for (const pid of settleMonths(world, out.date, day, config)) out.changed.add(pid);
-    for (const event of events.filter((e) => e.date === day)) {
-      out.events.push(event);
-      if (event.kind === "winterUpdate") {
-        for (const pid of developmentUpdate(world, state, day, false)) out.changed.add(pid);
+    // A held day resumes at its matches: its events, market and training already ran.
+    const resuming = options.resume?.date === day && out.date === day;
+    if (!resuming) {
+      squads.train(out.date, day);
+      for (const pid of settleMonths(world, out.date, day, config)) out.changed.add(pid);
+      for (const event of events.filter((e) => e.date === day)) {
+        out.events.push(event);
+        if (event.kind === "winterUpdate") {
+          for (const pid of developmentUpdate(world, state, day, false)) out.changed.add(pid);
+        }
+        if (event.kind === "windowOpens" && event.window === "winter") {
+          // Last chance for final-year players (SPEC §3.1): the AI renews; the user is told.
+          const renewed = aiRenewals(world, state.season, day, "winter");
+          for (const pid of renewed.changed) out.changed.add(pid);
+          out.transactions.push(...renewed.transactions);
+          const warning = contractWarning(world, state.season, day, false);
+          if (warning) out.messages.push(warning);
+        }
+        if (event.kind === "deadlineReminder") {
+          const reminder = contractWarning(world, state.season, day, true);
+          if (reminder) out.messages.push(reminder);
+        }
       }
-      if (event.kind === "windowOpens" && event.window === "winter") {
-        // Last chance for final-year players (SPEC §3.1): the AI renews; the user is told.
-        const renewed = aiRenewals(world, state.season, day, "winter");
-        for (const pid of renewed.changed) out.changed.add(pid);
-        out.transactions.push(...renewed.transactions);
-        const warning = contractWarning(world, state.season, day, false);
-        if (warning) out.messages.push(warning);
+      // Half-season loans end on 1 January, after that day's development update.
+      if (world.players.some((p) => p.status === "loan" && p.loan && p.loan.until <= day)) {
+        const back = returnLoans(world, day, state.season);
+        for (const pid of back.changed) out.changed.add(pid);
+        out.messages.push(...back.messages);
+        squads.regroup();
       }
-      if (event.kind === "deadlineReminder") {
-        const reminder = contractWarning(world, state.season, day, true);
-        if (reminder) out.messages.push(reminder);
+      for (const marketDate of market.filter((m) => m.date === day)) {
+        // The AI's transfers and free-agent signings, and its bids for the user's players.
+        const log = marketDay(world, state.season, marketDate);
+        for (const pid of log.changed) out.changed.add(pid);
+        out.transactions.push(...log.transactions);
+        out.messages.push(...log.messages);
+        out.offers.push(...log.offers);
+        if (log.moved) squads.regroup();
       }
     }
-    // Half-season loans end on 1 January, after that day's development update.
-    if (world.players.some((p) => p.status === "loan" && p.loan && p.loan.until <= day)) {
-      const back = returnLoans(world, day, state.season);
-      for (const pid of back.changed) out.changed.add(pid);
-      out.messages.push(...back.messages);
-      squads.regroup();
-    }
-    for (const marketDate of market.filter((m) => m.date === day)) {
-      // The AI's transfers and free-agent signings, and its bids for the user's players.
-      const log = marketDay(world, state.season, marketDate);
-      for (const pid of log.changed) out.changed.add(pid);
-      out.transactions.push(...log.transactions);
-      out.messages.push(...log.messages);
-      out.offers.push(...log.offers);
-      if (log.moved) squads.regroup();
+    if (options.hold?.(day, state.fixtures)) {
+      out.date = day;
+      out.held = true;
+      break;
     }
     const before = state.fixtures.length;
     const today = playDate(state, day, play, config);

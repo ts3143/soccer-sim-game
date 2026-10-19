@@ -1074,5 +1074,25 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Browser checks:** new `m6` check, 14/14 pass (the page, formation change, live ratings from a slider, drag and drop, click to swap, leave out, Auto, save, reload, another club read-only, no real names, no console errors). The full-season sweep now opens Tactics too. All other checks pass.
 - **Judgment call:** team ratings are shown without a single Team OVR, whose weights are still placeholders (TEAM_OVR_WEIGHTS) and haven't been fitted yet.
 
+**Chunk 2: Watch live, game side** (`src/worker/league/live.ts`, `src/worker/season/runner.ts`, `src/ui/pages/Live.tsx`)
+- **Play → "Watch your next match"** (offered whenever your club has a match to come):
+  - it plays every day before your next match, then that day's events, market and training;
+  - then it holds the day before its matches (runner option `hold`). It checks each day, so a cup tie drawn on the way is the one you watch.
+- **The live match:** your club plays your saved line-up and sliders. Players who can't play today (injured, or on loan from the opponent) are replaced by the best fit players left, and the bench is topped up from the AI's. The AI picks the opponent and its sliders as usual. The AI makes no in-game changes for your club: an injured player of yours limps on at low energy until you replace him (the prompt arrives in chunk 4), and if your keeper is sent off an outfielder goes in goal.
+- **Saved as it goes:** the engine state, its random stream included, is stored in the save (meta row "live") every 5 match minutes, at breaks, after every change, and at the end.
+  - A closed or reloaded game resumes from that point.
+  - The minutes since the last save replay exactly as they were, so there are no do-overs. Changes you made are never lost.
+- **Full time:** the held day is finished with your live result (runner option `resume`): the day's other matches, gate money, prize money, hype, tables, board, cup draws and stats, through the same code as a simulated day.
+- **While a match is live,** the Play menu waits, and the six market actions (renew, bid, sign, answer a bid, loan, the wage control) refuse with "Finish your live match first." The top bar shows a "Live match" link.
+- **Worker:** new calls `getLiveMatch`, `stepLiveMatch` and `changeLiveMatch` (the in-match changes, used from chunk 4). `squadPlay` now separates picking the squads (`prepare`) from applying a played match to the players (`finish`).
+- **A first live screen** (`/l/:lid/live`): score and clock, Kick off / Play / Pause, To full time, the commentary and a few stats; at full time, links to the box score and the Dashboard. Chunks 3 and 4 build the full screen on it.
+- **Tests** (3 new, 238 in all):
+  - watching with the AI managing your club gives exactly the same saved day as simulating it: every result, match record, player, club, club-season row, stat row, message and transaction;
+  - your line-up and sliders are used, the game holds, and the match is saved at full time;
+  - an interrupted match resumes from its last save to the identical result.
+- **Browser checks:** `m6` adds 9 (watch from the Play menu, the waiting Play menu and the live link, Kick off and Pause, a reload mid-match resuming, To full time, the box score, the Play menu back). 23/23 pass, and all other checks pass.
+- The 20-season calibration gate (`calibrate --world --check`) still passes: simulated play is unchanged.
+- **Fixed on the way:** hype after a watched match used the clubs' strength after the match's injuries. The watched path now picks the squads too (unused), so the day's caches match a simulated day.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

@@ -44,6 +44,7 @@ import {
   loopWorld,
   meta,
   openWindow,
+  assertNotLive,
   queued,
   saveBooks,
   saveMessages,
@@ -146,6 +147,7 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
 /** Renews one of the user's players at his ask for `years` (only in a window, SPEC §7.6). */
 export function renewContract(session: LeagueSession, pid: number, years: number) {
   return queued(session, async () => {
+    assertNotLive(session);
     const game = meta<GameMeta>(session, "game");
     const talks = contractTalks(session, pid);
     if (!talks.userPlayer) throw new Error("You can only renew your own players");
@@ -180,6 +182,7 @@ export function renewContract(session: LeagueSession, pid: number, years: number
  */
 export function bidForPlayer(session: LeagueSession, pid: number, fee: number): Promise<BidReply> {
   return queued(session, async () => {
+    assertNotLive(session);
     const { game, window } = marketOpen(session);
     const world = loopWorld(session, game.season);
     const p = session.cache.get("players", pid);
@@ -237,6 +240,7 @@ export function bidForPlayer(session: LeagueSession, pid: number, fee: number): 
  */
 export function signPlayer(session: LeagueSession, pid: number, years: number) {
   return queued(session, async () => {
+    assertNotLive(session);
     const { game } = marketOpen(session);
     const talks = contractTalks(session, pid);
     if (talks.kind === "renewal") throw new Error("He is already your player: renew him instead");
@@ -295,6 +299,7 @@ function closeOffersFor(session: LeagueSession, pid: number, completed?: number)
  */
 export function respondToOffer(session: LeagueSession, oid: number, accept: boolean) {
   return queued(session, async () => {
+    assertNotLive(session);
     const { game } = marketOpen(session);
     const offer = session.cache.get("offers", oid);
     if (!offer || offer.status !== "open" || offer.toCid !== game.userCid) {
@@ -391,6 +396,7 @@ export function proposeLoan(
   wageShare: number,
 ): Promise<LoanReply> {
   return queued(session, async () => {
+    assertNotLive(session);
     const { game } = marketOpen(session);
     if (![0, 0.5, 1].includes(wageShare)) throw new Error("The wage share is 0, 50 or 100%");
     const world = loopWorld(session, game.season);
@@ -457,6 +463,7 @@ export function proposeLoan(
 /** The user's budget control (SPEC §6.3): the share of FFP headroom kept for wages. */
 export function setWageShare(session: LeagueSession, share: number) {
   return queued(session, async () => {
+    assertNotLive(session);
     if (!(share >= 0 && share <= 1)) throw new Error("The wage share is between 0 and 1");
     const game = meta<GameMeta>(session, "game");
     const club = session.cache.get("clubs", game.userCid);

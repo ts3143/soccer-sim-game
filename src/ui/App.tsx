@@ -14,6 +14,7 @@ import { Home } from "./pages/Home";
 import { Inbox } from "./pages/Inbox";
 import { Injuries } from "./pages/Injuries";
 import { LeagueLeaders } from "./pages/LeagueLeaders";
+import { Live } from "./pages/Live";
 import { NewLeague } from "./pages/NewLeague";
 import { Placeholder } from "./pages/Placeholder";
 import { Player } from "./pages/Player";
@@ -122,6 +123,8 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <Injuries />;
     case "tactics":
       return <Tactics params={params} />;
+    case "live":
+      return <Live />;
     case "history":
       return <History />;
     case "team-history":

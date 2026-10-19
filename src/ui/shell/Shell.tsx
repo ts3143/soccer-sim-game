@@ -15,7 +15,7 @@ import {
 import type { LeagueShell, PlayOption, PlayReport } from "../../common/api";
 import { crestUrl } from "../crests";
 import { formatDate } from "../format";
-import { leaguePath, Link, usePath } from "../router";
+import { leaguePath, Link, navigate, usePath } from "../router";
 import { onWorkerEvent, toWorker } from "../workerClient";
 import { PAGES, SECTIONS } from "./pages";
 
@@ -23,6 +23,7 @@ const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export const PLAY_LABELS: Record<PlayOption, string> = {
   untilNextMatch: "Until next match",
+  watchNextMatch: "Watch your next match",
   oneWeek: "One week",
   untilWindowCloses: "Until the window closes",
   untilEndOfSeason: "Until the end of the season",
@@ -73,7 +74,9 @@ function PlayMenu() {
     setBusy(option);
     setError(null);
     try {
-      setLast(await toWorker("playGame", shell.lid, option));
+      const report = await toWorker("playGame", shell.lid, option);
+      setLast(report);
+      if (report.live) navigate(leaguePath(shell.lid, "live"));
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -136,6 +139,15 @@ function TopBar() {
         Soccer Sim
       </Link>
       <PlayMenu />
+      {state.live && (
+        <Link
+          to={leaguePath(shell.lid, "live")}
+          className="btn btn-danger btn-sm fw-semibold text-nowrap"
+          data-testid="live-link"
+        >
+          ● Live match
+        </Link>
+      )}
       <div
         className="text-white small d-flex flex-wrap gap-2 align-items-center"
         data-testid="game-date"

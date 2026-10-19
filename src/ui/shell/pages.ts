@@ -36,6 +36,7 @@ export const PAGES: PageDef[] = [
   { key: "transfer-market", title: "Transfer Market", section: "Players", m6: true },
   { key: "player", title: "Player", section: "Players", hidden: true },
   { key: "box-score", title: "Box Score", section: "Team", hidden: true },
+  { key: "live", title: "Live match", section: "Team", hidden: true },
   { key: "league-leaders", title: "League Leaders", section: "Stats", season: true },
   { key: "player-ratings", title: "Player Ratings", section: "Stats" },
   { key: "player-stats", title: "Player Stats", section: "Stats", season: true },

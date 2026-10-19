@@ -20,7 +20,7 @@ import { addDays, ageOn, exactAge } from "../../common/dates";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
 import { formationById } from "../../common/config/formations";
 import { RATING_INDEX, type Position } from "../../common/config/ratings";
-import type { PlayerMatchStats } from "../../common/match";
+import type { MatchResult, PlayerMatchStats } from "../../common/match";
 import type { Club, Fixture, Player } from "../../common/schema";
 import { maximizeAssignment } from "../core/assignment";
 import { Random } from "../core/random";
@@ -326,6 +326,10 @@ export function pickMatchday(
 
 export interface SquadPlay {
   play: PlayFixture;
+  /** Both clubs' matchday squads as the AI picks them, for a match the user watches. */
+  prepare: (fixture: Fixture) => { home: EngineTeamInput; away: EngineTeamInput };
+  /** Applies a match played elsewhere (watched live) to the players, as `play` does. */
+  finish: (fixture: Fixture, result: MatchResult) => MatchResult;
   /** Training injuries for the days in (from, to] (call before each matchday). */
   train: (from: string, to: string) => Injured[];
   /** Players whose condition or injury changed (to save). */
@@ -420,7 +424,8 @@ export function squadPlay(
     return { date: fixture.date, importance, nextImportance };
   };
 
-  const play: PlayFixture = (fixture, setup) => {
+  /** Both clubs' matchday squads as the AI picks them (sliders not yet set). */
+  const prepare = (fixture: Fixture): { home: EngineTeamInput; away: EngineTeamInput } => {
     if (fixture.date !== tableDate) {
       tableCache.clear(); // tables as they stood before this matchday
       tableDate = fixture.date;
@@ -433,8 +438,21 @@ export function squadPlay(
       const squad = (squads.get(cid) ?? []).filter((p) => p.loan?.parentCid !== opponent);
       return pickMatchday(club, squad, context(fixture, cid), config, c);
     };
-    const home = side(fixture.homeCid);
-    const away = side(fixture.awayCid);
+    return { home: side(fixture.homeCid), away: side(fixture.awayCid) };
+  };
+  /** Updates the players who took part (condition, injuries) from a played match. */
+  const finish = (fixture: Fixture, result: MatchResult): MatchResult => {
+    for (const stats of result.players) {
+      const p = byPid.get(stats.pid);
+      if (!p) continue;
+      applyMatch(p, stats, fixture.date);
+      changed.add(p.pid);
+      if (stats.injuryDays > 0) injuries.push(stats.injuryDays);
+    }
+    return result;
+  };
+  const play: PlayFixture = (fixture, setup) => {
+    const { home, away } = prepare(fixture);
     const result = simulateMatch({
       seed: setup.seed,
       home: { ...home, sliders: aiSliders(home, away, !setup.neutral, setup.style.directness) },
@@ -444,14 +462,7 @@ export function squadPlay(
       knockout: setup.knockout,
       feed: false,
     });
-    for (const stats of result.players) {
-      const p = byPid.get(stats.pid);
-      if (!p) continue;
-      applyMatch(p, stats, fixture.date);
-      changed.add(p.pid);
-      if (stats.injuryDays > 0) injuries.push(stats.injuryDays);
-    }
-    return result;
+    return finish(fixture, result);
   };
   let training = 0;
   const train = (from: string, to: string): Injured[] => {
@@ -467,5 +478,15 @@ export function squadPlay(
     group();
     strengthCache.clear();
   };
-  return { play, train, changed, injuries, trainingCount: () => training, strength, regroup };
+  return {
+    play,
+    prepare,
+    finish,
+    train,
+    changed,
+    injuries,
+    trainingCount: () => training,
+    strength,
+    regroup,
+  };
 }

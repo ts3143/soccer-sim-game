@@ -47,6 +47,7 @@ describe("the season loop in a save", () => {
     expect(state.window).toEqual({ id: "summer", closes: "2026-08-31" });
     expect(state.options).toEqual([
       "untilNextMatch",
+      "watchNextMatch",
       "oneWeek",
       "untilWindowCloses",
       "untilEndOfSeason",

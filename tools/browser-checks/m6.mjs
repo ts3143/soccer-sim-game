@@ -185,6 +185,89 @@ check(
     (await formation.isDisabled()),
 );
 
+// --- Chunk 2: Watch live (game side, first screen) -----------------------------------------------
+const clockText = () => page.locator('[data-testid="live-clock"]').innerText();
+const minuteOf = (text) => Number(text.match(/^(\d+)/)?.[1] ?? 0);
+await page.locator('[data-testid="play-button"]').click();
+await page
+  .locator('[data-testid="play-menu"]')
+  .getByRole("button", { name: "Watch your next match" })
+  .click();
+await page.waitForFunction(() => location.pathname.endsWith("/live"), null, { timeout: 120_000 });
+await page.locator('[data-testid="live-scoreboard"]').waitFor({ timeout: 30_000 });
+check(
+  "Play → Watch your next match plays up to the match day and opens the live match",
+  /Lancashire Rovers/.test(await page.locator('[data-testid="live-scoreboard"]').innerText()) &&
+    (await clockText()) === "Kick-off" &&
+    (await page.locator('[data-testid="live-score"]').innerText()).replace(/\s/g, "") === "0–0",
+);
+check(
+  "while it's live the Play menu waits and the top bar links back to it",
+  (await page.locator('[data-testid="play-button"]').isDisabled()) &&
+    (await page.locator('[data-testid="live-link"]').count()) === 1,
+);
+await sidebar("Dashboard").click();
+await page.locator('[data-testid="club-summary"]').waitFor({ timeout: 30_000 });
+await page.locator('[data-testid="live-link"]').click();
+await page.locator('[data-testid="live-scoreboard"]').waitFor({ timeout: 30_000 });
+check("the top-bar link goes back to the match", (await clockText()) === "Kick-off");
+
+await page.locator('[data-testid="live-play"]').click();
+await page.waitForFunction(
+  () =>
+    /^(\d+)/.test(document.querySelector('[data-testid="live-clock"]')?.textContent ?? "") &&
+    Number(
+      document.querySelector('[data-testid="live-clock"]')?.textContent.match(/^(\d+)/)?.[1],
+    ) >= 20,
+  null,
+  { timeout: 60_000 },
+);
+await page.locator('[data-testid="live-play"]').click(); // pause
+const paused = minuteOf(await clockText());
+await page.waitForTimeout(800);
+check(
+  "Kick off plays the match with a feed and stats; Pause stops it",
+  minuteOf(await clockText()) === paused &&
+    (await page.locator('[data-testid="live-feed"] li').count()) > 3 &&
+    /Possession/.test(await page.locator('[data-testid="live-stats"]').innerText()),
+  `paused at ${paused}'`,
+);
+await page.reload();
+await page.locator('[data-testid="live-scoreboard"]').waitFor({ timeout: 30_000 });
+const resumed = minuteOf(await clockText());
+check(
+  "after a reload the match resumes from where it was saved, not from kick-off",
+  resumed >= paused - 6 && resumed <= paused && resumed > 1,
+  `${resumed}' (paused at ${paused}')`,
+);
+
+await page.locator('[data-testid="live-end"]').click();
+await page.locator('[data-testid="live-done"]').waitFor({ timeout: 60_000 });
+const finalScore = (await page.locator('[data-testid="live-score"]').innerText()).replace(
+  /\s/g,
+  "",
+);
+check(
+  "To full time finishes the match and saves the day",
+  (await clockText()) === "Full time" &&
+    (await page.locator('[data-testid="live-link"]').count()) === 0,
+  finalScore,
+);
+await page.locator('[data-testid="live-done"]').getByRole("link", { name: "Box score" }).click();
+await page.locator('[data-testid="box-score"]').waitFor({ timeout: 30_000 });
+const box = await page.locator('[data-testid="box-score"]').innerText();
+check(
+  "the watched match has its box score",
+  /Lancashire Rovers/.test(box) && /Possession/.test(box),
+);
+await page.locator('[data-testid="play-button"]').click();
+check(
+  "the Play menu offers its options again",
+  /Until next match/.test(await page.locator('[data-testid="play-menu"]').innerText()),
+);
+await page.keyboard.press("Escape");
+await leakCheck("the live match");
+
 check("no errors in the console", errors.length === 0, errors.slice(0, 3).join(" | "));
 await context.close();
 console.log(failures === 0 ? "\nAll M6 checks pass." : `\n${failures} check(s) failed.`);

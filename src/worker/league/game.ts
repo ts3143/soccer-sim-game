@@ -37,7 +37,7 @@ import {
 import { closeSeasonBooks, openSeasonBooks, settleMonths } from "../finance/finance";
 import { BOARD, jobOffers, preseasonBoard } from "../club/board";
 import type { NewOffer } from "../market/aiMarket";
-import { runDays, type NewMessage } from "../season/runner";
+import { runDays, type DaysOptions, type NewMessage } from "../season/runner";
 import {
   applyMoves,
   createSeason,
@@ -54,6 +54,17 @@ export const meta = <T>(session: LeagueSession, key: string): T => {
   if (row === undefined) throw new Error(`Save has no meta row "${key}"`);
   return row;
 };
+
+/** The fixture the user is watching live, if a live match is under way (M6). */
+export function liveFixture(session: LeagueSession): number | null {
+  const row = session.cache.get("meta", "live") as { fid: number } | undefined;
+  return row?.fid ?? null;
+}
+
+/** The user's other actions wait while his live match is under way. */
+export function assertNotLive(session: LeagueSession): void {
+  if (liveFixture(session) !== null) throw new Error("Finish your live match first.");
+}
 
 /** The window open on `date` (opening day included, the day after deadline day not). */
 export function openWindow(date: string, season: number, config = competitionsConfig) {
@@ -107,7 +118,7 @@ export function saveTransactions(session: LeagueSession, rows: readonly NewTrans
   session.cache.put("meta", ids, "ids");
 }
 
-function loadSeason(session: LeagueSession): SeasonState {
+export function loadSeason(session: LeagueSession): SeasonState {
   const game = meta<GameMeta>(session, "game");
   const stored = meta<SeasonMeta>(session, "season");
   const ids = meta<IdCounters>(session, "ids");
@@ -171,15 +182,7 @@ export function gameState(session: LeagueSession): GameState {
   const stored = meta<SeasonMeta>(session, "season");
   const window = openWindow(game.date, game.season);
   const options: PlayOption[] = [];
-  if (game.fired) {
-    // Sacked: nothing to play until the user takes a job (acceptJobOffer).
-  } else if (game.phase === "endOfSeason") {
-    options.push(stored.movesApplied ? "advanceToPreseason" : "proceedToPromotionRelegation");
-  } else {
-    options.push("untilNextMatch", "oneWeek");
-    if (window) options.push("untilWindowCloses");
-    options.push("untilEndOfSeason");
-  }
+  const live = liveFixture(session);
   const next = session.cache
     .getAll("fixtures")
     .filter(
@@ -189,6 +192,18 @@ export function gameState(session: LeagueSession): GameState {
         (f.homeCid === game.userCid || f.awayCid === game.userCid),
     )
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.fid - b.fid))[0];
+  if (game.fired || live !== null) {
+    // Sacked: nothing to play until the user takes a job (acceptJobOffer). Watching: the
+    // live match comes first.
+  } else if (game.phase === "endOfSeason") {
+    options.push(stored.movesApplied ? "advanceToPreseason" : "proceedToPromotionRelegation");
+  } else {
+    options.push("untilNextMatch");
+    if (next) options.push("watchNextMatch");
+    options.push("oneWeek");
+    if (window) options.push("untilWindowCloses");
+    options.push("untilEndOfSeason");
+  }
   return {
     season: game.season,
     phase: game.phase,
@@ -196,6 +211,7 @@ export function gameState(session: LeagueSession): GameState {
     window,
     options,
     nextUserFixture: next ?? null,
+    live: live === null ? null : { fid: live },
     fired: game.fired
       ? {
           date: game.fired.date,
@@ -313,17 +329,18 @@ function finishSeason(session: LeagueSession, state: SeasonState): void {
  * Processes days after the game date (src/worker/season/runner.ts) until `stop` says
  * so, `limit` is reached or the season's matches are over, and saves the results.
  */
-function processDays(
+export function processDays(
   session: LeagueSession,
   limit: string | null,
   stop: (day: string, fixtures: Fixture[]) => boolean,
-): PlayReport {
+  watch: Pick<DaysOptions, "hold" | "resume"> = {},
+): PlayReport & { held: boolean } {
   const game = { ...meta<GameMeta>(session, "game") };
   const state = loadSeason(session);
   const stored = meta<SeasonMeta>(session, "season");
   const world = loopWorld(session, game.season);
   const from = game.date;
-  const days = runDays(world, state, from, { limit, stop, stopWhenUserSacked: true });
+  const days = runDays(world, state, from, { limit, stop, stopWhenUserSacked: true, ...watch });
 
   saveBooks(session, world);
   for (const { fixture, result } of days.played) recordMatch(session, fixture, result);
@@ -373,6 +390,7 @@ function processDays(
     matchesPlayed: days.played.length,
     events: days.events,
     phase: game.phase,
+    held: days.held,
   };
 }
 
@@ -559,6 +577,7 @@ export function play(session: LeagueSession, option: PlayOption): Promise<PlayRe
 
 async function runPlay(session: LeagueSession, option: PlayOption): Promise<PlayReport> {
   ensureSeason(session);
+  assertNotLive(session);
   const state = gameState(session);
   if (!state.options.includes(option)) {
     throw new Error(`"${option}" isn't available now (phase ${state.phase}, ${state.date})`);
@@ -586,6 +605,8 @@ async function runPlay(session: LeagueSession, option: PlayOption): Promise<Play
     case "advanceToPreseason":
       report = await advanceToPreseason(session);
       break;
+    case "watchNextMatch":
+      throw new Error("Watching a match starts in league/live.ts");
   }
   await session.cache.flush();
   const game = meta<GameMeta>(session, "game");

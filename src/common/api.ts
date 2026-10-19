@@ -186,6 +186,7 @@ export interface LabBatch {
 /** Play-menu actions (SPEC §3.2), as the worker runs them. */
 export type PlayOption =
   | "untilNextMatch"
+  | "watchNextMatch"
   | "oneWeek"
   | "untilWindowCloses"
   | "untilEndOfSeason"
@@ -212,6 +213,8 @@ export interface GameState {
   nextUserFixture: Fixture | null;
   /** Set when the board has sacked the user: play stops until he takes a job offer. */
   fired: { date: string; offers: { cid: number; name: string; leagueId: string }[] } | null;
+  /** Set while the user watches a match live (M6): play waits until it ends. */
+  live: { fid: number } | null;
 }
 
 /** A league table row on the Standings page (form and home/away only for the live season). */
@@ -526,6 +529,78 @@ export interface TacticsView {
   benchSize: number;
 }
 
+/** One side of a live match (M6 Watch live). */
+export interface LiveTeamView {
+  team: TeamRef;
+  formation: string;
+  sliders: SliderSettings;
+  /** Managed by the user (he makes its changes) or by the AI. */
+  user: boolean;
+  stats: {
+    shots: number;
+    shotsOnTarget: number;
+    xg: number;
+    /** Share of the time with the ball so far, 0–1. */
+    possession: number;
+    passes: number;
+    passesCompleted: number;
+    corners: number;
+    fouls: number;
+    yellowCards: number;
+    redCards: number;
+  };
+  /** The 11 slots: who plays there now (null after a red card). */
+  onPitch: ({
+    pid: number;
+    slot: string;
+    /** In-match energy, 0–100. */
+    energy: number;
+    booked: boolean;
+    injured: boolean;
+  } | null)[];
+  /** Substitutes still available. */
+  bench: { pid: number; position: Position; energy: number }[];
+  subsUsed: number;
+  subLimit: number;
+  windowsUsed: number;
+  windowLimit: number;
+}
+
+/** A match the user is watching live (M6). */
+export interface LiveMatchView {
+  fid: number;
+  date: string;
+  competition: string;
+  competitionName: string;
+  round: string;
+  leg: number | null;
+  /** The user's side: 0 home, 1 away. */
+  userSide: 0 | 1;
+  score: [number, number];
+  shootout: [number, number] | null;
+  clock: number;
+  minute: number;
+  period: Period;
+  /** Before kick-off or at a break: substitutions now don't use a window. */
+  atBreak: boolean;
+  finished: boolean;
+  /** Feed events from the index asked for, and how many the feed holds now. */
+  events: MatchEvent[];
+  feedLength: number;
+  teams: [LiveTeamView, LiveTeamView];
+  /** Names of everyone in both squads. */
+  players: Record<number, { name: string; position: Position; shirtNumber: number | null }>;
+  /** At full time: the match is saved and the day finished. */
+  report: PlayReport | null;
+}
+
+/** Changes the user makes at a pause in a live match (subs, formation, sliders). */
+export interface LiveChanges {
+  subs?: { outPid: number; inPid: number }[];
+  formation?: string;
+  sliders?: Partial<SliderSettings>;
+}
+
 /** Injuries: every injured player in the world now. */
 export interface InjuriesView {
   date: string;
@@ -707,6 +782,8 @@ export interface PlayReport {
   matchesPlayed: number;
   events: SeasonEvent[];
   phase: Phase;
+  /** "Watch next match": the fixture now live (null if play stopped before it, e.g. sacked). */
+  live?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1010,6 +1087,12 @@ export interface WorkerApi {
   previewTactics(lid: number, setup: TacticsSetup, mode: TacticsMode): TacticsView;
   /** Saves the user's line-up; it applies to the matches he watches. */
   saveTactics(lid: number, setup: TacticsSetup): TacticsView;
+  /** The live match, with feed events from index `from` (null when none is under way). */
+  getLiveMatch(lid: number, from: number): LiveMatchView | null;
+  /** Plays up to `possessions` possessions; at full time the day is finished and saved. */
+  stepLiveMatch(lid: number, possessions: number, from: number): LiveMatchView;
+  /** The user's changes at a pause (subs, formation, sliders). */
+  changeLiveMatch(lid: number, changes: LiveChanges, from: number): LiveMatchView;
   getHistory(lid: number): HistoryView;
   getTeamHistory(lid: number, cid: number): TeamHistoryView;
   getTransactions(lid: number, season: number | null): TransactionsView;
