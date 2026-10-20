@@ -90,7 +90,7 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 ## A9. M7 planning, answered by T (Oct 20 2026)
 | # | Question | Answer |
 | --- | --- | --- |
-| 1 | What counts as a "mid-range laptop" for the 60 s season budget | Chrome with its CPU slowed 4× on the developer's machine, in the automated check |
+| 1 | What counts as a "mid-range laptop" for the 60 s season budget | A machine 4× slower than the developer's: the measured season time × 4, in the automated check (Chrome's CPU throttling turned out not to reach the game's worker; T confirmed the × 4 method) |
 | 2 | Firefox (never tested) | T tests it by hand in the release chunk |
 | 3 | Release format | "v0.1" shown in the app (Manage Leagues, Settings), a CHANGELOG, a GitHub release tagged v0.1.0 |
 | 4 | Bugs from T's own testing | T reports them after M7 |
