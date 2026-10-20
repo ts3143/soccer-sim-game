@@ -856,6 +856,78 @@ check(
 );
 await leakCheck("the club pages");
 
+// --- Chunk 8: next-match buttons, the fired page, Settings, the full sidebar -----------------------
+check(
+  "every sidebar page is built (nothing greyed out)",
+  (await page.locator('[data-testid="sidebar"] .badge', { hasText: "M6" }).count()) === 0 &&
+    (await page.locator('[data-testid="sidebar"] a', { hasText: "Settings" }).count()) === 1,
+);
+await sidebar("Dashboard").click();
+const nextActions = page.locator('[data-testid="next-match"] [data-testid="next-match-actions"]');
+await nextActions.waitFor({ timeout: 30_000 });
+const dateBefore = await page.locator('[data-testid="game-date"]').innerText();
+await nextActions.getByRole("button", { name: "Simulate it" }).click();
+await page.waitForFunction(
+  (d) =>
+    document.querySelector('[data-testid="game-date"]')?.textContent !== d &&
+    !document.querySelector('[data-testid="play-button"]')?.disabled,
+  dateBefore,
+  { timeout: 120_000 },
+);
+check(
+  "the Dashboard's next match can be simulated",
+  true,
+  (await page.locator('[data-testid="game-date"]').innerText()).split("\n")[0],
+);
+await page
+  .locator('[data-testid="sidebar"]')
+  .getByRole("link", { name: "Game Log", exact: true })
+  .click();
+await page.locator('[data-testid="next-fixture"]').waitFor({ timeout: 30_000 });
+await page
+  .locator('[data-testid="next-fixture"]')
+  .getByRole("button", { name: "Watch live" })
+  .click();
+await page.waitForFunction(() => location.pathname.endsWith("/live"), null, { timeout: 120_000 });
+await page.locator('[data-testid="live-scoreboard"]').waitFor({ timeout: 30_000 });
+check("the Game Log's next match can be watched live", (await clockText()) === "Kick-off");
+await page.locator('[data-testid="pre-match"]').waitFor({ timeout: 15_000 });
+await page.locator('[data-testid="live-play"]').click();
+await page.waitForFunction(
+  () => document.querySelector('[data-testid="live-clock"]')?.textContent !== "Kick-off",
+  null,
+  { timeout: 30_000 },
+);
+await page.locator('[data-testid="live-end"]').click();
+await page.locator('[data-testid="live-done"]').waitFor({ timeout: 60_000 });
+
+await page.goto(page.url().replace(/\/live$/, "/fired"));
+await page.getByText("You're in a job").waitFor({ timeout: 30_000 });
+check("the You're fired page says so when you still have a job", true);
+
+await page
+  .locator('[data-testid="sidebar"]')
+  .getByRole("link", { name: "Settings", exact: true })
+  .click();
+await page.locator('[data-testid="settings"]').waitFor({ timeout: 30_000 });
+await page.locator("#league-name").fill("M6 renamed");
+await page.locator('[data-testid="rename"]').click();
+await page.locator('[data-testid="settings-note"]').waitFor({ timeout: 15_000 });
+await page.waitForFunction(
+  () => document.querySelector('[data-testid="top-bar"]')?.textContent.includes("M6 renamed"),
+  null,
+  { timeout: 15_000 },
+);
+check("Settings renames the save (the top bar follows)", true);
+await leakCheck("Settings");
+await page.locator('[data-testid="delete-league"]').click();
+await page.locator('[data-testid="delete-confirm"]').click();
+await page.locator('[data-testid="no-leagues"]').waitFor({ timeout: 30_000 });
+check(
+  "Settings deletes the league after a confirm, back to Manage Leagues",
+  new URL(page.url()).pathname === "/",
+);
+
 check("no errors in the console", errors.length === 0, errors.slice(0, 3).join(" | "));
 await context.close();
 console.log(failures === 0 ? "\nAll M6 checks pass." : `\n${failures} check(s) failed.`);

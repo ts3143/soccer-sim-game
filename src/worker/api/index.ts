@@ -1,7 +1,7 @@
 import type { UiEvents, WorkerApi, WorkerKind } from "../../common/api";
 import type { ApiHandlers, RpcHost } from "../../common/rpc";
 import { listLeagues } from "../db/globalDb";
-import { acceptJobOffer, gameState, play } from "../league/game";
+import { acceptJobOffer, gameState, play, queued, renameLeague } from "../league/game";
 import {
   changeLive,
   getLive,
@@ -27,7 +27,7 @@ import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector"
 import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
 import { getClubLab, searchPlayers } from "../views/clubLab";
 import { getFreeAgents, getTransferMarket } from "../views/market";
-import { fairTicketPrice, getAcademy, getClubFinances } from "../views/club";
+import { fairTicketPrice, getAcademy, getClubFinances, getJobOffers } from "../views/club";
 import { decideAcademyPlayer, setBudgetDials, setTicketPrice } from "../league/club";
 import { getTactics, previewTactics, saveTactics } from "../views/tactics";
 import { getCups, getSchedule, getStandings } from "../views/competitions";
@@ -134,6 +134,15 @@ export function createHandlers(
     },
     async getAcademy(lid) {
       return getAcademy(lid);
+    },
+    async getJobOffers(lid) {
+      return getJobOffers(lid);
+    },
+    async renameLeague(lid, name) {
+      const session = await openLeague(lid);
+      await queued(session, () => renameLeague(session, name));
+      await announceLeagues();
+      host.broadcast("gameChanged", { lid, state: gameState(session) });
     },
     async decideAcademyPlayer(lid, pid, decision) {
       return decideAcademyPlayer(await openLeague(lid), pid, decision);

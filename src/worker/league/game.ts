@@ -224,6 +224,15 @@ export function gameState(session: LeagueSession): GameState {
   };
 }
 
+/** Settings: renames the save, in the save and in the list of saves. */
+export async function renameLeague(session: LeagueSession, name: string): Promise<void> {
+  const clean = name.trim();
+  if (clean.length === 0 || clean.length > 60) throw new Error("A name has 1 to 60 characters");
+  session.cache.put("meta", { ...meta<GameMeta>(session, "game"), name: clean }, "game");
+  await session.cache.flush();
+  await updateLeagueSummary(session.lid, { name: clean });
+}
+
 /** The sacked user takes one of his job offers: the game goes on at that club. */
 export async function acceptJobOffer(session: LeagueSession, cid: number): Promise<void> {
   const game = { ...meta<GameMeta>(session, "game") };

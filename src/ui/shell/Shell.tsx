@@ -200,27 +200,21 @@ function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }
                 : leaguePath(shell.lid, p.key);
               return (
                 <li key={p.key} className="nav-item">
-                  {p.m6 ? (
-                    <span className="nav-link py-1 text-body-tertiary">
-                      {p.title} <span className="badge text-bg-light">M6</span>
-                    </span>
-                  ) : (
-                    <Link
-                      to={to}
-                      onClick={onNavigate}
-                      className={`nav-link py-1 ${current === p.key ? "active fw-semibold" : ""}`}
-                    >
-                      {p.title}
-                      {p.key === "inbox" && shell.unread > 0 && (
-                        <span
-                          className="badge rounded-pill text-bg-primary ms-2"
-                          data-testid="unread"
-                        >
-                          {shell.unread}
-                        </span>
-                      )}
-                    </Link>
-                  )}
+                  <Link
+                    to={to}
+                    onClick={onNavigate}
+                    className={`nav-link py-1 ${current === p.key ? "active fw-semibold" : ""}`}
+                  >
+                    {p.title}
+                    {p.key === "inbox" && shell.unread > 0 && (
+                      <span
+                        className="badge rounded-pill text-bg-primary ms-2"
+                        data-testid="unread"
+                      >
+                        {shell.unread}
+                      </span>
+                    )}
+                  </Link>
                 </li>
               );
             })}
@@ -230,6 +224,15 @@ function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }
       <div className="mb-3">
         <div className="text-uppercase small fw-semibold text-body-secondary px-3 mb-1">Tools</div>
         <ul className="nav flex-column">
+          <li className="nav-item">
+            <Link
+              to={leaguePath(shell.lid, "settings")}
+              onClick={onNavigate}
+              className={`nav-link py-1 ${current === "settings" ? "active fw-semibold" : ""}`}
+            >
+              Settings
+            </Link>
+          </li>
           <li className="nav-item">
             <Link to="/" onClick={onNavigate} className="nav-link py-1">
               Manage Leagues
@@ -246,33 +249,35 @@ function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }
   );
 }
 
-/** The sacked user picks one of his job offers (the full "You're fired" screen is M6). */
+/** While the user is sacked: a reminder that play waits for him to take a job. */
 function FiredBanner() {
   const { shell } = useShell();
-  const [error, setError] = useState<string | null>(null);
   const fired = shell.state.fired;
   if (!fired) return null;
   return (
-    <div className="alert alert-danger" data-testid="fired-banner">
-      <strong>You have been sacked</strong> ({formatDate(fired.date)}). Take a job to carry on:
-      <div className="d-flex flex-wrap gap-2 mt-2">
-        {fired.offers.map((o) => (
-          <button
-            key={o.cid}
-            className="btn btn-sm btn-light"
-            onClick={() =>
-              void toWorker("acceptJobOffer", shell.lid, o.cid).catch((e: unknown) =>
-                setError(errorText(e)),
-              )
-            }
-          >
-            {o.name}
-          </button>
-        ))}
-      </div>
-      {error && <div className="small mt-2">{error}</div>}
+    <div
+      className="alert alert-danger d-flex flex-wrap gap-2 align-items-center"
+      data-testid="fired-banner"
+    >
+      <strong>You have been sacked</strong> ({formatDate(fired.date)}). Play resumes once you take a
+      job.
+      <Link to={leaguePath(shell.lid, "fired")} className="btn btn-sm btn-light">
+        See your job offers
+      </Link>
     </div>
   );
+}
+
+/** When the board sacks the user, the "You're fired" screen comes up (once per sacking). */
+function FiredRedirect() {
+  const { shell } = useShell();
+  const date = shell.state.fired?.date ?? null;
+  const seen = useRef<string | null>(date);
+  useEffect(() => {
+    if (date !== null && date !== seen.current) navigate(leaguePath(shell.lid, "fired"));
+    seen.current = date;
+  }, [date, shell.lid]);
+  return null;
 }
 
 export function Shell({ lid, children }: { lid: number; children: ReactNode }) {
@@ -320,6 +325,7 @@ export function Shell({ lid, children }: { lid: number; children: ReactNode }) {
           >
             Menu
           </button>
+          <FiredRedirect />
           <FiredBanner />
           {children}
         </main>

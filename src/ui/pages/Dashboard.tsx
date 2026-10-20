@@ -7,6 +7,7 @@ import { crestUrl } from "../crests";
 import { formatDate, formatEuros } from "../format";
 import { leaguePath, Link } from "../router";
 import { PageHeader } from "../shell/PageHeader";
+import { NextMatchButtons } from "../components/PlayButtons";
 import { useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
@@ -59,6 +60,9 @@ function NextMatch({ view }: { view: DashboardView }) {
       <div className="small mt-2">
         {opponent.name}: {m.opponentPosition ? `${ordinal(m.opponentPosition)} · ` : ""}
         <FormBadges form={m.opponentForm} />
+      </div>
+      <div className="mt-2">
+        <NextMatchButtons />
       </div>
     </div>
   );

@@ -778,6 +778,26 @@ export interface ClubFinancesView {
   };
 }
 
+/** The "You're fired" screen (M6, SPEC §6.5): the club that sacked the user and his offers. */
+export interface FiredView {
+  date: string;
+  /** The club that sacked him. */
+  club: TeamRef;
+  leagueName: string;
+  record: { position: number | null; played: number; won: number; drawn: number; lost: number };
+  confidence: number;
+  offers: {
+    team: TeamRef;
+    leagueName: string;
+    reputation: number;
+    /** Mean OVR of its 11 best fit seniors. */
+    strength: number;
+    position: number | null;
+    /** What its board will expect. */
+    expectation: string | null;
+  }[];
+}
+
 /** Injuries: every injured player in the world now. */
 export interface InjuriesView {
   date: string;
@@ -1265,6 +1285,10 @@ export interface WorkerApi {
   getFreeAgents(lid: number): FreeAgentsView;
   getTransferMarket(lid: number): TransferMarketView;
   getAcademy(lid: number): AcademyView;
+  /** When the user has been sacked: the club, his record and his job offers (else null). */
+  getJobOffers(lid: number): FiredView | null;
+  /** Renames the save (Settings). */
+  renameLeague(lid: number, name: string): void;
   /** Promotes (first pro contract) or releases one of the user's academy players. */
   decideAcademyPlayer(lid: number, pid: number, decision: "promote" | "release"): string;
   getClubFinances(lid: number): ClubFinancesView;

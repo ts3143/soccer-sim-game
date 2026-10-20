@@ -2,14 +2,15 @@ import { IDBFactory } from "fake-indexeddb";
 import "fake-indexeddb/auto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { leagueById } from "../../common/config/competitions";
-import type { GameMeta } from "../../common/schema";
+import type { ClubSeason, GameMeta } from "../../common/schema";
+import { listLeagues } from "../db/globalDb";
 import { attendance } from "../finance/finance";
 import { decideAcademyPlayer, setBudgetDials, setTicketPrice } from "../league/club";
-import { loopWorld, play } from "../league/game";
+import { gameState, loopWorld, play, renameLeague } from "../league/game";
 import { setWageShare } from "../league/market";
 import { createLeague, openLeague } from "../league/session";
 import { academyDecisions, academyReminder } from "../season/offseason";
-import { getAcademy, getClubFinances } from "./club";
+import { getAcademy, getClubFinances, getJobOffers } from "./club";
 
 beforeAll(() => {
   globalThis.indexedDB = new IDBFactory();
@@ -150,6 +151,40 @@ describe("the user's finances", () => {
       await expect(setTicketPrice(session, null, view.ticket.fair)).rejects.toThrow(
         /set for this season/,
       );
+    },
+  );
+});
+
+describe("sacked, and the save's name", () => {
+  it(
+    "shows the club that sacked the user, his record and his offers; renames the save",
+    { timeout: 180_000 },
+    async () => {
+      const league = await createLeague({ name: "Sacked", seed: "fired-view", userCid: 0 });
+      const session = await openLeague(league.lid);
+      expect(await getJobOffers(league.lid)).toBeNull();
+      const row = session.cache.get("clubSeasons", [0, 2026]) as ClubSeason;
+      session.cache.put("clubSeasons", {
+        ...row,
+        boardExpectation: "title",
+        boardStart: 0,
+        boardConfidence: 0,
+      });
+      const club = session.cache.get("clubs", 0);
+      if (club) session.cache.put("clubs", { ...club, cash: -10 * club.revenueAnchor });
+      await play(session, "untilEndOfSeason");
+      const fired = await getJobOffers(league.lid);
+      expect(fired?.club.cid).toBe(0);
+      expect(fired?.record.played).toBeGreaterThan(0);
+      expect(fired?.offers.map((o) => o.team.cid)).toEqual(
+        gameState(session).fired?.offers.map((o) => o.cid),
+      );
+      expect(fired?.offers.every((o) => o.strength > 30 && o.leagueName.length > 0)).toBe(true);
+
+      await renameLeague(session, "  The comeback  ");
+      expect((session.cache.get("meta", "game") as GameMeta).name).toBe("The comeback");
+      expect((await listLeagues()).find((l) => l.lid === league.lid)?.name).toBe("The comeback");
+      await expect(renameLeague(session, "   ")).rejects.toThrow(/1 to 60/);
     },
   );
 });

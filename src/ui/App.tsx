@@ -10,6 +10,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Academy } from "./pages/Academy";
 import { ClubFinances } from "./pages/ClubFinances";
 import { Finances } from "./pages/Finances";
+import { Fired } from "./pages/Fired";
 import { FreeAgents } from "./pages/FreeAgents";
 import { GameLog } from "./pages/GameLog";
 import { History } from "./pages/History";
@@ -25,6 +26,7 @@ import { PlayerRatings } from "./pages/PlayerRatings";
 import { PlayerStats } from "./pages/PlayerStats";
 import { PowerRankings } from "./pages/PowerRankings";
 import { Schedule } from "./pages/Schedule";
+import { Settings } from "./pages/Settings";
 import { Squad } from "./pages/Squad";
 import { Standings } from "./pages/Standings";
 import { Tactics } from "./pages/Tactics";
@@ -137,6 +139,10 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <Academy />;
     case "club-finances":
       return <ClubFinances />;
+    case "fired":
+      return <Fired />;
+    case "settings":
+      return <Settings />;
     case "history":
       return <History />;
     case "team-history":

@@ -2,11 +2,11 @@
  * The user's club pages (M6, SPEC §11 Team): the Youth Academy, and Finances and
  * Facilities (books, cash over the seasons, FFP, budget dials, ticket price, budgets).
  */
-import type { AcademyView, ClubFinancesView } from "../../common/api";
+import type { AcademyView, ClubFinancesView, FiredView } from "../../common/api";
 import { leagueById } from "../../common/config/competitions";
 import { exactAge } from "../../common/dates";
 import type { GameMeta } from "../../common/schema";
-import { effectiveDials } from "../club/standing";
+import { clubStrength, effectiveDials } from "../club/standing";
 import { FFP, transferBanned } from "../finance/ffp";
 import {
   attendance,
@@ -21,7 +21,7 @@ import { loopWorld } from "../league/game";
 import { openLeague } from "../league/session";
 import { clubBudgets, seniorsOf, squadCost, TRANSFERS } from "../market/transfers";
 import { mustDecideBy, promotionWage } from "../season/offseason";
-import { teamRef } from "./common";
+import { leagueTables, seasonFixtures, teamRef } from "./common";
 
 export async function getAcademy(lid: number): Promise<AcademyView> {
   const session = await openLeague(lid);
@@ -180,4 +180,50 @@ export async function getClubFinances(lid: number): Promise<ClubFinancesView> {
 /** The fair (AI) ticket price for the user's club now. */
 export async function fairTicketPrice(lid: number): Promise<number> {
   return (await getClubFinances(lid)).ticket.fair;
+}
+
+/** The "You're fired" screen: the club that sacked the user, his record, his job offers. */
+export async function getJobOffers(lid: number): Promise<FiredView | null> {
+  const session = await openLeague(lid);
+  const game = session.cache.get("meta", "game") as GameMeta;
+  if (!game.fired) return null;
+  const world = loopWorld(session, game.season);
+  const clubs = new Map(world.clubs.map((c) => [c.cid, c]));
+  const tables = leagueTables(session, seasonFixtures(session, game.season));
+  const positionOf = (cid: number) =>
+    tables.flatMap((t) => t.rows).find((r) => r.cid === cid)?.position ?? null;
+  const leagueName = (id: string) => leagueById(id).name;
+  const old = clubs.get(game.userCid);
+  const row = world.clubSeasons.get(game.userCid);
+  if (!old || !row) throw new Error("The save has no user club");
+  return {
+    date: game.fired.date,
+    club: teamRef(old),
+    leagueName: leagueName(old.leagueId),
+    record: {
+      position: positionOf(old.cid),
+      played: row.won + row.drawn + row.lost,
+      won: row.won,
+      drawn: row.drawn,
+      lost: row.lost,
+    },
+    confidence: Math.round(row.boardConfidence ?? 0),
+    offers: game.fired.offers.flatMap((cid) => {
+      const club = clubs.get(cid);
+      const season = world.clubSeasons.get(cid);
+      if (!club) return [];
+      return [
+        {
+          team: teamRef(club),
+          leagueName: leagueName(club.leagueId),
+          reputation: Math.round(season?.reputation ?? 50),
+          strength: Math.round(clubStrength(world.players, cid, game.date) * 10) / 10,
+          position: positionOf(cid),
+          expectation:
+            leagueById(club.leagueId).board.find((t) => t.id === season?.boardExpectation)?.label ??
+            null,
+        },
+      ];
+    }),
+  };
 }

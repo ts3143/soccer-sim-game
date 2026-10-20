@@ -1207,5 +1207,17 @@ Each point of parity gained cost about one champion point, so the two real-world
   - the club's books: dials and their cost, the fees/wages split, the ticket price set, back to Auto and set again, then locked after a home match.
 - **Browser checks:** `m6` adds 11 (setting a ticket price in preseason, the academy and its release confirm, a full squad holding promotion, the books and chart, the FFP gauge, the price locked after a home match, dials saved across a reload, the fees/wages split). 67/67 pass. The sweep opens both new pages, and all other checks and the calibration gate pass.
 
+**Chunk 8: "You're fired", Settings, next-match buttons, the full sidebar** (`src/ui/pages/Fired.tsx`, `src/ui/pages/Settings.tsx`, `src/ui/components/PlayButtons.tsx`)
+- **"You're fired" screen** (`/l/:lid/fired`, SPEC §6.5): the game takes you there when the board sacks you.
+  - It shows the club that sacked you, the date, your league position and record, and board confidence.
+  - Each of the 1–3 job offers is a card: league and position, squad strength, reputation, and what its board will expect, with **Take the job**.
+  - You can also start a new league or go back to Manage Leagues. Meanwhile a banner on every page says play resumes once you take a job, with a link back to the offers.
+- **Settings** (`/l/:lid/settings`, under Tools; T's decision): rename the save (the top bar and Manage Leagues follow), and delete the league after a confirm. The live-match speed stays a slider on the Watch live screen.
+- **Your next match:** **Watch live** and **Simulate it** buttons on the Dashboard's next-match card and on your club's Game Log for the current season (the team schedule in SPEC §11), next to the date. They use the same Play actions as the top bar's menu.
+- **The full sidebar:** every page is built, so the greyed "M6" entries and the placeholder text are gone; unknown addresses say "Page not found".
+- **Worker:** new calls `getJobOffers` and `renameLeague`. Offer cards use the board targets' labels from the league config.
+- **Tests:** one new (the fired view with the sacking club, record and offers; renaming in the save and the save list; an empty name refused); 250 tests in all.
+- **Browser checks:** `m6` adds 7 (nothing greyed in the sidebar, Simulate from the Dashboard, Watch live from the Game Log, the fired page while in a job, renaming, deleting the league). 74/74 pass. The sweep opens Settings too, and all other checks pass.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.
