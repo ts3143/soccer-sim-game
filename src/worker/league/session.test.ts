@@ -8,7 +8,8 @@ import { isSenior } from "../../common/status";
 import { bestXi } from "../core/lineup";
 import { evaluateWorld } from "../generate/checks";
 import { getTeamSquad } from "../views/players";
-import { closeLeague, createLeague, deleteLeague, openLeague } from "./session";
+import { gameState, queued } from "./game";
+import { closeLeague, createLeague, deleteLeague, onLeagueOpened, openLeague } from "./session";
 
 beforeAll(() => {
   globalThis.indexedDB = new IDBFactory();
@@ -72,6 +73,31 @@ describe("league saves", () => {
     expect(game.seed).toMatch(/^[0-9a-f]{8}$/);
     await deleteLeague(2);
     expect((await listLeagues()).map((l) => l.lid)).toEqual([1]);
-    await expect(openLeague(2)).rejects.toThrow("No league 2");
+    await expect(openLeague(2)).rejects.toThrow("no league 2");
   });
+
+  it(
+    "lets an action under way finish before another league opens, then stops the closed one's",
+    SLOW,
+    async () => {
+      const other = await createLeague({ name: "Other", seed: "other", userCid: 3 });
+      const first = await openLeague(1);
+      let finished = false;
+      const running = queued(first, async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        finished = true;
+      });
+      const opened: number[] = [];
+      onLeagueOpened((lid) => opened.push(lid));
+      const second = await openLeague(other.lid);
+      expect(finished).toBe(true);
+      await running;
+      expect(opened).toEqual([other.lid]);
+      expect(gameState(second).playing).toBeNull();
+      await expect(queued(first, () => Promise.resolve(1))).rejects.toThrow(
+        /another tab opened a different one/,
+      );
+      await deleteLeague(other.lid);
+    },
+  );
 });

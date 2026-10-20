@@ -8,8 +8,7 @@ import { PageHeader } from "../shell/PageHeader";
 import { seasonLabel, useShell } from "../shell/Shell";
 import { APP_VERSION } from "../version";
 import { toWorker } from "../workerClient";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorText } from "../errors";
 
 export function Settings() {
   const { shell, reload } = useShell();

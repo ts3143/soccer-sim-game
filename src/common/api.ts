@@ -77,6 +77,8 @@ export interface GameState {
   fired: { date: string; offers: { cid: number; name: string; leagueId: string }[] } | null;
   /** Set while the user watches a match live (M6): play waits until it ends. */
   live: { fid: number } | null;
+  /** The Play action under way (started in any tab), or null. */
+  playing: PlayOption | null;
 }
 
 /** A league table row on the Standings page (form and home/away only for the live season). */
@@ -999,6 +1001,11 @@ export interface WorkerApi {
   getClubChoices(): ClubChoice[];
   createLeague(input: NewLeagueInput): LeagueSummary;
   deleteLeague(lid: number): void;
+  /**
+   * A tab opens a league (its pages call nothing else first). The worker keeps one league
+   * open: tabs showing another stop, and their calls are refused rather than switching back.
+   */
+  openLeague(lid: number): void;
   getGameState(lid: number): GameState;
   getLeagueShell(lid: number): LeagueShell;
   getDashboard(lid: number): DashboardView;
@@ -1091,6 +1098,11 @@ export interface UiEvents {
   /** The save list changed (a league was created or deleted, in any tab). */
   leaguesChanged: { leagues: LeagueSummary[] };
   tabsChanged: { connectedTabs: number };
-  /** A league's game moved on (a Play action ran, in any tab). */
+  /** A league's game moved on or its data changed (a Play action or any other change, in any tab). */
   gameChanged: { lid: number; state: GameState };
+  /**
+   * The worker opened this league (it keeps one open at a time): tabs showing another
+   * league stop and say so.
+   */
+  leagueOpened: { lid: number };
 }

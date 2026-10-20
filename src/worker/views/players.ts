@@ -4,7 +4,7 @@
  * player's bio, contract, mood breakdown, condition, ratings and transfer history.
  */
 import type { PlayerView, SquadPlayerView, TeamSquadView } from "../../common/api";
-import { exactAge } from "../../common/dates";
+import { exactAge, formatDay } from "../../common/dates";
 import { competitionsConfig } from "../../common/config/competitions";
 import { formationById } from "../../common/config/formations";
 import { POSITIONS, RATING_CODES, ratingsConfig } from "../../common/config/ratings";
@@ -19,6 +19,7 @@ import { clubLevels, moodAtClub } from "../market/renewals";
 import { leagueLevel } from "../market/transfers";
 import { currentCondition, isInjured } from "../season/squads";
 import { competitionName, leagueTables, seasonFixtures, teamRef } from "./common";
+import { GameError } from "../../common/errors";
 
 const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
 const positionOrder = (p: Player) => POSITIONS.indexOf(p.position);
@@ -28,7 +29,7 @@ export async function getTeamSquad(lid: number, cid: number): Promise<TeamSquadV
   const { cache } = session;
   const game = cache.get("meta", "game") as GameMeta;
   const club = cache.get("clubs", cid);
-  if (!club) throw new Error(`No club ${cid}`);
+  if (!club) throw new GameError(`There's no club ${cid} in this league.`);
   const world = loopWorld(session, game.season);
   const clubs = new Map<number, Club>(world.clubs.map((c) => [c.cid, c]));
   const levels = clubLevels(world, game.date);
@@ -65,9 +66,9 @@ export async function getTeamSquad(lid: number, cid: number): Promise<TeamSquadV
       status,
       loan:
         p.loan && status === "loan"
-          ? `from ${clubs.get(p.loan.parentCid)?.name ?? "?"} until ${p.loan.until}`
+          ? `from ${clubs.get(p.loan.parentCid)?.name ?? "?"} until ${formatDay(p.loan.until)}`
           : p.loan && status === "loanedOut"
-            ? `at ${at?.name ?? "?"} until ${p.loan.until}`
+            ? `at ${at?.name ?? "?"} until ${formatDay(p.loan.until)}`
             : null,
       condition: Math.round(
         currentCondition(p, game.date, at ? effectiveDials(at).medical : medical),
@@ -133,7 +134,7 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
   const p = cache.get("players", pid) ?? (await session.db.get("players", pid));
   if (!p) {
     const gone = prunedName(session, pid);
-    throw new Error(
+    throw new GameError(
       gone
         ? `${gone.name} retired${gone.retired ? ` in ${gone.retired}` : ""} and is no longer in the save.`
         : `There's no player ${pid} in this league.`,

@@ -1337,8 +1337,39 @@ Each point of parity gained cost about one champion point, so the two real-world
   - empty Injuries and History;
   - the sacking flow (covered by the `career` check).
 - **Not reached in the browser:** a live penalty shootout. In this seed the tie was settled in extra time. Shootouts are covered by the engine tests (`rules.test.ts`), and the live scoreboard shows "pens x–y" from the same match state.
-- **Noted for chunk 4 (errors in plain words):** a few game messages still show raw dates such as "until 2028-01-31" (the FFP ban message, loans, releases, injuries on Tactics, the academy contract).
+- **Noted for chunk 4 (errors in plain words):** a few game messages still showed raw dates such as "until 2028-01-31"; fixed in chunk 4.
 - **Tests:** 251, all pass. **Browser checks:** m5, m6, sweep, career and edges all pass (perf unchanged since chunk 2).
+
+**Chunk 4: bug bash II, tabs, reloads, long names, plain words** (`tools/browser-checks/tabs.mjs`)
+- **New `tabs` check (20 checks):** two tabs on one league; two leagues in two tabs; a league deleted in another tab; reloads during a season, during the rollover and during league creation; the longest names on every page; the fallback (one-tab) worker; bad addresses.
+- **Two tabs, fixes:**
+  - **Every change reaches every tab.** Before, only Play actions refreshed other tabs; a signing, a sale, a listing, a dial or a read message in one tab left the other tab stale. Now every change does, except saving tactics: only the Tactics page shows it, and its editor starts over on a refresh.
+  - **Play shows in every tab.** While one tab plays, the others show "Playing…" and can't start a second Play. Before, a second Play queued behind the first and then failed with a technical message.
+  - **Two leagues in two tabs (judgment call, closest to ZenGM):**
+    - The worker keeps one league open at a time. The league opened most recently, by arriving on its pages or with "Open this league here", is the open one.
+    - Tabs showing another league stop and say why, with "Open this league here" and "Back to your leagues". Their calls are refused instead of switching back; before, two tabs could take turns forever.
+    - An action under way (a season, a rollover) finishes and is saved before the switch. Before, opening another league closed the save in the middle of it.
+  - **A league deleted in another tab** says so, with a link back to the leagues.
+- **Reloads:**
+  - A Play stretch is saved in one go when it ends. A reload in the middle of "Until the end of the season" leaves the game where that Play started, never half-played.
+  - **The rollover** now saves the new season in one write. Pruning runs afterwards: stat rows first, then the players, so a page closed in between leaves nothing broken, and the next rollover catches up.
+  - **A league whose creation was interrupted** says plainly what to do: delete it on Manage Leagues and start a new one. In the test, the reload came before the league was saved, so nothing was left behind.
+- **Long names:**
+  - League names are capped at 60 characters when a league is created, as on rename. The top bar shortens a long name with "…".
+  - With a 60-character league name and the longest generated player name (about 35 characters), no page is wider than the window.
+- **Errors in plain words:**
+  - Messages the game means to show are now a separate kind (`GameError`, `src/common/errors.ts`) and read as written.
+  - Anything else is a bug and reads "Something went wrong (…). Reloading the page usually fixes it."
+  - One shared helper (`src/ui/errors.ts`) replaces 15 copies.
+  - **Rewritten:**
+    - the Play-option error ("That isn't possible now…");
+    - unknown league, club and match ("There's no club 9999 in this league.");
+    - retired or departed players in the market, an old bid, the contract length, the job offer;
+    - the start-up messages ("the game worker" became "the game").
+  - **Dates in game messages** now read "31 Jan 2028" instead of "2028-01-31": the FFP ban, loans, releases, academy contracts, injuries on Tactics, and AI bids. They use one format (`formatDay`) that doesn't depend on the browser's language. The UI uses the same format (so September is "Sep" everywhere).
+  - **A page that crashes while drawing** shows a message and a reload button instead of a blank screen; the top bar and sidebar keep working.
+  - **If the game engine fails to load or stops,** pages say so instead of loading forever.
+- **Tests:** 254, all pass (new: the RPC failure path, `formatDay`, the league switch, the Play marker). **Browser checks:** m5, m6, sweep, career, edges and tabs all pass (perf unchanged since chunk 2).
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

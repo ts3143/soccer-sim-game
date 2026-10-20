@@ -8,8 +8,7 @@ import { crestUrl } from "../crests";
 import { formatEuros } from "../format";
 import { leaguePath, Link, navigate } from "../router";
 import { toWorker } from "../workerClient";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorText } from "../errors";
 
 export function NewLeague() {
   const [choices, setChoices] = useState<ClubChoice[]>([]);
@@ -107,6 +106,7 @@ export function NewLeague() {
             id="new-league-name"
             className="form-control"
             placeholder={chosen ? `${chosen.name} save` : "My league"}
+            maxLength={60}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />

@@ -6,8 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { formatDate, formatEuros } from "../format";
 import { useShell } from "../shell/Shell";
 import { toWorker } from "../workerClient";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorText } from "../errors";
 
 /** A centred dialog over a backdrop; Escape or a click outside closes it. */
 export function Modal({

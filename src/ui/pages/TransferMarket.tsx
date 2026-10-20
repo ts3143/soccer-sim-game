@@ -16,6 +16,7 @@ import { PageHeader } from "../shell/PageHeader";
 import { useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
+import { errorText } from "../errors";
 
 const TABS = [
   { key: "search", label: "Search" },
@@ -31,8 +32,6 @@ type Dialog =
   | { kind: "list"; player: Squad }
   | { kind: "release"; player: Squad }
   | { kind: "loan"; player: { pid: number; name: string }; direction: "in" | "out" };
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export function TransferMarket({ params }: { params: string[] }) {
   const { shell } = useShell();

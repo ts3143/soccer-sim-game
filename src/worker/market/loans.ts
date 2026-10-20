@@ -11,7 +11,7 @@
  * player who'd start). It never lends or borrows for the user's club; the user proposes
  * loans himself (src/worker/league/market.ts).
  */
-import { exactAge } from "../../common/dates";
+import { exactAge, formatDay } from "../../common/dates";
 import { transferBanned } from "../finance/ffp";
 import type { Club, Player } from "../../common/schema";
 import { freeShirtNumber, type MarketSnapshot, seniorsOf, type TransferLog } from "./transfers";
@@ -152,7 +152,7 @@ export function startLoan(world: ContractWorld, deal: LoanDeal): TransferLog {
     names: [fullName(p), nameOf(world, parent), loanClub.name],
     fee: 0,
   });
-  const terms = `until ${deal.until}, ${loanClub.name} paying ${Math.round(deal.wageShare * 100)}% of his wage`;
+  const terms = `until ${formatDay(deal.until)}, ${loanClub.name} paying ${Math.round(deal.wageShare * 100)}% of his wage`;
   if (parent === world.userCid) {
     log.messages.push({
       date: deal.date,

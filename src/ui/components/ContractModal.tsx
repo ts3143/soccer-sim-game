@@ -10,8 +10,7 @@ import { formatDate, formatEuros, formatPercent } from "../format";
 import { useShell } from "../shell/Shell";
 import { toWorker } from "../workerClient";
 import { MoodTable } from "./Mood";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorText } from "../errors";
 
 const TITLES: Record<ContractTalks["kind"], string> = {
   renewal: "New contract",

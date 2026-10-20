@@ -128,7 +128,13 @@ describe("the season loop in a save", () => {
     let session = await openLeague(league.lid);
     const week = await play(session, "oneWeek");
     expect(week).toMatchObject({ from: "2026-07-01", to: "2026-07-08", matchesPlayed: 0 });
-    const toFirst = await play(session, "untilNextMatch");
+    // While it runs, every tab sees which Play action is under way.
+    let during: string | null = null;
+    const toFirst = await play(session, "untilNextMatch", () => {
+      during = gameState(session).playing;
+    });
+    expect(during).toBe("untilNextMatch");
+    expect(gameState(session).playing).toBeNull();
     expect(toFirst.to).toBe("2026-08-15");
     expect(gameState(session).phase).toBe("regularSeason");
     expect(toFirst.matchesPlayed).toBeGreaterThan(10); // ENG2 and the cup started earlier
@@ -300,7 +306,7 @@ describe("the season loop in a save", () => {
       const state = gameState(session);
       expect(state.fired?.offers.length).toBeGreaterThan(0);
       expect(state.options).toEqual([]);
-      await expect(play(session, "oneWeek")).rejects.toThrow(/isn't available/);
+      await expect(play(session, "oneWeek")).rejects.toThrow(/isn't possible now/);
       const offer = state.fired?.offers[0]?.cid as number;
       await acceptJobOffer(session, offer);
       const after = gameState(session);
@@ -337,7 +343,7 @@ describe("the season loop in a save", () => {
     // Not another club's player, not a renewal that doesn't extend, not outside a window.
     const theirs = session.cache.getAll("players").find((x) => x.cid === 1 && x.status === "club");
     await expect(renewContract(session, theirs?.pid ?? -1, 2)).rejects.toThrow(/your own/);
-    await expect(renewContract(session, p.pid, 1)).rejects.toThrow(/must run past/);
+    await expect(renewContract(session, p.pid, 1)).rejects.toThrow(/must run past the current one/);
     await play(session, "untilWindowCloses");
     await play(session, "oneWeek");
     expect(contractTalks(session, p.pid).windowOpen).toBe(false);

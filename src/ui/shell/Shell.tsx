@@ -18,8 +18,9 @@ import { formatDate } from "../format";
 import { leaguePath, Link, navigate, usePath } from "../router";
 import { onWorkerEvent, toWorker } from "../workerClient";
 import { PAGES, SECTIONS } from "./pages";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { ErrorBoundary } from "../components/ErrorBoundary";
+import { LEAGUE_CLOSED } from "../../common/errors";
+import { errorText } from "../errors";
 
 export const PLAY_LABELS: Record<PlayOption, string> = {
   untilNextMatch: "Until next match",
@@ -90,11 +91,11 @@ function PlayMenu() {
           type="button"
           className="btn btn-success fw-semibold"
           data-testid="play-button"
-          disabled={busy !== null || options.length === 0}
+          disabled={busy !== null || shell.state.playing !== null || options.length === 0}
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
         >
-          {busy ? (
+          {busy || shell.state.playing ? (
             <>
               <span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />
               Playing…
@@ -164,7 +165,13 @@ function TopBar() {
         )}
       </div>
       <div className="ms-auto d-flex align-items-center gap-2 text-white small text-nowrap">
-        <span className="text-white-50 d-none d-md-inline">{shell.name}</span>
+        <span
+          className="text-white-50 d-none d-md-inline text-truncate"
+          style={{ maxWidth: "16rem" }}
+          title={shell.name}
+        >
+          {shell.name}
+        </span>
         {user && (
           <Link
             to={leaguePath(shell.lid, "squad", user.cid)}
@@ -280,6 +287,12 @@ export function Shell({ lid, children }: { lid: number; children: ReactNode }) {
   const [version, setVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const path = usePath();
+  // The worker keeps one league open: another tab opened a different one, or deleted this.
+  const [elsewhere, setElsewhere] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+  // While stopped, this tab makes no calls: any call would reopen its league and stop the other.
+  const stopped = useRef(false);
 
   const reload = useCallback(() => {
     toWorker("getLeagueShell", lid)
@@ -287,21 +300,88 @@ export function Shell({ lid, children }: { lid: number; children: ReactNode }) {
         setShell(s);
         setVersion((v) => v + 1);
       })
-      .catch((e: unknown) => setError(errorText(e)));
+      .catch((e: unknown) => {
+        // Refused because another tab opened a different league: this tab stops.
+        if (e instanceof Error && e.message === LEAGUE_CLOSED) {
+          stopped.current = true;
+          setElsewhere(true);
+        } else {
+          setError(errorText(e));
+        }
+      });
   }, [lid]);
 
-  useEffect(() => {
-    reload();
-    return onWorkerEvent("gameChanged", (event) => {
-      if (event.lid === lid) reload();
-    });
+  /** Opens this league in the worker on purpose: tabs showing another one stop. */
+  const claim = useCallback(() => {
+    toWorker("openLeague", lid)
+      .then(reload)
+      .catch((e: unknown) => setError(errorText(e)));
   }, [lid, reload]);
+  const openHere = () => {
+    stopped.current = false;
+    setElsewhere(false);
+    setError(null);
+    claim();
+  };
 
+  useEffect(() => {
+    claim();
+    const stops = [
+      onWorkerEvent("gameChanged", (event) => {
+        if (event.lid !== lid || stopped.current) return;
+        // The new state at once (a Play started in another tab shows as "Playing…"),
+        // then the rest of the shell.
+        setShell((s) => (s ? { ...s, state: event.state } : s));
+        reload();
+      }),
+      onWorkerEvent("leagueOpened", (event) => {
+        const away = event.lid !== lid;
+        // Another tab opened this league again: carry on, with fresh data.
+        if (!away && stopped.current) reload();
+        stopped.current = away;
+        setElsewhere(away);
+      }),
+      onWorkerEvent("leaguesChanged", (event) => {
+        if (event.leagues.some((l) => l.lid === lid)) return;
+        stopped.current = true;
+        setDeleted(true);
+      }),
+    ];
+    return () => stops.forEach((stop) => stop());
+  }, [lid, reload, claim]);
+
+  if (deleted) {
+    return (
+      <div className="container py-4">
+        <div className="alert alert-secondary" data-testid="league-deleted">
+          This league was deleted. <Link to="/">Back to your leagues</Link>
+        </div>
+      </div>
+    );
+  }
+  if (elsewhere) {
+    return (
+      <div className="container py-4">
+        <div className="alert alert-warning" data-testid="league-elsewhere">
+          <p>
+            Another tab opened a different league. The game keeps one league open at a time, so this
+            tab has stopped.
+          </p>
+          <div className="d-flex flex-wrap gap-3 align-items-center">
+            <button type="button" className="btn btn-primary btn-sm" onClick={openHere}>
+              Open this league here
+            </button>
+            <Link to="/">Back to your leagues</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (error) {
     return (
       <div className="container py-4">
         <div className="alert alert-danger">
-          Could not open this league: {error}. <Link to="/">Back to your leagues</Link>
+          Could not open this league. {error} <Link to="/">Back to your leagues</Link>
         </div>
       </div>
     );
@@ -322,7 +402,7 @@ export function Shell({ lid, children }: { lid: number; children: ReactNode }) {
           </button>
           <FiredRedirect />
           <FiredBanner />
-          {children}
+          <ErrorBoundary resetKey={path}>{children}</ErrorBoundary>
         </main>
       </div>
     </ShellContext.Provider>

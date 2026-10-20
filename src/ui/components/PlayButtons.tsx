@@ -7,14 +7,15 @@ import type { PlayOption } from "../../common/api";
 import { leaguePath, navigate } from "../router";
 import { useShell } from "../shell/Shell";
 import { toWorker } from "../workerClient";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorText } from "../errors";
 
 export function NextMatchButtons() {
   const { shell } = useShell();
   const [busy, setBusy] = useState<PlayOption | null>(null);
   const [error, setError] = useState<string | null>(null);
   const options = shell.state.options;
+  // A Play action under way, from this tab or another.
+  const waiting = busy !== null || shell.state.playing !== null;
   if (!options.includes("watchNextMatch")) return null;
   const run = async (option: PlayOption) => {
     setBusy(option);
@@ -33,7 +34,7 @@ export function NextMatchButtons() {
       <button
         type="button"
         className="btn btn-success btn-sm"
-        disabled={busy !== null}
+        disabled={waiting}
         onClick={() => void run("watchNextMatch")}
       >
         {busy === "watchNextMatch" ? "Playing up to it…" : "Watch live"}
@@ -41,7 +42,7 @@ export function NextMatchButtons() {
       <button
         type="button"
         className="btn btn-outline-secondary btn-sm"
-        disabled={busy !== null}
+        disabled={waiting}
         onClick={() => void run("untilNextMatch")}
       >
         {busy === "untilNextMatch" ? "Simulating…" : "Simulate it"}

@@ -12,8 +12,7 @@ import { PageHeader } from "../shell/PageHeader";
 import { useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorText } from "../errors";
 
 export function Academy() {
   const { shell, reload } = useShell();

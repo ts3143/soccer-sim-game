@@ -1,6 +1,6 @@
 /**
  * The game UI (M5): starts the game worker, then shows the page for the URL (src/ui/router):
- * Manage Leagues, New league, a league page inside the app shell, or the developer pages.
+ * Manage Leagues, New league, or a league page inside the app shell.
  */
 import { useEffect, useState } from "react";
 import { BoxScorePage } from "./pages/BoxScorePage";
@@ -36,9 +36,8 @@ import { TransferMarket } from "./pages/TransferMarket";
 import { Link, parseRoute, usePath } from "./router";
 import { Shell } from "./shell/Shell";
 import { connectWorker, type Connection } from "./workerClient";
-
-const errorText = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
+import { errorText } from "./errors";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export function App() {
   const [connection, setConnection] = useState<Connection | null>(null);
@@ -53,7 +52,7 @@ export function App() {
   if (error) {
     return (
       <main className="container py-4">
-        <div className="alert alert-danger">Could not start the game worker: {error}</div>
+        <div className="alert alert-danger">The game couldn&apos;t start. {error}</div>
       </main>
     );
   }
@@ -62,7 +61,8 @@ export function App() {
     return (
       <main className="container py-4">
         <div className="alert alert-warning">
-          The game is already open in another tab. Close that tab, then reload this one.
+          The game is already open in another tab, and this browser can run it in one tab only.
+          Close that tab, then reload this one.
         </div>
       </main>
     );
@@ -70,8 +70,18 @@ export function App() {
   return <Routes />;
 }
 
+/** The page for the URL; one that crashes shows a message instead of a blank screen. */
 function Routes() {
-  const route = parseRoute(usePath());
+  const path = usePath();
+  return (
+    <ErrorBoundary resetKey={path}>
+      <Page path={path} />
+    </ErrorBoundary>
+  );
+}
+
+function Page({ path }: { path: string }) {
+  const route = parseRoute(path);
   switch (route.kind) {
     case "home":
       return <Home />;

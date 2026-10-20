@@ -6,8 +6,7 @@ import { leaguePath, Link } from "../router";
 import { seasonLabel } from "../shell/Shell";
 import { APP_VERSION } from "../version";
 import { onWorkerEvent, toWorker } from "../workerClient";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorText } from "../errors";
 
 export function Home() {
   const [leagues, setLeagues] = useState<LeagueSummary[] | null>(null);

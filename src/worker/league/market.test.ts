@@ -132,7 +132,7 @@ describe("the user's transfers", () => {
         expect(after).toBe("rejected");
         expect(session.cache.getAll("inbox").some((m) => m.subject.endsWith(" stays"))).toBe(true);
       }
-      await expect(respondToOffer(session, 901, true)).rejects.toThrow(/No open bid/);
+      await expect(respondToOffer(session, 901, true)).rejects.toThrow(/no longer open/);
 
       // Under an FFP ban the user can't bid or borrow.
       const club = session.cache.get("clubs", 0);
@@ -199,7 +199,9 @@ describe("the user's transfers", () => {
         expect(fair.message).toMatch(/doesn't want|wage room|full squad/);
       }
       // A loanee can't be bought, and his contract stays with his parent club.
-      await expect(bidForPlayer(session, outgoing.pid, 1_000_000)).rejects.toThrow(/not at a club/);
+      await expect(bidForPlayer(session, outgoing.pid, 1_000_000)).rejects.toThrow(
+        /isn.t at a club you can buy from/,
+      );
       expect(contractTalks(session, outgoing.pid).kind).toBe("renewal");
 
       await play(session, "untilEndOfSeason");

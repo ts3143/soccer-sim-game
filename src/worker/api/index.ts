@@ -22,7 +22,14 @@ import {
   signPlayer,
   userOffers,
 } from "../league/market";
-import { createLeague, deleteLeague, openLeague } from "../league/session";
+import {
+  assertClaimed,
+  claimLeague,
+  createLeague,
+  deleteLeague,
+  onLeagueOpened,
+  openLeague,
+} from "../league/session";
 import { getClubChoices } from "../views/newLeague";
 import { getFreeAgents, getTransferMarket, searchPlayers } from "../views/market";
 import { fairTicketPrice, getAcademy, getClubFinances, getJobOffers } from "../views/club";
@@ -47,6 +54,7 @@ import {
   getTeamStats,
 } from "../views/stats";
 import { getLeagueShell } from "../views/shell";
+import type { LeagueSession } from "../league/session";
 
 /** The worker's implementation of WorkerApi. The compiler checks it against the contract. */
 export function createHandlers(
@@ -56,8 +64,22 @@ export function createHandlers(
 ): ApiHandlers<WorkerApi> {
   const announceLeagues = async () =>
     host.broadcast("leaguesChanged", { leagues: await listLeagues() });
+  onLeagueOpened((lid) => host.broadcast("leagueOpened", { lid }));
+  /** Tells every tab that a league's data changed, so open pages reload. */
+  const announce = (session: LeagueSession) => {
+    // A league closed meanwhile (another tab opened a different one) has nothing to announce.
+    if (!session.closed)
+      host.broadcast("gameChanged", { lid: session.lid, state: gameState(session) });
+  };
+  /** Runs a change to the save, then tells every tab. */
+  const change = async <T>(lid: number, run: (session: LeagueSession) => Promise<T>) => {
+    const session = await openLeague(lid);
+    const value = await run(session);
+    announce(session);
+    return value;
+  };
 
-  return {
+  const handlers: ApiHandlers<WorkerApi> = {
     getStatus: () => ({ kind, startedAt, connectedTabs: host.endpointCount }),
     listLeagues,
     getClubChoices,
@@ -71,6 +93,10 @@ export function createHandlers(
     async deleteLeague(lid) {
       await deleteLeague(lid);
       await announceLeagues();
+    },
+
+    async openLeague(lid) {
+      await claimLeague(lid);
     },
 
     async getLeagueShell(lid) {
@@ -129,35 +155,34 @@ export function createHandlers(
       return getJobOffers(lid);
     },
     async renameLeague(lid, name) {
-      const session = await openLeague(lid);
-      await queued(session, () => renameLeague(session, name));
+      await change(lid, (session) => queued(session, () => renameLeague(session, name)));
       await announceLeagues();
-      host.broadcast("gameChanged", { lid, state: gameState(session) });
     },
     async decideAcademyPlayer(lid, pid, decision) {
-      return decideAcademyPlayer(await openLeague(lid), pid, decision);
+      return change(lid, (session) => decideAcademyPlayer(session, pid, decision));
     },
     async getClubFinances(lid) {
       return getClubFinances(lid);
     },
     async setBudgetDials(lid, dials) {
-      await setBudgetDials(await openLeague(lid), dials);
+      await change(lid, (session) => setBudgetDials(session, dials));
       return getClubFinances(lid);
     },
     async setTicketPrice(lid, price) {
-      await setTicketPrice(await openLeague(lid), price, await fairTicketPrice(lid));
+      const fair = await fairTicketPrice(lid);
+      await change(lid, (session) => setTicketPrice(session, price, fair));
       return getClubFinances(lid);
     },
     async setClubWageShare(lid, share) {
-      await setWageShare(await openLeague(lid), share);
+      await change(lid, (session) => setWageShare(session, share));
       return getClubFinances(lid);
     },
     async listPlayer(lid, pid, asking) {
-      await listPlayer(await openLeague(lid), pid, asking);
+      await change(lid, (session) => listPlayer(session, pid, asking));
       return getTransferMarket(lid);
     },
     async releasePlayer(lid, pid) {
-      return releasePlayer(await openLeague(lid), pid);
+      return change(lid, (session) => releasePlayer(session, pid));
     },
     async getTactics(lid, cid) {
       return getTactics(lid, cid);
@@ -166,6 +191,7 @@ export function createHandlers(
       return previewTactics(lid, setup, mode);
     },
     async saveTactics(lid, setup) {
+      // Not announced: only the Tactics page shows it, and its editor starts over on a change.
       return saveTactics(lid, setup);
     },
 
@@ -202,7 +228,7 @@ export function createHandlers(
     },
 
     async markAllInboxRead(lid) {
-      await markAllInboxRead(lid);
+      await change(lid, () => markAllInboxRead(lid));
     },
 
     async getGameState(lid) {
@@ -210,11 +236,12 @@ export function createHandlers(
     },
 
     async playGame(lid, option) {
-      const session = await openLeague(lid);
-      const report =
-        option === "watchNextMatch" ? await watchNextMatch(session) : await play(session, option);
-      host.broadcast("gameChanged", { lid, state: gameState(session) });
-      return report;
+      // Every tab hears when it starts ("Playing…") and when it's done.
+      return change(lid, (session) =>
+        option === "watchNextMatch"
+          ? watchNextMatch(session, "user", () => announce(session))
+          : play(session, option, () => announce(session)),
+      );
     },
     async getLiveMatch(lid, from) {
       return getLive(await openLeague(lid), from);
@@ -222,7 +249,7 @@ export function createHandlers(
     async stepLiveMatch(lid, possessions, from, autoPause) {
       const session = await openLeague(lid);
       const view = await stepLive(session, possessions, from, autoPause);
-      if (view.report) host.broadcast("gameChanged", { lid, state: gameState(session) });
+      if (view.report) announce(session);
       return view;
     },
     async changeLiveMatch(lid, changes, from) {
@@ -236,12 +263,12 @@ export function createHandlers(
     },
 
     async acceptJobOffer(lid, cid) {
-      const session = await openLeague(lid);
-      await acceptJobOffer(session, cid);
-      const state = gameState(session);
-      host.broadcast("gameChanged", { lid, state });
+      const session = await change(lid, async (session) => {
+        await acceptJobOffer(session, cid);
+        return session;
+      });
       await announceLeagues();
-      return state;
+      return gameState(session);
     },
 
     async getInbox(lid) {
@@ -254,23 +281,25 @@ export function createHandlers(
     },
 
     async renewContract(lid, pid, years) {
-      const session = await openLeague(lid);
-      await renewContract(session, pid, years);
-      return contractTalks(session, pid);
+      return change(lid, async (session) => {
+        await renewContract(session, pid, years);
+        return contractTalks(session, pid);
+      });
     },
 
     async bidForPlayer(lid, pid, fee) {
-      return bidForPlayer(await openLeague(lid), pid, fee);
+      return change(lid, (session) => bidForPlayer(session, pid, fee));
     },
 
     async signPlayer(lid, pid, years) {
-      const session = await openLeague(lid);
-      await signPlayer(session, pid, years);
-      return contractTalks(session, pid);
+      return change(lid, async (session) => {
+        await signPlayer(session, pid, years);
+        return contractTalks(session, pid);
+      });
     },
 
     async proposeLoan(lid, pid, cid, length, wageShare) {
-      return proposeLoan(await openLeague(lid), pid, cid, length, wageShare);
+      return change(lid, (session) => proposeLoan(session, pid, cid, length, wageShare));
     },
 
     async searchPlayers(lid, query) {
@@ -278,18 +307,41 @@ export function createHandlers(
     },
 
     async respondToOffer(lid, oid, accept) {
-      const session = await openLeague(lid);
-      await respondToOffer(session, oid, accept);
-      return userOffers(session);
+      return change(lid, async (session) => {
+        await respondToOffer(session, oid, accept);
+        return userOffers(session);
+      });
     },
 
     async markInboxRead(lid, mid) {
-      const { cache } = await openLeague(lid);
-      const message = cache.get("inbox", mid);
+      const session = await openLeague(lid);
+      const message = session.cache.get("inbox", mid);
       if (message && !message.read) {
-        cache.put("inbox", { ...message, read: true });
-        await cache.flush();
+        session.cache.put("inbox", { ...message, read: true });
+        await session.cache.flush();
+        announce(session);
       }
     },
   };
+
+  // Calls about a league (their first argument is its id) go through only for the league a
+  // tab last opened on purpose; the rest manage the list of leagues.
+  const unguarded = new Set<string>([
+    "getStatus",
+    "listLeagues",
+    "getClubChoices",
+    "createLeague",
+    "deleteLeague",
+    "openLeague",
+  ]);
+  const guarded: Record<string, unknown> = { ...handlers };
+  for (const [name, handler] of Object.entries(handlers)) {
+    if (unguarded.has(name)) continue;
+    const run = handler as (lid: number, ...rest: unknown[]) => unknown;
+    guarded[name] = (lid: number, ...rest: unknown[]) => {
+      assertClaimed(lid);
+      return run(lid, ...rest);
+    };
+  }
+  return guarded as ApiHandlers<WorkerApi>;
 }

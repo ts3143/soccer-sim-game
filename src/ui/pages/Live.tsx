@@ -21,8 +21,7 @@ import { leaguePath, Link } from "../router";
 import { PageHeader } from "../shell/PageHeader";
 import { useShell } from "../shell/Shell";
 import { toWorker } from "../workerClient";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorText } from "../errors";
 
 /** The speed slider: possessions per step and the pause between steps (ms). */
 const SPEEDS = [

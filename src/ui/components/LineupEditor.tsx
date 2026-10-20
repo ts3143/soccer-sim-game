@@ -6,10 +6,10 @@ import type { TacticsMode, TacticsPlayerView, TacticsSetup, TacticsView } from "
 import { formationsConfig } from "../../common/config/formations";
 import { formatDate } from "../format";
 import { PlayerLink } from "./links";
+import { errorText } from "../errors";
 
 type Place = { area: "slot" | "bench"; index: number } | { area: "reserve"; pid: number };
 
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const samePlace = (a: Place, b: Place) =>
   a.area === b.area &&
   (a.area === "reserve" ? a.pid === (b as typeof a).pid : a.index === (b as typeof a).index);

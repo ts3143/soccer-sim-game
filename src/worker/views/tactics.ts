@@ -5,7 +5,7 @@
  */
 import type { TacticsMode, TacticsPlayerView, TacticsSetup, TacticsView } from "../../common/api";
 import { formationById, formationsConfig, slotLabel } from "../../common/config/formations";
-import { exactAge } from "../../common/dates";
+import { exactAge, formatDay } from "../../common/dates";
 import type { Club, GameMeta, Player } from "../../common/schema";
 import { effectiveDials } from "../club/standing";
 import {
@@ -23,6 +23,7 @@ import type { LeagueSession } from "../league/session";
 import { openLeague } from "../league/session";
 import { currentCondition, isInjured } from "../season/squads";
 import { teamRef } from "./common";
+import { GameError } from "../../common/errors";
 
 const RATING_LABELS: Record<string, string> = {
   passing: "Passing",
@@ -39,7 +40,7 @@ const RISKY_CONDITION = 75;
 function context(session: LeagueSession, cid: number | null) {
   const game = session.cache.get("meta", "game") as GameMeta;
   const club = session.cache.get("clubs", cid ?? game.userCid);
-  if (!club) throw new Error(`No club ${cid ?? game.userCid}`);
+  if (!club) throw new GameError(`There's no club ${cid ?? game.userCid} in this league.`);
   const players = session.cache.getAll("players");
   const pickable = selectable(players, club.cid, game.date);
   return { game, club, players, pickable, byPid: new Map(pickable.map((p) => [p.pid, p])) };
@@ -92,7 +93,8 @@ export function tacticsView(
   for (const s of slots) {
     const p = s.player;
     if (!p) continue;
-    if (p.injury) warnings.push(`${p.name} (${s.label}) is injured until ${p.injury.until}.`);
+    if (p.injury)
+      warnings.push(`${p.name} (${s.label}) is injured until ${formatDay(p.injury.until)}.`);
     else if (p.condition < RISKY_CONDITION) {
       warnings.push(`${p.name} (${s.label}) is at ${p.condition}% condition: a high injury risk.`);
     }

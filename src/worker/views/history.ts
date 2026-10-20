@@ -27,6 +27,7 @@ import {
   seasonRows,
   teamRef,
 } from "./common";
+import { GameError } from "../../common/errors";
 
 const clubsOf = (session: LeagueSession) =>
   new Map<number, Club>(session.cache.getAll("clubs").map((c) => [c.cid, c]));
@@ -92,7 +93,7 @@ export async function getTeamHistory(lid: number, cid: number): Promise<TeamHist
   const session = await openLeague(lid);
   const game = session.cache.get("meta", "game") as GameMeta;
   const club = session.cache.get("clubs", cid);
-  if (!club) throw new Error(`No club ${cid}`);
+  if (!club) throw new GameError(`There's no club ${cid} in this league.`);
   const awards = (await allAwards(session)).filter((a) => a.cid === cid);
   const leagueName = (id: string) =>
     competitionsConfig.leagues.find((l) => l.id === id)?.name ?? id;
