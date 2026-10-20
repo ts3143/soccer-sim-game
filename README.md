@@ -22,7 +22,7 @@ pnpm install
 | `pnpm dev` | Local dev server with hot reload |
 | `pnpm build` | Type check, production build into `dist/`, then check no real club names shipped |
 | `pnpm preview` | Serve the production build locally |
-| `pnpm browsercheck [m5 m6 sweep career] [--base URL]` | Headless Chrome checks of the production build (run `pnpm build && pnpm preview` first; needs Google Chrome installed). `m5` checks every game page, `m6` the management screens, `career` runs a club for three seasons through the screens (the M6 acceptance); `sweep` plays a full season with the Play menu and opens every page at six points of it. With no names, all run (a few minutes) |
+| `pnpm browsercheck [m5 m6 sweep career perf] [--base URL]` | Headless Chrome checks of the production build (run `pnpm build && pnpm preview` first; needs Google Chrome installed). `m5` checks every game page, `m6` the management screens, `career` runs a club for three seasons through the screens (the M6 acceptance); `perf` plays ten seasons and checks the performance budget, the save size and data retention; `sweep` plays a full season with the Play menu and opens every page at six points of it. With no names, all run (a few minutes) |
 | `pnpm test` | Unit tests (Vitest) |
 | `pnpm lint` | ESLint + Prettier check + type check |
 | `pnpm format` | Format code with Prettier |

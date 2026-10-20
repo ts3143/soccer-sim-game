@@ -1292,5 +1292,26 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Bundle:** 1.2 MB of assets after the removal.
 - **Tests:** 251, all pass. **Browser checks:** game pages 89/89, management screens 74/74, full-season sweep 43/43, career 11/11.
 
+**Chunk 2: performance pass** (`tools/browser-checks/perf.mjs`)
+- **New `perf` check:** a new league played for ten seasons through the Play menu. Each season (preseason to the next preseason, rollover included) is timed, the save measured, the retention rules checked, and the heaviest pages timed at the end.
+- **Finding, for T to confirm:** Chrome's CPU throttling doesn't reach the game's worker. Measured: a full season takes about 2.3 s at 1× and at 4×, with the SharedWorker and with the dedicated worker alike; only the page slows down. So the check uses **each season's measured time × 4** as the "mid-range laptop" figure. That is slightly pessimistic, since a real slower machine wouldn't slow everything 4×.
+- **Results** (this Mac, seed "perf", a top-flight club; sacked once in season 2, it took the job offered):
+
+| Budget (SPEC §14) | Result | Limit |
+|---|---|---|
+| One headless match | 0.91 ms (`pnpm calibrate`) | < 5 ms |
+| A full season, rollover included, ×4 | 16.0–18.1 s (4.0–4.5 s here) | < 60 s |
+| Save after 10 seasons | 50.6 MB | < 100 MB |
+
+  - **Seasons barely slow down as the save grows:** 4.0 s in season 1, 4.5 s in season 10.
+  - **The save:** about 18 MB after one season, 51 MB after ten. Chrome's estimate goes up and down as it compacts its storage: 57 MB in season 9, 51 MB in season 10.
+- **Retention and pruning** (SPEC §12), after ten seasons:
+  - other clubs' full match records are gone after two seasons, and the user's (377 old matches) are kept;
+  - no retired player that should have been pruned is left (668 retired players kept for their awards, peaks or spells at the user's clubs), and no stat rows without a player;
+  - players 2,682 → 2,912 (+9%).
+- **The heaviest pages after ten seasons:** History 113 ms, Team History 215 ms, a past season's Transactions 101 ms, Player Stats 121 ms, League Leaders 113 ms, Finances 100 ms, Player Ratings 104 ms, an old award winner's profile 111 ms (limit set at 1 s).
+- **Nothing was over budget,** so no engine or page changes were needed.
+- **CI:** it took 12 minutes in one job (unit tests about 5 minutes, the two calibration harnesses about 6). It now runs two jobs side by side ("Lint, test, build" and "Generation and calibration"), so the wait should drop to about 6–7 minutes. No check was dropped.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

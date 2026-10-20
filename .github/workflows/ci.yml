@@ -1,5 +1,6 @@
-# Lean CI: every pull request (and every push to main) must lint, test, build, pass
-# the new-league generation checks and run the calibration harness. Cloudflare Pages does the deploys separately.
+# Lean CI: every pull request (and every push to main) must lint, test and build, pass the
+# new-league generation checks and the calibration harnesses. Two jobs run side by side
+# (each about 6 minutes on GitHub's runners). Cloudflare Pages does the deploys separately.
 name: CI
 
 on:
@@ -31,6 +32,20 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build # includes the real-club-name bundle check
+
+  calibrate:
+    name: Generation and calibration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@v6 # version from package.json "packageManager"
+        with:
+          cache: true
+      - run: pnpm install --frozen-lockfile
       - run: pnpm generate --check
-      - run: pnpm calibrate --check # M2 engine calibration gates
-      - run: pnpm calibrate --world --check # M3 season loop: 3 worlds x 20 seasons, about 3 minutes
+      - run: pnpm calibrate --check # match engine: per-match targets and league styles
+      - run: pnpm calibrate --world --check # season loop: 3 worlds x 20 seasons, about 5 minutes
