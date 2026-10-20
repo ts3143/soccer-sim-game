@@ -94,6 +94,8 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 2 | Firefox (never tested) | T tests it by hand in the release chunk |
 | 3 | Release format | "v0.1" shown in the app (Manage Leagues, Settings), a CHANGELOG, a GitHub release tagged v0.1.0 |
 | 4 | Bugs from T's own testing | T reports them after M7 |
+| 5 | Two leagues in two tabs (chunk 4, judgment call) | Approved: one league open at a time; the league opened most recently on purpose wins, and tabs showing another league stop (SPEC §13) |
+| 6 | Where the "How to play" guide goes (chunk 6) | A page in the game, linked from Manage Leagues and the sidebar's Tools; the README points to it |
 
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.

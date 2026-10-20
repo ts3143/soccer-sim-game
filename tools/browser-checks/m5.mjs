@@ -772,6 +772,14 @@ check(
   "Manage Leagues shows the version",
   /Soccer Sim v0\.1\.0/.test(await page.locator("main").innerText()),
 );
+await page.locator('[data-testid="how-to-play-link"]').click();
+await page.locator('[data-testid="how-to-play"]').waitFor({ timeout: 30_000 });
+check(
+  "How to play opens from Manage Leagues, and links back",
+  /transfer windows/.test(await page.locator("main").innerText()) &&
+    (await page.getByRole("link", { name: "Back to your leagues" }).count()) === 1,
+);
+await leakCheck("How to play");
 await page.goto(`${BASE}/dev`);
 await page.getByText("There's nothing here.").waitFor({ timeout: 30_000 });
 check("the developer pages are gone (/dev is not a page)", true);

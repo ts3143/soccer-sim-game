@@ -35,7 +35,10 @@ export function Home() {
     <main className="container py-4" style={{ maxWidth: 960 }}>
       <div className="d-flex align-items-center gap-3 mb-4">
         <h1 className="h3 mb-0">Soccer Sim</h1>
-        <Link to="/new" className="btn btn-primary ms-auto" data-testid="new-league-link">
+        <Link to="/how-to-play" className="ms-auto" data-testid="how-to-play-link">
+          How to play
+        </Link>
+        <Link to="/new" className="btn btn-primary" data-testid="new-league-link">
           New league
         </Link>
       </div>
@@ -45,6 +48,9 @@ export function Home() {
       ) : leagues.length === 0 ? (
         <div className="text-center py-5" data-testid="no-leagues">
           <p className="lead">No leagues yet.</p>
+          <p className="text-body-secondary">
+            New here? Read <Link to="/how-to-play">How to play</Link> first, or just start.
+          </p>
           <Link to="/new" className="btn btn-lg btn-primary">
             Start a new league
           </Link>

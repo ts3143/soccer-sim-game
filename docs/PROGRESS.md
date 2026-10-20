@@ -11,7 +11,7 @@ Claude Code updates this file at the end of each milestone.
 | M4 Economy and market | **Accepted** (T, 2026-10-19) | All gates pass locally, in CI (`calibrate --check`, `calibrate --world --check` with the M4 economy, world-shape and exploit gates; 222 tests) and on the Cloudflare preview (Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. Champion band 76–100 for the MVP (revisit with Europe). See "M4 notes" below. |
 | M5 Core UI | **Accepted** (T, 2026-10-19) | All checks pass locally, in CI and on the Cloudflare preview and production (game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M5 notes" below. |
 | M6 Management UI | **Accepted** (T, 2026-10-20) | All checks pass locally, in CI and on the Cloudflare preview and production (career 11/11, management screens 74/74, game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M6 notes" below. |
-| M7 Polish and release v0.1 | In progress | Plan approved (6 chunks). See "M7 notes" below. |
+| M7 Polish and release v0.1 | In progress | Chunks 1–5 done; chunk 6 (release) under way: T's local test, Firefox included, then the PR, merge and tag. See "M7 notes" below. |
 
 ## Deviations from spec
 Record every approved change to SPEC.md here, with date and reason. "Review #N" = item N of the kickoff review (answers in `OPEN_QUESTIONS.md` §A2).
@@ -53,6 +53,8 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-19 | M6 plan | Releasing a player (user): he leaves at once, his wages are still paid monthly until the contract ends and count for FFP. Academy players 18+ the user hasn't decided on by 1 July get the AI rule, with an inbox reminder in May. Ticket price set in preseason, locked after the first home match, "Auto" = the AI price. Settings: rename and delete the save; the live-match speed is a slider on the Watch live screen. Transfer list: AI clubs that need the position bid around the asking price. A live match is saved as it goes and resumes after the game is closed. | The spec didn't cover releasing, academy players left undecided, when the price can change, what Settings holds or how listing works. Approved by T. | SPEC §6.2, §7.2, §7.6, §11 |
 | 2026-10-19 | M6 chunk 5 | The user can sign free agents at any time; AI clubs sign them only on their market days, inside the windows (as built in M4). | SPEC §3.1 said "at any time" for everyone. Changing the AI would need a calibration run. Kept by T. | SPEC §3.1 |
 | 2026-10-20 | M7 plan | "Mid-range laptop" for the 60 s season budget = a machine 4× slower than the developer's: the measured season time × 4 (Chrome's CPU throttling doesn't reach the worker; T confirmed after chunk 2). T tests Firefox by hand. v0.1 is shown in the app, with a CHANGELOG and a GitHub release v0.1.0. | The spec named no reference machine; Firefox needs a separate browser download to automate. Approved by T. | SPEC §14 |
+| 2026-10-20 | M7 chunk 4 | One league open at a time: the league opened most recently on purpose is the open one; tabs showing another league stop, and their calls are refused instead of switching back. An action under way finishes and is saved first (decision #58). | The spec didn't say what happens with two leagues in two tabs. Before, two tabs could switch the open league back and forth forever, and opening another league could close a save mid-season. Closest to ZenGM. Approved by T. | SPEC §13 |
+| 2026-10-20 | M7 chunk 6 | "How to play" is a page in the game, linked from Manage Leagues and the sidebar's Tools; the README points to it (decision #59). | Players play on the website and never see the README. Approved by T. | SPEC §11 |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -1410,5 +1412,58 @@ Each point of parity gained cost about one champion point, so the two real-world
   - edges 22/22, tabs 20/20, layout 18/18;
   - perf 9/9: a season takes 4.0–4.5 s here (about 18 s at ×4), and the save is 38.7 MB after ten seasons.
 
+**Chunk 6: release v0.1**
+- **Decisions** (T, design doc #58–#59; Deviations table; SPEC §11, §13; OPEN_QUESTIONS A9):
+  - **#58, one league open at a time** (the chunk 4 judgment call, approved): the league opened most recently on purpose is the open one, and tabs showing another league stop.
+  - **#59, How to play is a page in the game,** linked from Manage Leagues and the sidebar's Tools; the README points to it.
+- **How to play** (`src/ui/pages/HowToPlay.tsx`): one short page in eight parts: starting; playing through a season; squad and tactics; watching live; transfers, loans and contracts; the academy; money and the board; saves.
+  - It opens on its own at `/how-to-play` (from Manage Leagues, which also suggests it when there are no saves yet) and inside a league at `/l/:lid/how-to-play` (from Tools, with the top bar and sidebar kept).
+  - Checks: `m5` opens it from Manage Leagues; `sweep` opens it from the sidebar at all six points of the season; `layout` checks both versions at every size.
+- **`CHANGELOG.md`:** the v0.1.0 entry (what the game does, the known limits). **README:** points to the game, How to play and the changelog; the browser-check list is complete.
+- **Gates, all pass, run one at a time:**
+  - `pnpm lint`; `pnpm test` (254 tests); `pnpm build` (no real club names in `dist/`);
+  - `pnpm calibrate --check`, `pnpm calibrate --world --check` and `pnpm generate --check`;
+  - browser checks: m5 91/91 (new: How to play from Manage Leagues), m6 74/74, sweep 43/43, career 11/11, edges 22/22, tabs 20/20, layout 18/18;
+  - perf 9/9: the worst season is 4.5 s here (about 18 s at ×4), the save is 43.5 MB after ten seasons, and the slowest page is Team History at 197 ms.
+- **Next:** T tests locally, Firefox included. Then the push, the PR and CI, the merge, the v0.1.0 tag and GitHub release, and the production checks.
+
+### M7 summary
+- **Built:**
+  - **Developer pages removed;** version 0.1.0 shown on Manage Leagues and Settings.
+  - **Performance pass** (`perf`, ten seasons):
+    - a season takes 16–18 s on the "4× slower laptop" (budget 60 s);
+    - the save is 39–51 MB after ten seasons (budget 100 MB);
+    - the heaviest pages load in at most 215 ms;
+    - retention and pruning work as the spec says.
+    - CI now runs in two parallel jobs.
+  - **Edge states** (`edges`): empty pages say why. Promotion, relegation, an FFP ban and negative cash show on every page that mentions them. Pruned players keep their names in old box scores.
+  - **Robustness** (`tabs`):
+    - every change and every Play reaches every tab;
+    - one league is open at a time;
+    - a reload never leaves a half-saved game;
+    - the longest names fit;
+    - errors read in plain words, and a page crash shows a message.
+  - **Laptop layout** (`layout`): every page fits at 1280×720, 1366×768, 1366×768 at 125% and 960 px. The top bar stays one row, the Menu button is in it, and the Dashboard's match cards no longer overlap.
+  - **Release:** the How to play page, `CHANGELOG.md`, the README.
+- **Decisions** (T, Deviations table, design doc #57–#59):
+  - "mid-range laptop" = the measured season time × 4;
+  - T tests Firefox by hand;
+  - the release format: the version in the app, a changelog, a GitHub release;
+  - one league open at a time;
+  - How to play as a page in the game.
+- **Judgment calls:**
+  - one save per Play: a reload in the middle of a Play loses that stretch, never half of it;
+  - saving tactics doesn't refresh other tabs, so the Tactics editor keeps its "Saved" note;
+  - layout sizes are what the browser shows of each screen, plus Windows' 125% scaling.
+- **Acceptance** (MILESTONES M7):
+  - the performance budget is met (`perf`);
+  - no known crashers (two bug bashes, eight browser checks);
+  - deployed to Cloudflare Pages as v0.1: after T's local test.
+- **Known edges, for later:**
+  - a live penalty shootout isn't reached in the browser checks (the engine tests cover shootouts);
+  - the "incomplete save" message wasn't triggered in a test;
+  - phones aren't supported (desktop first, down to about 960 px).
+
 ## Open issues
-- Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.
+- Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).
+- A live penalty shootout isn't reached in the browser checks; the engine tests cover shootouts.

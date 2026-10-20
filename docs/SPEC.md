@@ -343,7 +343,7 @@ Mirror ZenGM's layout: a **top-bar Play button** (sim options + phase steps) and
 | Team | Squad, Tactics, Schedule (Sim game / Watch live), Box score / Game log, Finances/Facilities, History, Youth Academy |
 | Players | Free Agents, Transfer Market (tabs: Search, Your listed players, Incoming offers, Loans), Player profile, Contract negotiation (modal) |
 | Stats | League Leaders, Player Ratings, Player Stats, Team Stats, Injuries |
-| Tools | Settings (rename the save, delete the league), Manage Leagues (create, switch, delete saves) |
+| Tools | Settings (rename the save, delete the league), Manage Leagues (create, switch, delete saves), How to play (a short guide, also linked from Manage Leagues; T, 2026-10-20) |
 
 Screen details:
 - **Squad:** contract-expiry badges on players whose contracts end this 30 June (see 3.1).
@@ -389,6 +389,7 @@ Screen details:
 ## 13. Tech architecture
 
 - **Single-page app running fully in the browser.** Game core in a **Shared Worker** (Web Worker fallback). Each tab runs UI only and talks to the worker through **typed calls** (ZenGM's `toWorker`/`toUI` pattern). The UI never touches IndexedDB directly.
+- **One league open at a time** (T, 2026-10-20). Every tab on that league stays in sync. The league opened most recently on purpose (by arriving on its pages, or with "Open this league here") is the open one. Tabs showing another league stop and say why; their calls are refused instead of switching the league back. An action under way finishes and is saved before the switch. With the Web Worker fallback, only one tab can run the game.
 - **Stack:** TypeScript (strict), React, Bootstrap 5, Vite, pnpm, Vitest, ESLint (+ Prettier).
 - **Folders:** `src/ui`, `src/worker` (core: engine, development, finances, transfers, AI, schedule, db), `src/common` (shared types, schema, constants), `data/` (clubs, crests, config, name files), `tools/` (calibration harness, generators).
 - **Seeded RNG** for all randomness; any simulation can be replayed from a seed.

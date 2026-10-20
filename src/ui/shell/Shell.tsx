@@ -263,6 +263,15 @@ function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }
             </Link>
           </li>
           <li className="nav-item">
+            <Link
+              to={leaguePath(shell.lid, "how-to-play")}
+              onClick={onNavigate}
+              className={`nav-link py-1 ${current === "how-to-play" ? "active fw-semibold" : ""}`}
+            >
+              How to play
+            </Link>
+          </li>
+          <li className="nav-item">
             <Link to="/" onClick={onNavigate} className="nav-link py-1">
               Manage Leagues
             </Link>

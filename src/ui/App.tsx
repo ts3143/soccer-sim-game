@@ -1,6 +1,6 @@
 /**
  * The game UI (M5): starts the game worker, then shows the page for the URL (src/ui/router):
- * Manage Leagues, New league, or a league page inside the app shell.
+ * Manage Leagues, New league, How to play, or a league page inside the app shell.
  */
 import { useEffect, useState } from "react";
 import { BoxScorePage } from "./pages/BoxScorePage";
@@ -14,6 +14,7 @@ import { FreeAgents } from "./pages/FreeAgents";
 import { GameLog } from "./pages/GameLog";
 import { History } from "./pages/History";
 import { Home } from "./pages/Home";
+import { HowToPlay, HowToPlayPage } from "./pages/HowToPlay";
 import { Inbox } from "./pages/Inbox";
 import { Injuries } from "./pages/Injuries";
 import { LeagueLeaders } from "./pages/LeagueLeaders";
@@ -87,6 +88,8 @@ function Page({ path }: { path: string }) {
       return <Home />;
     case "new":
       return <NewLeague />;
+    case "howToPlay":
+      return <HowToPlayPage />;
     case "league":
       return (
         <Shell key={route.lid} lid={route.lid}>
@@ -150,6 +153,8 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <Fired />;
     case "settings":
       return <Settings />;
+    case "how-to-play":
+      return <HowToPlay />;
     case "history":
       return <History />;
     case "team-history":

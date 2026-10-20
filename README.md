@@ -6,6 +6,8 @@ Status: v0.1, the first release (milestone M7: polish and release). See `docs/SP
 
 Runs entirely in your browser. Saves stay on your device.
 
+**Play:** https://soccer-sim-game.pages.dev. New to it? The game's **How to play** page (linked from Manage Leagues and the sidebar's Tools) explains the basics. What's in each release: `CHANGELOG.md`.
+
 Hosted on Cloudflare Pages: production at https://soccer-sim-game.pages.dev (from `main`); every other branch gets a preview at `https://<branch>.soccer-sim-game.pages.dev`.
 
 ## Development
@@ -22,7 +24,7 @@ pnpm install
 | `pnpm dev` | Local dev server with hot reload |
 | `pnpm build` | Type check, production build into `dist/`, then check no real club names shipped |
 | `pnpm preview` | Serve the production build locally |
-| `pnpm browsercheck [m5 m6 sweep career perf] [--base URL]` | Headless Chrome checks of the production build (run `pnpm build && pnpm preview` first; needs Google Chrome installed). `m5` checks every game page, `m6` the management screens, `career` runs a club for three seasons through the screens (the M6 acceptance); `perf` plays ten seasons and checks the performance budget, the save size and data retention; `sweep` plays a full season with the Play menu and opens every page at six points of it. With no names, all run (a few minutes) |
+| `pnpm browsercheck [m5 m6 sweep career edges tabs layout perf] [--base URL]` | Headless Chrome checks of the production build (run `pnpm build && pnpm preview` first; needs Google Chrome installed). `m5` checks every game page, `m6` the management screens, `career` runs a club for three seasons through the screens (the M6 acceptance); `sweep` plays a full season with the Play menu and opens every page at six points of it; `edges` the empty and edge states (relegation, extra time, an FFP ban, negative cash); `tabs` two tabs, reloads mid-action, long names and plain-word errors; `layout` every page at laptop sizes and with the narrow sidebar; `perf` plays ten seasons and checks the performance budget, the save size and data retention. With no names, all run, one after another (a few minutes) |
 | `pnpm test` | Unit tests (Vitest) |
 | `pnpm lint` | ESLint + Prettier check + type check |
 | `pnpm format` | Format code with Prettier |
@@ -32,7 +34,7 @@ pnpm install
 | `pnpm season [--seasons N] [--seed X] [--quiet]` | Plays seasons headlessly and prints tables, cups, play-offs, promotion and relegation, and the season numbers |
 | `pnpm calendar [--season Y]` | Prints a season's match calendar (league rounds, cup rounds, play-offs) |
 
-**The game** opens on Manage Leagues (`/`), where you start a new league as any club and reopen your saves. Inside a league, the top bar has the Play menu and the date, and the sidebar lists the pages: Dashboard and Inbox; Standings, Cups, Schedule, Power Rankings, Finances, History and Transactions; your Squad, Tactics, Game Log, Team History, Youth Academy and Finances & Facilities; Free Agents and the Transfer Market; League Leaders, Player Ratings, Player Stats, Team Stats and Injuries; Settings. Play → Watch your next match opens the live match, where you change your team before kick-off and at any pause. Player names open profiles and scores open box scores. Every page has its own URL, so links, back and reload work.
+**The game** opens on Manage Leagues (`/`), where you start a new league as any club and reopen your saves. Inside a league, the top bar has the Play menu and the date, and the sidebar lists the pages: Dashboard and Inbox; Standings, Cups, Schedule, Power Rankings, Finances, History and Transactions; your Squad, Tactics, Game Log, Team History, Youth Academy and Finances & Facilities; Free Agents and the Transfer Market; League Leaders, Player Ratings, Player Stats, Team Stats and Injuries; Settings and How to play. Play → Watch your next match opens the live match, where you change your team before kick-off and at any pause. Player names open profiles and scores open box scores. Every page has its own URL, so links, back and reload work.
 
 Layout: `src/ui` (React tabs, UI only), `src/worker` (game core, runs in a SharedWorker), `src/common` (types and the UI↔worker protocol shared by both), `tools/` (harness, generators, browser checks), `data/` (fixed inputs).
 

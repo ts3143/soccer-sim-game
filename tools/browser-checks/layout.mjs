@@ -1,9 +1,10 @@
-// M7 laptop layout: every page at the sizes a laptop browser really shows, and the narrow
-// layout below Bootstrap's `lg` breakpoint (992 px), where the sidebar hides behind "Menu".
-// At each size: no page is wider than the window (wide tables scroll inside their own box),
-// the top bar keeps all its parts in one row, dialogs fit, the Live page works at 1280×720,
-// and the Menu opens, closes, and closes on navigation. A 60-character league name and the
-// longest club name on offer fill the top bar as much as it gets filled.
+// M7 laptop layout: every page at the sizes a laptop browser really shows, and the narrow layout
+// below Bootstrap's `lg` breakpoint (992 px), where the sidebar hides behind "Menu". The pages
+// include How to play, inside a league and on its own. At each size: no page is wider than the
+// window (wide tables scroll inside their own box), the top bar keeps all its parts in one row,
+// dialogs fit, the Live page works at 1280×720, and the Menu opens, closes, and closes on
+// navigation. A 60-character league name and the longest club name on offer fill the top bar as
+// much as it gets filled.
 import { chromium } from "playwright-core";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -511,12 +512,16 @@ await play("Proceed to promotion and relegation");
 await play("Advance to preseason");
 await allPages("the next preseason", true);
 
-// --- Manage Leagues --------------------------------------------------------------------------------
+// --- Manage Leagues and How to play -----------------------------------------------------------------
 await page.goto(`${BASE}/`);
 await testId("league-list").waitFor({ timeout: 30_000 });
-const home = await atSizes();
-check("Manage Leagues fits at every size", home.length === 0, home.join("; "));
+let home = await atSizes();
 await scan();
+await testId("how-to-play-link").click();
+await testId("how-to-play").waitFor({ timeout: 30_000 });
+home = [...home, ...(await atSizes())];
+await scan();
+check("Manage Leagues and How to play fit at every size", home.length === 0, home.join("; "));
 
 check("no real club names on any page visited", leaks.size === 0, [...leaks].join(", "));
 check("no errors in the console", errors.length === 0, errors.slice(0, 3).join(" | "));
