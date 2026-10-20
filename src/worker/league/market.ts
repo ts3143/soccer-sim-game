@@ -147,6 +147,7 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
       ffpLimit: FFP.ratio,
       warned: user.ffp?.warned ?? false,
       bannedUntil: transferBanned(user, game.date) ? (user.ffp?.bannedUntil ?? null) : null,
+      cashFrozen: user.cash < 0,
     },
   };
 }
@@ -203,7 +204,11 @@ export function bidForPlayer(session: LeagueSession, pid: number, fee: number): 
     notBanned(session, game.date);
     if (agreedOffer(session, user.cid, pid)) throw new Error("A fee is already agreed");
     const budgets = clubBudgets(world, user);
-    if (user.cash < 0) throw new Error("Negative cash: transfers are frozen (SPEC §6.4)");
+    if (user.cash < 0) {
+      throw new Error(
+        "Your club's cash is below zero: transfers are frozen until it's back above zero",
+      );
+    }
     if (fee > budgets.transfer) {
       throw new Error(`That is over your transfer budget (${euros(budgets.transfer)})`);
     }

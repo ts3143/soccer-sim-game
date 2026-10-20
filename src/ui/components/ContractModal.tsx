@@ -95,7 +95,9 @@ export function ContractModal({ pid, onClose }: { pid: number; onClose: () => vo
         ? `${t.name} won't negotiate with your club.`
         : t.kind !== "renewal" && t.budget.bannedUntil
           ? `FFP: your club can't sign anyone until ${formatDate(t.budget.bannedUntil)}.`
-          : null;
+          : needsFee && t.budget.cashFrozen
+            ? "Your club's cash is below zero, so transfers are frozen until it's back above zero."
+            : null;
   // A full squad can still agree a fee (a sale may follow), but can't sign him yet.
   const full =
     t !== null && t.kind !== "renewal" && t.squad.seniors >= t.squad.max

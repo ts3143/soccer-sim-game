@@ -1313,5 +1313,32 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Nothing was over budget,** so no engine or page changes were needed.
 - **CI:** it took 12 minutes in one job (unit tests about 5 minutes, the two calibration harnesses about 6). It now runs two jobs side by side ("Lint, test, build" and "Generation and calibration"), so the wait should drop to about 6–7 minutes. No check was dropped.
 
+**Chunk 3: bug bash I, edge states** (`tools/browser-checks/edges.mjs`)
+- **New `edges` check (22 checks):**
+  - **A new league:** League Leaders, Player Stats, Team Stats, History, Injuries and the box score of an unplayed match each say why they're empty. The Inbox has its opening messages.
+  - **A season with the weakest top-flight club:**
+    - Every cup tie is watched live at top speed until one is level after 90 minutes. It stops for extra time and plays to the end.
+    - The Dashboard, Standings and Team History are right after the rollover.
+    - Whoever went down or up (seed "edges": Suffolk Town down, Pennine Clarets up) plays in their new league, and their Team History says why.
+    - The board sets a new target.
+  - **Negative cash, then an FFP ban,** written into the save while the game is closed:
+    - the Transfer Market, the contract window, Finances & Facilities and Free Agents each say what is blocked and until when;
+    - Finances & Facilities shows the cash in red.
+  - **Addresses that name nothing:** an unknown player, an unknown page inside a league, and a league that doesn't exist.
+  - No real club names and no console errors.
+- **Fixes:**
+  - **Pruned players kept their names.** Retired players pruned from the save (SPEC §12) left "#12345" in old box scores of the user's matches, and their profile links gave a red error. The save now keeps a small name list of pruned players. Box scores show the name, and the profile says calmly "X retired in 2031 and is no longer in the save." An unknown player number gets the same calm style.
+  - **Negative cash is said up front.** Before, the Transfer Market showed only a €0 budget, and a bid failed with "Negative cash: transfers are frozen (SPEC §6.4)". Now the market shows "Cash below zero: transfers frozen", the contract window explains it before you bid, and the error is in plain words. The rule itself is unchanged (SPEC §6.4).
+  - **Player Stats before the first match** said "Nobody matches these filters". It now says no matches have been played yet.
+- **Checked and fine, no change:**
+  - extra time live;
+  - promotion and relegation on the Dashboard, Standings, History and Team History;
+  - the FFP ban on every screen that mentions it;
+  - empty Injuries and History;
+  - the sacking flow (covered by the `career` check).
+- **Not reached in the browser:** a live penalty shootout. In this seed the tie was settled in extra time. Shootouts are covered by the engine tests (`rules.test.ts`), and the live scoreboard shows "pens x–y" from the same match state.
+- **Noted for chunk 4 (errors in plain words):** a few game messages still show raw dates such as "until 2028-01-31" (the FFP ban message, loans, releases, injuries on Tactics, the academy contract).
+- **Tests:** 251, all pass. **Browser checks:** m5, m6, sweep, career and edges all pass (perf unchanged since chunk 2).
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

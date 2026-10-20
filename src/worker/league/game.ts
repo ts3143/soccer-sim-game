@@ -471,6 +471,14 @@ export async function pruneMatchRecords(
   return deleted;
 }
 
+/** Names of pruned players (meta row "pruned"), for old box scores and links to them. */
+export type PrunedNames = Record<number, { name: string; retired: number | null }>;
+
+/** A player's name, also after he was pruned; null if never known. */
+export function prunedName(session: LeagueSession, pid: number): PrunedNames[number] | null {
+  return (session.cache.get("meta", "pruned") as PrunedNames | undefined)?.[pid] ?? null;
+}
+
 /** Peak OVR below this, no award and no notable spell at the user's club: pruned (SPEC §12). */
 const PRUNE = { afterSeasons: 3, peakOvrBelow: 74, userClubAppearances: 50 };
 
@@ -501,7 +509,14 @@ export async function pruneRetiredPlayers(session: LeagueSession, season: number
     if (forUser >= PRUNE.userClubAppearances) continue;
     pruned.push(p.pid);
   }
-  for (const pid of pruned) cache.delete("players", pid);
+  // Their names stay (old box scores of the user's matches list them; SPEC §12).
+  const names = { ...((cache.get("meta", "pruned") as PrunedNames | undefined) ?? {}) };
+  for (const pid of pruned) {
+    const p = cache.get("players", pid);
+    if (p) names[pid] = { name: `${p.firstName} ${p.lastName}`.trim(), retired: p.retiredSeason };
+    cache.delete("players", pid);
+  }
+  cache.put("meta", names, "pruned");
   await cache.flush();
   const tx = db.transaction("playerStats", "readwrite");
   for (const pid of pruned) {

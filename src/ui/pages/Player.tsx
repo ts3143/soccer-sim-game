@@ -83,7 +83,18 @@ export function Player({ params }: { params: string[] }) {
   const { data: view, error } = useView(`player/${pid}`, () =>
     toWorker("getPlayer", shell.lid, pid),
   );
-  if (error) return <div className="alert alert-danger">{error}</div>;
+  if (error) {
+    // A long-retired player pruned from the save, or an address that names no player.
+    const gone = /no longer in the save|There's no player/.test(error);
+    return (
+      <div
+        className={`alert ${gone ? "alert-secondary" : "alert-danger"}`}
+        data-testid="player-gone"
+      >
+        {error}
+      </div>
+    );
+  }
   if (!view) return <p>Loading…</p>;
   const status = STATUS_LABELS[view.status] ?? view.status;
   const own = view.status === "club" && view.team?.cid === shell.userCid;

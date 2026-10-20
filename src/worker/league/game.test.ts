@@ -11,7 +11,15 @@ import type {
 import { listLeagues } from "../db/globalDb";
 import { operatingRevenue } from "../finance/finance";
 import { openLeagueDb } from "../db/leagueDb";
-import { acceptJobOffer, gameState, play, pruneMatchRecords, pruneRetiredPlayers } from "./game";
+import { getPlayer } from "../views/players";
+import {
+  acceptJobOffer,
+  gameState,
+  play,
+  prunedName,
+  pruneMatchRecords,
+  pruneRetiredPlayers,
+} from "./game";
 import { contractTalks, renewContract } from "./market";
 import { closeLeague, createLeague, openLeague } from "./session";
 
@@ -260,6 +268,13 @@ describe("the season loop in a save", () => {
     expect(await session.db.countFromIndex("playerStats", "pid", ordinary.pid)).toBe(0);
     expect(statRows).toBeGreaterThanOrEqual(0);
     expect(session.cache.get("players", star.pid)).toBeDefined(); // has an award: kept
+    // His name stays, for old box scores, and his profile says what happened.
+    const name = `${ordinary.firstName} ${ordinary.lastName}`.trim();
+    expect(prunedName(session, ordinary.pid)).toEqual({ name, retired: 2020 });
+    await expect(getPlayer(1, ordinary.pid)).rejects.toThrow(
+      `${name} retired in 2020 and is no longer in the save.`,
+    );
+    await expect(getPlayer(1, 9_999_999)).rejects.toThrow(/no player 9999999/);
   });
 
   it(

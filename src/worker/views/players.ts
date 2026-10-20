@@ -12,7 +12,7 @@ import type { Club, GameMeta, Player } from "../../common/schema";
 import { contractClub, isSenior } from "../../common/status";
 import { effectiveDials } from "../club/standing";
 import { bestXi } from "../core/lineup";
-import { loopWorld } from "../league/game";
+import { loopWorld, prunedName } from "../league/game";
 import { openLeague } from "../league/session";
 import { marketValue, yearsLeft } from "../market/market";
 import { clubLevels, moodAtClub } from "../market/renewals";
@@ -131,7 +131,14 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
   const { cache } = session;
   const game = cache.get("meta", "game") as GameMeta;
   const p = cache.get("players", pid) ?? (await session.db.get("players", pid));
-  if (!p) throw new Error(`No player ${pid}`);
+  if (!p) {
+    const gone = prunedName(session, pid);
+    throw new Error(
+      gone
+        ? `${gone.name} retired${gone.retired ? ` in ${gone.retired}` : ""} and is no longer in the save.`
+        : `There's no player ${pid} in this league.`,
+    );
+  }
   const world = loopWorld(session, game.season);
   const clubs = new Map<number, Club>(world.clubs.map((c) => [c.cid, c]));
   const club = clubs.get(p.cid ?? -1);

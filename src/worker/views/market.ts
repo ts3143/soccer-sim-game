@@ -107,6 +107,7 @@ export async function getTransferMarket(lid: number): Promise<TransferMarketView
         Math.max(1, budgets.base),
       ffpLimit: FFP.ratio,
       banned: transferBanned(user, game.date) ? (user.ffp?.bannedUntil ?? null) : null,
+      cashFrozen: user.cash < 0,
       owed: owedWages(user),
     },
     squad: world.players

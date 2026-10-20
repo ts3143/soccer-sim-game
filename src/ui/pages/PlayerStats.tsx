@@ -180,6 +180,11 @@ export function PlayerStats({ params }: { params: string[] }) {
             initialSort={{ key: "g", desc: true }}
             rowClass={(r) => (r.club.cid === shell.userCid ? "fw-semibold" : "")}
             columns={columns}
+            empty={
+              view.rows.length === 0
+                ? "No matches played in this season yet."
+                : "Nobody matches these filters."
+            }
           />
         </>
       )}

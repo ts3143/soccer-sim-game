@@ -525,6 +525,8 @@ export interface TransferMarketView {
     squadCostRatio: number;
     ffpLimit: number;
     banned: string | null;
+    /** Cash below zero: transfer fees are frozen until it's back above zero (SPEC §6.4). */
+    cashFrozen: boolean;
     /** Wages still owed a year to released players. */
     owed: number;
   };
@@ -926,6 +928,8 @@ export interface ContractTalks {
     ffpLimit: number;
     warned: boolean;
     bannedUntil: string | null;
+    /** Cash below zero: transfer fees are frozen until it's back above zero (SPEC §6.4). */
+    cashFrozen: boolean;
   };
 }
 

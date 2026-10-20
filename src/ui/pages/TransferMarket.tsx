@@ -72,6 +72,11 @@ export function TransferMarket({ params }: { params: string[] }) {
         </span>
         {b.owed > 0 && <span>Owed to released players {formatEuros(b.owed)} a year</span>}
         {b.banned && <span className="text-danger">FFP ban until {formatDate(b.banned)}</span>}
+        {b.cashFrozen && (
+          <span className="text-danger" data-testid="cash-frozen">
+            Cash below zero: transfers frozen
+          </span>
+        )}
       </div>
       {!view.window && (
         <p className="small text-body-secondary">

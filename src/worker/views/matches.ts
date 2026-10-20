@@ -5,6 +5,7 @@
  */
 import type { BoxScoreView, GameLogView } from "../../common/api";
 import type { Club, Fixture, GameMeta } from "../../common/schema";
+import { prunedName } from "../league/game";
 import { openLeague } from "../league/session";
 import { matchView, resultFor, seasonRows, teamRef } from "./common";
 
@@ -19,7 +20,9 @@ export async function getBoxScore(lid: number, fid: number): Promise<BoxScoreVie
   for (const s of record?.result.players ?? []) {
     const p = cache.get("players", s.pid) ?? (await db.get("players", s.pid));
     players[s.pid] = {
-      name: p ? `${p.firstName} ${p.lastName}`.trim() : `#${s.pid}`,
+      name: p
+        ? `${p.firstName} ${p.lastName}`.trim()
+        : (prunedName(session, s.pid)?.name ?? `#${s.pid}`),
       shirtNumber: p?.shirtNumber ?? null,
     };
   }
