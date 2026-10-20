@@ -23,10 +23,8 @@ import {
   userOffers,
 } from "../league/market";
 import { createLeague, deleteLeague, openLeague } from "../league/session";
-import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector";
-import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
-import { getClubLab, searchPlayers } from "../views/clubLab";
-import { getFreeAgents, getTransferMarket } from "../views/market";
+import { getClubChoices } from "../views/newLeague";
+import { getFreeAgents, getTransferMarket, searchPlayers } from "../views/market";
 import { fairTicketPrice, getAcademy, getClubFinances, getJobOffers } from "../views/club";
 import { decideAcademyPlayer, setBudgetDials, setTicketPrice } from "../league/club";
 import { getTactics, previewTactics, saveTactics } from "../views/tactics";
@@ -48,7 +46,6 @@ import {
   getPlayerStats,
   getTeamStats,
 } from "../views/stats";
-import { getSeasonLab } from "../views/seasonLab";
 import { getLeagueShell } from "../views/shell";
 
 /** The worker's implementation of WorkerApi. The compiler checks it against the contract. */
@@ -75,13 +72,6 @@ export function createHandlers(
       await deleteLeague(lid);
       await announceLeagues();
     },
-
-    getLeagueOverview,
-    getSquad,
-    simulateLabMatch,
-    startLabMatch,
-    stepLabMatch,
-    runLabBatch,
 
     async getLeagueShell(lid) {
       return getLeagueShell(lid);
@@ -245,8 +235,6 @@ export function createHandlers(
       return setLiveLineup(await openLeague(lid), setup, mode);
     },
 
-    getSeasonLab,
-
     async acceptJobOffer(lid, cid) {
       const session = await openLeague(lid);
       await acceptJobOffer(session, cid);
@@ -281,25 +269,12 @@ export function createHandlers(
       return contractTalks(session, pid);
     },
 
-    async getOffers(lid) {
-      return userOffers(await openLeague(lid));
-    },
-
     async proposeLoan(lid, pid, cid, length, wageShare) {
       return proposeLoan(await openLeague(lid), pid, cid, length, wageShare);
     },
 
-    async getClubLab(lid) {
-      return getClubLab(lid);
-    },
-
     async searchPlayers(lid, query) {
       return searchPlayers(lid, query);
-    },
-
-    async setWageShare(lid, share) {
-      await setWageShare(await openLeague(lid), share);
-      return getClubLab(lid);
     },
 
     async respondToOffer(lid, oid, accept) {

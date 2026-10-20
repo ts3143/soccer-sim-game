@@ -2,7 +2,13 @@
  * The market pages (M6, SPEC §11 Players): Free Agents, with each player's ask and whether
  * he would talk to the user's club; the Transfer Market's listings, offers and loans.
  */
-import type { FreeAgentsView, LoanRow, TransferMarketView } from "../../common/api";
+import type {
+  FreeAgentsView,
+  LoanRow,
+  PlayerSearch,
+  PlayerSearchRow,
+  TransferMarketView,
+} from "../../common/api";
 import { daysBetween, exactAge } from "../../common/dates";
 import type { GameMeta } from "../../common/schema";
 import { FFP, transferBanned } from "../finance/ffp";
@@ -134,4 +140,44 @@ export async function getTransferMarket(lid: number): Promise<TransferMarketView
     })),
     fired: Boolean(game.fired),
   };
+}
+
+/** The Transfer Market search: other clubs' players (or free agents) by position, league, OVR, age. */
+export async function searchPlayers(lid: number, query: PlayerSearch): Promise<PlayerSearchRow[]> {
+  const session = await openLeague(lid);
+  const game = session.cache.get("meta", "game") as GameMeta;
+  const world = loopWorld(session, game.season);
+  const snap = marketSnapshot(world, game.date);
+  const q = { minOvr: 0, maxOvr: 99, maxAge: 99, limit: 40, ...query };
+  return world.players
+    .filter((p) => {
+      if (q.freeAgents ? p.status !== "freeAgent" : p.status !== "club" || p.cid === game.userCid)
+        return false;
+      if (q.position && p.position !== q.position) return false;
+      if (q.leagueId && world.clubs.find((c) => c.cid === p.cid)?.leagueId !== q.leagueId) {
+        return false;
+      }
+      const age = exactAge(p.birthDate, game.date);
+      return p.ovr >= q.minOvr && p.ovr <= q.maxOvr && age < q.maxAge + 1;
+    })
+    .sort((a, b) => b.ovr - a.ovr || a.pid - b.pid)
+    .slice(0, Math.min(100, q.limit))
+    .map((p) => {
+      const club = world.clubs.find((c) => c.cid === p.cid);
+      return {
+        pid: p.pid,
+        name: `${p.firstName} ${p.lastName}`.trim(),
+        position: p.position,
+        age: Math.floor(exactAge(p.birthDate, game.date)),
+        ovr: p.ovr,
+        pot: p.pot,
+        club: club?.name ?? null,
+        cid: club?.cid ?? null,
+        status: p.status,
+        value: marketValue(p, game.date, snap.leagueLevels.get(club?.leagueId ?? "") ?? 62),
+        wage: p.contract?.wage ?? 0,
+        expires: p.contract?.expires ?? null,
+        daysFree: p.freeAgentSince ? daysBetween(p.freeAgentSince, game.date) : null,
+      };
+    });
 }

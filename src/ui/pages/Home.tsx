@@ -4,6 +4,7 @@ import type { LeagueSummary } from "../../common/schema";
 import { formatDate } from "../format";
 import { leaguePath, Link } from "../router";
 import { seasonLabel } from "../shell/Shell";
+import { APP_VERSION } from "../version";
 import { onWorkerEvent, toWorker } from "../workerClient";
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -110,7 +111,7 @@ export function Home() {
         </div>
       )}
       <p className="small text-body-secondary mt-4">
-        Saves stay on this device. <Link to="/dev">Developer pages</Link>
+        Saves stay on this device. Soccer Sim v{APP_VERSION}.
       </p>
     </main>
   );

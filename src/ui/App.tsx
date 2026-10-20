@@ -3,7 +3,6 @@
  * Manage Leagues, New league, a league page inside the app shell, or the developer pages.
  */
 import { useEffect, useState } from "react";
-import { Inspector } from "./inspector/Inspector";
 import { BoxScorePage } from "./pages/BoxScorePage";
 import { Cups } from "./pages/Cups";
 import { Dashboard } from "./pages/Dashboard";
@@ -78,8 +77,6 @@ function Routes() {
       return <Home />;
     case "new":
       return <NewLeague />;
-    case "dev":
-      return <Inspector />;
     case "league":
       return (
         <Shell key={route.lid} lid={route.lid}>
@@ -96,7 +93,7 @@ function Routes() {
   }
 }
 
-/** The league page for the URL; pages not built yet show a placeholder. */
+/** The league page for the URL; an unknown page says so. */
 function LeaguePage({ page, params }: { page: string; params: string[] }) {
   switch (page) {
     case "dashboard":

@@ -238,11 +238,6 @@ function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }
               Manage Leagues
             </Link>
           </li>
-          <li className="nav-item">
-            <Link to="/dev" onClick={onNavigate} className="nav-link py-1 text-body-secondary">
-              Developer pages
-            </Link>
-          </li>
         </ul>
       </div>
     </aside>

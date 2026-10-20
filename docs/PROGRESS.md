@@ -1277,5 +1277,20 @@ Each point of parity gained cost about one champion point, so the two real-world
 5. Laptop layout: every page at 1280×720 and 1366×768 and with the narrow sidebar.
 6. Release v0.1: How to play, CHANGELOG, PROGRESS, all checks, PR, merge, tag v0.1.0, production checks; T tests Firefox.
 
+**Chunk 1: the developer pages removed; the version shown**
+- **Removed** (decided for M7):
+  - the `/dev` address and its four tabs (Generation, Match lab, Season lab, Club lab);
+  - their worker views (`inspector`, `matchLab`, `seasonLab`, `clubLab`), their ten API calls and 20 types that only they used;
+  - their browser checks (M1, M3, M4) and the Tools link to them.
+  - `/dev` now says there's nothing there.
+- **Kept and moved:** the new-league club list (`views/newLeague.ts`) and the player search behind the Transfer Market (`views/market.ts`). The calibration tools stay as they were.
+- **Tests that used the dev views** were rewritten to check the same things through the game:
+  - a reloaded save passes the world checks and matches each club's strength;
+  - the squad view serves squads and academies;
+  - the Transfer Market search and the fees/wages control work.
+- **Version:** 0.1.0 in package.json, built into the app (`__APP_VERSION__`) and shown on Manage Leagues and in Settings. A new M5 check reads it.
+- **Bundle:** 1.2 MB of assets (the developer pages were about a fifth of the game screens' code).
+- **Tests:** 251, all pass. **Browser checks:** game pages 89/89, management screens 74/74, full-season sweep 43/43, career 11/11.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

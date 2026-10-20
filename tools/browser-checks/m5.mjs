@@ -768,17 +768,13 @@ check(
   "Manage Leagues lists the save",
   /Shell test/.test(await page.locator('[data-testid="league-list"]').innerText()),
 );
-await page.goto(`${BASE}/dev`);
-await page.getByText("Developer inspector").waitFor({ timeout: 30_000 });
-check("the developer pages are at /dev", true);
-await page.getByRole("button", { name: "Open" }).first().click();
-await page.getByRole("button", { name: "Match lab (M2)" }).click();
-await page.getByRole("button", { name: "Simulate", exact: true }).click();
-await page.locator("table th", { hasText: "Rating" }).first().waitFor({ timeout: 30_000 });
 check(
-  "the Match lab still simulates a match with its box score",
-  /Possession/.test(await page.locator("main").innerText()),
+  "Manage Leagues shows the version",
+  /Soccer Sim v0\.1\.0/.test(await page.locator("main").innerText()),
 );
+await page.goto(`${BASE}/dev`);
+await page.getByText("There's nothing here.").waitFor({ timeout: 30_000 });
+check("the developer pages are gone (/dev is not a page)", true);
 
 check("no errors in the console", errors.length === 0, errors.slice(0, 3).join(" | "));
 await context.close();

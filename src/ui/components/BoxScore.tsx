@@ -1,6 +1,6 @@
 /**
- * A match's box score (Match lab and the game's Box score page): team stats, key events and
- * both teams' players. `renderName` lets the game link player names to their profiles.
+ * A match's box score (the Box score page): team stats, key events and both teams'
+ * players. `renderName` links player names to their profiles.
  */
 import type { ReactNode } from "react";
 import type { MatchResult, PlayerMatchStats } from "../../common/match";
@@ -11,8 +11,6 @@ interface Side {
   name: string;
   code: string;
   abbr: string;
-  /** Shown when known (the Match lab); saved match records don't keep it. */
-  formation?: string;
 }
 
 interface Props {
@@ -61,7 +59,6 @@ export function BoxScore({ home, away, players, result, renderName }: Props) {
           <div className="small text-body-secondary">
             {result.extraTime ? "after extra time" : "full time"}
             {result.penalties ? ` · ${result.penalties} on penalties` : ""}
-            {home.formation && away.formation ? ` · ${home.formation} vs ${away.formation}` : ""}
           </div>
         </div>
         <img src={crestUrl(away.code)} alt="" width={36} height={42} />

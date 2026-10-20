@@ -5,8 +5,7 @@ describe("routes", () => {
   it("reads the home, new league and developer pages", () => {
     expect(parseRoute("/")).toEqual({ kind: "home" });
     expect(parseRoute("/new")).toEqual({ kind: "new" });
-    expect(parseRoute("/dev")).toEqual({ kind: "dev" });
-    expect(parseRoute("/dev/anything")).toEqual({ kind: "dev" });
+    expect(parseRoute("/dev")).toEqual({ kind: "notFound" });
   });
 
   it("reads league pages with their parameters", () => {

@@ -1,4 +1,4 @@
-/** Plain-text live feed lines for match events (Match lab; the polished feed is M6). */
+/** Plain-text feed lines for match events: the live commentary and the box score. */
 import type { MatchEvent, Period } from "../../common/match";
 
 /** Nominal end of each period in seconds, for "45+2"-style added time. */

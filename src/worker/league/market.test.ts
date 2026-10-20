@@ -5,7 +5,8 @@ import type { GameMeta, Offer, Player } from "../../common/schema";
 import { askingPrice, seniorsOf } from "../market/transfers";
 import { loopWorld, play } from "./game";
 import { lendable, rankAt } from "../market/loans";
-import { getClubLab, searchPlayers } from "../views/clubLab";
+import { getClubFinances } from "../views/club";
+import { getTransferMarket, searchPlayers } from "../views/market";
 import {
   bidForPlayer,
   contractTalks,
@@ -216,18 +217,17 @@ describe("the user's transfers", () => {
   );
 
   it(
-    "feeds the Club lab: every club, the user's squad, a market search, the budget control",
+    "feeds the Transfer Market: the user's squad, a market search, the budget control",
     SLOW,
     async () => {
-      const league = await createLeague({ name: "Club lab", seed: "club-lab", userCid: 0 });
+      const league = await createLeague({ name: "Market", seed: "club-lab", userCid: 0 });
       const session = await openLeague(league.lid);
-      const view = await getClubLab(league.lid);
-      expect(view.clubs).toHaveLength(62);
-      expect(view.clubs.filter((c) => c.user).map((c) => c.cid)).toEqual([0]);
+      const view = await getTransferMarket(league.lid);
       expect(view.window).toEqual({ id: "summer", closes: "2026-08-31" });
-      expect(view.squad.length).toBeGreaterThan(25);
+      expect(view.squad.length).toBeGreaterThan(20);
       expect(view.squad.every((p) => p.value > 0)).toBe(true);
-      expect(view.clubs.every((c) => c.squadCostRatio > 0.3 && c.squadCostRatio < 0.9)).toBe(true);
+      expect(view.budget.squadCostRatio).toBeGreaterThan(0.3);
+      expect(view.budget.squadCostRatio).toBeLessThan(0.9);
       const free = await searchPlayers(league.lid, { freeAgents: true, limit: 10 });
       expect(free).toHaveLength(10);
       expect(free.every((p) => p.club === null && p.daysFree !== null)).toBe(true);
@@ -235,11 +235,20 @@ describe("the user's transfers", () => {
       expect(
         keepers.every((p) => p.position === "GK" && p.ovr >= 60 && p.ovr <= 70 && p.cid !== 0),
       ).toBe(true);
+      const eng2 = await searchPlayers(league.lid, { leagueId: "ENG2", limit: 30 });
+      const eng2Clubs = new Set(
+        session.cache
+          .getAll("clubs")
+          .filter((c) => c.leagueId === "ENG2")
+          .map((c) => c.cid),
+      );
+      expect(eng2.every((p) => p.cid !== null && eng2Clubs.has(p.cid))).toBe(true);
+      const before = await getClubFinances(league.lid);
       await setWageShare(session, 1);
-      const wages = (await getClubLab(league.lid)).user;
-      expect(wages.wageShare).toBe(1);
+      const wages = await getClubFinances(league.lid);
+      expect(wages.budget.wageShare).toBe(1);
       expect(wages.budget.transfer).toBe(0);
-      expect(wages.budget.wageRoom).toBeGreaterThan(view.user.budget.wageRoom);
+      expect(wages.budget.wageRoom).toBeGreaterThan(before.budget.wageRoom);
       await expect(setWageShare(session, 2)).rejects.toThrow(/between 0 and 1/);
     },
   );
