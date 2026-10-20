@@ -20,7 +20,7 @@ import { marketDay, marketDays, type NewOffer } from "../market/aiMarket";
 import { returnLoans } from "../market/loans";
 import { aiRenewals, contractWarning } from "../market/renewals";
 import { seasonDate } from "../schedule/calendar";
-import { developmentUpdate, type LoopWorld } from "./offseason";
+import { academyReminder, developmentUpdate, type LoopWorld } from "./offseason";
 import { matchdayIncome, meritIncome, prizeIncome, settleMonths } from "../finance/finance";
 import { boardSacks, updateConfidence } from "../club/board";
 import { seasonEndStanding, updateHype } from "../club/standing";
@@ -52,6 +52,8 @@ export function seasonEvents(season: number, config = competitionsConfig): Seaso
       window: january.id,
     });
   }
+  // The user's academy decisions are due by 1 July (SPEC §7.2): a reminder on 1 May.
+  events.push({ date: seasonDate(season, "05-01"), kind: "academyReminder" });
   return events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
@@ -223,6 +225,10 @@ export function runDays(
         }
         if (event.kind === "deadlineReminder") {
           const reminder = contractWarning(world, state.season, day, true);
+          if (reminder) out.messages.push(reminder);
+        }
+        if (event.kind === "academyReminder") {
+          const reminder = academyReminder(world, state.season, day);
           if (reminder) out.messages.push(reminder);
         }
       }

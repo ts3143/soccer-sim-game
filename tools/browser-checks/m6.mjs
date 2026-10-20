@@ -185,6 +185,30 @@ check(
     (await formation.isDisabled()),
 );
 
+// --- Chunk 7 (preseason): the ticket price can be set before the first home match --------------
+await page
+  .locator('[data-testid="sidebar"]')
+  .getByRole("link", { name: "Finances & Facilities", exact: true })
+  .click();
+await page.locator('[data-testid="tickets"]').waitFor({ timeout: 30_000 });
+const fairText =
+  (await page.locator('[data-testid="tickets"]').innerText()).match(
+    /fair price for your club \(€([\d.,]+)\)/,
+  )?.[1] ?? "0";
+await page.locator("#ticket-auto").uncheck();
+const myPrice = Math.round(Number(fairText.replace(/,/g, "")) * 1.2);
+await page.locator("#ticket-price").fill(String(myPrice));
+await page.locator('[data-testid="save-ticket"]').click();
+await page
+  .locator('[data-testid="tickets"] [data-testid="save-note"]')
+  .waitFor({ timeout: 15_000 });
+check(
+  "in preseason you set your own ticket price; the table shows crowd and gate per price",
+  (await page.locator('[data-testid="tickets"]').innerText()).includes(`Now €${myPrice}`) &&
+    (await page.locator('[data-testid="ticket-curve"] tbody tr').count()) >= 6,
+  `€${myPrice} (fair €${fairText})`,
+);
+
 // --- Chunk 2: Watch live (game side, first screen) -----------------------------------------------
 const clockText = () => page.locator('[data-testid="live-clock"]').innerText();
 const minuteOf = (text) => Number(text.match(/^(\d+)/)?.[1] ?? 0);
@@ -729,6 +753,108 @@ check(
 );
 await page.keyboard.press("Escape");
 await leakCheck("the contract talks");
+
+// --- Chunk 7: Youth Academy, Finances & Facilities ------------------------------------------------
+await page
+  .locator('[data-testid="sidebar"]')
+  .getByRole("link", { name: "Youth Academy", exact: true })
+  .click();
+const academyRows = page.locator('[data-testid="academy"] tbody tr');
+await academyRows.first().waitFor({ timeout: 30_000 });
+check("Youth Academy lists your prospects, best potential first", (await academyRows.count()) >= 3);
+const promoteButton = academyRows.first().getByRole("button", { name: "Promote" });
+const squadFull = /Seniors 25\/25/.test(
+  await page.locator('[data-testid="academy-summary"]').innerText(),
+);
+if (squadFull) {
+  check("with a full squad, promotion waits", await promoteButton.isDisabled());
+} else {
+  const prospect = await academyRows.first().locator("td a").first().innerText();
+  await promoteButton.click();
+  await page.locator('[data-testid="academy-note"]').waitFor({ timeout: 15_000 });
+  check(
+    "promoting gives a prospect his first professional contract",
+    /first professional contract/.test(
+      await page.locator('[data-testid="academy-note"]').innerText(),
+    ),
+    prospect,
+  );
+}
+const leaverRow = academyRows.last();
+const youth = await leaverRow.locator("td a").first().innerText();
+await leaverRow.getByRole("button", { name: "Release" }).click();
+await leaverRow.getByRole("button", { name: "Confirm release" }).click();
+await page.waitForFunction(
+  (n) =>
+    /leaves the academy/.test(
+      document.querySelector('[data-testid="academy-note"]')?.textContent ?? "",
+    ) &&
+    ![...document.querySelectorAll('[data-testid="academy"] tbody tr')].some((tr) =>
+      tr.textContent.includes(n),
+    ),
+  youth,
+  { timeout: 15_000 },
+);
+check("releasing asks to confirm, then he leaves the academy", true, youth);
+
+await page
+  .locator('[data-testid="sidebar"]')
+  .getByRole("link", { name: "Finances & Facilities", exact: true })
+  .click();
+await page.locator('[data-testid="books"]').waitFor({ timeout: 30_000 });
+const books = await page.locator('[data-testid="books"]').innerText();
+check(
+  "the books: cash, the season's income and spending, cash over the seasons",
+  /Gate receipts/.test(books) &&
+    /Wages/.test(books) &&
+    (await page.locator('[data-testid="books"] svg circle').count()) >= 1,
+);
+check(
+  "the FFP gauge shows squad cost against the limit",
+  /limit 70%/.test(await page.locator('[data-testid="ffp"]').innerText()),
+);
+check(
+  "after a home match the ticket price is fixed for the season",
+  (await page.locator('[data-testid="ticket-locked"]').count()) === 1 &&
+    (await page.locator('[data-testid="save-ticket"]').isDisabled()) &&
+    (await page.locator('[data-testid="tickets"]').innerText()).includes(`Now €${myPrice}`),
+);
+const coachingLabel = () => page.locator('label[for="dial-coaching"]').innerText();
+const coachingBefore = Number((await coachingLabel()).match(/(\d+)$/)?.[1]);
+await page.locator("#dial-coaching").focus();
+for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowRight");
+await page.locator('[data-testid="save-dials"]').click();
+await page.locator('[data-testid="dials"] [data-testid="save-note"]').waitFor({ timeout: 15_000 });
+await page.reload();
+await page.locator('[data-testid="dials"]').waitFor({ timeout: 30_000 });
+check(
+  "budget dials save and stay",
+  Number((await coachingLabel()).match(/(\d+)$/)?.[1]) === Math.min(100, coachingBefore + 10),
+  `${coachingBefore} → ${await coachingLabel()}`,
+);
+const roomBefore = (await page.locator('[data-testid="budgets"]').innerText()).match(
+  /wage room\s+(€[\d.,]+[km]?)/,
+)?.[1];
+await page.locator("#wage-share").focus();
+await page.keyboard.press("End");
+await page.locator('[data-testid="save-split"]').click();
+await page
+  .locator('[data-testid="budgets"] [data-testid="save-note"]')
+  .waitFor({ timeout: 15_000 });
+await page.waitForFunction(
+  (r) =>
+    document
+      .querySelector('[data-testid="budgets"]')
+      ?.textContent.match(/wage room\s+(€[\d.,]+[km]?)/)?.[1] !== r,
+  roomBefore,
+  { timeout: 15_000 },
+);
+check(
+  "moving the split toward wages changes the wage room",
+  true,
+  `${roomBefore} → ${(await page.locator('[data-testid="budgets"]').innerText()).match(/wage room\s+(€[\d.,]+[km]?)/)?.[1]}`,
+);
+await leakCheck("the club pages");
 
 check("no errors in the console", errors.length === 0, errors.slice(0, 3).join(" | "));
 await context.close();

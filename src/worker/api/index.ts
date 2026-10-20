@@ -27,6 +27,8 @@ import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector"
 import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
 import { getClubLab, searchPlayers } from "../views/clubLab";
 import { getFreeAgents, getTransferMarket } from "../views/market";
+import { fairTicketPrice, getAcademy, getClubFinances } from "../views/club";
+import { decideAcademyPlayer, setBudgetDials, setTicketPrice } from "../league/club";
 import { getTactics, previewTactics, saveTactics } from "../views/tactics";
 import { getCups, getSchedule, getStandings } from "../views/competitions";
 import { getDashboard, markAllInboxRead } from "../views/dashboard";
@@ -129,6 +131,27 @@ export function createHandlers(
     },
     async getTransferMarket(lid) {
       return getTransferMarket(lid);
+    },
+    async getAcademy(lid) {
+      return getAcademy(lid);
+    },
+    async decideAcademyPlayer(lid, pid, decision) {
+      return decideAcademyPlayer(await openLeague(lid), pid, decision);
+    },
+    async getClubFinances(lid) {
+      return getClubFinances(lid);
+    },
+    async setBudgetDials(lid, dials) {
+      await setBudgetDials(await openLeague(lid), dials);
+      return getClubFinances(lid);
+    },
+    async setTicketPrice(lid, price) {
+      await setTicketPrice(await openLeague(lid), price, await fairTicketPrice(lid));
+      return getClubFinances(lid);
+    },
+    async setClubWageShare(lid, share) {
+      await setWageShare(await openLeague(lid), share);
+      return getClubFinances(lid);
     },
     async listPlayer(lid, pid, asking) {
       await listPlayer(await openLeague(lid), pid, asking);

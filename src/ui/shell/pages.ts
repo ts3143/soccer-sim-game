@@ -30,6 +30,8 @@ export const PAGES: PageDef[] = [
   { key: "transactions", title: "Transactions", section: "League", season: true },
   { key: "squad", title: "Squad", section: "Team", team: true },
   { key: "tactics", title: "Tactics", section: "Team", team: true },
+  { key: "academy", title: "Youth Academy", section: "Team" },
+  { key: "club-finances", title: "Finances & Facilities", section: "Team" },
   { key: "game-log", title: "Game Log", section: "Team", team: true, season: true },
   { key: "team-history", title: "Team History", section: "Team", team: true },
   { key: "free-agents", title: "Free Agents", section: "Players" },

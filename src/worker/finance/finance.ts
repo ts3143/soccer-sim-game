@@ -44,6 +44,12 @@ export const FINANCE = {
     /** Early cup rounds draw this share of a league crowd; finals and semis a full one. */
     cupEarly: 0.75,
     min: 0.3,
+    /**
+     * Demand against the ticket price (SPEC §6.2), price / fair price to this power. The AI
+     * charges the fair price, so only a user's own price moves it (M6). Above 1: dearer
+     * tickets lose money unless the ground would be full anyway.
+     */
+    priceElasticity: 1.5,
   },
   commercial: {
     /** Per reputation point (fitted on the anchors: ~8% more per point). */
@@ -65,7 +71,7 @@ const leagueOf = (id: string, config: CompetitionsConfig): LeagueConfig => {
   return league;
 };
 
-/** The AI's ticket price for a club (the user sets his own from M6). */
+/** The AI's (fair) ticket price for a club; the user can set his own (M6). */
 export function ticketPrice(reputation: number, league: LeagueConfig): number {
   return Math.round(
     league.finance.ticketPriceBase * Math.exp(FINANCE.ticketReputationSlope * (reputation - 50)),
@@ -79,6 +85,7 @@ export function attendance(
   league: LeagueConfig,
   opponentReputation: number,
   stage = 1,
+  priceRatio = 1,
 ): number {
   const a = FINANCE.attendance;
   const fill =
@@ -87,7 +94,8 @@ export function attendance(
     (a.market * (club.market - 50)) / 50 +
     (a.opponent * (opponentReputation - 50)) / 50 +
     (a.facilities * ((club.facilitiesLevel ?? 50) - 50)) / 50;
-  return Math.round(club.capacity * Math.min(1, Math.max(a.min, fill * stage)));
+  const demand = fill * stage * Math.pow(priceRatio, -a.priceElasticity);
+  return Math.round(club.capacity * Math.min(1, Math.max(a.min, demand)));
 }
 
 /** Expected season income from TV and home league gates, for setting the commercial base. */
@@ -290,7 +298,15 @@ export function matchdayIncome(
     cup && cup.rounds.indexOf(fixture.round) < cup.rounds.length - 2
       ? FINANCE.attendance.cupEarly
       : 1;
-  const crowd = attendance(home.club, home.season.hype, league, away?.reputation ?? 50, stage);
+  const fair = ticketPrice(home.season.reputation, league);
+  const crowd = attendance(
+    home.club,
+    home.season.hype,
+    league,
+    away?.reputation ?? 50,
+    stage,
+    home.club.ticketPrice / Math.max(1, fair),
+  );
   credit(home, "matchday", crowd * home.club.ticketPrice);
 }
 
@@ -373,7 +389,9 @@ export function openSeasonBooks(
     const revenue = prev ? operatingRevenue(prev.revenue) : 0;
     const reputation = prev?.reputation ?? 50;
     const budgetBase = revenue > 0 ? revenue : club.revenueAnchor;
-    club.ticketPrice = ticketPrice(reputation, leagueOf(club.leagueId, config));
+    // The AI prices every club's tickets, except the user's when he has set his own (M6).
+    const fixed = club.cid === userCid && club.ticketAuto === false;
+    if (!fixed) club.ticketPrice = ticketPrice(reputation, leagueOf(club.leagueId, config));
     // The AI sets its dials each season; the user's club keeps the user's.
     if (club.cid !== userCid) club.budget = aiDials(club.cash, budgetBase);
     out.set(club.cid, {

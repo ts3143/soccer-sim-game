@@ -480,10 +480,36 @@ function promote(p: Player, ctx: ClubContext, season: number, date: string, log:
   });
 }
 
+/** Releases an academy player to the free-agent pool (no contract, nothing owed). */
+function releaseFromAcademy(
+  p: Player,
+  club: Club,
+  season: number,
+  date: string,
+  log: TurnoverLog,
+): void {
+  p.status = "freeAgent";
+  p.cid = null;
+  p.contract = null;
+  p.freeAgentSince = date;
+  p.shirtNumber = null;
+  p.transfers.push({ date, season, fromCid: club.cid, toCid: null, fee: 0, type: "release" });
+  log.changed.add(p.pid);
+  log.transactions.push({
+    season,
+    date,
+    type: "release",
+    pids: [p.pid],
+    cids: [club.cid],
+    names: [fullName(p), club.name],
+    fee: 0,
+  });
+}
+
 /**
  * Academy players who must move on (18+ on 1 July; by 19, SPEC §7.2) are promoted or
- * released to the free-agent pool; outstanding 17-year-olds are promoted early. Loans
- * come with M4.
+ * released; AI clubs also promote outstanding 17-year-olds early. The user decides for his
+ * own academy (M6): only those he left undecided get this rule (T, 2026-10-19).
  */
 export function academyDecisions(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
@@ -493,42 +519,96 @@ export function academyDecisions(world: LoopWorld, season: number, date: string)
     const candidates = [...ctx.academy].sort(
       (x, y) => y.pot - x.pot || y.ovr - x.ovr || x.pid - y.pid,
     );
+    const ai = ctx.club.cid !== world.userCid;
     for (const p of candidates) {
       const age = exactAge(p.birthDate, date);
       const mustDecide = age >= a.decideFromAge;
-      const outstanding = age >= 17 && p.pot >= ctx.xi + a.earlyPotAboveXi;
+      const outstanding = ai && age >= 17 && p.pot >= ctx.xi + a.earlyPotAboveXi;
       if (!mustDecide && !outstanding) continue;
       const good = p.pot >= ctx.xi - a.promotePotBelowXi || p.ovr >= ctx.xi - a.promoteOvrBelowXi;
       if ((good || outstanding) && ctx.seniors.length < maxSenior) {
         promote(p, ctx, season, date, log);
       } else if (mustDecide) {
-        p.status = "freeAgent";
-        p.cid = null;
-        p.contract = null;
-        p.freeAgentSince = date;
-        p.shirtNumber = null;
-        p.transfers.push({
-          date,
-          season,
-          fromCid: ctx.club.cid,
-          toCid: null,
-          fee: 0,
-          type: "release",
-        });
-        log.changed.add(p.pid);
-        log.transactions.push({
-          season,
-          date,
-          type: "release",
-          pids: [p.pid],
-          cids: [ctx.club.cid],
-          names: [fullName(p), ctx.club.name],
-          fee: 0,
-        });
+        releaseFromAcademy(p, ctx.club, season, date, log);
       }
     }
   }
   return log;
+}
+
+/** The user promotes one of his academy players: his first pro contract (SPEC §7.2). */
+export function promoteAcademyPlayer(
+  world: LoopWorld,
+  pid: number,
+  season: number,
+  date: string,
+): TurnoverLog {
+  const p = world.players.find((x) => x.pid === pid);
+  const ctx = p?.cid == null ? undefined : clubContexts(world).get(p.cid);
+  if (!p || !ctx || p.status !== "academy") throw new Error("He isn't in an academy");
+  if (ctx.seniors.length >= competitionsConfig.rosterRules.maxSenior) {
+    throw new Error(
+      `Your squad is full (${competitionsConfig.rosterRules.maxSenior} seniors): make room first`,
+    );
+  }
+  const log = emptyLog();
+  promote(p, ctx, season, date, log);
+  return log;
+}
+
+/** The user releases one of his academy players to the free-agent pool. */
+export function releaseAcademyPlayer(
+  world: LoopWorld,
+  pid: number,
+  season: number,
+  date: string,
+): TurnoverLog {
+  const p = world.players.find((x) => x.pid === pid);
+  const club = world.clubs.find((c) => c.cid === p?.cid);
+  if (!p || !club || p.status !== "academy") throw new Error("He isn't in an academy");
+  const log = emptyLog();
+  releaseFromAcademy(p, club, season, date, log);
+  return log;
+}
+
+/** The wage a first pro contract would pay him at his club now. */
+export function promotionWage(world: LoopWorld, p: Player, date: string): number {
+  const ctx = p.cid == null ? undefined : clubContexts(world).get(p.cid);
+  return ctx ? wageFor(ctx, p.ovr, exactAge(p.birthDate, date), date) : 0;
+}
+
+/** Academy players who'll be 18 or older on the coming 1 July: decided by then (SPEC §7.2). */
+export function mustDecideBy(p: Player, julyFirst: string): boolean {
+  return (
+    p.status === "academy" && exactAge(p.birthDate, julyFirst) >= TURNOVER.academy.decideFromAge
+  );
+}
+
+/**
+ * 1 May: a reminder of the user's academy players he must promote by 1 July, or the AI
+ * rule decides (promoted if good enough and there's room, otherwise released).
+ */
+export function academyReminder(
+  world: LoopWorld,
+  season: number,
+  date: string,
+): Omit<InboxMessage, "mid"> | null {
+  const julyFirst = `${season + 1}-07-01`;
+  const due = world.players
+    .filter((p) => p.cid === world.userCid && mustDecideBy(p, julyFirst))
+    .sort((a, b) => b.pot - a.pot || a.pid - b.pid);
+  if (due.length === 0) return null;
+  const list = due
+    .map((p) => `${fullName(p)} (${p.position}, OVR ${p.ovr}, POT ${p.pot})`)
+    .join(", ");
+  return {
+    date,
+    season,
+    kind: "contracts",
+    subject: "Academy decisions due by 1 July",
+    body: `These academy players will be 18 or older on 1 July: ${list}. Promote them on the Youth Academy page, or on 1 July the club decides for you: promoted if they're good enough and there's room in the squad, otherwise released.`,
+    read: false,
+  };
 }
 
 /**

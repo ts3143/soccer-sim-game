@@ -174,6 +174,11 @@ export interface Club {
   budget: BudgetDials;
   /** Euros per ticket for the season. Provisional until the economy (M4). */
   ticketPrice: number;
+  /**
+   * The user's club only (M6): false once he sets his own price, which then stays from
+   * season to season. Absent or true: the AI's fair price, set each preseason.
+   */
+  ticketAuto?: boolean;
   /** Current cash in whole euros (season-end snapshots go in clubSeasons). */
   cash: number;
   /**

@@ -1186,5 +1186,26 @@ Each point of parity gained cost about one champion point, so the two real-world
   - listed players draw AI bids between 85% and 100% of the price; unlisting works.
 - **Browser checks:** `m6` adds 10 (search and its filter, listing, the release dialog and the release, the agreed transfer completing once a place is free, a loan out answered, the Loans tab, incoming offers, no real names). The sweep now opens the Transfer Market too.
 
+**Chunk 7: Youth Academy, Finances & Facilities** (`src/ui/pages/Academy.tsx`, `src/ui/pages/ClubFinances.tsx`, `src/worker/views/club.ts`, `src/worker/league/club.ts`)
+- **Youth Academy** (`/l/:lid/academy`, Team section): your prospects, best potential first. Each shows age, nationality, OVR, POT, the change at the last development update, and the wage a first pro contract would pay him.
+  - **Promote:** his first professional contract, three seasons (to 30 June three seasons on). Not with a full squad.
+  - **Release** (with a confirm): he joins the free-agent pool.
+  - **To loan a prospect out:** promote him first, then Loan out (judgment call: academy players have no contract to lend on).
+  - Players 18 or older on the coming 1 July carry a "decide by 1 July" badge.
+- **Academy decisions** (T's decision): the club no longer promotes your outstanding 17-year-olds early; that stays an AI-club rule. On 1 July, anyone 18+ you left undecided gets the AI rule (promoted if good enough and there's room, otherwise released). A **1 May inbox reminder** lists them. The harness has no user club, so calibration is unchanged.
+- **Finances & Facilities** (`/l/:lid/club-finances`, Team section):
+  - **Books:** cash; this season's income (gate, TV, prize money, commercial, player sales) and spending (wages, fees, the four dials); the amortisation booked; cash at the end of each season (an in-house line chart, hover for values).
+  - **FFP gauge:** squad cost (wages and amortisation, released players included) against the 70% limit, last season's ratio, any warning or ban, and the facilities level.
+  - **Budget dials:** four sliders, 0–100, each with its cost a season as you slide, what it does, and its effect now (relative to other clubs, measured each preseason). Costs change as soon as you save.
+  - **Ticket price** (T's decision): your own price, or Auto (the AI's fair price), set until your first home match and then fixed for the season. A table shows the expected crowd and gate per league match at six prices. Your own price carries on from season to season; Auto is re-priced each preseason.
+  - **Transfer budget and wage room** with the fees/wages control (5% steps).
+- **Ticket prices now move crowds** (SPEC §6.2: attendance "driven by … ticket price", missing until now because every club charged the fair price): the crowd is scaled by (price ÷ fair price) to the power −1.5, within the ground's capacity. **Judgment call:** with 1.5, dearer tickets lose money unless the ground would be full anyway; a club with spare demand can raise prices a little and still sell out. The AI charges the fair price, so its crowds and the calibration are unchanged (checked: same numbers).
+- **Worker:** new calls `getAcademy`, `decideAcademyPlayer`, `getClubFinances`, `setBudgetDials`, `setTicketPrice` and `setClubWageShare`. Clubs carry `ticketAuto`. A new season event fires the 1 May reminder.
+- **Tests** (3 new, 249 in all):
+  - the academy: listed by potential; the user's 17-year-olds are left alone while AI clubs promote theirs; the May reminder; promote (three seasons) and release;
+  - attendance falls with price;
+  - the club's books: dials and their cost, the fees/wages split, the ticket price set, back to Auto and set again, then locked after a home match.
+- **Browser checks:** `m6` adds 11 (setting a ticket price in preseason, the academy and its release confirm, a full squad holding promotion, the books and chart, the FFP gauge, the price locked after a home match, dials saved across a reload, the fees/wages split). 67/67 pass. The sweep opens both new pages, and all other checks and the calibration gate pass.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

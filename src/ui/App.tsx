@@ -7,6 +7,8 @@ import { Inspector } from "./inspector/Inspector";
 import { BoxScorePage } from "./pages/BoxScorePage";
 import { Cups } from "./pages/Cups";
 import { Dashboard } from "./pages/Dashboard";
+import { Academy } from "./pages/Academy";
+import { ClubFinances } from "./pages/ClubFinances";
 import { Finances } from "./pages/Finances";
 import { FreeAgents } from "./pages/FreeAgents";
 import { GameLog } from "./pages/GameLog";
@@ -131,6 +133,10 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <FreeAgents />;
     case "transfer-market":
       return <TransferMarket params={params} />;
+    case "academy":
+      return <Academy />;
+    case "club-finances":
+      return <ClubFinances />;
     case "history":
       return <History />;
     case "team-history":

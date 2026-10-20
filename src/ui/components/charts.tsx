@@ -1,6 +1,7 @@
 /**
- * In-house SVG charts (T, 2026-10-19: no chart library): the player-profile radar and the
- * OVR/POT history. One hue; OVR solid, POT dashed, so identity never rests on colour alone.
+ * In-house SVG charts (T, 2026-10-19: no chart library): the player-profile radar, the
+ * OVR/POT history and a club's cash over the seasons. One hue; OVR solid, POT dashed, so
+ * identity never rests on colour alone.
  */
 import { useState, type MouseEvent } from "react";
 import { formatDate } from "../format";
@@ -196,6 +197,101 @@ export function RatingHistoryChart({
           onMouseMove={move}
           onMouseLeave={() => setHover(null)}
         />
+      </svg>
+    </div>
+  );
+}
+
+/** One value per season (cash): a line with points, the zero line marked; hover for values. */
+export function SeasonLineChart({
+  points,
+  format,
+  label,
+}: {
+  points: { season: number; value: number; current: boolean }[];
+  format: (v: number) => string;
+  label: string;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const width = 600;
+  const height = 200;
+  const pad = { left: 64, right: 16, top: 14, bottom: 26 };
+  if (points.length === 0) return null;
+  const values = points.map((p) => p.value);
+  const lo = Math.min(0, ...values);
+  const hi = Math.max(0, ...values) || 1;
+  const span = hi - lo || 1;
+  const x = (i: number) =>
+    points.length === 1
+      ? (pad.left + width - pad.right) / 2
+      : pad.left + (i / (points.length - 1)) * (width - pad.left - pad.right);
+  const y = (v: number) => pad.top + ((hi - v) / span) * (height - pad.top - pad.bottom);
+  const ticks = [lo, lo + span / 2, hi];
+  const h = hover === null ? null : points[hover];
+  const season = (s: number) => `${s}/${String((s + 1) % 100).padStart(2, "0")}`;
+  return (
+    <div>
+      <div
+        className="small mb-1"
+        style={{ minHeight: 20, color: INK }}
+        data-testid="season-chart-hover"
+      >
+        {h ? (
+          <>
+            {season(h.season)}
+            {h.current ? " (now)" : ""}: <strong>{format(h.value)}</strong>
+          </>
+        ) : (
+          label
+        )}
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} width="100%" role="img" aria-label={label}>
+        {ticks.map((v, i) => (
+          <g key={i}>
+            <line x1={pad.left} x2={width - pad.right} y1={y(v)} y2={y(v)} stroke={GRID} />
+            <text
+              x={pad.left - 6}
+              y={y(v)}
+              textAnchor="end"
+              dominantBaseline="middle"
+              fontSize={11}
+              fill={INK}
+            >
+              {format(v)}
+            </text>
+          </g>
+        ))}
+        {lo < 0 && <line x1={pad.left} x2={width - pad.right} y1={y(0)} y2={y(0)} stroke={INK} />}
+        <path
+          d={points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.value)}`).join(" ")}
+          fill="none"
+          stroke={BLUE}
+          strokeWidth={2}
+        />
+        {points.map((p, i) => (
+          <g key={p.season}>
+            <circle
+              cx={x(i)}
+              cy={y(p.value)}
+              r={hover === i ? 6 : 4}
+              fill={p.current ? "#fff" : BLUE}
+              stroke={BLUE}
+              strokeWidth={2}
+            />
+            <text x={x(i)} y={height - 8} textAnchor="middle" fontSize={11} fill={INK}>
+              {season(p.season)}
+            </text>
+            <rect
+              x={x(i) - 20}
+              y={pad.top}
+              width={40}
+              height={height - pad.top - pad.bottom}
+              fill="transparent"
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
+            />
+          </g>
+        ))}
       </svg>
     </div>
   );

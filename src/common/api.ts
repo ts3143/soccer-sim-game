@@ -193,7 +193,8 @@ export type PlayOption =
   | "proceedToPromotionRelegation"
   | "advanceToPreseason";
 
-export type SeasonEventKind = "windowOpens" | "windowCloses" | "winterUpdate" | "deadlineReminder";
+export type SeasonEventKind =
+  "windowOpens" | "windowCloses" | "winterUpdate" | "deadlineReminder" | "academyReminder";
 
 export interface SeasonEvent {
   date: string;
@@ -701,6 +702,82 @@ export interface LoanRow {
   wageShare: number;
 }
 
+/** The Youth Academy page (M6): the user's academy players and what deciding means. */
+export interface AcademyView {
+  date: string;
+  /** The coming 1 July: players 18 or older then must be decided by it (SPEC §7.2). */
+  decideBy: string;
+  seniors: number;
+  maxSeniors: number;
+  /** The Youth academy dial (0–100): intake size and quality. */
+  youthDial: number;
+  players: {
+    pid: number;
+    name: string;
+    position: Position;
+    secondary: Position[];
+    age: number;
+    nationality: string;
+    ovr: number;
+    pot: number;
+    /** OVR change at the last development update. */
+    change: number | null;
+    /** 18 or older on `decideBy`: promote him by then, or the AI rule decides. */
+    mustDecide: boolean;
+    /** His wage a year on a first pro contract now. */
+    wage: number;
+  }[];
+}
+
+/** The user's club finances and facilities (M6, SPEC §11). */
+export interface ClubFinancesView {
+  season: number;
+  date: string;
+  team: TeamRef;
+  cash: number;
+  /** This season so far, by kind. */
+  revenue: { kind: string; label: string; amount: number }[];
+  expenses: { kind: string; label: string; amount: number }[];
+  profit: number;
+  /** Fee amortisation booked this season (an FFP cost, not cash). */
+  amortisation: number;
+  /** Cash at the end of each past season, and now. */
+  cashHistory: { season: number; cash: number; current: boolean }[];
+  ffp: {
+    /** Squad cost (wages and amortisation) over revenue, projected for this season. */
+    ratio: number;
+    limit: number;
+    lastSeason: number | null;
+    status: "ok" | "warned" | "banned";
+    bannedUntil: string | null;
+  };
+  budget: { transfer: number; wageRoom: number; wageShare: number; base: number };
+  dials: {
+    key: "coaching" | "youth" | "medical" | "facilities";
+    label: string;
+    what: string;
+    level: number;
+    /** Euros a season at this level. */
+    cost: number;
+    /** What the dial does now, relative to other clubs (50 = average). */
+    effect: number;
+  }[];
+  /** A dial's cost a season at level 0 and at 100 (straight line between). */
+  dialCostRange: { at0: number; at100: number };
+  facilitiesLevel: number;
+  ticket: {
+    price: number;
+    /** The AI's price for the club (what "Auto" charges). */
+    fair: number;
+    auto: boolean;
+    /** True once the season's first home match is played. */
+    locked: boolean;
+    capacity: number;
+    /** A league home match at a few prices: the expected crowd and gate. */
+    curve: { price: number; attendance: number; gate: number }[];
+  };
+}
+
 /** Injuries: every injured player in the world now. */
 export interface InjuriesView {
   date: string;
@@ -1187,6 +1264,18 @@ export interface WorkerApi {
   getInjuries(lid: number): InjuriesView;
   getFreeAgents(lid: number): FreeAgentsView;
   getTransferMarket(lid: number): TransferMarketView;
+  getAcademy(lid: number): AcademyView;
+  /** Promotes (first pro contract) or releases one of the user's academy players. */
+  decideAcademyPlayer(lid: number, pid: number, decision: "promote" | "release"): string;
+  getClubFinances(lid: number): ClubFinancesView;
+  setBudgetDials(
+    lid: number,
+    dials: { coaching: number; youth: number; medical: number; facilities: number },
+  ): ClubFinancesView;
+  /** The season's ticket price (null = Auto, the AI's fair price); locked after a home match. */
+  setTicketPrice(lid: number, price: number | null): ClubFinancesView;
+  /** The fees/wages control (SPEC §6.3): the share of FFP headroom kept for wages. */
+  setClubWageShare(lid: number, share: number): ClubFinancesView;
   /** Lists one of the user's players at an asking price, or takes him off the list (null). */
   listPlayer(lid: number, pid: number, asking: number | null): TransferMarketView;
   /** Releases one of the user's players; returns what it costs, in words. */

@@ -44,6 +44,8 @@ const PROBES = {
   tactics: { rows: "tactics-xi", min: 11, at: ALL },
   "free-agents": { rows: "free-agents", min: 1, at: ALL },
   "transfer-market": { rows: "market-search", min: 1, at: ALL },
+  academy: { rows: "academy", min: 1, at: ALL },
+  "club-finances": { sel: '[data-testid="dials"]', min: 1, at: ALL },
   "game-log": { rows: "game-log", min: 38, at: ALL },
   "team-history": { rows: "team-seasons", min: 1, at: ALL },
   "league-leaders": { rows: "leaders-goals", min: 10, at: PLAYED },
