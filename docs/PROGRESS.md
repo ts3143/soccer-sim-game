@@ -1289,7 +1289,7 @@ Each point of parity gained cost about one champion point, so the two real-world
   - the squad view serves squads and academies;
   - the Transfer Market search and the fees/wages control work.
 - **Version:** 0.1.0 in package.json, built into the app (`__APP_VERSION__`) and shown on Manage Leagues and in Settings. A new M5 check reads it.
-- **Bundle:** 1.2 MB of assets (the developer pages were about a fifth of the game screens' code).
+- **Bundle:** 1.2 MB of assets after the removal.
 - **Tests:** 251, all pass. **Browser checks:** game pages 89/89, management screens 74/74, full-season sweep 43/43, career 11/11.
 
 ## Open issues
