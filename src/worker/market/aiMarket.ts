@@ -220,8 +220,17 @@ function bestChoice(
   // Bids lapse once their deadline day is played (as the save marks them).
   const bids = (world.openBids ?? []).filter((b) => date < b.expires);
   let best: Choice | null = null;
+  const inRange = inReach(pools.atClubs, need, club.cid, m.shortlist);
+  // The user's transfer list (M6): a listed player who fits the need is always considered,
+  // not only when he is among the best in reach.
+  const listed = (pools.atClubs.get(need.slot.position) ?? []).filter((p) => {
+    if (p.cid !== world.userCid || !p.listed || inRange.includes(p)) return false;
+    const rating = slotOvr(p, need.slot);
+    return rating >= need.min && rating <= need.max;
+  });
   const shortlist = [
-    ...inReach(pools.atClubs, need, club.cid, m.shortlist),
+    ...inRange,
+    ...listed,
     ...inReach(pools.free, need, club.cid, m.freeAgentShortlist),
   ];
   for (const p of shortlist) {

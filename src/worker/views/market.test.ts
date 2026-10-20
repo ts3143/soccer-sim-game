@@ -166,4 +166,28 @@ describe("releasing and listing players", () => {
       await expect(listPlayer(session, first, -5)).rejects.toThrow(/whole number/);
     },
   );
+
+  it(
+    "brings bids for a listed player even when he isn't among the best in reach",
+    { timeout: 180_000 },
+    async () => {
+      const probe = await openLeague(
+        (await createLeague({ name: "Probe", seed: "career", userCid: 0 })).lid,
+      );
+      const cid =
+        probe.cache
+          .getAll("clubs")
+          .find((c) => c.leagueId === "ENG2" && c.name === "Lancashire Rovers")?.cid ?? -1;
+      const league = await createLeague({ name: "Second tier", seed: "career", userCid: cid });
+      const session = await openLeague(league.lid);
+      const picks = (await getTransferMarket(league.lid)).squad.slice(0, 2);
+      for (const r of picks)
+        await listPlayer(session, r.pid, Math.round((r.value * 0.85) / 10_000) * 10_000);
+      await play(session, "untilWindowCloses");
+      const bids = userOffers(session).filter(
+        (o) => o.incoming && picks.some((r) => r.pid === o.pid),
+      );
+      expect(new Set(bids.map((b) => b.pid)).size).toBe(2);
+    },
+  );
 });

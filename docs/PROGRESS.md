@@ -10,7 +10,7 @@ Claude Code updates this file at the end of each milestone.
 | M3 Season loop | **Accepted** (T, 2026-10-16) | All M3 gates pass locally, in CI (`calibrate --world --check`, 16 checks) and on the Cloudflare preview (Season lab 19/19, Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Young regulars' growth and world shape gated in M4 (T). See "M3 notes" below. |
 | M4 Economy and market | **Accepted** (T, 2026-10-19) | All gates pass locally, in CI (`calibrate --check`, `calibrate --world --check` with the M4 economy, world-shape and exploit gates; 222 tests) and on the Cloudflare preview (Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. Champion band 76–100 for the MVP (revisit with Europe). See "M4 notes" below. |
 | M5 Core UI | **Accepted** (T, 2026-10-19) | All checks pass locally, in CI and on the Cloudflare preview and production (game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M5 notes" below. |
-| M6 Management UI | In progress | Plan approved (9 chunks). See "M6 notes" below. |
+| M6 Management UI | Built; T's local test next | All 9 chunks built. 251 tests; calibration gates pass unchanged; headless Chrome against the production build: the three-season career 11/11 (sign, sell, loan, renew, tactics, a live match changed at half-time each season, academy promotions, even a sacking and a new job), management screens 74/74, game pages 90/90, full-season sweep 43/43 (every page, now 22, at six points), Club lab 19/19, Season lab 21/21, M1 18/18. See "M6 notes" below. |
 | M7 Polish and release v0.1 | Not started | |
 
 ## Deviations from spec
@@ -1045,7 +1045,7 @@ Each point of parity gained cost about one champion point, so the two real-world
   - the browser checks run locally only (they need Chrome);
   - Firefox untested (see Open issues).
 
-## M6 notes (2026-10-19, in progress)
+## M6 notes (2026-10-19)
 **Plan** (approved by T): 9 chunks of about an hour.
 1. Tactics: the saved line-up (formation, XI by slot, bench, sliders), slot OVR, live team ratings, drag and drop, Auto.
 2. Watch live, game side: watching your next match inside the season loop, saved like a simulated match, resumable.
@@ -1218,6 +1218,54 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Worker:** new calls `getJobOffers` and `renameLeague`. Offer cards use the board targets' labels from the league config.
 - **Tests:** one new (the fired view with the sacking club, record and offers; renaming in the save and the save list; an empty name refused); 250 tests in all.
 - **Browser checks:** `m6` adds 7 (nothing greyed in the sidebar, Simulate from the Dashboard, Watch live from the Game Log, the fired page while in a job, renaming, deleting the league). 74/74 pass. The sweep opens Settings too, and all other checks pass.
+
+**Chunk 9: acceptance, the three-season career** (`tools/browser-checks/career.mjs`)
+- **`pnpm browsercheck career`** runs Lancashire Rovers (seed "career") for three seasons using only the screens. Each preseason and summer window it:
+  - sets tactics (Auto plus a slider) and its own ticket price, and the fees/wages split to 60%;
+  - bids for a cheap second-tier player within the budget and signs him;
+  - releases the least valuable seniors to make room, promotes the best prospect, signs a free agent, renews a final-year contract;
+  - lists one wanted player at 85% of his value and offers a bench player on loan to second-tier clubs;
+  - answers bids week by week through the window (accepting the first);
+  - watches the next match live: kicks off on the fastest speed, stops at half-time, makes a substitution and a slider change, plays to full time;
+  - plays the season out, then promotion and relegation and the next preseason. If the board sacks the user, it takes the first job offer and goes on.
+- **The checks read the game's own records:** the Transactions log for every season, filtered to the user's club by the exact wording of each kind of move. Every kind must be there: free agents and a transfer in, a sale, a loan out, a renewal, an academy promotion. The screens must also record a saved tactic and a live match changed at half-time each season, History must hold every finished season, and there must be no real names and no console errors.
+- **One run:** in season 1 it bought a player, promoted a prospect, signed a free agent, renewed a contract, loaned a player out, sold the listed player for €790k, watched a 2–0 win, and was then sacked (the board had little patience after the releases and the sale). It took the job at another second-tier club and played two more seasons there. 11/11 pass in about 45 seconds of play.
+- **Fixed on the way (the transfer list):** the career showed that listed players at a second-tier club drew no bids, even at 30% of their value. Each AI club only looks at the best 60 players within reach for the position it needs, and mid-level players never made that list. A listed player who fits a club's need is now always considered (T's decision: AI clubs that need his position bid around the price). Listed this way, the club's two best players both drew bids at their asking price within the window. Weaker players still draw none, because no one would be improved by them. A new test covers it. The harness has no user club, so calibration is unchanged (checked).
+- **Tests:** 251 in all. **Browser checks:** all seven scripts pass (276 checks).
+
+### M6 summary
+- **Built:**
+  - **Tactics:** the saved line-up and sliders, drag and drop, live team ratings, Auto.
+  - **Watch live:**
+    - "Watch your next match" holds the match day and runs your match possession by possession, saved as it goes, so a reload resumes it with no do-overs;
+    - pre-match changes for this match only and the AI's rotation; a speed slider; energy bars, stats and commentary;
+    - stops at half-time, before extra time, and for your injuries and red cards; a changes screen with subs (windows counted), formation and sliders.
+    - At full time the day finishes through the same code as a simulated day.
+  - **One contract window** for renewals, transfers (fee, then personal terms) and free agents. **Free Agents** page.
+  - **Transfer Market:** search, the transfer list, incoming offers, loans; **releasing** players.
+  - **Youth Academy** (promote, release, the 1 May reminder) and **Finances & Facilities** (books, cash chart, FFP gauge, dials, ticket price, the fees/wages split).
+  - **"You're fired"** screen, **Settings**, Watch and Simulate buttons for the next match, and the full sidebar.
+- **Decisions** (T, Deviations table, design doc #55–#56):
+  - releasing as ZenGM;
+  - undecided academy players get the AI rule on 1 July, with a May reminder;
+  - ticket price set in preseason and locked after the first home match;
+  - Settings holds rename and delete, with the live speed as a slider;
+  - the transfer list;
+  - a live match resumes after the game is closed;
+  - AI clubs sign free agents only in the windows.
+- **Judgment calls:**
+  - a release keeps the fee on its amortisation schedule, so it saves nothing;
+  - ticket prices move crowds (elasticity 1.5, AI unaffected);
+  - auto-pause stops only for your own injuries and red cards;
+  - to loan out an academy player, promote him first;
+  - no single Team OVR yet (its weights are still unfitted).
+- **Fixed to match the spec:** free agents can be signed outside the windows.
+- **Acceptance** (MILESTONES M6): the three-season career passes. It signs, sells, loans, renews, sets tactics, watches and changes a match live, and promotes academy players, all through the screens and confirmed in the game's own records.
+- **Known edges, for later:**
+  - the AI bids for your listed players only when they would improve one of its positions, so weak players don't sell, by design;
+  - a full squad blocks signings until you sell, loan or release, and the windows' pace means a sale can take weeks;
+  - the developer pages at `/dev` are removed in M7, as agreed;
+  - Firefox untested.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.
