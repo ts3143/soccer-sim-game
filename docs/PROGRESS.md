@@ -9,8 +9,8 @@ Claude Code updates this file at the end of each milestone.
 | M2 Match engine + calibration harness | **Accepted** (T, 2026-10-14) | All gates pass locally, in CI (`calibrate --check`) and on the Cloudflare preview (Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Parity is gated in M3 (T). See "M2 notes" below. |
 | M3 Season loop | **Accepted** (T, 2026-10-16) | All M3 gates pass locally, in CI (`calibrate --world --check`, 16 checks) and on the Cloudflare preview (Season lab 19/19, Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Young regulars' growth and world shape gated in M4 (T). See "M3 notes" below. |
 | M4 Economy and market | **Accepted** (T, 2026-10-19) | All gates pass locally, in CI (`calibrate --check`, `calibrate --world --check` with the M4 economy, world-shape and exploit gates; 222 tests) and on the Cloudflare preview (Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. Champion band 76–100 for the MVP (revisit with Europe). See "M4 notes" below. |
-| M5 Core UI | Built; T's local test next | All 8 chunks built. 234 tests; headless Chrome against the production build: game pages 90/90, full-season sweep 43/43 (a season and rollover with only the Play menu, every page at six points, no real names, no console errors), Club lab 19/19, Season lab 21/21, M1 18/18. See "M5 notes" below. |
-| M6 Management UI | Not started | |
+| M5 Core UI | **Accepted** (T, 2026-10-19) | All checks pass locally, in CI and on the Cloudflare preview and production (game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M5 notes" below. |
+| M6 Management UI | Built; T's local test next | All 9 chunks built. 251 tests; calibration gates pass unchanged; headless Chrome against the production build: the three-season career 11/11 (sign, sell, loan, renew, tactics, a live match changed at half-time each season, academy promotions, even a sacking and a new job), management screens 74/74, game pages 90/90, full-season sweep 43/43 (every page, now 22, at six points), Club lab 19/19, Season lab 21/21, M1 18/18. See "M6 notes" below. |
 | M7 Polish and release v0.1 | Not started | |
 
 ## Deviations from spec
@@ -50,6 +50,8 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-19 | M4 chunk 10 | ENG1 champion points target 90 (82–100) → 84 (76–100) for the MVP. | With stable stars, a later peak and realistic parity, talent spreads evenly and the champion averages ~78–80 points. Real 85–90-point champions come from money concentration, much of it European, which is out of MVP scope. Revisit when Europe is added. Approved by T (option A). | `calibration_targets.json` perSeason |
 | 2026-10-19 | M4 chunk 10 | Players beating their displayed POT: target 25% (18–32%) → 20% (14–30%). | With more ceiling room for prospects, released and stalled young players fall short of the forecast; measured 15.8%. Approved by T. | SPEC §4.4; `calibration_targets.json` development |
 | 2026-10-19 | M5 plan | The Inbox page moves from M6 to M5; the developer pages stay at a hidden `/dev` address through M6. Charts and routing are built in-house. | The Dashboard previews the inbox; until M6's transfer screens, the Club lab is the only place to trade. Approved by T. | MILESTONES M5, M6 |
+| 2026-10-19 | M6 plan | Releasing a player (user): he leaves at once, his wages are still paid monthly until the contract ends and count for FFP. Academy players 18+ the user hasn't decided on by 1 July get the AI rule, with an inbox reminder in May. Ticket price set in preseason, locked after the first home match, "Auto" = the AI price. Settings: rename and delete the save; the live-match speed is a slider on the Watch live screen. Transfer list: AI clubs that need the position bid around the asking price. A live match is saved as it goes and resumes after the game is closed. | The spec didn't cover releasing, academy players left undecided, when the price can change, what Settings holds or how listing works. Approved by T. | SPEC §6.2, §7.2, §7.6, §11 |
+| 2026-10-19 | M6 chunk 5 | The user can sign free agents at any time; AI clubs sign them only on their market days, inside the windows (as built in M4). | SPEC §3.1 said "at any time" for everyone. Changing the AI would need a calibration run. Kept by T. | SPEC §3.1 |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -1042,6 +1044,228 @@ Each point of parity gained cost about one champion point, so the two real-world
   - box scores of other clubs' matches older than two seasons are pruned by design, so those pages say so;
   - the browser checks run locally only (they need Chrome);
   - Firefox untested (see Open issues).
+
+## M6 notes (2026-10-19)
+**Plan** (approved by T): 9 chunks of about an hour.
+1. Tactics: the saved line-up (formation, XI by slot, bench, sliders), slot OVR, live team ratings, drag and drop, Auto.
+2. Watch live, game side: watching your next match inside the season loop, saved like a simulated match, resumable.
+3. Watch live, before and during: one-match changes and Auto rotation; the feed, score, clock, stats, energy bars, speed slider and Pause.
+4. Watch live, changes: the pause screen (subs, sliders, formation), half-time, injury prompts, extra time and penalties, full time.
+5. The contract negotiation window and Free Agents.
+6. Transfer Market: Search, Your listed players, Incoming offers, Loans; releasing players.
+7. Youth Academy, and your club's Finances and Facilities (dials, ticket price, budgets).
+8. The "You're fired" screen, Settings, the team schedule with Sim and Watch, the full sidebar.
+9. Acceptance: three seasons run entirely in the UI (automated), all browser checks, docs and handover.
+
+**Chunk 1: Tactics** (`src/worker/club/tactics.ts`, `src/worker/views/tactics.ts`, `src/ui/pages/Tactics.tsx`)
+- **Saved line-up:** your club's tactics now hold the XI by slot and the bench order (up to 9), next to the formation and the three sliders. Saves without one get the AI's pick.
+- **Who can be picked:** seniors (loanees in included) and academy players of 16+. Players who leave (sold, loaned out, released) drop out of the saved line-up on their own.
+- **What applies where** (as decided in M2): the formation is your club's in every match. The line-up and sliders apply to the matches you watch; in simulated matches the AI picks them for your club, within your formation, as for every AI club.
+- **The page** (`/l/:lid/tactics/:cid`, Team section):
+  - a formation dropdown (the 5 MVP presets); changing it moves the same eleven into the new slots, each where his slot OVRs add up best;
+  - the XI by slot (RB, LCB-style labels) with OVR in that slot (red when 4+ below his OVR), OVR, condition and age; the bench (9 places); everyone else who can play;
+  - drag a player onto another place to swap them, or click one and then the other (keyboard too). Drop a player on "leave out" to take him out;
+  - the three sliders with their labels and effects;
+  - the seven team ratings at today's condition, on the player OVR scale, updating as you change things, with the change since your saved line-up;
+  - warnings: empty slots, injured starters, starters below 75% condition, no goalkeeper on the bench, injured subs;
+  - Auto (the AI's pick for an ordinary match today), Reset and Save.
+  - Other clubs show the AI's pick, read-only.
+- **Worker:** new calls `getTactics`, `previewTactics` (as given, re-slotted, or Auto) and `saveTactics`. Each checks the rules: MVP formations only, 11 slots, 9 on the bench, nobody twice, only your players, whole slider steps.
+- **Tests:** a tactics test (the AI's pick, re-slotting, slider effects, a keeper up front, empty slots, saving, five rule breaks, a player leaving, an injured starter, another club); 235 tests in all.
+- **Browser checks:** new `m6` check, 14/14 pass (the page, formation change, live ratings from a slider, drag and drop, click to swap, leave out, Auto, save, reload, another club read-only, no real names, no console errors). The full-season sweep now opens Tactics too. All other checks pass.
+- **Judgment call:** team ratings are shown without a single Team OVR, whose weights are still placeholders (TEAM_OVR_WEIGHTS) and haven't been fitted yet.
+
+**Chunk 2: Watch live, game side** (`src/worker/league/live.ts`, `src/worker/season/runner.ts`, `src/ui/pages/Live.tsx`)
+- **Play → "Watch your next match"** (offered whenever your club has a match to come):
+  - it plays every day before your next match, then that day's events, market and training;
+  - then it holds the day before its matches (runner option `hold`). It checks each day, so a cup tie drawn on the way is the one you watch.
+- **The live match:** your club plays your saved line-up and sliders. Players who can't play today (injured, or on loan from the opponent) are replaced by the best fit players left, and the bench is topped up from the AI's. The AI picks the opponent and its sliders as usual. The AI makes no in-game changes for your club: an injured player of yours limps on at low energy until you replace him (the prompt arrives in chunk 4), and if your keeper is sent off an outfielder goes in goal.
+- **Saved as it goes:** the engine state, its random stream included, is stored in the save (meta row "live") every 5 match minutes, at breaks, after every change, and at the end.
+  - A closed or reloaded game resumes from that point.
+  - The minutes since the last save replay exactly as they were, so there are no do-overs. Changes you made are never lost.
+- **Full time:** the held day is finished with your live result (runner option `resume`): the day's other matches, gate money, prize money, hype, tables, board, cup draws and stats, through the same code as a simulated day.
+- **While a match is live,** the Play menu waits, and the six market actions (renew, bid, sign, answer a bid, loan, the wage control) refuse with "Finish your live match first." The top bar shows a "Live match" link.
+- **Worker:** new calls `getLiveMatch`, `stepLiveMatch` and `changeLiveMatch` (the in-match changes, used from chunk 4). `squadPlay` now separates picking the squads (`prepare`) from applying a played match to the players (`finish`).
+- **A first live screen** (`/l/:lid/live`): score and clock, Kick off / Play / Pause, To full time, the commentary and a few stats; at full time, links to the box score and the Dashboard. Chunks 3 and 4 build the full screen on it.
+- **Tests** (3 new, 238 in all):
+  - watching with the AI managing your club gives exactly the same saved day as simulating it: every result, match record, player, club, club-season row, stat row, message and transaction;
+  - your line-up and sliders are used, the game holds, and the match is saved at full time;
+  - an interrupted match resumes from its last save to the identical result.
+- **Browser checks:** `m6` adds 9 (watch from the Play menu, the waiting Play menu and the live link, Kick off and Pause, a reload mid-match resuming, To full time, the box score, the Play menu back). 23/23 pass, and all other checks pass.
+- The 20-season calibration gate (`calibrate --world --check`) still passes: simulated play is unchanged.
+- **Fixed on the way:** hype after a watched match used the clubs' strength after the match's injuries. The watched path now picks the squads too (unused), so the day's caches match a simulated day.
+
+**Chunk 3: Watch live, before and during** (`src/ui/pages/Live.tsx`, `src/ui/components/LineupEditor.tsx`, `src/worker/league/live.ts`)
+- **Before kick-off:** the live page opens on your line-up for this match.
+  - It uses the Tactics editor (now a shared component): drag or click to swap, the formation, the sliders and the team ratings.
+  - Changes apply to the match at once, for this match only; your saved Tactics stay as they are. Only players fit to play are listed.
+  - **Auto** = the AI's rotation for this fixture (with its importance and fixture congestion, as in a simulated match). **My saved line-up** goes back to your Tactics.
+  - Each change restarts the match from kick-off with the new team on the same random stream. Re-applying the same line-up gives the identical match.
+  - The opponent's XI and formation are shown alongside. Changes are refused once the match has kicked off ("make changes at a pause", chunk 4).
+- **During the match:**
+  - the scoreboard with crests, score, clock (Kick-off, Half-time, Full time) and the scorers under each team;
+  - Play / Pause, a **speed slider** (Slow, Steady, Normal, Fast, Very fast: 1 to 12 possessions a step), remembered in your browser, and To full time;
+  - the commentary, newest first, with badges for goals, cards, subs and injuries;
+  - stats: a possession bar, shots, on target, xG, pass accuracy, corners, fouls and cards;
+  - both teams' players with energy bars (green, amber below 70, red below 50), bookings and injuries, subs and windows used, and the bench.
+- **Worker:** new calls `getLiveLineup` and `setLiveLineup` (modes as given, re-slotted, Auto, saved). `TacticsMode` gains "saved" (the Tactics page's Reset can use it too).
+- **Tests:** a pre-match test (the editor shows the match's line-up; a swap applies; Auto and saved; outsiders left out; no change after kick-off; an unchanged restart gives the identical result); 239 tests in all.
+- **Browser checks:** `m6` adds 5 (the pre-match screen and the opponent's XI, a change and My saved line-up, the speed and the line-up surviving a reload, energy draining with the newcomer playing, the scorers). 28/28 pass, as do all the other checks.
+- **Judgment calls:** the speed is a per-browser setting (local storage), not saved in the league. Empty slots in the pre-match line-up are filled at once with the best fit player, since a match needs eleven.
+
+**Chunk 4: Watch live, changes** (`src/worker/league/live.ts`, `src/ui/pages/Live.tsx`)
+- **Play stops by itself:**
+  - at half-time, before extra time, and at extra time's half-time;
+  - when one of your players is injured (and not yet replaced) or sent off.
+  - The worker steps one possession at a time and stops at the first of these; the view says why. "To full time" plays straight on with no stops.
+- **The changes screen** opens whenever play is paused (by you or by itself):
+  - a title (Paused, Half-time, Extra time to come, Extra time: half-time, Injury, Sent off) and a plain message for injuries and red cards. A keeper sent off: an outfielder has gone in goal, so bring on your reserve keeper for him;
+  - **substitutions:** each player on the pitch (energy, bookings, injured) with a "Replace with" list of the bench (position and OVR);
+  - the subs and windows left: at a break "substitutions now don't use a window", during play "use 1 of your N remaining windows: make them all together" (all subs applied at once use one window, as the engine's rule);
+  - formation and the three sliders;
+  - **Make changes** (one call to the engine) and **Resume**.
+- **Penalty shoot-outs** run at the end of extra time as before; the scoreboard shows the shoot-out score, and the commentary each kick.
+- **Worker:** `stepLiveMatch` gains `autoPause`; new pure `pauseFor` decides the stops. The players map carries OVR for the bench list.
+- **Tests** (3 new, 242 in all):
+  - `pauseFor` rules (your injuries and red cards only, the three breaks, nothing at full time);
+  - a watched match stops at half-time; a free half-time sub; a sub during play uses one window; formation and sliders change; a bad slider is refused; To full time runs on;
+  - real level knockout matches pause at half-time, before extra time and at its half-time, in that order.
+- **Browser checks:** `m6` adds 6 (the changes screen mid-match, a sub using a window, formation and slider changes, the half-time stop, a free half-time sub). 34/34 pass, as do all other checks.
+- **Judgment call:** auto-pause stops only for your own team's injuries and red cards, not the opponent's, and not for goals.
+
+**Chunk 5: contract negotiation and Free Agents** (`src/ui/components/ContractModal.tsx`, `src/ui/pages/FreeAgents.tsx`, `src/worker/views/market.ts`)
+- **One contract window** (SPEC §7.6) for:
+  - renewing your players;
+  - a transfer: first agree a fee with his club (bid, see the counter or the refusal, bid again), then personal terms;
+  - a free agent.
+- **It shows:**
+  - his position, age, OVR, POT, value and current deal;
+  - your transfer budget, wage room, squad size and squad cost against the FFP limit;
+  - his mood (the same breakdown as the profile) and whether he will talk;
+  - the wage he asks for 1 to 5 years, with the end date each gives. Asks over your wage room, or renewals that don't run past his current deal, are greyed out.
+- **What blocks a deal is said up front:** a closed window (renewals and transfers), a player who won't negotiate, an FFP ban, or a full squad. A full squad can still agree a fee, since a sale may follow.
+- **Opened from:**
+  - the Squad page: "Contract" on your players, "Bid" on another club's;
+  - the player profile: "New contract", "Make a bid" or "Offer a contract";
+  - Free Agents.
+  - Esc or "Walk away" closes it.
+- **Free Agents page** (`/l/:lid/free-agents`, now in the sidebar):
+  - every unsigned player with position, age, OVR, POT, value, his lowest yearly ask at your club, his mood toward your club, and days unsigned;
+  - your wage room and squad size;
+  - filters by position, plus "only willing players within my wage room", and search.
+- **Fixed (spec alignment):** you can now sign free agents outside the windows, as SPEC §3.1 says. The M4 code had required an open window. Renewals and transfers still need one. AI clubs still sign free agents only on their market days, which fall inside the windows (see Open issues).
+- **Shared:** the mood breakdown moved to `src/ui/components/Mood.tsx`. Contract talks now carry the squad size.
+- **Tests:** a free-agents test (the list and its asks; a signing outside a window; renewals and bids still need a window); 243 tests in all.
+- **Browser checks:** `m6` adds 13:
+  - the Free Agents page, its filter and signing a free agent;
+  - a renewal from the Squad page;
+  - a lowball bid refused, then a fair bid agreed and personal terms (blocked by a full squad in this run);
+  - outside a window: renewals wait, but free agents can still be signed;
+  - the profile button.
+  - 47/47 pass. The sweep now opens Free Agents too, and all other checks pass.
+
+**Chunk 6: Transfer Market, the transfer list, releasing** (`src/ui/pages/TransferMarket.tsx`, `src/ui/components/MarketDialogs.tsx`, `src/worker/views/market.ts`, `src/worker/league/market.ts`)
+- **Transfer Market page** (`/l/:lid/transfer-market/:tab`, now in the sidebar). The window, transfer budget, wage room, squad size, squad cost against the FFP limit and anything owed to released players sit above four tabs:
+  - **Search:** other clubs' players by position, league, minimum OVR and maximum age (the best 100), with value, wage and contract end; **Bid** opens the contract window, **Loan** proposes a loan in.
+  - **Your listed players:** the transfer list (asking price, date listed, open bids), and all your players with **List**, **Loan out** and **Release**, plus the released players still being paid.
+  - **Incoming offers:** open bids for your players with Accept and Reject, and every bid this season both ways.
+  - **Loans:** your players out on loan and the loanees at your club, with the loan club's wage share.
+- **The transfer list** (T's decision): you set an asking price. On their market days AI clubs that need his position bid between 85% and 100% of it (no more than they think he's worth or can afford). He's preferred over other candidates, a listed player isn't held back by your squad size, and his bids don't count against the two-open-bids cap. Unlisted players still get the occasional bid, as before. Moving club takes him off the list.
+- **Releasing** (T's decision, as ZenGM):
+  - he joins the free-agent pool at once;
+  - the club keeps paying his wage monthly until his contract would have ended;
+  - any transfer fee not yet amortised goes on being amortised on the same schedule.
+  - Both count in the wage room, the squad cost and the FFP books, so a release frees a squad place and saves nothing. Not loanees or academy players.
+  - The release dialog says what it still costs.
+- **Profile buttons** for your players: List for transfer (or the listed price), Loan out, Release.
+- **Judgment call:** the first draft wrote the unamortised fee off at once. The test showed that briefly freed wage room the season-end FFP check would take back. Keeping the fee on its schedule, like the wage, means releasing leaves the books exactly as they were.
+- **Worker:** new calls `getTransferMarket`, `listPlayer` and `releasePlayer`; the search gains a league filter. Clubs carry `released` (wage, end date, fee left); players carry `listed`.
+- **Tests** (3 new, 246 in all):
+  - what a club still owes over time;
+  - a release: he leaves, the wage room doesn't rise, his fee stays on schedule, and over a window the club pays exactly the wages and amortisation it would have paid keeping him;
+  - listed players draw AI bids between 85% and 100% of the price; unlisting works.
+- **Browser checks:** `m6` adds 10 (search and its filter, listing, the release dialog and the release, the agreed transfer completing once a place is free, a loan out answered, the Loans tab, incoming offers, no real names). The sweep now opens the Transfer Market too.
+
+**Chunk 7: Youth Academy, Finances & Facilities** (`src/ui/pages/Academy.tsx`, `src/ui/pages/ClubFinances.tsx`, `src/worker/views/club.ts`, `src/worker/league/club.ts`)
+- **Youth Academy** (`/l/:lid/academy`, Team section): your prospects, best potential first. Each shows age, nationality, OVR, POT, the change at the last development update, and the wage a first pro contract would pay him.
+  - **Promote:** his first professional contract, three seasons (to 30 June three seasons on). Not with a full squad.
+  - **Release** (with a confirm): he joins the free-agent pool.
+  - **To loan a prospect out:** promote him first, then Loan out (judgment call: academy players have no contract to lend on).
+  - Players 18 or older on the coming 1 July carry a "decide by 1 July" badge.
+- **Academy decisions** (T's decision): the club no longer promotes your outstanding 17-year-olds early; that stays an AI-club rule. On 1 July, anyone 18+ you left undecided gets the AI rule (promoted if good enough and there's room, otherwise released). A **1 May inbox reminder** lists them. The harness has no user club, so calibration is unchanged.
+- **Finances & Facilities** (`/l/:lid/club-finances`, Team section):
+  - **Books:** cash; this season's income (gate, TV, prize money, commercial, player sales) and spending (wages, fees, the four dials); the amortisation booked; cash at the end of each season (an in-house line chart, hover for values).
+  - **FFP gauge:** squad cost (wages and amortisation, released players included) against the 70% limit, last season's ratio, any warning or ban, and the facilities level.
+  - **Budget dials:** four sliders, 0–100, each with its cost a season as you slide, what it does, and its effect now (relative to other clubs, measured each preseason). Costs change as soon as you save.
+  - **Ticket price** (T's decision): your own price, or Auto (the AI's fair price), set until your first home match and then fixed for the season. A table shows the expected crowd and gate per league match at six prices. Your own price carries on from season to season; Auto is re-priced each preseason.
+  - **Transfer budget and wage room** with the fees/wages control (5% steps).
+- **Ticket prices now move crowds** (SPEC §6.2: attendance "driven by … ticket price", missing until now because every club charged the fair price): the crowd is scaled by (price ÷ fair price) to the power −1.5, within the ground's capacity. **Judgment call:** with 1.5, dearer tickets lose money unless the ground would be full anyway; a club with spare demand can raise prices a little and still sell out. The AI charges the fair price, so its crowds and the calibration are unchanged (checked: same numbers).
+- **Worker:** new calls `getAcademy`, `decideAcademyPlayer`, `getClubFinances`, `setBudgetDials`, `setTicketPrice` and `setClubWageShare`. Clubs carry `ticketAuto`. A new season event fires the 1 May reminder.
+- **Tests** (3 new, 249 in all):
+  - the academy: listed by potential; the user's 17-year-olds are left alone while AI clubs promote theirs; the May reminder; promote (three seasons) and release;
+  - attendance falls with price;
+  - the club's books: dials and their cost, the fees/wages split, the ticket price set, back to Auto and set again, then locked after a home match.
+- **Browser checks:** `m6` adds 11 (setting a ticket price in preseason, the academy and its release confirm, a full squad holding promotion, the books and chart, the FFP gauge, the price locked after a home match, dials saved across a reload, the fees/wages split). 67/67 pass. The sweep opens both new pages, and all other checks and the calibration gate pass.
+
+**Chunk 8: "You're fired", Settings, next-match buttons, the full sidebar** (`src/ui/pages/Fired.tsx`, `src/ui/pages/Settings.tsx`, `src/ui/components/PlayButtons.tsx`)
+- **"You're fired" screen** (`/l/:lid/fired`, SPEC §6.5): the game takes you there when the board sacks you.
+  - It shows the club that sacked you, the date, your league position and record, and board confidence.
+  - Each of the 1–3 job offers is a card: league and position, squad strength, reputation, and what its board will expect, with **Take the job**.
+  - You can also start a new league or go back to Manage Leagues. Meanwhile a banner on every page says play resumes once you take a job, with a link back to the offers.
+- **Settings** (`/l/:lid/settings`, under Tools; T's decision): rename the save (the top bar and Manage Leagues follow), and delete the league after a confirm. The live-match speed stays a slider on the Watch live screen.
+- **Your next match:** **Watch live** and **Simulate it** buttons on the Dashboard's next-match card and on your club's Game Log for the current season (the team schedule in SPEC §11), next to the date. They use the same Play actions as the top bar's menu.
+- **The full sidebar:** every page is built, so the greyed "M6" entries and the placeholder text are gone; unknown addresses say "Page not found".
+- **Worker:** new calls `getJobOffers` and `renameLeague`. Offer cards use the board targets' labels from the league config.
+- **Tests:** one new (the fired view with the sacking club, record and offers; renaming in the save and the save list; an empty name refused); 250 tests in all.
+- **Browser checks:** `m6` adds 7 (nothing greyed in the sidebar, Simulate from the Dashboard, Watch live from the Game Log, the fired page while in a job, renaming, deleting the league). 74/74 pass. The sweep opens Settings too, and all other checks pass.
+
+**Chunk 9: acceptance, the three-season career** (`tools/browser-checks/career.mjs`)
+- **`pnpm browsercheck career`** runs Lancashire Rovers (seed "career") for three seasons using only the screens. Each preseason and summer window it:
+  - sets tactics (Auto plus a slider) and its own ticket price, and the fees/wages split to 60%;
+  - bids for a cheap second-tier player within the budget and signs him;
+  - releases the least valuable seniors to make room, promotes the best prospect, signs a free agent, renews a final-year contract;
+  - lists one wanted player at 85% of his value and offers a bench player on loan to second-tier clubs;
+  - answers bids week by week through the window (accepting the first);
+  - watches the next match live: kicks off on the fastest speed, stops at half-time, makes a substitution and a slider change, plays to full time;
+  - plays the season out, then promotion and relegation and the next preseason. If the board sacks the user, it takes the first job offer and goes on.
+- **The checks read the game's own records:** the Transactions log for every season, filtered to the user's club by the exact wording of each kind of move. Every kind must be there: free agents and a transfer in, a sale, a loan out, a renewal, an academy promotion. The screens must also record a saved tactic and a live match changed at half-time each season, History must hold every finished season, and there must be no real names and no console errors.
+- **One run:** in season 1 it bought a player, promoted a prospect, signed a free agent, renewed a contract, loaned a player out, sold the listed player for €790k, watched a 2–0 win, and was then sacked (the board had little patience after the releases and the sale). It took the job at another second-tier club and played two more seasons there. 11/11 pass in about 45 seconds of play.
+- **Fixed on the way (the transfer list):** the career showed that listed players at a second-tier club drew no bids, even at 30% of their value. Each AI club only looks at the best 60 players within reach for the position it needs, and mid-level players never made that list. A listed player who fits a club's need is now always considered (T's decision: AI clubs that need his position bid around the price). Listed this way, the club's two best players both drew bids at their asking price within the window. Weaker players still draw none, because no one would be improved by them. A new test covers it. The harness has no user club, so calibration is unchanged (checked).
+- **Tests:** 251 in all. **Browser checks:** all seven scripts pass (276 checks).
+
+### M6 summary
+- **Built:**
+  - **Tactics:** the saved line-up and sliders, drag and drop, live team ratings, Auto.
+  - **Watch live:**
+    - "Watch your next match" holds the match day and runs your match possession by possession, saved as it goes, so a reload resumes it with no do-overs;
+    - pre-match changes for this match only and the AI's rotation; a speed slider; energy bars, stats and commentary;
+    - stops at half-time, before extra time, and for your injuries and red cards; a changes screen with subs (windows counted), formation and sliders.
+    - At full time the day finishes through the same code as a simulated day.
+  - **One contract window** for renewals, transfers (fee, then personal terms) and free agents. **Free Agents** page.
+  - **Transfer Market:** search, the transfer list, incoming offers, loans; **releasing** players.
+  - **Youth Academy** (promote, release, the 1 May reminder) and **Finances & Facilities** (books, cash chart, FFP gauge, dials, ticket price, the fees/wages split).
+  - **"You're fired"** screen, **Settings**, Watch and Simulate buttons for the next match, and the full sidebar.
+- **Decisions** (T, Deviations table, design doc #55–#56):
+  - releasing as ZenGM;
+  - undecided academy players get the AI rule on 1 July, with a May reminder;
+  - ticket price set in preseason and locked after the first home match;
+  - Settings holds rename and delete, with the live speed as a slider;
+  - the transfer list;
+  - a live match resumes after the game is closed;
+  - AI clubs sign free agents only in the windows.
+- **Judgment calls:**
+  - a release keeps the fee on its amortisation schedule, so it saves nothing;
+  - ticket prices move crowds (elasticity 1.5, AI unaffected);
+  - auto-pause stops only for your own injuries and red cards;
+  - to loan out an academy player, promote him first;
+  - no single Team OVR yet (its weights are still unfitted).
+- **Fixed to match the spec:** free agents can be signed outside the windows.
+- **Acceptance** (MILESTONES M6): the three-season career passes. It signs, sells, loans, renews, sets tactics, watches and changes a match live, and promotes academy players, all through the screens and confirmed in the game's own records.
+- **Known edges, for later:**
+  - the AI bids for your listed players only when they would improve one of its positions, so weak players don't sell, by design;
+  - a full squad blocks signings until you sell, loan or release, and the windows' pace means a sale can take weeks;
+  - the developer pages at `/dev` are removed in M7, as agreed;
+  - Firefox untested.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

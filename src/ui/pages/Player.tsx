@@ -3,6 +3,7 @@
  * injury, ratings, position OVRs, transfer history, the ratings radar, OVR/POT history and
  * career stats.
  */
+import { useState } from "react";
 import type { ReactNode } from "react";
 import type { PlayerView } from "../../common/api";
 import { RadarChart, RatingHistoryChart } from "../components/charts";
@@ -12,16 +13,10 @@ import { PageHeader } from "../shell/PageHeader";
 import { seasonLabel, useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
+import { MOOD_LABELS, MoodBar } from "../components/Mood";
+import { ContractModal } from "../components/ContractModal";
+import { ListDialog, LoanDialog, ReleaseDialog } from "../components/MarketDialogs";
 
-const MOOD_LABELS: Record<string, string> = {
-  success: "Team success",
-  hype: "Hype",
-  facilities: "Facilities",
-  market: "Market size",
-  playingTime: "Playing time",
-  loyalty: "Loyalty",
-  ambition: "Ambition",
-};
 const TRANSFER_LABELS: Record<string, string> = {
   transfer: "Transfer",
   loan: "Loan",
@@ -42,24 +37,6 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
     <div className="col-6 col-md-4 col-xl-3 mb-2">
       <div className="small text-body-secondary">{label}</div>
       <div>{children}</div>
-    </div>
-  );
-}
-
-function MoodBar({ value }: { value: number }) {
-  const width = Math.abs(value) * 50;
-  return (
-    <div className="position-relative bg-body-secondary rounded" style={{ height: 8, width: 120 }}>
-      <div
-        className="position-absolute top-0 bottom-0 border-start border-dark"
-        style={{ left: "50%" }}
-      />
-      <div
-        className={`position-absolute top-0 bottom-0 rounded ${value >= 0 ? "bg-success" : "bg-danger"}`}
-        style={
-          value >= 0 ? { left: "50%", width: `${width}%` } : { right: "50%", width: `${width}%` }
-        }
-      />
     </div>
   );
 }
@@ -101,18 +78,92 @@ function Ratings({ view }: { view: PlayerView }) {
 export function Player({ params }: { params: string[] }) {
   const { shell } = useShell();
   const pid = Number(params[0]);
+  const [talking, setTalking] = useState(false);
+  const [dialog, setDialog] = useState<"list" | "release" | "loan" | null>(null);
   const { data: view, error } = useView(`player/${pid}`, () =>
     toWorker("getPlayer", shell.lid, pid),
   );
   if (error) return <div className="alert alert-danger">{error}</div>;
   if (!view) return <p>Loading…</p>;
   const status = STATUS_LABELS[view.status] ?? view.status;
+  const own = view.status === "club" && view.team?.cid === shell.userCid;
+  const talk =
+    view.status === "freeAgent"
+      ? "Offer a contract"
+      : view.status === "club" && view.team
+        ? view.team.cid === shell.userCid
+          ? "New contract"
+          : "Make a bid"
+        : null;
   return (
     <>
       <PageHeader title={view.name}>
         {view.team && <TeamLink team={view.team} />}
         {status && <span className="badge text-bg-secondary">{status}</span>}
+        {talk && !shell.state.fired && (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => setTalking(true)}
+            data-testid="profile-talks"
+          >
+            {talk}
+          </button>
+        )}
+        {own && !shell.state.fired && (
+          <>
+            <button
+              type="button"
+              className="btn btn-outline-primary btn-sm"
+              onClick={() => setDialog("list")}
+              data-testid="profile-list"
+            >
+              {view.listed ? `Listed at ${formatEuros(view.listed.asking)}` : "List for transfer"}
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => setDialog("loan")}
+            >
+              Loan out
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-danger btn-sm"
+              onClick={() => setDialog("release")}
+              data-testid="profile-release"
+            >
+              Release
+            </button>
+          </>
+        )}
       </PageHeader>
+      {talking && <ContractModal pid={view.pid} onClose={() => setTalking(false)} />}
+      {dialog === "list" && (
+        <ListDialog
+          player={{ pid: view.pid, name: view.name, value: view.value, listed: view.listed }}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog === "release" && (
+        <ReleaseDialog
+          player={{
+            pid: view.pid,
+            name: view.name,
+            wage: view.contract?.wage ?? 0,
+            expires: view.contract?.expires ?? null,
+          }}
+          today={view.today}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog === "loan" && (
+        <LoanDialog
+          player={{ pid: view.pid, name: view.name }}
+          direction="out"
+          onClose={() => setDialog(null)}
+        />
+      )}
       <section className="card mb-3" data-testid="player-bio">
         <div className="card-body">
           <div className="d-flex flex-wrap align-items-center gap-4 mb-3">

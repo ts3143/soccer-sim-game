@@ -44,6 +44,12 @@ export const FINANCE = {
     /** Early cup rounds draw this share of a league crowd; finals and semis a full one. */
     cupEarly: 0.75,
     min: 0.3,
+    /**
+     * Demand against the ticket price (SPEC §6.2), price / fair price to this power. The AI
+     * charges the fair price, so only a user's own price moves it (M6). Above 1: dearer
+     * tickets lose money unless the ground would be full anyway.
+     */
+    priceElasticity: 1.5,
   },
   commercial: {
     /** Per reputation point (fitted on the anchors: ~8% more per point). */
@@ -65,7 +71,7 @@ const leagueOf = (id: string, config: CompetitionsConfig): LeagueConfig => {
   return league;
 };
 
-/** The AI's ticket price for a club (the user sets his own from M6). */
+/** The AI's (fair) ticket price for a club; the user can set his own (M6). */
 export function ticketPrice(reputation: number, league: LeagueConfig): number {
   return Math.round(
     league.finance.ticketPriceBase * Math.exp(FINANCE.ticketReputationSlope * (reputation - 50)),
@@ -79,6 +85,7 @@ export function attendance(
   league: LeagueConfig,
   opponentReputation: number,
   stage = 1,
+  priceRatio = 1,
 ): number {
   const a = FINANCE.attendance;
   const fill =
@@ -87,7 +94,8 @@ export function attendance(
     (a.market * (club.market - 50)) / 50 +
     (a.opponent * (opponentReputation - 50)) / 50 +
     (a.facilities * ((club.facilitiesLevel ?? 50) - 50)) / 50;
-  return Math.round(club.capacity * Math.min(1, Math.max(a.min, fill * stage)));
+  const demand = fill * stage * Math.pow(priceRatio, -a.priceElasticity);
+  return Math.round(club.capacity * Math.min(1, Math.max(a.min, demand)));
 }
 
 /** Expected season income from TV and home league gates, for setting the commercial base. */
@@ -183,6 +191,22 @@ export function monthEnds(from: string, to: string): string[] {
  * yearly amortisation (non-cash: it lowers the player's balance and counts for FFP).
  * Returns the players whose fee balance changed.
  */
+/**
+ * Wages a club still owes a year for players it released (SPEC §7.6), as of `date`
+ * (default: every one still on its list; month-end payments drop the finished ones).
+ */
+export function owedWages(club: Pick<Club, "released">, date = ""): number {
+  return (club.released ?? []).reduce((sum, r) => (r.until >= date ? sum + r.wage : sum), 0);
+}
+
+/** Fee amortisation a club still carries a year for players it released. */
+export function owedAmortisation(club: Pick<Club, "released">): number {
+  return (club.released ?? []).reduce(
+    (sum, r) => sum + (r.fee ? Math.min(r.fee.perYear, r.fee.remaining) : 0),
+    0,
+  );
+}
+
 export function settleMonths(
   world: FinanceWorld,
   from: string,
@@ -217,11 +241,22 @@ export function settleMonths(
       row.amortisation = (row.amortisation ?? 0) + charge;
       changed.add(p.pid);
     }
+    // Released players' fees go on being amortised by the club that released them.
+    for (const club of world.clubs) {
+      const row = world.clubSeasons.get(club.cid);
+      if (!row || !club.released) continue;
+      for (const r of club.released) {
+        if (!r.fee || r.fee.remaining <= 0) continue;
+        const charge = Math.min(r.fee.remaining, Math.round(r.fee.perYear / 12));
+        r.fee = { ...r.fee, remaining: r.fee.remaining - charge };
+        row.amortisation = (row.amortisation ?? 0) + charge;
+      }
+    }
     for (const club of world.clubs) {
       const b = books(world, club.cid);
       if (!b) continue;
       const league = config.leagues.find((l) => l.id === b.season.leagueId);
-      debit(b, "wages", (wageBill.get(club.cid) ?? 0) / 12);
+      debit(b, "wages", ((wageBill.get(club.cid) ?? 0) + owedWages(club, end)) / 12);
       const base = b.season.budgetBase ?? club.revenueAnchor;
       for (const dial of ["coaching", "youth", "medical", "facilities"] as const) {
         debit(b, dial, dialCost(club.budget[dial], base) / 12);
@@ -235,6 +270,13 @@ export function settleMonths(
         );
       }
     }
+  }
+  // Released players drop off once their old contracts have run out and their fees are paid.
+  const last = ends[ends.length - 1] ?? to;
+  const owing = (r: NonNullable<Club["released"]>[number]) =>
+    r.until >= last || (r.fee?.remaining ?? 0) > 0;
+  for (const club of world.clubs) {
+    if (club.released?.some((r) => !owing(r))) club.released = club.released.filter(owing);
   }
   return changed;
 }
@@ -256,7 +298,15 @@ export function matchdayIncome(
     cup && cup.rounds.indexOf(fixture.round) < cup.rounds.length - 2
       ? FINANCE.attendance.cupEarly
       : 1;
-  const crowd = attendance(home.club, home.season.hype, league, away?.reputation ?? 50, stage);
+  const fair = ticketPrice(home.season.reputation, league);
+  const crowd = attendance(
+    home.club,
+    home.season.hype,
+    league,
+    away?.reputation ?? 50,
+    stage,
+    home.club.ticketPrice / Math.max(1, fair),
+  );
   credit(home, "matchday", crowd * home.club.ticketPrice);
 }
 
@@ -339,7 +389,9 @@ export function openSeasonBooks(
     const revenue = prev ? operatingRevenue(prev.revenue) : 0;
     const reputation = prev?.reputation ?? 50;
     const budgetBase = revenue > 0 ? revenue : club.revenueAnchor;
-    club.ticketPrice = ticketPrice(reputation, leagueOf(club.leagueId, config));
+    // The AI prices every club's tickets, except the user's when he has set his own (M6).
+    const fixed = club.cid === userCid && club.ticketAuto === false;
+    if (!fixed) club.ticketPrice = ticketPrice(reputation, leagueOf(club.leagueId, config));
     // The AI sets its dials each season; the user's club keeps the user's.
     if (club.cid !== userCid) club.budget = aiDials(club.cash, budgetBase);
     out.set(club.cid, {

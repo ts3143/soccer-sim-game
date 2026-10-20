@@ -44,6 +44,7 @@ import {
   loopWorld,
   meta,
   openWindow,
+  assertNotLive,
   queued,
   saveBooks,
   saveMessages,
@@ -69,10 +70,16 @@ function nextOid(session: LeagueSession): number {
   return oid;
 }
 
-/** Fails unless the user can act in the market now (a window is open and he has a job). */
-function marketOpen(session: LeagueSession) {
+/** Fails if the user has no club (sacked, before he takes a job offer). */
+function employed(session: LeagueSession): GameMeta {
   const game = meta<GameMeta>(session, "game");
   if (game.fired) throw new Error("You have no club: accept a job offer first");
+  return game;
+}
+
+/** Fails unless the user can act in the market now (a window is open and he has a job). */
+function marketOpen(session: LeagueSession) {
+  const game = employed(session);
   const window = openWindow(game.date, game.season);
   if (!window) throw new Error("The transfer window is closed");
   return { game, window };
@@ -132,6 +139,7 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
     windowOpen: openWindow(game.date, game.season) !== null,
     userPlayer: kind === "renewal",
     feeAgreed: kind === "transfer" ? (agreedOffer(session, user.cid, pid)?.fee ?? null) : null,
+    squad: { seniors: seniorsOf(world.players, user.cid).length, max: TRANSFERS.maxSeniors },
     budget: {
       transfer: budgets.transfer,
       wageRoom: budgets.wageRoom,
@@ -146,6 +154,7 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
 /** Renews one of the user's players at his ask for `years` (only in a window, SPEC §7.6). */
 export function renewContract(session: LeagueSession, pid: number, years: number) {
   return queued(session, async () => {
+    assertNotLive(session);
     const game = meta<GameMeta>(session, "game");
     const talks = contractTalks(session, pid);
     if (!talks.userPlayer) throw new Error("You can only renew your own players");
@@ -180,6 +189,7 @@ export function renewContract(session: LeagueSession, pid: number, years: number
  */
 export function bidForPlayer(session: LeagueSession, pid: number, fee: number): Promise<BidReply> {
   return queued(session, async () => {
+    assertNotLive(session);
     const { game, window } = marketOpen(session);
     const world = loopWorld(session, game.season);
     const p = session.cache.get("players", pid);
@@ -231,14 +241,16 @@ export function bidForPlayer(session: LeagueSession, pid: number, fee: number): 
 }
 
 /**
- * Personal terms: signs a player for `years` at his ask, after an agreed fee (a transfer)
- * or straight away (a free agent). The wage must fit the user's wage room and the fee his
- * transfer budget; at most 25 seniors.
+ * Personal terms: signs a player for `years` at his ask, after an agreed fee (a transfer,
+ * in a window) or straight away (a free agent, at any time). The wage must fit the user's
+ * wage room and the fee his transfer budget; at most 25 seniors.
  */
 export function signPlayer(session: LeagueSession, pid: number, years: number) {
   return queued(session, async () => {
-    const { game } = marketOpen(session);
+    assertNotLive(session);
     const talks = contractTalks(session, pid);
+    // Free agents can be signed at any time (SPEC §3.1); transfers only in a window.
+    const { game } = talks.kind === "freeAgent" ? { game: employed(session) } : marketOpen(session);
     if (talks.kind === "renewal") throw new Error("He is already your player: renew him instead");
     notBanned(session, game.date);
     const offer = agreedOffer(session, game.userCid, pid);
@@ -295,6 +307,7 @@ function closeOffersFor(session: LeagueSession, pid: number, completed?: number)
  */
 export function respondToOffer(session: LeagueSession, oid: number, accept: boolean) {
   return queued(session, async () => {
+    assertNotLive(session);
     const { game } = marketOpen(session);
     const offer = session.cache.get("offers", oid);
     if (!offer || offer.status !== "open" || offer.toCid !== game.userCid) {
@@ -391,6 +404,7 @@ export function proposeLoan(
   wageShare: number,
 ): Promise<LoanReply> {
   return queued(session, async () => {
+    assertNotLive(session);
     const { game } = marketOpen(session);
     if (![0, 0.5, 1].includes(wageShare)) throw new Error("The wage share is 0, 50 or 100%");
     const world = loopWorld(session, game.season);
@@ -457,11 +471,93 @@ export function proposeLoan(
 /** The user's budget control (SPEC §6.3): the share of FFP headroom kept for wages. */
 export function setWageShare(session: LeagueSession, share: number) {
   return queued(session, async () => {
+    assertNotLive(session);
     if (!(share >= 0 && share <= 1)) throw new Error("The wage share is between 0 and 1");
     const game = meta<GameMeta>(session, "game");
     const club = session.cache.get("clubs", game.userCid);
     if (!club) throw new Error("The save has no user club");
     session.cache.put("clubs", { ...club, wageShare: Math.round(share * 100) / 100 });
     await session.cache.flush();
+  });
+}
+
+/**
+ * Puts one of the user's players on the transfer list at `asking` euros, or takes him off
+ * (null). AI clubs that need his position bid around the price on their market days.
+ */
+export function listPlayer(session: LeagueSession, pid: number, asking: number | null) {
+  return queued(session, async () => {
+    assertNotLive(session);
+    const game = employed(session);
+    const p = session.cache.get("players", pid);
+    if (!p || p.status !== "club" || p.cid !== game.userCid) {
+      throw new Error("You can only list your own players");
+    }
+    if (asking === null) delete p.listed;
+    else {
+      if (!Number.isInteger(asking) || asking <= 0) {
+        throw new Error("The asking price is a whole number of euros");
+      }
+      p.listed = { asking, date: game.date };
+    }
+    session.cache.put("players", p);
+    await session.cache.flush();
+  });
+}
+
+/**
+ * Releases one of the user's players (SPEC §7.6, as ZenGM): he joins the free-agent pool at
+ * once, and the club keeps paying his wage monthly until his contract would have ended.
+ * Any transfer fee not yet amortised goes on being amortised on the same schedule, so a
+ * release saves nothing: it only frees a place in the squad.
+ */
+export function releasePlayer(session: LeagueSession, pid: number): Promise<string> {
+  return queued(session, async () => {
+    assertNotLive(session);
+    const game = employed(session);
+    const world = loopWorld(session, game.season);
+    const p = world.players.find((x) => x.pid === pid);
+    const club = world.clubs.find((c) => c.cid === game.userCid);
+    if (!p || !club || p.status !== "club" || p.cid !== club.cid || !p.contract) {
+      throw new Error("You can only release your own players (not loanees or academy players)");
+    }
+    const name = fullName(p);
+    const { wage, expires } = p.contract;
+    const fee = p.feeBalance && p.feeBalance.remaining > 0 ? { ...p.feeBalance } : undefined;
+    club.released = [
+      ...(club.released ?? []),
+      { pid, name, wage, until: expires, ...(fee && { fee }) },
+    ];
+    p.feeBalance = null;
+    p.status = "freeAgent";
+    p.cid = null;
+    p.contract = null;
+    p.freeAgentSince = game.date;
+    p.shirtNumber = null;
+    delete p.listed;
+    p.transfers.push({
+      date: game.date,
+      season: game.season,
+      fromCid: club.cid,
+      toCid: null,
+      fee: 0,
+      type: "release",
+    });
+    session.cache.put("players", p);
+    saveBooks(session, world);
+    saveTransactions(session, [
+      {
+        season: game.season,
+        date: game.date,
+        type: "release",
+        pids: [pid],
+        cids: [club.cid],
+        names: [name, club.name],
+        fee: 0,
+      },
+    ]);
+    closeOffersFor(session, pid);
+    await session.cache.flush();
+    return `${name} is released. You keep paying his ${euros(wage)} a year until ${expires}.`;
   });
 }

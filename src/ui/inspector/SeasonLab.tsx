@@ -20,6 +20,7 @@ const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 const OPTION_LABELS: Record<PlayOption, string> = {
   untilNextMatch: "Until next match",
+  watchNextMatch: "Watch your next match",
   oneWeek: "One week",
   untilWindowCloses: "Until window closes",
   untilEndOfSeason: "Until end of season",
@@ -212,17 +213,19 @@ export function SeasonLab({ lid }: { lid: number }) {
             )}
           </div>
           <div className="d-flex flex-wrap gap-2 mb-2">
-            {state.options.map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={`btn btn-sm ${option === state.options[0] ? "btn-primary" : "btn-outline-primary"}`}
-                disabled={busy !== null}
-                onClick={() => void play(option)}
-              >
-                {busy === option ? "Playing…" : OPTION_LABELS[option]}
-              </button>
-            ))}
+            {state.options
+              .filter((option) => option !== "watchNextMatch")
+              .map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`btn btn-sm ${option === state.options[0] ? "btn-primary" : "btn-outline-primary"}`}
+                  disabled={busy !== null}
+                  onClick={() => void play(option)}
+                >
+                  {busy === option ? "Playing…" : OPTION_LABELS[option]}
+                </button>
+              ))}
           </div>
           <p className="small mb-1">
             <Crest code={view.user.code} size={16} /> <strong>{view.user.name}</strong>

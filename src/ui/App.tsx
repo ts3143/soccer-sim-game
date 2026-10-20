@@ -7,13 +7,18 @@ import { Inspector } from "./inspector/Inspector";
 import { BoxScorePage } from "./pages/BoxScorePage";
 import { Cups } from "./pages/Cups";
 import { Dashboard } from "./pages/Dashboard";
+import { Academy } from "./pages/Academy";
+import { ClubFinances } from "./pages/ClubFinances";
 import { Finances } from "./pages/Finances";
+import { Fired } from "./pages/Fired";
+import { FreeAgents } from "./pages/FreeAgents";
 import { GameLog } from "./pages/GameLog";
 import { History } from "./pages/History";
 import { Home } from "./pages/Home";
 import { Inbox } from "./pages/Inbox";
 import { Injuries } from "./pages/Injuries";
 import { LeagueLeaders } from "./pages/LeagueLeaders";
+import { Live } from "./pages/Live";
 import { NewLeague } from "./pages/NewLeague";
 import { Placeholder } from "./pages/Placeholder";
 import { Player } from "./pages/Player";
@@ -21,11 +26,14 @@ import { PlayerRatings } from "./pages/PlayerRatings";
 import { PlayerStats } from "./pages/PlayerStats";
 import { PowerRankings } from "./pages/PowerRankings";
 import { Schedule } from "./pages/Schedule";
+import { Settings } from "./pages/Settings";
 import { Squad } from "./pages/Squad";
 import { Standings } from "./pages/Standings";
+import { Tactics } from "./pages/Tactics";
 import { TeamHistory } from "./pages/TeamHistory";
 import { TeamStats } from "./pages/TeamStats";
 import { Transactions } from "./pages/Transactions";
+import { TransferMarket } from "./pages/TransferMarket";
 import { Link, parseRoute, usePath } from "./router";
 import { Shell } from "./shell/Shell";
 import { connectWorker, type Connection } from "./workerClient";
@@ -119,6 +127,22 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <TeamStats params={params} />;
     case "injuries":
       return <Injuries />;
+    case "tactics":
+      return <Tactics params={params} />;
+    case "live":
+      return <Live />;
+    case "free-agents":
+      return <FreeAgents />;
+    case "transfer-market":
+      return <TransferMarket params={params} />;
+    case "academy":
+      return <Academy />;
+    case "club-finances":
+      return <ClubFinances />;
+    case "fired":
+      return <Fired />;
+    case "settings":
+      return <Settings />;
     case "history":
       return <History />;
     case "team-history":

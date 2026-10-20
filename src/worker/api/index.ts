@@ -1,11 +1,21 @@
 import type { UiEvents, WorkerApi, WorkerKind } from "../../common/api";
 import type { ApiHandlers, RpcHost } from "../../common/rpc";
 import { listLeagues } from "../db/globalDb";
-import { acceptJobOffer, gameState, play } from "../league/game";
+import { acceptJobOffer, gameState, play, queued, renameLeague } from "../league/game";
+import {
+  changeLive,
+  getLive,
+  getLiveLineup,
+  setLiveLineup,
+  stepLive,
+  watchNextMatch,
+} from "../league/live";
 import {
   bidForPlayer,
   contractTalks,
+  listPlayer,
   proposeLoan,
+  releasePlayer,
   renewContract,
   respondToOffer,
   setWageShare,
@@ -16,6 +26,10 @@ import { createLeague, deleteLeague, openLeague } from "../league/session";
 import { getClubChoices, getLeagueOverview, getSquad } from "../views/inspector";
 import { runLabBatch, simulateLabMatch, startLabMatch, stepLabMatch } from "../views/matchLab";
 import { getClubLab, searchPlayers } from "../views/clubLab";
+import { getFreeAgents, getTransferMarket } from "../views/market";
+import { fairTicketPrice, getAcademy, getClubFinances, getJobOffers } from "../views/club";
+import { decideAcademyPlayer, setBudgetDials, setTicketPrice } from "../league/club";
+import { getTactics, previewTactics, saveTactics } from "../views/tactics";
 import { getCups, getSchedule, getStandings } from "../views/competitions";
 import { getDashboard, markAllInboxRead } from "../views/dashboard";
 import {
@@ -112,6 +126,58 @@ export function createHandlers(
     async getInjuries(lid) {
       return getInjuries(lid);
     },
+    async getFreeAgents(lid) {
+      return getFreeAgents(lid);
+    },
+    async getTransferMarket(lid) {
+      return getTransferMarket(lid);
+    },
+    async getAcademy(lid) {
+      return getAcademy(lid);
+    },
+    async getJobOffers(lid) {
+      return getJobOffers(lid);
+    },
+    async renameLeague(lid, name) {
+      const session = await openLeague(lid);
+      await queued(session, () => renameLeague(session, name));
+      await announceLeagues();
+      host.broadcast("gameChanged", { lid, state: gameState(session) });
+    },
+    async decideAcademyPlayer(lid, pid, decision) {
+      return decideAcademyPlayer(await openLeague(lid), pid, decision);
+    },
+    async getClubFinances(lid) {
+      return getClubFinances(lid);
+    },
+    async setBudgetDials(lid, dials) {
+      await setBudgetDials(await openLeague(lid), dials);
+      return getClubFinances(lid);
+    },
+    async setTicketPrice(lid, price) {
+      await setTicketPrice(await openLeague(lid), price, await fairTicketPrice(lid));
+      return getClubFinances(lid);
+    },
+    async setClubWageShare(lid, share) {
+      await setWageShare(await openLeague(lid), share);
+      return getClubFinances(lid);
+    },
+    async listPlayer(lid, pid, asking) {
+      await listPlayer(await openLeague(lid), pid, asking);
+      return getTransferMarket(lid);
+    },
+    async releasePlayer(lid, pid) {
+      return releasePlayer(await openLeague(lid), pid);
+    },
+    async getTactics(lid, cid) {
+      return getTactics(lid, cid);
+    },
+    async previewTactics(lid, setup, mode) {
+      return previewTactics(lid, setup, mode);
+    },
+    async saveTactics(lid, setup) {
+      return saveTactics(lid, setup);
+    },
 
     async getHistory(lid) {
       return getHistory(lid);
@@ -155,9 +221,28 @@ export function createHandlers(
 
     async playGame(lid, option) {
       const session = await openLeague(lid);
-      const report = await play(session, option);
+      const report =
+        option === "watchNextMatch" ? await watchNextMatch(session) : await play(session, option);
       host.broadcast("gameChanged", { lid, state: gameState(session) });
       return report;
+    },
+    async getLiveMatch(lid, from) {
+      return getLive(await openLeague(lid), from);
+    },
+    async stepLiveMatch(lid, possessions, from, autoPause) {
+      const session = await openLeague(lid);
+      const view = await stepLive(session, possessions, from, autoPause);
+      if (view.report) host.broadcast("gameChanged", { lid, state: gameState(session) });
+      return view;
+    },
+    async changeLiveMatch(lid, changes, from) {
+      return changeLive(await openLeague(lid), changes, from);
+    },
+    async getLiveLineup(lid) {
+      return getLiveLineup(await openLeague(lid));
+    },
+    async setLiveLineup(lid, setup, mode) {
+      return setLiveLineup(await openLeague(lid), setup, mode);
     },
 
     getSeasonLab,

@@ -78,8 +78,12 @@ export const AI_MARKET = {
   costPerPercent: 0.3,
   /** A free-agent filler may be paid this share of the budget base without wage room. */
   fillerWageShare: 0.01,
-  /** Open bids for the user's players at once, at most (one per player). */
+  /** Open bids for the user's unlisted players at once, at most (one per player). */
   maxOpenUserBids: 2,
+  /** A listed player of the user's (M6): bids come in at least at this share of his price. */
+  listedMinShare: 0.85,
+  /** ...and a club that needs his position prefers him by this much. */
+  listedBonus: 3,
 };
 
 const AREA: Record<Position, "gk" | "def" | "mid" | "att"> = {
@@ -216,8 +220,17 @@ function bestChoice(
   // Bids lapse once their deadline day is played (as the save marks them).
   const bids = (world.openBids ?? []).filter((b) => date < b.expires);
   let best: Choice | null = null;
+  const inRange = inReach(pools.atClubs, need, club.cid, m.shortlist);
+  // The user's transfer list (M6): a listed player who fits the need is always considered,
+  // not only when he is among the best in reach.
+  const listed = (pools.atClubs.get(need.slot.position) ?? []).filter((p) => {
+    if (p.cid !== world.userCid || !p.listed || inRange.includes(p)) return false;
+    const rating = slotOvr(p, need.slot);
+    return rating >= need.min && rating <= need.max;
+  });
   const shortlist = [
-    ...inReach(pools.atClubs, need, club.cid, m.shortlist),
+    ...inRange,
+    ...listed,
     ...inReach(pools.free, need, club.cid, m.freeAgentShortlist),
   ];
   for (const p of shortlist) {
@@ -225,17 +238,26 @@ function bestChoice(
     const age = exactAge(p.birthDate, date);
     if (strategy === "contending" && !need.filler && age > m.contenderMaxAge) continue;
     let fee = 0;
+    // The user's transfer list (M6): he sets the price, so his squad size doesn't stop it.
+    const listed = p.status === "club" && p.cid === world.userCid ? p.listed : undefined;
     if (p.status === "club") {
-      if ((snap.seniors.get(p.cid as number)?.length ?? 0) <= m.sellerKeeps) continue;
+      if (!listed && (snap.seniors.get(p.cid as number)?.length ?? 0) <= m.sellerKeeps) continue;
       if (p.cid === world.userCid) {
-        const open = bids.length >= m.maxOpenUserBids || bids.some((b) => b.pid === p.pid);
+        const open =
+          bids.some((b) => b.pid === p.pid) || (!listed && bids.length >= m.maxOpenUserBids);
         if (deadline || open) continue;
       }
       const valuation = askingPrice(world, p, date, snap);
       const worth =
         valuation.value * m.buyerFactor * (strategy === "contending" ? m.contenderFactor : 1);
-      if (valuation.asking > worth || valuation.asking > budgets.transfer) continue;
-      fee = valuation.asking;
+      if (listed) {
+        const offer = Math.min(listed.asking, worth, budgets.transfer);
+        if (offer < m.listedMinShare * listed.asking) continue;
+        fee = Math.round(offer / 10_000) * 10_000;
+      } else {
+        if (valuation.asking > worth || valuation.asking > budgets.transfer) continue;
+        fee = valuation.asking;
+      }
     }
     const mood = moodToward(world, p, club, date, snap);
     if (!mood.willing) continue;
@@ -248,7 +270,7 @@ function bestChoice(
     const youth =
       strategy === "developing" && age <= 23 ? m.youthBonus * Math.max(0, p.pot - p.ovr) : 0;
     const cost = (fee / TRANSFERS.budget.feeYears + wage) / (0.01 * base);
-    const score = rating + youth - m.costPerPercent * cost;
+    const score = rating + youth - m.costPerPercent * cost + (listed ? m.listedBonus : 0);
     if (!best || score > best.score) best = { p, fee, wage, years, score, loan: false };
   }
   // Loans: young players another AI club would lend, if he'd play here.

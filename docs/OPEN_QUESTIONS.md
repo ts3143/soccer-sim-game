@@ -76,6 +76,17 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 4 | Look | Bootstrap with dense ZenGM-like tables, crests and club colours as accents; T reviews it on the localhost preview (no screenshots) |
 | 5 | Watch live | Stays in M6 with Tactics (T, no change) |
 
+## A8. M6 planning, answered by T (Oct 19 2026)
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Releasing a player under contract | As ZenGM: he leaves at once; his wages are still paid monthly until the contract ends, and count for FFP |
+| 2 | Academy players aged 18+ the user hasn't decided on by 1 July | The AI clubs' rule (promote if good enough and there's room, else release), with an inbox reminder in May |
+| 3 | Ticket price | Set in preseason, locked after the first home match; "Auto" uses the AI price (as SPEC: one price per season) |
+| 4 | Settings page | Rename the save and delete the league. The live-match speed is a slider on the Watch live screen, not a setting |
+| 5 | Transfer list | Listing with an asking price makes AI clubs that need the position bid around it in the windows; unlisted players still get occasional bids |
+| 6 | Closing the game mid-match (proposed, no objection) | The live match is saved as it goes and resumes on return: no do-overs |
+| 7 | AI clubs sign free agents only on their market days, inside the windows (SPEC §3.1 says "at any time") | Keep it: the user can sign them at any time, the AI in the windows |
+
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.
 1. **Hidden traits** (Injury Prone, Hothead) are generated and affect the sim from the MVP but are never shown until scouting arrives in v1.1.

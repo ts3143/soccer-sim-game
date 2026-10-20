@@ -122,13 +122,25 @@ export interface SliderSettings {
   directness: number;
 }
 
+/** The user's saved line-up (M6 Tactics page): who starts in each slot, and the bench. */
+export interface SavedLineup {
+  /** Player ID per formation slot (11, slot order as in the formation config); null = empty. */
+  slots: (number | null)[];
+  /** Substitutes in order (up to the bench size). */
+  bench: number[];
+}
+
 /**
- * A club's saved tactics. AI clubs' are picked by the AI before each match; the user's
- * apply to the matches he watches (simulated matches: the AI manages his club too).
+ * A club's saved tactics. The formation is the club's own in every match. AI clubs'
+ * sliders and line-ups are picked by the AI before each match; the user's sliders and
+ * line-up apply to the matches he watches (simulated matches: the AI picks them for his
+ * club too, within his formation).
  */
 export interface Tactics {
   formation: string;
   sliders: SliderSettings;
+  /** User's club only, once he saves one on the Tactics page. Absent = the AI's pick. */
+  lineup?: SavedLineup;
 }
 
 /** Budget dial levels, 0–100; 50 is a typical club. Coaching/Youth/Medical/Facilities (MVP). */
@@ -162,6 +174,11 @@ export interface Club {
   budget: BudgetDials;
   /** Euros per ticket for the season. Provisional until the economy (M4). */
   ticketPrice: number;
+  /**
+   * The user's club only (M6): false once he sets his own price, which then stays from
+   * season to season. Absent or true: the AI's fair price, set each preseason.
+   */
+  ticketAuto?: boolean;
   /** Current cash in whole euros (season-end snapshots go in clubSeasons). */
   cash: number;
   /**
@@ -188,6 +205,23 @@ export interface Club {
    * follow this. Absent = the dials themselves.
    */
   budgetEffect?: BudgetDials;
+  /**
+   * Players the user released under contract (M6, SPEC §7.6): their wages are still paid
+   * monthly until their contracts would have ended, any fee left keeps being amortised,
+   * and both count toward the squad cost.
+   */
+  released?: ReleasedContract[];
+}
+
+export interface ReleasedContract {
+  pid: number;
+  name: string;
+  /** Euros a year, still owed. */
+  wage: number;
+  /** The old contract's end date (30 June). */
+  until: string;
+  /** His transfer fee not yet amortised: it keeps being amortised on the same schedule. */
+  fee?: { remaining: number; perYear: number };
 }
 
 export interface ClubSeason {
@@ -325,6 +359,8 @@ export interface Player {
   /** ISO date he became a free agent (null otherwise). */
   freeAgentSince: string | null;
   retiredSeason: number | null;
+  /** On the user's transfer list (M6): AI clubs that need him bid around the asking price. */
+  listed?: { asking: number; date: string };
 }
 
 // ---------------------------------------------------------------------------

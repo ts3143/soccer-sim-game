@@ -4,6 +4,7 @@ import { FormBadges, ScoreLink, TeamLink } from "../components/links";
 import { formatDate } from "../format";
 import { leaguePath } from "../router";
 import { PageHeader } from "../shell/PageHeader";
+import { NextMatchButtons } from "../components/PlayButtons";
 import { useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
@@ -33,6 +34,17 @@ export function GameLog({ params }: { params: string[] }) {
             All competitions: W{view.record.won} D{view.record.drawn} L{view.record.lost} · goals{" "}
             {view.record.goalsFor}–{view.record.goalsAgainst}
           </p>
+          {cid === shell.userCid &&
+            season === shell.state.season &&
+            shell.state.nextUserFixture && (
+              <div
+                className="d-flex flex-wrap align-items-center gap-3 mb-2 small"
+                data-testid="next-fixture"
+              >
+                <span>Next: {formatDate(shell.state.nextUserFixture.date)}</span>
+                <NextMatchButtons />
+              </div>
+            )}
           <DataTable
             testId="game-log"
             rows={view.matches}

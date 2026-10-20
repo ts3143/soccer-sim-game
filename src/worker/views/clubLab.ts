@@ -158,6 +158,9 @@ export async function searchPlayers(lid: number, query: PlayerSearch): Promise<P
       if (q.freeAgents ? p.status !== "freeAgent" : p.status !== "club" || p.cid === game.userCid)
         return false;
       if (q.position && p.position !== q.position) return false;
+      if (q.leagueId && world.clubs.find((c) => c.cid === p.cid)?.leagueId !== q.leagueId) {
+        return false;
+      }
       const age = exactAge(p.birthDate, game.date);
       return p.ovr >= q.minOvr && p.ovr <= q.maxOvr && age < q.maxAge + 1;
     })

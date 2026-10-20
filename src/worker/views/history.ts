@@ -13,7 +13,7 @@ import type {
 import { competitionsConfig } from "../../common/config/competitions";
 import type { AwardRow, Club, GameMeta } from "../../common/schema";
 import { transferBanned } from "../finance/ffp";
-import { operatingRevenue, totalOf } from "../finance/finance";
+import { operatingRevenue, owedAmortisation, owedWages, totalOf } from "../finance/finance";
 import { clubStrength } from "../club/standing";
 import type { LeagueSession } from "../league/session";
 import { openLeague } from "../league/session";
@@ -245,9 +245,17 @@ export async function getFinances(lid: number, season: number | null): Promise<F
           expenses,
           profit: revenue - expenses,
           cash: current ? (club?.cash ?? 0) : (r.cashEnd ?? 0),
-          wages: current ? Math.round(squadCost(players, r.cid).wages) : null,
+          // Released players' wages and fees still count (SPEC §7.6).
+          wages: current
+            ? Math.round(squadCost(players, r.cid).wages + (club ? owedWages(club) : 0))
+            : null,
           squadCostRatio: current
-            ? Math.round((squadCost(players, r.cid).total / Math.max(1, base)) * 1000) / 1000
+            ? Math.round(
+                ((squadCost(players, r.cid).total +
+                  (club ? owedWages(club) + owedAmortisation(club) : 0)) /
+                  Math.max(1, base)) *
+                  1000,
+              ) / 1000
             : r.squadCostRatio,
           ffp:
             current && club

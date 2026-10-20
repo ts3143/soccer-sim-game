@@ -1,6 +1,5 @@
 /**
- * Every league page of the game UI (SPEC §11), by sidebar section. `m6` pages arrive with
- * the Management UI (a placeholder until then).
+ * Every league page of the game UI (SPEC §11), by sidebar section.
  * `team` pages carry a club id in the URL and show the team dropdown; `season` pages a
  * season dropdown.
  */
@@ -11,7 +10,6 @@ export interface PageDef {
   key: string;
   title: string;
   section: Section;
-  m6?: boolean;
   team?: boolean;
   season?: boolean;
   /** Reached by links only (player profile, box score), not listed in the sidebar. */
@@ -29,12 +27,17 @@ export const PAGES: PageDef[] = [
   { key: "history", title: "History", section: "League" },
   { key: "transactions", title: "Transactions", section: "League", season: true },
   { key: "squad", title: "Squad", section: "Team", team: true },
+  { key: "tactics", title: "Tactics", section: "Team", team: true },
+  { key: "academy", title: "Youth Academy", section: "Team" },
+  { key: "club-finances", title: "Finances & Facilities", section: "Team" },
   { key: "game-log", title: "Game Log", section: "Team", team: true, season: true },
   { key: "team-history", title: "Team History", section: "Team", team: true },
-  { key: "free-agents", title: "Free Agents", section: "Players", m6: true },
-  { key: "transfer-market", title: "Transfer Market", section: "Players", m6: true },
+  { key: "free-agents", title: "Free Agents", section: "Players" },
+  { key: "transfer-market", title: "Transfer Market", section: "Players" },
   { key: "player", title: "Player", section: "Players", hidden: true },
   { key: "box-score", title: "Box Score", section: "Team", hidden: true },
+  { key: "live", title: "Live match", section: "Team", hidden: true },
+  { key: "fired", title: "You're fired", section: "General", hidden: true },
   { key: "league-leaders", title: "League Leaders", section: "Stats", season: true },
   { key: "player-ratings", title: "Player Ratings", section: "Stats" },
   { key: "player-stats", title: "Player Stats", section: "Stats", season: true },

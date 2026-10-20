@@ -8,7 +8,7 @@
  */
 import type { Position } from "./config/ratings";
 import type { MatchEvent, MatchResult, Period } from "./match";
-import type { Fixture, Foot, InboxMessage, LeagueSummary, Phase } from "./schema";
+import type { Fixture, Foot, InboxMessage, LeagueSummary, Phase, SliderSettings } from "./schema";
 
 export type WorkerKind = "shared" | "dedicated";
 
@@ -186,13 +186,15 @@ export interface LabBatch {
 /** Play-menu actions (SPEC §3.2), as the worker runs them. */
 export type PlayOption =
   | "untilNextMatch"
+  | "watchNextMatch"
   | "oneWeek"
   | "untilWindowCloses"
   | "untilEndOfSeason"
   | "proceedToPromotionRelegation"
   | "advanceToPreseason";
 
-export type SeasonEventKind = "windowOpens" | "windowCloses" | "winterUpdate" | "deadlineReminder";
+export type SeasonEventKind =
+  "windowOpens" | "windowCloses" | "winterUpdate" | "deadlineReminder" | "academyReminder";
 
 export interface SeasonEvent {
   date: string;
@@ -212,6 +214,8 @@ export interface GameState {
   nextUserFixture: Fixture | null;
   /** Set when the board has sacked the user: play stops until he takes a job offer. */
   fired: { date: string; offers: { cid: number; name: string; leagueId: string }[] } | null;
+  /** Set while the user watches a match live (M6): play waits until it ends. */
+  live: { fid: number } | null;
 }
 
 /** A league table row on the Standings page (form and home/away only for the live season). */
@@ -343,6 +347,10 @@ export interface PlayerView {
     fee: number;
   }[];
   freeAgentSince: string | null;
+  /** On the user's transfer list (his own players only). */
+  listed: { asking: number; date: string } | null;
+  /** The game date (for what a release would cost). */
+  today: string;
   retiredSeason: number | null;
   /** Every development update: OVR and POT over time. */
   history: { date: string; season: number; ovr: number; pot: number }[];
@@ -476,6 +484,317 @@ export interface TeamStatsView {
     yellowCards: number | null;
     redCards: number | null;
     cleanSheets: number | null;
+  }[];
+}
+
+/** A line-up on the Tactics page (M6): formation, the XI by slot, the bench, the sliders. */
+export interface TacticsSetup {
+  formation: string;
+  sliders: SliderSettings;
+  /** Player ID per formation slot (11); null = empty. */
+  slots: (number | null)[];
+  /** Substitutes in order (up to the bench size). */
+  bench: number[];
+}
+
+/**
+ * How a setup is taken: as given, re-slotted into its formation, the AI's pick, or the
+ * user's saved line-up again.
+ */
+export type TacticsMode = "asIs" | "reslot" | "auto" | "saved";
+
+export interface TacticsPlayerView {
+  pid: number;
+  name: string;
+  position: Position;
+  secondary: Position[];
+  age: number;
+  ovr: number;
+  /** OVR in the slot he fills (wrong foot counted); on the bench and in reserve, his OVR. */
+  slotOvr: number;
+  condition: number;
+  injury: { type: string; until: string } | null;
+  academy: boolean;
+  loanee: boolean;
+}
+
+/** The Tactics page: a club's line-up, who else can play, and the team ratings it gives. */
+export interface TacticsView {
+  team: TeamRef;
+  /** The user's club (other clubs show the AI's pick, read-only). */
+  editable: boolean;
+  /** The user has saved a line-up (otherwise this is the AI's pick). */
+  saved: boolean;
+  /** The setup shown, cleaned of players who can't play for the club any more. */
+  setup: TacticsSetup;
+  slots: { label: string; player: TacticsPlayerView | null }[];
+  bench: TacticsPlayerView[];
+  /** Everyone else who can be picked (seniors, loanees in, academy players 16+). */
+  reserves: TacticsPlayerView[];
+  /** The seven team ratings (player-OVR scale) at today's condition, sliders included. */
+  ratings: { key: string; label: string; value: number }[];
+  warnings: string[];
+  benchSize: number;
+}
+
+/** One side of a live match (M6 Watch live). */
+export interface LiveTeamView {
+  team: TeamRef;
+  formation: string;
+  sliders: SliderSettings;
+  /** Managed by the user (he makes its changes) or by the AI. */
+  user: boolean;
+  stats: {
+    shots: number;
+    shotsOnTarget: number;
+    xg: number;
+    /** Share of the time with the ball so far, 0–1. */
+    possession: number;
+    passes: number;
+    passesCompleted: number;
+    corners: number;
+    fouls: number;
+    yellowCards: number;
+    redCards: number;
+  };
+  /** The 11 slots: who plays there now (null after a red card). */
+  onPitch: ({
+    pid: number;
+    slot: string;
+    /** In-match energy, 0–100. */
+    energy: number;
+    booked: boolean;
+    injured: boolean;
+  } | null)[];
+  /** Substitutes still available. */
+  bench: { pid: number; position: Position; energy: number }[];
+  subsUsed: number;
+  subLimit: number;
+  windowsUsed: number;
+  windowLimit: number;
+}
+
+/** A match the user is watching live (M6). */
+export interface LiveMatchView {
+  fid: number;
+  date: string;
+  competition: string;
+  competitionName: string;
+  round: string;
+  leg: number | null;
+  /** The user's side: 0 home, 1 away. */
+  userSide: 0 | 1;
+  score: [number, number];
+  shootout: [number, number] | null;
+  clock: number;
+  minute: number;
+  period: Period;
+  /** Before kick-off or at a break: substitutions now don't use a window. */
+  atBreak: boolean;
+  finished: boolean;
+  /** Feed events from the index asked for, and how many the feed holds now. */
+  events: MatchEvent[];
+  feedLength: number;
+  teams: [LiveTeamView, LiveTeamView];
+  /** Names of everyone in both squads. */
+  players: Record<
+    number,
+    { name: string; position: Position; shirtNumber: number | null; ovr: number }
+  >;
+  /** Why the last step stopped by itself (auto-pause), if it did. */
+  pause: LivePause | null;
+  /** At full time: the match is saved and the day finished. */
+  report: PlayReport | null;
+}
+
+/**
+ * Play stops by itself at a break (half-time, before extra time, extra time's half-time)
+ * and when one of the user's players is injured or sent off.
+ */
+export interface LivePause {
+  reason: "halfTime" | "extraTime" | "extraTimeBreak" | "injury" | "redCard";
+  /** The player injured or sent off. */
+  pid: number | null;
+}
+
+/** Changes the user makes at a pause in a live match (subs, formation, sliders). */
+export interface LiveChanges {
+  subs?: { outPid: number; inPid: number }[];
+  formation?: string;
+  sliders?: Partial<SliderSettings>;
+}
+
+/** The Free Agents page (M6): every unsigned player, his ask and his mood toward the user's club. */
+export interface FreeAgentsView {
+  rows: {
+    pid: number;
+    name: string;
+    position: Position;
+    secondary: Position[];
+    age: number;
+    ovr: number;
+    pot: number;
+    value: number;
+    /** His lowest yearly wage ask (over 1–5 years) at the user's club. */
+    ask: number;
+    mood: number;
+    /** He would negotiate with the user's club. */
+    willing: boolean;
+    daysFree: number;
+  }[];
+  /** The user's wage room (a year) now. */
+  wageRoom: number;
+  seniors: number;
+  maxSeniors: number;
+  windowOpen: boolean;
+  /** FFP transfer ban until this date, if any. */
+  banned: string | null;
+  fired: boolean;
+}
+
+/** The Transfer Market page (M6): your squad for listing, offers, loans, and what you owe. */
+export interface TransferMarketView {
+  date: string;
+  window: { id: string; closes: string } | null;
+  budget: {
+    transfer: number;
+    wageRoom: number;
+    seniors: number;
+    maxSeniors: number;
+    squadCostRatio: number;
+    ffpLimit: number;
+    banned: string | null;
+    /** Wages still owed a year to released players. */
+    owed: number;
+  };
+  /** The user's seniors (loanees in left out), with their listing and open bids for them. */
+  squad: {
+    pid: number;
+    name: string;
+    position: Position;
+    age: number;
+    ovr: number;
+    pot: number;
+    value: number;
+    wage: number;
+    expires: string | null;
+    listed: { asking: number; date: string } | null;
+    openBids: number;
+  }[];
+  offers: OfferView[];
+  loansOut: LoanRow[];
+  loansIn: LoanRow[];
+  released: { pid: number; name: string; wage: number; until: string }[];
+  fired: boolean;
+}
+
+/** A loan the user's club is part of: the other club, the end date and who pays the wage. */
+export interface LoanRow {
+  pid: number;
+  name: string;
+  position: Position;
+  age: number;
+  ovr: number;
+  /** The loan club (loans out) or the parent club (loans in). */
+  club: TeamRef;
+  until: string;
+  /** The loan club's share of the wage (0, 0.5 or 1). */
+  wageShare: number;
+}
+
+/** The Youth Academy page (M6): the user's academy players and what deciding means. */
+export interface AcademyView {
+  date: string;
+  /** The coming 1 July: players 18 or older then must be decided by it (SPEC §7.2). */
+  decideBy: string;
+  seniors: number;
+  maxSeniors: number;
+  /** The Youth academy dial (0–100): intake size and quality. */
+  youthDial: number;
+  players: {
+    pid: number;
+    name: string;
+    position: Position;
+    secondary: Position[];
+    age: number;
+    nationality: string;
+    ovr: number;
+    pot: number;
+    /** OVR change at the last development update. */
+    change: number | null;
+    /** 18 or older on `decideBy`: promote him by then, or the AI rule decides. */
+    mustDecide: boolean;
+    /** His wage a year on a first pro contract now. */
+    wage: number;
+  }[];
+}
+
+/** The user's club finances and facilities (M6, SPEC §11). */
+export interface ClubFinancesView {
+  season: number;
+  date: string;
+  team: TeamRef;
+  cash: number;
+  /** This season so far, by kind. */
+  revenue: { kind: string; label: string; amount: number }[];
+  expenses: { kind: string; label: string; amount: number }[];
+  profit: number;
+  /** Fee amortisation booked this season (an FFP cost, not cash). */
+  amortisation: number;
+  /** Cash at the end of each past season, and now. */
+  cashHistory: { season: number; cash: number; current: boolean }[];
+  ffp: {
+    /** Squad cost (wages and amortisation) over revenue, projected for this season. */
+    ratio: number;
+    limit: number;
+    lastSeason: number | null;
+    status: "ok" | "warned" | "banned";
+    bannedUntil: string | null;
+  };
+  budget: { transfer: number; wageRoom: number; wageShare: number; base: number };
+  dials: {
+    key: "coaching" | "youth" | "medical" | "facilities";
+    label: string;
+    what: string;
+    level: number;
+    /** Euros a season at this level. */
+    cost: number;
+    /** What the dial does now, relative to other clubs (50 = average). */
+    effect: number;
+  }[];
+  /** A dial's cost a season at level 0 and at 100 (straight line between). */
+  dialCostRange: { at0: number; at100: number };
+  facilitiesLevel: number;
+  ticket: {
+    price: number;
+    /** The AI's price for the club (what "Auto" charges). */
+    fair: number;
+    auto: boolean;
+    /** True once the season's first home match is played. */
+    locked: boolean;
+    capacity: number;
+    /** A league home match at a few prices: the expected crowd and gate. */
+    curve: { price: number; attendance: number; gate: number }[];
+  };
+}
+
+/** The "You're fired" screen (M6, SPEC §6.5): the club that sacked the user and his offers. */
+export interface FiredView {
+  date: string;
+  /** The club that sacked him. */
+  club: TeamRef;
+  leagueName: string;
+  record: { position: number | null; played: number; won: number; drawn: number; lost: number };
+  confidence: number;
+  offers: {
+    team: TeamRef;
+    leagueName: string;
+    reputation: number;
+    /** Mean OVR of its 11 best fit seniors. */
+    strength: number;
+    position: number | null;
+    /** What its board will expect. */
+    expectation: string | null;
   }[];
 }
 
@@ -660,6 +979,8 @@ export interface PlayReport {
   matchesPlayed: number;
   events: SeasonEvent[];
   phase: Phase;
+  /** "Watch next match": the fixture now live (null if play stopped before it, e.g. sacked). */
+  live?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -789,6 +1110,8 @@ export interface ContractTalks {
   userPlayer: boolean;
   /** Transfer: the fee his club accepted (null until a bid is accepted). */
   feeAgreed: number | null;
+  /** The user's seniors and the cap (SPEC §7.1): a full squad can't sign anyone. */
+  squad: { seniors: number; max: number };
   /**
    * The user's transfer budget and wage room (a year) now (SPEC §6.3), his squad cost as a
    * share of revenue against the FFP limit, and any FFP warning or ban (SPEC §6.4).
@@ -888,6 +1211,8 @@ export interface ClubLabView {
 /** A market search in the Club lab. */
 export interface PlayerSearch {
   position?: string;
+  /** Only players at clubs in this league. */
+  leagueId?: string;
   minOvr?: number;
   maxOvr?: number;
   maxAge?: number;
@@ -957,6 +1282,51 @@ export interface WorkerApi {
   getPlayerStats(lid: number, season: number | null, competition: string | null): PlayerStatsView;
   getTeamStats(lid: number, leagueId: string | null, season: number | null): TeamStatsView;
   getInjuries(lid: number): InjuriesView;
+  getFreeAgents(lid: number): FreeAgentsView;
+  getTransferMarket(lid: number): TransferMarketView;
+  getAcademy(lid: number): AcademyView;
+  /** When the user has been sacked: the club, his record and his job offers (else null). */
+  getJobOffers(lid: number): FiredView | null;
+  /** Renames the save (Settings). */
+  renameLeague(lid: number, name: string): void;
+  /** Promotes (first pro contract) or releases one of the user's academy players. */
+  decideAcademyPlayer(lid: number, pid: number, decision: "promote" | "release"): string;
+  getClubFinances(lid: number): ClubFinancesView;
+  setBudgetDials(
+    lid: number,
+    dials: { coaching: number; youth: number; medical: number; facilities: number },
+  ): ClubFinancesView;
+  /** The season's ticket price (null = Auto, the AI's fair price); locked after a home match. */
+  setTicketPrice(lid: number, price: number | null): ClubFinancesView;
+  /** The fees/wages control (SPEC §6.3): the share of FFP headroom kept for wages. */
+  setClubWageShare(lid: number, share: number): ClubFinancesView;
+  /** Lists one of the user's players at an asking price, or takes him off the list (null). */
+  listPlayer(lid: number, pid: number, asking: number | null): TransferMarketView;
+  /** Releases one of the user's players; returns what it costs, in words. */
+  releasePlayer(lid: number, pid: number): string;
+  /** A club's line-up (null = the user's). */
+  getTactics(lid: number, cid: number | null): TacticsView;
+  /** The user's unsaved line-up as the page would show it (re-slotted or the AI's pick). */
+  previewTactics(lid: number, setup: TacticsSetup, mode: TacticsMode): TacticsView;
+  /** Saves the user's line-up; it applies to the matches he watches. */
+  saveTactics(lid: number, setup: TacticsSetup): TacticsView;
+  /** The live match, with feed events from index `from` (null when none is under way). */
+  getLiveMatch(lid: number, from: number): LiveMatchView | null;
+  /**
+   * Plays up to `possessions` possessions, stopping early at a break or when one of the
+   * user's players is injured or sent off (`autoPause`, off for "To full time"). At full
+   * time the day is finished and saved.
+   */
+  stepLiveMatch(lid: number, possessions: number, from: number, autoPause: boolean): LiveMatchView;
+  /** The user's changes at a pause (subs, formation, sliders). */
+  changeLiveMatch(lid: number, changes: LiveChanges, from: number): LiveMatchView;
+  /** Before kick-off: the user's line-up for this match, as the Tactics editor shows it. */
+  getLiveLineup(lid: number): TacticsView;
+  /**
+   * Before kick-off: changes the line-up for this match only ("auto" = the AI's rotation
+   * for this fixture, "saved" = the saved Tactics line-up). The match restarts from kick-off.
+   */
+  setLiveLineup(lid: number, setup: TacticsSetup, mode: TacticsMode): TacticsView;
   getHistory(lid: number): HistoryView;
   getTeamHistory(lid: number, cid: number): TeamHistoryView;
   getTransactions(lid: number, season: number | null): TransactionsView;

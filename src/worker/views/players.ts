@@ -205,6 +205,8 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
       fee: t.fee,
     })),
     freeAgentSince: p.freeAgentSince,
+    listed: p.status === "club" && p.cid === game.userCid ? (p.listed ?? null) : null,
+    today: game.date,
     retiredSeason: p.retiredSeason,
     history: history.map((h) => ({ date: h.date, season: h.season, ovr: h.ovr, pot: h.pot })),
     radar: Object.entries(ratingsConfig.radarAxes).map(([axis, codes]) => ({
