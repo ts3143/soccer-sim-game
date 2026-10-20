@@ -402,7 +402,7 @@ Screen details:
 ## 14. Calibration and performance
 - All engine, development, finance and stability targets: `data/config/calibration_targets.json`. The harness is the gate for Milestones 2–4.
 - Engine targets are met with all league style modifiers neutral; each league is then checked against target × its modifier (see 8.8).
-- Performance budget `[DEFAULT]`: one headless match < 5 ms; a full MVP season in-browser < 60 s on a mid-range laptop including season processing; save < 100 MB after 10 seasons.
+- Performance budget `[DEFAULT]`: one headless match < 5 ms; a full MVP season in-browser < 60 s on a mid-range laptop including season processing; save < 100 MB after 10 seasons. "Mid-range laptop" = Chrome with its CPU slowed 4× on the developer's machine, measured by the automated `perf` check (T, 2026-10-20).
 
 ---
 

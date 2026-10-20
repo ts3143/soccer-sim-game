@@ -10,8 +10,8 @@ Claude Code updates this file at the end of each milestone.
 | M3 Season loop | **Accepted** (T, 2026-10-16) | All M3 gates pass locally, in CI (`calibrate --world --check`, 16 checks) and on the Cloudflare preview (Season lab 19/19, Match lab 11/11, M1 18/18 headless Chrome); T tested in the browser. Young regulars' growth and world shape gated in M4 (T). See "M3 notes" below. |
 | M4 Economy and market | **Accepted** (T, 2026-10-19) | All gates pass locally, in CI (`calibrate --check`, `calibrate --world --check` with the M4 economy, world-shape and exploit gates; 222 tests) and on the Cloudflare preview (Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. Champion band 76–100 for the MVP (revisit with Europe). See "M4 notes" below. |
 | M5 Core UI | **Accepted** (T, 2026-10-19) | All checks pass locally, in CI and on the Cloudflare preview and production (game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M5 notes" below. |
-| M6 Management UI | Built; T's local test next | All 9 chunks built. 251 tests; calibration gates pass unchanged; headless Chrome against the production build: the three-season career 11/11 (sign, sell, loan, renew, tactics, a live match changed at half-time each season, academy promotions, even a sacking and a new job), management screens 74/74, game pages 90/90, full-season sweep 43/43 (every page, now 22, at six points), Club lab 19/19, Season lab 21/21, M1 18/18. See "M6 notes" below. |
-| M7 Polish and release v0.1 | Not started | |
+| M6 Management UI | **Accepted** (T, 2026-10-20) | All checks pass locally, in CI and on the Cloudflare preview and production (career 11/11, management screens 74/74, game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M6 notes" below. |
+| M7 Polish and release v0.1 | In progress | Plan approved (6 chunks). See "M7 notes" below. |
 
 ## Deviations from spec
 Record every approved change to SPEC.md here, with date and reason. "Review #N" = item N of the kickoff review (answers in `OPEN_QUESTIONS.md` §A2).
@@ -52,6 +52,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-19 | M5 plan | The Inbox page moves from M6 to M5; the developer pages stay at a hidden `/dev` address through M6. Charts and routing are built in-house. | The Dashboard previews the inbox; until M6's transfer screens, the Club lab is the only place to trade. Approved by T. | MILESTONES M5, M6 |
 | 2026-10-19 | M6 plan | Releasing a player (user): he leaves at once, his wages are still paid monthly until the contract ends and count for FFP. Academy players 18+ the user hasn't decided on by 1 July get the AI rule, with an inbox reminder in May. Ticket price set in preseason, locked after the first home match, "Auto" = the AI price. Settings: rename and delete the save; the live-match speed is a slider on the Watch live screen. Transfer list: AI clubs that need the position bid around the asking price. A live match is saved as it goes and resumes after the game is closed. | The spec didn't cover releasing, academy players left undecided, when the price can change, what Settings holds or how listing works. Approved by T. | SPEC §6.2, §7.2, §7.6, §11 |
 | 2026-10-19 | M6 chunk 5 | The user can sign free agents at any time; AI clubs sign them only on their market days, inside the windows (as built in M4). | SPEC §3.1 said "at any time" for everyone. Changing the AI would need a calibration run. Kept by T. | SPEC §3.1 |
+| 2026-10-20 | M7 plan | "Mid-range laptop" for the 60 s season budget = Chrome with its CPU slowed 4× on the developer's machine. T tests Firefox by hand. v0.1 is shown in the app, with a CHANGELOG and a GitHub release v0.1.0. | The spec named no reference machine; Firefox needs a separate browser download to automate. Approved by T. | SPEC §14 |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -1266,6 +1267,15 @@ Each point of parity gained cost about one champion point, so the two real-world
   - a full squad blocks signings until you sell, loan or release, and the windows' pace means a sale can take weeks;
   - the developer pages at `/dev` are removed in M7, as agreed;
   - Firefox untested.
+
+## M7 notes (2026-10-20, in progress)
+**Plan** (approved by T): 6 chunks of about an hour.
+1. Remove the developer pages (`/dev`) and their checks; show the version in the app.
+2. Performance pass: one season at a 4× CPU slowdown, ten seasons (time and save size), retention and pruning checked; fixes.
+3. Bug bash I: edge states (new league, promotion and relegation, extra time and penalties live, FFP ban, negative cash, retired and pruned players, empty pages, the sacking flow).
+4. Bug bash II: two tabs, the fallback worker, reloads mid-action, long names and tables, errors in plain words.
+5. Laptop layout: every page at 1280×720 and 1366×768 and with the narrow sidebar.
+6. Release v0.1: How to play, CHANGELOG, PROGRESS, all checks, PR, merge, tag v0.1.0, production checks; T tests Firefox.
 
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.

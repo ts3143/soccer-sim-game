@@ -87,6 +87,14 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 6 | Closing the game mid-match (proposed, no objection) | The live match is saved as it goes and resumes on return: no do-overs |
 | 7 | AI clubs sign free agents only on their market days, inside the windows (SPEC §3.1 says "at any time") | Keep it: the user can sign them at any time, the AI in the windows |
 
+## A9. M7 planning, answered by T (Oct 20 2026)
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | What counts as a "mid-range laptop" for the 60 s season budget | Chrome with its CPU slowed 4× on the developer's machine, in the automated check |
+| 2 | Firefox (never tested) | T tests it by hand in the release chunk |
+| 3 | Release format | "v0.1" shown in the app (Manage Leagues, Settings), a CHANGELOG, a GitHub release tagged v0.1.0 |
+| 4 | Bugs from T's own testing | T reports them after M7 |
+
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.
 1. **Hidden traits** (Injury Prone, Hothead) are generated and affect the sim from the MVP but are never shown until scouting arrives in v1.1.
