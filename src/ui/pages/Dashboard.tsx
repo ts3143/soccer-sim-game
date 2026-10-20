@@ -85,7 +85,7 @@ export function Dashboard() {
     <>
       <PageHeader title="Dashboard" />
       <div className="row g-3">
-        <div className="col-lg-8">
+        <div className="col-xl-8">
           <section className="card mb-3" data-testid="club-summary">
             <div className="card-body">
               <div className="d-flex flex-wrap align-items-center gap-3 mb-3">
@@ -108,8 +108,9 @@ export function Dashboard() {
               <NextMatch view={view} />
             </div>
           </section>
+          {/* One above the other: side by side, two club names to a row don't fit. */}
           <div className="row g-3 mb-3">
-            <section className="col-md-6">
+            <section className="col-12">
               <div className="card h-100">
                 <div className="card-body">
                   <h2 className="h6">Coming up</h2>
@@ -127,7 +128,7 @@ export function Dashboard() {
                 </div>
               </div>
             </section>
-            <section className="col-md-6">
+            <section className="col-12">
               <div className="card h-100">
                 <div className="card-body">
                   <h2 className="h6">Recent results</h2>
@@ -233,7 +234,7 @@ export function Dashboard() {
             </section>
           </div>
         </div>
-        <div className="col-lg-4">
+        <div className="col-xl-4">
           <section className="card mb-3" data-testid="board">
             <div className="card-body">
               <h2 className="h6">The board</h2>

@@ -16,3 +16,6 @@ export const formatPercent = (share: number, digits = 1): string =>
 
 /** 30 Jun 2027 (from an ISO date or date-time), the same format as the game's own messages. */
 export const formatDate = (iso: string): string => formatDay(iso);
+
+/** 30 Jun, where the year is plain from what's next to it. */
+export const formatDayMonth = (iso: string): string => formatDay(iso).replace(/ \d+$/, "");

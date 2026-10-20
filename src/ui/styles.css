@@ -17,7 +17,8 @@ tr[role="button"] {
   cursor: pointer;
 }
 
-/* App shell (M5): sidebar beside the page on wide screens, a toggled panel on narrow ones. */
+/* App shell (M5): sidebar beside the page on wide screens, a toggled panel on narrow ones.
+   The top bar stays one 60 px row at every width (the `layout` browser check). */
 .app-sidebar {
   width: 210px;
   flex: 0 0 210px;

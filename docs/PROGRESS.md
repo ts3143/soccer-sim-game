@@ -1371,5 +1371,44 @@ Each point of parity gained cost about one champion point, so the two real-world
   - **If the game engine fails to load or stops,** pages say so instead of loading forever.
 - **Tests:** 254, all pass (new: the RPC failure path, `formatDay`, the league switch, the Play marker). **Browser checks:** m5, m6, sweep, career, edges and tabs all pass (perf unchanged since chunk 2).
 
+**Chunk 5: laptop layout** (`tools/browser-checks/layout.mjs`)
+- **New `layout` check (18 checks).** Four sizes, each as much of the screen as the browser actually shows: the screen minus the browser's tabs and toolbar (about 87 px), the taskbar (about 48 px) and a 17 px scrollbar.
+
+| Screen | Window checked |
+| --- | --- |
+| 1280×720 | 1263×585 |
+| 1366×768 | 1349×633 |
+| 1366×768 at Windows' 125% scaling | 1076×506: the tightest fit beside the sidebar (992–1199 px) |
+| A window under 992 px (half a 1920 screen) | 960×600, sidebar behind Menu |
+
+  - **Every page at every size:** the 23 sidebar pages, a player profile, a box score, Live, New league and Manage Leagues. The league pages are checked twice: after the first match (summer window open) and at the next preseason (a season of history).
+    - No page is wider than the window.
+    - No content is wider than its card or column. Content that overflows a card runs over its neighbours without widening the page, so this needs its own test.
+    - Wide tables may scroll inside their own box.
+  - **The top bar,** with a 60-character league name and the longest club name on offer (Warwickshire Sky Blues): one row, with the Play button, date, phase, window badge, league name and club all showing, also while "● Live match" is there.
+  - **Menus and dialogs:** the Play menu, the contract window (a free agent and a bid), and the List, Loan and Release dialogs fit.
+  - **Live, at 1280×720 and at 125%:**
+    - before the match, Kick off is on screen;
+    - at half-time, the scoreboard, the controls and the changes screen are on screen;
+    - while playing, the newest commentary is on screen;
+    - at full time, the result is on screen.
+  - **Under 992 px:** the sidebar starts hidden, opens and closes with Menu, and closes when a page is picked.
+- **Fixes** (classes and markup only; no game logic changed):
+  - **The top bar wrapped to two rows.** It happened at 1280 px when the Live link and the window badge both showed, and at every width under 1200 px. Under 992 px the second row also covered the top of the opened sidebar. It is now always one row:
+    - the league name gives way first (shortened with "…");
+    - under 1200 px, the window badge reads "Window until 31 Aug", with the full text on hover;
+    - under 992 px, the Menu button sits in the top bar instead of the "Soccer Sim" title. Before, it sat at the top of the page, where the opened sidebar covered it, so the only way to close the sidebar was to pick a page;
+    - the "N matches played" note after a Play shows from 1400 px only.
+  - **Dashboard: "Coming up" and "Recent results" overlapped.**
+    - They sat side by side, and a row with two club names didn't fit: the tables ran 160–230 px into the next card at every laptop size, and at 1400 px too.
+    - They now sit one above the other.
+    - Under 1200 px, the right-hand column (the board, alerts and inbox) moves below the main one; before, that happened only under 992 px.
+- **Checked and fine, no change:** every other page, New league, Manage Leagues, the dialogs, the Play menu, and Live (at full speed the newest commentary starts about 210 px above the bottom of a 1280×720 window).
+- **Tables that scroll sideways** (allowed): Player Ratings at every size, since it has every rating column. At 125%, Finances and Squad scroll too.
+- **Tests:** 254, all pass. **Browser checks, all pass:**
+  - m5 90/90, m6 74/74, sweep 43/43, career 11/11;
+  - edges 22/22, tabs 20/20, layout 18/18;
+  - perf 9/9: a season takes 4.0–4.5 s here (about 18 s at ×4), and the save is 38.7 MB after ten seasons.
+
 ## Open issues
 - Firefox not tested yet (Chrome: automated + T; Safari: T), for M0 and M1.
