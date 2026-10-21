@@ -31,7 +31,7 @@ export function PlayerRatings() {
       key: "name",
       label: "Name",
       value: (r) => r.name,
-      render: (r) => <PlayerLink pid={r.pid} name={r.name} />,
+      render: (r) => <PlayerLink pid={r.pid} name={r.name} nationality={r.nationality} />,
     },
     {
       key: "club",

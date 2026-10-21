@@ -157,11 +157,11 @@ export const COEFFICIENTS = {
     yellow: { buildUp: 0.12, progression: 0.2, chance: 0.24 },
     hothead: 1.6,
     /** Straight red per foul, and for a professional foul in the final third. */
-    red: 0.0019,
-    redInChance: 0.0038,
+    red: 0.0016,
+    redInChance: 0.0032,
     /** A booked player fouls less afterwards, and is booked less readily (referees' leeway). */
     bookedFoulFactor: 0.4,
-    bookedYellowFactor: 0.45,
+    bookedYellowFactor: 0.35,
   },
   setPiece: {
     /** Corner or crossed free kick → attempt on goal: (Aerial and Set Pieces) vs Aerial. */

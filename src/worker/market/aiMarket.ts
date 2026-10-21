@@ -372,6 +372,7 @@ export function marketDay(
         season,
         kind: "transfer",
         subject: `Bid for ${p.firstName} ${p.lastName}`.trim(),
+        players: [{ pid: p.pid, name: `${p.firstName} ${p.lastName}`.trim() }],
         body: `${club.name} bid ${euros(choice.fee)} for ${`${p.firstName} ${p.lastName}`.trim()} (${p.position}, ${p.ovr}). Accept or reject it before the window closes on ${formatDay(closes)}.`,
         read: false,
       });

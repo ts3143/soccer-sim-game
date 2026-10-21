@@ -27,3 +27,7 @@ Everything Claude Code needs to start building. Copy the whole package into the 
 
 ## Suggested first prompt for Claude Code
 > Read CLAUDE.md, docs/SPEC.md, docs/MILESTONES.md and docs/OPEN_QUESTIONS.md. Summarise the MVP in 10 bullets, list anything unclear or contradictory, then propose your plan for M0. Don't write code until I approve the plan.
+
+## Nationality flags
+
+`public/flags/*.svg`: flat 4:3 flags from [flag-icons](https://github.com/lipis/flag-icons), by Panayiotis Lipiridis, MIT licensed. The licence is retained in `public/flags/LICENSE`. Assets are bundled locally; no third-party image requests are made during play. Includes England, Scotland, Wales and Northern Ireland as separate football nationalities.

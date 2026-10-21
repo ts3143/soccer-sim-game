@@ -84,7 +84,7 @@ export function Academy() {
             value: (p) => p.name,
             render: (p) => (
               <>
-                <PlayerLink pid={p.pid} name={p.name} />
+                <PlayerLink pid={p.pid} name={p.name} nationality={p.nationality} />
                 {p.mustDecide && (
                   <span
                     className="badge text-bg-warning ms-1"

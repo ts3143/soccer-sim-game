@@ -48,6 +48,7 @@ export function matchView(f: Fixture, clubs: ReadonlyMap<number, Club>): MatchVi
     home: teamRef(clubs.get(f.homeCid)),
     away: teamRef(clubs.get(f.awayCid)),
     score: scoreText(f),
+    homeResult: resultFor(f, f.homeCid),
     winnerCid: f.result?.winnerCid ?? null,
   };
 }

@@ -82,7 +82,7 @@ describe("tactics", () => {
       const bad: [TacticsSetup, RegExp][] = [
         [{ ...auto.setup, bench: [...auto.setup.bench, first] }, /bench holds 9|picked twice/],
         [{ ...auto.setup, bench: [first, ...auto.setup.bench.slice(1)] }, /picked twice/],
-        [{ ...auto.setup, bench: [outsider] }, /Only your seniors/],
+        [{ ...auto.setup, bench: [outsider] }, /Only eligible, unsuspended/],
         [{ ...auto.setup, sliders: { ...auto.setup.sliders, pressing: 3 } }, /whole steps/],
         [{ ...auto.setup, formation: "4-1-4-1" }, /isn't one of the formations/],
       ];

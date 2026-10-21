@@ -160,6 +160,7 @@ export function startLoan(world: ContractWorld, deal: LoanDeal): TransferLog {
       kind: "transfer",
       subject: `${fullName(p)} goes on loan`,
       body: `${fullName(p)} joins ${loanClub.name} on loan ${terms}.`,
+      players: [{ pid: p.pid, name: fullName(p) }],
       read: false,
     });
   } else if (loanClub.cid === world.userCid) {
@@ -169,6 +170,7 @@ export function startLoan(world: ContractWorld, deal: LoanDeal): TransferLog {
       kind: "transfer",
       subject: `${fullName(p)} joins on loan`,
       body: `${fullName(p)} (${p.position}, ${p.ovr}) joins from ${nameOf(world, parent)} on loan ${terms}.`,
+      players: [{ pid: p.pid, name: fullName(p) }],
       read: false,
     });
   }
@@ -179,6 +181,7 @@ export function startLoan(world: ContractWorld, deal: LoanDeal): TransferLog {
 export function returnLoans(world: ContractWorld, date: string, season: number): TransferLog {
   const log: TransferLog = { changed: new Set(), transactions: [], messages: [] };
   const back: string[] = [];
+  const backRefs: { pid: number; name: string }[] = [];
   for (const p of world.players) {
     if (p.status !== "loan" || !p.loan || p.loan.until > date) continue;
     const from = p.cid as number;
@@ -189,7 +192,10 @@ export function returnLoans(world: ContractWorld, date: string, season: number):
     p.loan = null;
     p.shirtNumber = freeShirtNumber(world.players, parent, p.position === "GK");
     log.changed.add(p.pid);
-    if (parent === world.userCid) back.push(`${fullName(p)} (${nameOf(world, from)})`);
+    if (parent === world.userCid) {
+      back.push(`${fullName(p)} (${nameOf(world, from)})`);
+      backRefs.push({ pid: p.pid, name: fullName(p) });
+    }
   }
   if (back.length > 0) {
     log.messages.push({
@@ -198,6 +204,7 @@ export function returnLoans(world: ContractWorld, date: string, season: number):
       kind: "transfer",
       subject: `${back.length} player(s) back from loan`,
       body: `Back in your squad: ${back.join(", ")}.`,
+      players: backRefs,
       read: false,
     });
   }

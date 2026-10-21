@@ -237,6 +237,22 @@ describe("the user's transfers", () => {
       expect(
         keepers.every((p) => p.position === "GK" && p.ovr >= 60 && p.ovr <= 70 && p.cid !== 0),
       ).toBe(true);
+      const candidate = (await searchPlayers(league.lid, { limit: 1 }))[0]!;
+      const filtered = await searchPlayers(league.lid, {
+        name: candidate.name,
+        nationality: candidate.nationality,
+        minAge: candidate.age,
+        maxAge: candidate.age,
+        minPot: candidate.pot,
+        maxValue: candidate.value,
+        maxWage: candidate.wage,
+      });
+      expect(filtered.some((p) => p.pid === candidate.pid)).toBe(true);
+      expect(await searchPlayers(league.lid, { name: candidate.name, maxValue: 0 })).toEqual([]);
+      expect(await searchPlayers(league.lid, { name: candidate.name, maxWage: 0 })).toEqual([]);
+      const expiring = await searchPlayers(league.lid, { expiring: true });
+      expect(expiring.length).toBeGreaterThan(0);
+      expect(expiring.every((p) => p.expires === "2027-06-30")).toBe(true);
       const eng2 = await searchPlayers(league.lid, { leagueId: "ENG2", limit: 30 });
       const eng2Clubs = new Set(
         session.cache

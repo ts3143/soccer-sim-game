@@ -381,6 +381,7 @@ export function completeTransfer(world: TransferWorld, deal: Deal): TransferLog 
       kind: "transfer",
       subject: `Signed ${fullName(p)}`,
       body: `${fullName(p)} (${p.position}, ${p.ovr}) joins from ${from}${fee}, on ${terms}.`,
+      players: [{ pid: p.pid, name: fullName(p) }],
       read: false,
     });
   } else if (fromCid !== null && fromCid === world.userCid) {
@@ -390,6 +391,7 @@ export function completeTransfer(world: TransferWorld, deal: Deal): TransferLog 
       kind: "transfer",
       subject: `Sold ${fullName(p)}`,
       body: `${fullName(p)} (${p.position}, ${p.ovr}) leaves for ${buyer.name}${fee}.`,
+      players: [{ pid: p.pid, name: fullName(p) }],
       read: false,
     });
   }

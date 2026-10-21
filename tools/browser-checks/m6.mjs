@@ -44,7 +44,7 @@ const bench = page.locator('[data-testid="tactics-bench"] tbody tr');
 const reserves = page.locator('[data-testid="tactics-reserves"] tbody tr');
 const nameIn = (row) => row.locator("td:nth-child(2) a").innerText();
 const names = async (rows) =>
-  (await rows.locator("td:nth-child(2)").allInnerTexts()).map((t) => t.trim());
+  (await rows.locator("td:nth-child(2) a").allInnerTexts()).map((t) => t.trim());
 const ratings = async () =>
   Object.fromEntries(
     (await page.locator('[data-testid="team-ratings"] tr').allInnerTexts()).map((t) => {
@@ -59,6 +59,47 @@ const settle = (fn, arg) => page.waitForFunction(fn, arg, { timeout: 15_000 });
 
 await sidebar("Tactics").click();
 await xi.first().waitFor({ timeout: 30_000 });
+const summaryButton = xi.first().getByRole("button", { name: /^Show ratings and stats/ });
+await summaryButton.click();
+const summary = page.locator(".player-summary-popover:popover-open");
+check(
+  "the ratings card repeats its row's cosmetic skill tags with explanatory tooltips",
+  JSON.stringify(await summary.locator(".player-skill-tag").allTextContents()) ===
+    JSON.stringify(await xi.first().locator(".player-skill-tag").allTextContents()) &&
+    (await summary
+      .locator(".player-skill-tag")
+      .evaluateAll((tags) =>
+        tags.every(
+          (tag) => tag.title.includes("Current:") && tag.title.includes("no gameplay effect"),
+        ),
+      )),
+);
+
+check(
+  "the chart icon opens a compact card with all 22 colour-scaled ratings and season stats",
+  (await summary.count()) === 1 &&
+    (await summary.locator(".summary-ratings .rating-value").count()) === 22 &&
+    /Season stats/.test(await summary.innerText()),
+);
+check(
+  "the ratings card stays inside the viewport above the scrolling table",
+  await summary.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight;
+  }),
+);
+await page.keyboard.press("Escape");
+check(
+  "Escape closes the ratings card",
+  (await page.locator(".player-summary-popover:popover-open").count()) === 0,
+);
+check(
+  "nationality has a flat image column after age",
+  await xi
+    .first()
+    .locator("img.nationality-flag")
+    .evaluate((el) => el.complete && el.naturalWidth > 0 && el.closest("td").cellIndex > 5),
+);
 const firstNames = await names(xi);
 check(
   "Tactics shows the AI's XI by slot, a bench of 9 and the rest",
@@ -172,6 +213,22 @@ check(
     /\(\+2\)/.test(await page.locator('label[for="slider-mentality"]').innerText()),
 );
 await leakCheck("Tactics");
+await page.setViewportSize({ width: 960, height: 600 });
+await summaryButton.click();
+await page.waitForTimeout(100);
+check(
+  "the popover fits a short laptop window",
+  await summary.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return r.top >= 0 && r.bottom <= innerHeight;
+  }),
+);
+await page.locator('[data-testid="page-header"]').click();
+check(
+  "an outside click closes the popover",
+  (await page.locator(".player-summary-popover:popover-open").count()) === 0,
+);
+await page.setViewportSize({ width: 1400, height: 900 });
 
 const picker = page.locator('[data-testid="team-picker"]');
 const other = await picker.locator("option", { hasText: "Dorset Cherries" }).getAttribute("value");

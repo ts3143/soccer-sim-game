@@ -60,18 +60,31 @@ function Guide() {
       <Part title="Your squad and tactics">
         <ul>
           <li>
+            Small tags beside names describe key skills. Hover or focus a tag for its meaning,
+            cutoffs and current ratings. They are cosmetic: crossing a cutoff never changes
+            gameplay. Pc: pace; St: strength; Ae: aerial threat; Dr: dribbling; Fi: finishing; Pa:
+            smart passing; Sp: set pieces; Cr: crossing; Bw: ball winning; En: endurance/work rate;
+            Rf: goalkeeper reflexes; Ha: goalkeeper handling.
+          </li>
+          <li>
             <b>OVR</b> is how good a player is now, in his position. <b>POT</b> is a forecast of how
             good he may become.
           </li>
           <li>
             <b>Tactics</b> holds your formation, who plays where, and three sliders: mentality,
-            pressing and directness. They apply to the matches you watch.
+            pressing and directness. The pitch and table show the same line-up: drag between slots,
+            or select a player and then a destination to swap. Player profiles also map OVR at every
+            position. Your lineup and sliders apply to the matches you watch.
           </li>
           <li>
             Players tire. Condition drops with every match and recovers with rest; below about 75%
             the injury risk climbs fast, so rotate.
           </li>
           <li>You can have up to 25 senior players. Academy players don&apos;t count.</li>
+          <li>
+            A second yellow means a one-match suspension; a straight red means three. Bans are
+            served in domestic league and cup fixtures, even while injured.
+          </li>
         </ul>
       </Part>
       <Part title="Watching a match live">

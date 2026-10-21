@@ -607,6 +607,7 @@ export function academyReminder(
     season,
     kind: "contracts",
     subject: "Academy decisions due by 1 July",
+    players: due.map((p) => ({ pid: p.pid, name: fullName(p) })),
     body: `These academy players will be 18 or older on 1 July: ${list}. Promote them on the Youth Academy page, or on 1 July the club decides for you: promoted if they're good enough and there's room in the squad, otherwise released.`,
     read: false,
   };

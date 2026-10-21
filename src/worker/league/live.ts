@@ -23,6 +23,7 @@ import type {
 import { formationById, formationsConfig, slotLabel } from "../../common/config/formations";
 import type { Club, Fixture, GameMeta, Player } from "../../common/schema";
 import { effectiveDials } from "../club/standing";
+import { isSuspended } from "../season/discipline";
 import { checkSetup, cleanSetup, reslot, selectable } from "../club/tactics";
 import { maximizeAssignment } from "../core/assignment";
 import { slotOvr } from "../core/ovr";
@@ -113,7 +114,7 @@ export function forgetRunningMatch(session: LeagueSession): void {
 function availableFor(club: Club, players: readonly Player[], fixture: Fixture): Player[] {
   const opponent = fixture.homeCid === club.cid ? fixture.awayCid : fixture.homeCid;
   return selectable(players, club.cid, fixture.date).filter(
-    (p) => !isInjured(p, fixture.date) && p.loan?.parentCid !== opponent,
+    (p) => !isInjured(p, fixture.date) && !isSuspended(p) && p.loan?.parentCid !== opponent,
   );
 }
 
@@ -256,7 +257,15 @@ export function getLiveLineup(session: LeagueSession): TacticsView {
   const live = load(session);
   const ctx = lineupContext(session, live);
   const input = live.row.side === 0 ? live.state.input.home : live.state.input.away;
-  return tacticsView(ctx.club, setupOf(input), ctx.available, ctx.byPid, ctx.fixture.date, true);
+  return tacticsView(
+    ctx.club,
+    setupOf(input),
+    ctx.available,
+    ctx.byPid,
+    ctx.fixture.date,
+    true,
+    session.cache.getAll("playerStats").filter((r) => r.season === ctx.fixture.season),
+  );
 }
 
 /** Before kick-off: the user's line-up for this match only; the match restarts from kick-off. */
@@ -288,7 +297,15 @@ export function setLiveLineup(
     restart(live, user);
     save(session, live);
     await session.cache.flush();
-    return tacticsView(ctx.club, setupOf(user), ctx.available, ctx.byPid, ctx.fixture.date, true);
+    return tacticsView(
+      ctx.club,
+      setupOf(user),
+      ctx.available,
+      ctx.byPid,
+      ctx.fixture.date,
+      true,
+      session.cache.getAll("playerStats").filter((r) => r.season === ctx.fixture.season),
+    );
   });
 }
 
@@ -507,6 +524,7 @@ function liveView(session: LeagueSession, live: Running, from: number): LiveMatc
               energy: Math.round(ps.energy * 100),
               booked: ps.booked,
               injured: ps.injured,
+              injuryDays: ps.stats.injuryDays,
             }
           : null,
       ),

@@ -348,6 +348,8 @@ export interface Player {
   condition: number;
   /** Date `condition` was set (his last match); null = full condition. Absent in pre-M3 saves. */
   conditionDate?: string | null;
+  /** Domestic ban; absent in older saves. Served by club fixtures, including cups. */
+  suspension?: { remaining: number; date: string };
   /** Minutes and ratings since the last development update (reset at each one). */
   devTally?: DevTally;
   /**
@@ -488,6 +490,8 @@ export interface TransactionRow {
 }
 
 export interface InboxMessage {
+  /** Stable player IDs with message-time names; absent in older saves. */
+  players?: { pid: number; name: string }[];
   mid: number;
   date: string;
   season: number;

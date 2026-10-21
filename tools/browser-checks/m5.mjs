@@ -185,7 +185,7 @@ await page.waitForFunction(
 );
 check(
   "opening a message marks it read",
-  (await page.locator('[data-testid="inbox-list"] button p').count()) === 1,
+  (await page.locator('[data-testid="inbox-list"] article > p').count()) === 1,
 );
 const markAll = page.getByRole("button", { name: "Mark all read" });
 if (await markAll.isEnabled()) await markAll.click();
@@ -383,8 +383,8 @@ check(
 const bio = await page.locator('[data-testid="player-bio"]').innerText();
 check(
   "the profile shows OVR, POT, value and bio",
-  /OVR/.test(bio) &&
-    /POT/.test(bio) &&
+  /Overall:/.test(await page.locator(".profile-ratings").innerText()) &&
+    /Potential:/.test(await page.locator(".profile-ratings").innerText()) &&
     /Value €/.test(bio) &&
     /Nationality/.test(bio) &&
     /Height/.test(bio),
@@ -415,15 +415,10 @@ check(
   "the ratings radar has its eight axes",
   (await page.locator('[data-testid="radar"] text').count()) === 8,
 );
-await page.locator('[data-testid="history-chart"] rect').hover();
 check(
-  "hovering the OVR/POT chart shows that update's values",
-  /OVR \d+, POT \d+/.test(
-    await page
-      .locator('[data-testid="history-hover"]')
-      .innerText()
-      .catch(() => ""),
-  ),
+  "ratings history lists all 22 ratings alongside age, OVR and POT",
+  (await page.locator('[data-testid="ratings-history"] thead th').count()) === 26 &&
+    (await page.locator('[data-testid="ratings-history"] tbody tr').count()) >= 1,
 );
 const careerRows = await page.locator('[data-testid="career"] tbody tr').count();
 check(

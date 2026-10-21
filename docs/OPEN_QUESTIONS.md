@@ -97,6 +97,24 @@ All recorded in SPEC.md and logged in `PROGRESS.md` → Deviations from spec.
 | 5 | Two leagues in two tabs (chunk 4, judgment call) | Approved: one league open at a time; the league opened most recently on purpose wins, and tabs showing another league stop (SPEC §13) |
 | 6 | Where the "How to play" guide goes (chunk 6) | A page in the game, linked from Manage Leagues and the sidebar's Tools; the README points to it |
 
+## A10. T's local test of v0.1 (Oct 21 2026)
+Answered (built; SPEC §8.9, §11, §12; design doc #60–#63):
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Are red-carded players suspended? (They weren't.) | Yes from now on: one match for a second yellow, three for a straight red, in the club's next domestic fixtures, also while injured; across seasons and transfers |
+| 2 | Too many red cards (about 0.18 a match) | Retuned to about 0.14, the calibration target |
+| 3 | A formation view | A pitch on Tactics and the pre-match line-up, beside the table; a position map on the profile (replaces "No pitch view") |
+| 4 | Skill badges (were "Ideas, undecided") | Twelve cosmetic tags; T approved the list, with Sp added and a weighted Pa instead of Dp |
+| 5 | Shorter status tags | I, E, TL, S (with matches left), L, A, explained on hover |
+
+Still open:
+| # | Question | Where it stands |
+| --- | --- | --- |
+| 6 | Academy incentive: academy players of 16+ play without counting toward the 25 (SPEC §7.1), so promoting one mainly allows loans and sales | Options put to T: a pro contract to play, a limited number of free appearances, or the current rule. Nothing changed |
+| 7 | More status tags | "Tired" and "open bid" proposed; T to say |
+| 8 | Yellow-card build-up bans | Not built; T to say whether they belong in a later version |
+| 9 | The world calibration's peak-age gate fails with CI's seed since the red-card change (release blocker) | Noise at the gate's edge, not a regression: other seeds pass now and failed before; the 27–29 v 24–26 gap averages about 0 (PROGRESS, M7 chunk 6, part 2). **Answered (T, 2026-10-21):** the gate allows 1 OVR (design doc #64); tuning the age curve can come later |
+
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.
 1. **Hidden traits** (Injury Prone, Hothead) are generated and affect the sim from the MVP but are never shown until scouting arrives in v1.1.

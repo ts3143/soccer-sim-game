@@ -304,6 +304,11 @@ Single-leg cup ties, play-off eliminators and play-off finals: extra time (2 × 
 Small per-league coefficients on inputs only (`competitions_mvp.json`): ENG2 ~10–15% fewer goals (chance quality), slightly more fouls, more direct/aerial AI tactics; GER1 slightly higher-scoring; ENG1 slightly fewer fouls.
 - **Calibration:** the engine is tuned with all style modifiers neutral (1.0). Each league is then checked against target × its modifier (mapping in `calibration_targets.json` → `leagueChecks`). ENG2 landing ~2.5 goals per match is correct.
 
+### 8.9 Discipline (T, 2026-10-21)
+- A second-yellow dismissal earns a one-match ban; a straight red earns three. Bans cover the next domestic club fixtures across leagues, cups and play-offs, carry across seasons and transfers, and can be served while injured. No yellow-card accumulation bans yet.
+- The sending-off fixture does not serve the new ban. Suspended players cannot play in simulated or watched matches. Older saves start without bans; past dismissals are not retroactively reconstructed.
+- Red cards: T found about 0.18 a match too many (inside the accepted 0.08–0.20). The engine is now tuned to about 0.14, the target in `calibration_targets.json`.
+
 ---
 
 ## 9. Rotation and lineup AI
@@ -334,7 +339,7 @@ Player of the Year, Golden Boot, Team of the Season (per league); league champio
 
 ## 11. UI and screens
 
-Mirror ZenGM's layout: a **top-bar Play button** (sim options + phase steps) and a **sidebar** of sections. Every TEAM page has a **team dropdown** (view any club). Tables are sortable and filterable, paginated where large. Desktop web first. UI language: English with British football terminology `[DEFAULT]` (fixtures, defence, kit, transfer window, centre-back).
+Mirror ZenGM's layout: a **top-bar Play button** (sim options + phase steps) and a **sidebar** of sections. Every TEAM page has a **team dropdown** (view any club). Tables are sortable and filterable, paginated where large. Player/team data tables use subtle alternating light-grey rows and hover shading; selection, league-zone and result colours take priority. Completed-match rows in Dashboard, Game Log and Schedule are green for wins, yellow for draws and red for losses. Dashboard/Schedule use the user club’s perspective; Game Log uses the viewed club. Other clubs’ Schedule fixtures stay neutral. Text/score information remains available independently of colour; upcoming user fixtures keep their existing blue Schedule highlight. Desktop web first. UI language: English with British football terminology `[DEFAULT]` (fixtures, defence, kit, transfer window, centre-back).
 
 | Section | Screens `[MVP]` |
 | --- | --- |
@@ -345,12 +350,32 @@ Mirror ZenGM's layout: a **top-bar Play button** (sim options + phase steps) and
 | Stats | League Leaders, Player Ratings, Player Stats, Team Stats, Injuries |
 | Tools | Settings (rename the save, delete the league), Manage Leagues (create, switch, delete saves), How to play (a short guide, also linked from Manage Leagues; T, 2026-10-20) |
 
+Skill tags (T, 2026-10-21) are cosmetic UI-only indicators beside names in Squad/Tactics, in ratings popovers and on profiles. Recomputed from displayed current integer ratings (rounded consistently across views); never stored or read by the engine. Hover/focus text explains the rule and current ratings. All qualifying tags are shown; no cap or elite tier.
+
+| Tag | Strength | Inclusive cutoff |
+| --- | --- | --- |
+| Pc | Pacy | spd ≥70 |
+| St | Strong | str ≥70 |
+| Ae | Aerial threat | 0.50 hdr + 0.30 jmp + 0.20 str ≥70; hdr ≥65 |
+| Dr | Skilled dribbler | drb ≥70 |
+| Fi | Finisher | fin ≥70 |
+| Pa | Smart passer | 0.40 spa + 0.35 oiq + 0.25 lpa ≥70; spa ≥60, oiq ≥60, lpa ≥55 |
+| Sp | Set-piece specialist | stp ≥70; penalties excluded |
+| Cr | Dangerous crosser | crs ≥70 |
+| Bw | Ball winner | mean(tkl, ant) ≥70; both ≥65 |
+| En | Engine | mean(end, wrk) ≥70; both ≥65 |
+| Rf | Shot stopper | gkr ≥70; listed GK only |
+| Ha | Safe hands | gkh ≥70; listed GK only |
+
 Screen details:
-- **Squad:** contract-expiry badges on players whose contracts end this 30 June (see 3.1).
-- **Tactics:** formation dropdown preloads the 11 slots into a table; players are drag-and-drop ordered into slots and bench (ZenGM-style); slot OVR shown per player; the 3 sliders; live team ratings. No Auto toggle: these tactics apply to the matches the user watches. No pitch view.
+- **Status tags** (T, 2026-10-21): Squad and Tactics use I (injured), E (expiring contract), TL (transfer listed), S plus remaining matches (suspended), L (loan) and A (academy). Hover or keyboard focus shows a full explanation, including injury duration, expiry date and listing price. Listing and expiry badges elsewhere use the same abbreviations.
+- **Squad:** contract-expiry badges on players whose contracts end this 30 June (see 3.1). Chart-icon popovers show all 22 colour-scaled ratings and basic season stats without expanding the row; locally bundled flat SVG nationality flags appear in a separate column before season stats; injury badges immediately show remaining days and return date on hover or keyboard focus, outside table clipping; suspension badges show matches remaining.
+- **Tactics:** formation dropdown preloads the 11 slots into a table; players are drag-and-drop ordered into slots and bench (ZenGM-style); slot OVR shown per player; the 3 sliders; live team ratings. No Auto toggle: these tactics apply to the matches the user watches. A shared pitch component supplements the table with the positional starting XI, slot OVR and condition. Pitch slots share the table’s drag/click/keyboard swap handlers and Save/Reset/Auto state; other clubs are read-only. Preset changes reposition the configured slots. The pre-match editor also uses the pitch. Players show nationality flags, POT, season appearances/minutes/goals/assists/average rating, and chart-icon popovers for all 22 colour-scaled ratings and basic season stats. OVR/POT show signed, colour-coded changes since the final recorded update of the previous season; first-season players show no invented change.
 - **Watch live:** before kick-off, temporary one-match changes to the saved lineup (incl. one-click Auto rotation). During: live text feed, score and clock, live stats, energy bars, subs, sliders, pause button, and a speed slider (T, 2026-10-19); pausing opens an adjustment screen; half-time screen. The live match is saved as it goes: closing the game mid-match resumes it on return, so there are no do-overs.
+- **Transfer Market, Search:** name, nationality (including second nationality), league, position, minimum/maximum OVR, age range, minimum POT, maximum value, maximum yearly wage and final-year contract filters apply before the best 100 results are selected.
 - **Transfer Market, Your listed players** (T, 2026-10-19): listing a player with an asking price makes AI clubs that need his position bid around that price during the windows. Unlisted players still get occasional bids.
-- **Player profile:** bio, ratings table + **radar chart** (8 grouped axes, see config), OVR/POT history chart, career stats, contract, mood (with ZenGM-style breakdown popup), condition and injury, transfer history.
+- **Player profile:** compact bio and a positional OVR pitch map at top left, grouped ratings and the radar at top right with signed changes since last season; long labels have full-name tooltips. The positional map shows all ten position groups across 14 central/left/right spots; colours indicate best, comfortable (within 3 OVR), cover (4–8 below best), or less suited (9+ below best). This is an OVR comparison, not a new familiarity mechanic. Left/right share the stored base position OVR; Tactics applies foot fit. The mood breakdown is expandable. The **radar chart** uses 8 grouped axes (see config). Also includes a ratings-history table (age, OVR, POT and all 22 ratings at every update), career stats, contract, mood (with ZenGM-style breakdown popup), condition and injury, transfer history.
+- **Inbox** (T, 2026-10-21): subjects and bodies, and the Dashboard's message previews, link the players they name. New transfer, bid, loan, contract and academy messages keep stable player IDs with snapshot names (§12). Older transfer, contract and injury messages gain links when a full name identifies a unique current player; ambiguous names stay plain text. Opening and marking messages read work independently of the links.
 - **Finances (own club):** revenue/expense breakdown, cash over seasons, FFP gauge, budget dials, ticket price, transfer/wage budgets and shift control.
 - **New league screen:** pick your club (any of the 62).
 - `[v1.1]` Watch List, Compare Players (overlaid radar charts), advanced-stats views.
@@ -369,13 +394,13 @@ Screen details:
 | `competitions` | Leagues, cups, play-offs: format, tiers, promotion/relegation links, prize money |
 | `clubs` | Fixed identity (without `based_on`) + current tactics (starting from the default formation), budget dials, ticket price, **current cash** |
 | `clubSeasons` | Per club per season: league, finish, W/D/L, revenue/expense breakdown, **season-end cash snapshot**, hype, reputation, board expectation/confidence, FFP ratio |
-| `players` | Bio; ratings history (array per development update); position OVRs + POT; hidden ceiling, curve type, hidden traits; mood traits; contract; status (club, academy, loan, free agent, retired); injury; condition; transfer history |
+| `players` | Bio; ratings history (array per development update); position OVRs + POT; hidden ceiling, curve type, hidden traits; mood traits; contract; status (club, academy, loan, free agent, retired); injury; condition; suspension (matches left, date issued; §8.9); transfer history |
 | `playerStats` | Per player per club per competition per season |
 | `fixtures` | Date, slot, competition, round, home/away, result reference |
 | `matches` | Box score, scoring summary, key events, team stats, player match ratings |
 | `offers` | Live bids, loan offers, negotiations, deadlines |
 | `transactions` | Permanent log (transfers, loans, signings, renewals, releases, academy promotions, retirements) with name snapshots |
-| `inbox` | Messages to the user |
+| `inbox` | Messages to the user, with the players they name (IDs + snapshot names; optional, absent in older saves) |
 | `awards` | Season awards, champions, cup winners, records (with name snapshots) |
 
 - **Stored:** position OVRs + POT. **Derived on the fly:** team ratings/OVR, standings, per-90s, market value. **Match-only:** in-match energy.
@@ -410,7 +435,7 @@ Screen details:
 ## 15. Roadmap summary
 - **v1.1:** Rest of World market and exits; scouting fog (Scouting dial, fuzzy displayed ratings, reveal hidden traits); squad role promises; pre-contracts; advanced stats (Value Added, on-pitch xG difference, PPDA) then OVR weight and scaling refit; Watch List; Compare Players.
 - **Later:** all 10 leagues + world-size setting; European competitions + guest clubs; owner types; God Mode; export/import; custom rosters; Manage Teams; dark mode; more formations; 36-team league phase; extra domestic cups; international breaks and national teams; offline (service worker).
-- **Ideas, undecided:** ZenGM-style skill badges next to player names (no gameplay effect).
+- **Skill tags:** implemented as cosmetic UI indicators (see §11); no gameplay effect.
 
 ---
 
@@ -420,3 +445,4 @@ Screen details:
 - **Squad cost ratio:** (wages + amortised fees) / revenue; FFP cap 70%.
 - **Window:** transfer and renewal period (summer, winter).
 - **Slot:** a position in a formation (group + side).
+

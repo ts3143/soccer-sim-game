@@ -83,7 +83,7 @@ export function FreeAgents() {
             key: "name",
             label: "Name",
             value: (r) => r.name,
-            render: (r) => <PlayerLink pid={r.pid} name={r.name} />,
+            render: (r) => <PlayerLink pid={r.pid} name={r.name} nationality={r.nationality} />,
           },
           { key: "pos", label: "Pos", value: (r) => r.position },
           { key: "age", label: "Age", value: (r) => r.age, align: "end", desc: false },

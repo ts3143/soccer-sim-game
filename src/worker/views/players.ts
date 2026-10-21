@@ -3,6 +3,7 @@
  * contracts (expiry badges), condition, injuries, value, mood and season stats; one
  * player's bio, contract, mood breakdown, condition, ratings and transfer history.
  */
+import { ratingChanges } from "../../common/ratingChanges";
 import type { PlayerView, SquadPlayerView, TeamSquadView } from "../../common/api";
 import { exactAge, formatDay } from "../../common/dates";
 import { competitionsConfig } from "../../common/config/competitions";
@@ -53,6 +54,10 @@ export async function getTeamSquad(lid: number, cid: number): Promise<TeamSquadV
     const mood = status === "academy" ? null : moodAtClub(world, p, game.date, levels);
     const at = clubs.get(p.cid ?? -1);
     return {
+      ...ratingChanges(p, game.season),
+      ratings: p.ratingsHistory.at(-1)?.ratings ?? [],
+      suspension: p.suspension?.remaining ?? 0,
+      listed: p.status === "club" ? (p.listed ?? null) : null,
       pid: p.pid,
       name: fullName(p),
       shirtNumber: p.shirtNumber,
@@ -150,9 +155,10 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
       : null;
   const history = p.ratingsHistory;
   const now = history.at(-1)?.ratings ?? [];
-  const before = history.at(-2)?.ratings;
+  const before = history.findLast((h) => h.season < game.season)?.ratings;
   const ref = (cid: number | null) => (cid === null ? null : teamRef(clubs.get(cid)));
   return {
+    ...ratingChanges(p, game.season),
     pid,
     name: fullName(p),
     position: p.position,
@@ -216,7 +222,14 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
     listed: p.status === "club" && p.cid === game.userCid ? (p.listed ?? null) : null,
     today: game.date,
     retiredSeason: p.retiredSeason,
-    history: history.map((h) => ({ date: h.date, season: h.season, ovr: h.ovr, pot: h.pot })),
+    history: history.map((h) => ({
+      date: h.date,
+      season: h.season,
+      age: Math.floor(exactAge(p.birthDate, h.date)),
+      ovr: h.ovr,
+      pot: h.pot,
+      ratings: h.ratings,
+    })),
     radar: Object.entries(ratingsConfig.radarAxes).map(([axis, codes]) => ({
       axis,
       value: Math.round(

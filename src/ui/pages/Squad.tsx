@@ -1,8 +1,11 @@
+import { PlayerStatusTags } from "../components/PlayerStatusTags";
+import { SkillTags } from "../components/SkillTags";
 /** Squad (SPEC §11): any club's players, contracts with expiry badges, condition, value, form. */
 import type { SquadPlayerView } from "../../common/api";
 import { useState } from "react";
 import { ContractModal } from "../components/ContractModal";
 import { DataTable, type Column } from "../components/DataTable";
+import { PlayerRatings, RatingChange, NationalityFlag } from "../components/PlayerDetails";
 import { PlayerLink } from "../components/links";
 import { formatDate, formatEuros } from "../format";
 import { PageHeader } from "../shell/PageHeader";
@@ -17,27 +20,13 @@ const ordinal = (n: number) => {
 };
 
 function NameCell({ p }: { p: SquadPlayerView }) {
+  const { shell } = useShell();
   return (
     <span className="text-nowrap">
       <PlayerLink pid={p.pid} name={p.name} />
-      {p.expiring && (
-        <span className="badge text-bg-warning ms-1" title={`Contract ends ${p.expires ?? ""}`}>
-          expires
-        </span>
-      )}
-      {p.injury && (
-        <span
-          className="badge text-bg-danger ms-1"
-          title={`${p.injury.type}, back ${p.injury.until}`}
-        >
-          injured
-        </span>
-      )}
-      {p.loan && (
-        <span className="badge text-bg-info ms-1" title={`On loan ${p.loan}`}>
-          loan
-        </span>
-      )}
+      <SkillTags ratings={p.ratings} position={p.position} />
+      <PlayerRatings player={p} />
+      <PlayerStatusTags player={p} today={shell.state.date} />
     </span>
   );
 }
@@ -59,8 +48,30 @@ const senior: Column<SquadPlayerView>[] = [
     ),
   },
   { key: "age", label: "Age", value: (p) => p.age, align: "end" },
-  { key: "ovr", label: "OVR", value: (p) => p.ovr, align: "end" },
-  { key: "pot", label: "POT", value: (p) => p.pot, align: "end" },
+  {
+    key: "ovr",
+    label: "OVR",
+    value: (p) => p.ovr,
+    render: (p) => (
+      <span className="text-nowrap">
+        {p.ovr}
+        <RatingChange value={p.ovrChange} />
+      </span>
+    ),
+    align: "end",
+  },
+  {
+    key: "pot",
+    label: "POT",
+    value: (p) => p.pot,
+    render: (p) => (
+      <span className="text-nowrap">
+        {p.pot}
+        <RatingChange value={p.potChange} />
+      </span>
+    ),
+    align: "end",
+  },
   {
     key: "cond",
     label: "Cond",
@@ -112,6 +123,13 @@ const senior: Column<SquadPlayerView>[] = [
     align: "end",
   },
   {
+    key: "nat",
+    label: "Nat",
+    title: "Nationality",
+    value: (p) => p.nationality,
+    render: (p) => <NationalityFlag nationality={p.nationality} />,
+  },
+  {
     key: "apps",
     label: "Apps",
     title: "Appearances this season",
@@ -135,13 +153,40 @@ const academyColumns: Column<SquadPlayerView>[] = [
     key: "name",
     label: "Name",
     value: (p) => p.name,
-    render: (p) => <PlayerLink pid={p.pid} name={p.name} />,
+    render: (p) => <NameCell p={p} />,
   },
   { key: "pos", label: "Pos", value: (p) => p.position },
   { key: "age", label: "Age", value: (p) => p.age, align: "end" },
-  { key: "ovr", label: "OVR", value: (p) => p.ovr, align: "end" },
-  { key: "pot", label: "POT", value: (p) => p.pot, align: "end" },
-  { key: "nat", label: "Nat", value: (p) => p.nationality },
+  {
+    key: "ovr",
+    label: "OVR",
+    value: (p) => p.ovr,
+    render: (p) => (
+      <span className="text-nowrap">
+        {p.ovr}
+        <RatingChange value={p.ovrChange} />
+      </span>
+    ),
+    align: "end",
+  },
+  {
+    key: "pot",
+    label: "POT",
+    value: (p) => p.pot,
+    render: (p) => (
+      <span className="text-nowrap">
+        {p.pot}
+        <RatingChange value={p.potChange} />
+      </span>
+    ),
+    align: "end",
+  },
+  {
+    key: "nat",
+    label: "Nat",
+    value: (p) => p.nationality,
+    render: (p) => <NationalityFlag nationality={p.nationality} />,
+  },
   { key: "apps", label: "Apps", value: (p) => p.season.appearances, align: "end" },
 ];
 

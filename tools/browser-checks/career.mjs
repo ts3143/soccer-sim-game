@@ -274,7 +274,7 @@ async function signFreeAgent() {
 async function renewExpiring() {
   await go("Squad");
   const row = testId("squad-table")
-    .locator("tbody tr", { has: page.locator(".badge", { hasText: "expires" }) })
+    .locator("tbody tr", { has: page.locator('.status-badge[aria-label^="Contract expires"]') })
     .first();
   if ((await row.count()) === 0) return;
   const name = await row.locator("td a").first().innerText();

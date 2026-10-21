@@ -12,6 +12,7 @@
  * matches are played. Each Play action processes days in order (events first, then
  * matches) and saves once at the end.
  */
+import { withPlayerReferences } from "./messages";
 import { addDays } from "../../common/dates";
 import { GameError, LEAGUE_CLOSED } from "../../common/errors";
 import { competitionsConfig } from "../../common/config/competitions";
@@ -174,7 +175,8 @@ export function ensureSeason(session: LeagueSession): void {
 
 export function saveMessages(session: LeagueSession, rows: readonly NewMessage[]): void {
   const ids = { ...meta<IdCounters>(session, "ids") };
-  for (const row of rows) session.cache.put("inbox", { mid: ids.mid++, ...row });
+  for (const row of withPlayerReferences(rows, session.cache.getAll("players")))
+    session.cache.put("inbox", { mid: ids.mid++, ...row });
   session.cache.put("meta", ids, "ids");
 }
 

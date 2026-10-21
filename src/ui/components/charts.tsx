@@ -12,9 +12,9 @@ const INK = "#52514e";
 
 /** Radar over named axes, values 0–100 (SPEC §11: 8 grouped axes from the config). */
 export function RadarChart({ axes }: { axes: { axis: string; value: number }[] }) {
-  const size = 300;
+  const size = 340;
   const c = size / 2;
-  const r = 100;
+  const r = 85;
   const n = axes.length;
   const point = (i: number, v: number) => {
     const angle = -Math.PI / 2 + (2 * Math.PI * i) / n;
@@ -61,10 +61,13 @@ export function RadarChart({ axes }: { axes: { axis: string; value: number }[] }
             y={y}
             textAnchor={anchor}
             dominantBaseline="middle"
-            fontSize={11}
+            fontSize={14}
             fill={INK}
           >
-            {a.axis} <tspan fontWeight={600}>{a.value}</tspan>
+            <tspan x={x}>{a.axis}</tspan>
+            <tspan x={x} dy={15} fontWeight={600}>
+              {a.value}
+            </tspan>
           </text>
         );
       })}

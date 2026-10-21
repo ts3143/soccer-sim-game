@@ -133,6 +133,11 @@ export interface ScheduleView {
 
 /** One player on the Squad page. */
 export interface SquadPlayerView {
+  listed: { asking: number; date: string } | null;
+  ovrChange: number | null;
+  potChange: number | null;
+  ratings: number[];
+  suspension: number;
   pid: number;
   name: string;
   shirtNumber: number | null;
@@ -173,6 +178,8 @@ export interface TeamSquadView {
 
 /** The player profile (SPEC §11). */
 export interface PlayerView {
+  ovrChange: number | null;
+  potChange: number | null;
   pid: number;
   name: string;
   position: string;
@@ -201,7 +208,7 @@ export interface PlayerView {
   condition: number;
   injury: { type: string; until: string } | null;
   ratings: { code: string; name: string; group: string; value: number; change: number | null }[];
-  positionOvrs: { position: string; ovr: number }[];
+  positionOvrs: { position: Position; ovr: number }[];
   transfers: {
     date: string;
     type: string;
@@ -216,7 +223,14 @@ export interface PlayerView {
   today: string;
   retiredSeason: number | null;
   /** Every development update: OVR and POT over time. */
-  history: { date: string; season: number; ovr: number; pot: number }[];
+  history: {
+    date: string;
+    season: number;
+    age: number;
+    ovr: number;
+    pot: number;
+    ratings: number[];
+  }[];
   /** The profile radar (config `radarAxes`): each axis is the mean of its ratings. */
   radar: { axis: string; value: number }[];
   /** Season rows per club and competition, oldest first. */
@@ -278,6 +292,7 @@ export interface PlayerRatingsView {
   rows: {
     pid: number;
     name: string;
+    nationality: string;
     club: TeamRef | null;
     leagueId: string | null;
     status: string;
@@ -367,6 +382,23 @@ export interface TacticsSetup {
 export type TacticsMode = "asIs" | "reslot" | "auto" | "saved";
 
 export interface TacticsPlayerView {
+  listed: { asking: number; date: string } | null;
+  expires: string | null;
+  expiring: boolean;
+  ovrChange: number | null;
+  potChange: number | null;
+  nationality: string;
+  ratings: number[];
+  pot: number;
+  suspension: number;
+  today: string;
+  season: {
+    appearances: number;
+    minutes: number;
+    goals: number;
+    assists: number;
+    rating: number | null;
+  };
   pid: number;
   name: string;
   position: Position;
@@ -428,6 +460,7 @@ export interface LiveTeamView {
     energy: number;
     booked: boolean;
     injured: boolean;
+    injuryDays: number;
   } | null)[];
   /** Substitutes still available. */
   bench: { pid: number; position: Position; energy: number }[];
@@ -492,6 +525,7 @@ export interface FreeAgentsView {
   rows: {
     pid: number;
     name: string;
+    nationality: string;
     position: Position;
     secondary: Position[];
     age: number;
@@ -877,6 +911,8 @@ export interface TableRowView extends TeamRef {
 
 /** A fixture as pages show it. */
 export interface MatchView {
+  /** Result from the home club’s perspective; null until played. Includes shoot-outs. */
+  homeResult: FormResult | null;
   fid: number;
   date: string;
   competition: string;
@@ -947,6 +983,13 @@ export interface BidReply {
 
 /** A market search (Transfer Market, Free Agents). */
 export interface PlayerSearch {
+  name?: string;
+  nationality?: string;
+  minAge?: number;
+  minPot?: number;
+  maxValue?: number;
+  maxWage?: number;
+  expiring?: boolean;
   position?: string;
   /** Only players at clubs in this league. */
   leagueId?: string;
@@ -958,6 +1001,7 @@ export interface PlayerSearch {
 }
 
 export interface PlayerSearchRow {
+  nationality: string;
   pid: number;
   name: string;
   position: string;

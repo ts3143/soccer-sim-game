@@ -359,6 +359,7 @@ export function respondToOffer(session: LeagueSession, oid: number, accept: bool
           kind: "transfer",
           subject: `${fullName(p)} stays`,
           body: `The move to ${buyer.name} fell through: ${mood.willing ? `${buyer.name} pulled out` : `${fullName(p)} turned down their terms`}.`,
+          players: [{ pid: p.pid, name: fullName(p) }],
           read: false,
         },
       ]);

@@ -17,7 +17,7 @@ import { userOffers } from "../league/market";
 import { teamRef } from "./common";
 import { loopWorld, openWindow } from "../league/game";
 import { openLeague } from "../league/session";
-import { contractAsks, marketValue } from "../market/market";
+import { contractAsks, marketValue, yearsLeft } from "../market/market";
 import { clubRevenue } from "../market/renewals";
 import {
   clubBudgets,
@@ -48,6 +48,7 @@ export async function getFreeAgents(lid: number): Promise<FreeAgentsView> {
         pid: p.pid,
         name: `${p.firstName} ${p.lastName}`.trim(),
         position: p.position,
+        nationality: p.nationality,
         secondary: p.secondaryPositions,
         age: Math.floor(exactAge(p.birthDate, game.date)),
         ovr: p.ovr,
@@ -158,7 +159,24 @@ export async function searchPlayers(lid: number, query: PlayerSearch): Promise<P
       if (q.leagueId && world.clubs.find((c) => c.cid === p.cid)?.leagueId !== q.leagueId) {
         return false;
       }
+      if (
+        q.name &&
+        !`${p.firstName} ${p.lastName}`.toLocaleLowerCase().includes(q.name.toLocaleLowerCase())
+      )
+        return false;
+      if (q.nationality && p.nationality !== q.nationality && p.nationality2 !== q.nationality)
+        return false;
+      if (q.minPot !== undefined && p.pot < q.minPot) return false;
+      if (q.maxWage !== undefined && (p.contract?.wage ?? 0) > q.maxWage) return false;
+      if (q.expiring && yearsLeft(p, game.date) !== 1) return false;
+      const club = world.clubs.find((c) => c.cid === p.cid);
+      if (
+        q.maxValue !== undefined &&
+        marketValue(p, game.date, snap.leagueLevels.get(club?.leagueId ?? "") ?? 62) > q.maxValue
+      )
+        return false;
       const age = exactAge(p.birthDate, game.date);
+      if (q.minAge !== undefined && age < q.minAge) return false;
       return p.ovr >= q.minOvr && p.ovr <= q.maxOvr && age < q.maxAge + 1;
     })
     .sort((a, b) => b.ovr - a.ovr || a.pid - b.pid)
@@ -172,6 +190,7 @@ export async function searchPlayers(lid: number, query: PlayerSearch): Promise<P
         age: Math.floor(exactAge(p.birthDate, game.date)),
         ovr: p.ovr,
         pot: p.pot,
+        nationality: p.nationality,
         club: club?.name ?? null,
         cid: club?.cid ?? null,
         status: p.status,

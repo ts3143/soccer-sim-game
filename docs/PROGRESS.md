@@ -11,7 +11,7 @@ Claude Code updates this file at the end of each milestone.
 | M4 Economy and market | **Accepted** (T, 2026-10-19) | All gates pass locally, in CI (`calibrate --check`, `calibrate --world --check` with the M4 economy, world-shape and exploit gates; 222 tests) and on the Cloudflare preview (Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. Champion band 76–100 for the MVP (revisit with Europe). See "M4 notes" below. |
 | M5 Core UI | **Accepted** (T, 2026-10-19) | All checks pass locally, in CI and on the Cloudflare preview and production (game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M5 notes" below. |
 | M6 Management UI | **Accepted** (T, 2026-10-20) | All checks pass locally, in CI and on the Cloudflare preview and production (career 11/11, management screens 74/74, game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M6 notes" below. |
-| M7 Polish and release v0.1 | In progress | Chunks 1–5 done; chunk 6 (release) under way: T's local test, Firefox included, then the PR, merge and tag. See "M7 notes" below. |
+| M7 Polish and release v0.1 | In progress | Chunks 1–6 built, with T's local-test feedback (chunk 6, part 2); every gate passes locally (354 browser checks). Firefox pending (T, not blocking). Next: the PR, merge, tag v0.1.0 and production checks. See "M7 notes" below. |
 
 ## Deviations from spec
 Record every approved change to SPEC.md here, with date and reason. "Review #N" = item N of the kickoff review (answers in `OPEN_QUESTIONS.md` §A2).
@@ -55,6 +55,11 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-20 | M7 plan | "Mid-range laptop" for the 60 s season budget = a machine 4× slower than the developer's: the measured season time × 4 (Chrome's CPU throttling doesn't reach the worker; T confirmed after chunk 2). T tests Firefox by hand. v0.1 is shown in the app, with a CHANGELOG and a GitHub release v0.1.0. | The spec named no reference machine; Firefox needs a separate browser download to automate. Approved by T. | SPEC §14 |
 | 2026-10-20 | M7 chunk 4 | One league open at a time: the league opened most recently on purpose is the open one; tabs showing another league stop, and their calls are refused instead of switching back. An action under way finishes and is saved first (decision #58). | The spec didn't say what happens with two leagues in two tabs. Before, two tabs could switch the open league back and forth forever, and opening another league could close a save mid-season. Closest to ZenGM. Approved by T. | SPEC §13 |
 | 2026-10-20 | M7 chunk 6 | "How to play" is a page in the game, linked from Manage Leagues and the sidebar's Tools; the README points to it (decision #59). | Players play on the website and never see the README. Approved by T. | SPEC §11 |
+| 2026-10-21 | M7 chunk 6 | Sendings-off bring suspensions: one match for a second yellow, three for a straight red, served in the club's next domestic fixtures (also while injured) and carried across seasons and transfers. No bans for yellow-card build-ups yet. Red cards cut from about 0.18 to 0.14 a match (engine tuning) (design doc #60). | The spec had no suspensions; T asked whether red-carded players were suspended (they weren't) and found red cards too frequent. | SPEC §8.9, §12 |
+| 2026-10-21 | M7 chunk 6 | Tactics and the pre-match line-up show the XI on a pitch beside the table; the player profile maps OVR at every position on a pitch (design doc #61). | Replaces "No pitch view": T asked for a formation view. | SPEC §11 |
+| 2026-10-21 | M7 chunk 6 | Twelve cosmetic skill tags beside player names, worked out from the displayed ratings; no gameplay effect (design doc #62). | Was "Ideas, undecided"; T approved the list and the cutoffs. | SPEC §11, §15 |
+| 2026-10-21 | M7 chunk 6 | The profile's OVR/POT chart becomes a ratings-history table (every update, all 22 ratings). Also: compact status tags (I, E, TL, S, L, A), nationality flags, ratings cards on Squad and Tactics, whole result rows coloured, more Transfer Market filters, and player links in messages, with a new optional saved field `inbox.players` (design doc #63). | T's local-test feedback, ZenGM style. | SPEC §11, §12 |
+| 2026-10-21 | M7 chunk 6 | World peak-age gate: 27–29-year-olds must be rated at least as high as 21–23 and 24–26 in the last season, less 1 OVR (design doc #64). | With the world unchanged, the gap swings about ±1 OVR across seeds (−0.9 to +0.3 over six runs, before and after the red-card change), so the exact gate passed or failed by chance. Approved by T. | `calibration_targets.json` → `peakAge`; `tools/calibrate/world-report.ts` |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -1427,6 +1432,88 @@ Each point of parity gained cost about one champion point, so the two real-world
   - perf 9/9: the worst season is 4.5 s here (about 18 s at ×4), the save is 43.5 MB after ten seasons, and the slowest page is Team History at 197 ms.
 - **Next:** T tests locally, Firefox included. Then the push, the PR and CI, the merge, the v0.1.0 tag and GitHub release, and the production checks.
 
+**Chunk 6, part 2: T's local-test feedback** (2026-10-21)
+- **What happened:** T tested v0.1 locally and had his list built in a separate session. This session reviewed the changes against the code and documented them. The feedback list:
+  - too many red cards; are red-carded players suspended?
+  - see ratings and stats on Squad and Tactics without opening the profile; flags next to names;
+  - a ratings-history table on the profile instead of the OVR/POT chart (ZenGM style);
+  - injury length on hover; shorter status tags, and more of them; more Transfer Market filters;
+  - whole result rows in green, yellow or red;
+  - a formation view on Tactics, and a pitch of positions on the profile;
+  - clickable players in the inbox.
+- **Discipline: a new rule** (SPEC §8.9, design doc #60):
+  - **Before, a sending-off had no suspension.** Now a second yellow brings a one-match ban and a straight red three.
+  - Bans are served in the club's next domestic fixtures (league, cups, play-offs), also while injured. They carry across seasons and transfers. The match of the sending-off doesn't count.
+  - Suspended players can't be picked in simulated or watched matches: the AI's matchday squads, the saved tactics and the live line-ups all leave them out. One code path serves both (`season/discipline.ts`).
+  - **Saved:** a new optional field `players.suspension` {remaining, date}. Older saves start without bans: no migration, and past red cards aren't reconstructed.
+  - Not built: bans for a build-up of yellow cards.
+- **Fewer red cards** (engine tuning, no target changed):
+  - straight red per foul 0.0019 → 0.0016, in a chance 0.0038 → 0.0032; a booked player's second-yellow factor 0.45 → 0.35;
+  - reds per match 0.180 before (3,000-match neutral sample), 0.137 after (9,999 matches; target 0.140, accepted 0.08–0.20); all engine gates pass;
+  - a first, stronger cut measured 0.121 and failed the peak-age and transfer-exploit gates.
+- **Squad and Tactics:**
+  - **Ratings cards:** a chart-icon button opens a card with all 22 colour-scaled ratings and basic season stats, without leaving the page. The card stays inside the window, above table clipping. Escape, a close button or an outside click close it; it never triggers a line-up swap.
+  - **Nationality flags:** flat SVGs bundled with the game (MIT-licensed flag-icons in `public/flags/`; licence kept, attribution in `docs/ASSETS.md`; no outside requests). England, Scotland, Wales and Northern Ireland are separate. They have their own column, and also show on Academy, Transfer Market search, Free Agents, Player Ratings and the profile.
+  - **Rating changes:** signed OVR/POT changes since the last update of the previous season. New players show none.
+  - Tactics also shows POT and the season's appearances, minutes, goals, assists and average rating.
+  - **Status tags** (SPEC §11): I (injured), E (expiring contract), TL (transfer listed), S with matches left (suspended), L (on loan), A (academy). Hover or keyboard focus explains each: injury type, days out and return date; expiry date; asking price. Listing and expiry badges elsewhere use the same letters.
+  - **Injury tags** show days out and the return date at once, on hover or focus, on Squad, Tactics, Dashboard and Live. A first version used the browser's own tooltip (`title`), which showed nothing for T. It's now a rendered tooltip outside table clipping.
+- **Cosmetic skill tags** (SPEC §11 table, design doc #62):
+  - twelve two-letter tags after player names on Squad and Tactics, in the ratings card and on the profile: Pc, St, Ae, Dr, Fi, Pa, Sp, Cr, Bw, En, Rf, Ha;
+  - T approved the list, adding Sp and replacing Dp with a weighted Pa;
+  - worked out from the displayed ratings on each page (rounded the same way everywhere), never saved and never read by the engine; every tag a player qualifies for shows; How to play lists them.
+- **Pitch views** (SPEC §11, design doc #61; replaces "No pitch view"):
+  - **Tactics and the pre-match line-up** show the starting XI on a pitch (attacking upwards), with names, slot OVR and condition; the table stays below. The pitch and the table share selection, drag and drop, keyboard swaps, Auto, Reset and Save. Other clubs are read-only. Long names show a first initial; the full name is in the tooltip and the table.
+  - **The player profile** maps OVR at all ten position groups on 14 spots (centre, left, right). Colours: best, within 3, 4–8 below, 9+ below. It compares OVRs; it isn't a familiarity system (Tactics adds foot fit).
+  - Drawn in SVG/CSS from the formation config (wing-backs in midfield for a back three, in defence for a back five). No engine, rules, ratings or saves changed.
+- **Player profile layout:** bio and the position map top left; grouped ratings (with changes since last season) and the radar top right; compact contract and condition; an expandable mood breakdown. The OVR/POT line chart is replaced by a **ratings-history table**: every development update with date, age, OVR, POT and all 22 ratings (design doc #63).
+- **Results and tables:**
+  - **Whole result rows:** completed matches on the Dashboard, Game Log and Schedule are green, yellow or red for a win, draw or loss.
+    - The Dashboard and Schedule take the user's club's view; the Game Log the viewed club's.
+    - Other clubs' Schedule fixtures stay neutral, and the user's upcoming fixtures keep their blue.
+    - Draw badges are yellow everywhere.
+    - The colour comes from a typed result in the match view (`homeResult`, shoot-outs included), not from the score text.
+  - **Tables:** player and team tables have light zebra stripes and hover shading. Selection, zone and result colours take precedence.
+- **Transfer Market search:** name, nationality (either nationality), league, position, OVR range, age range, minimum POT, maximum value, maximum yearly wage and final-year contracts, applied before the best 100 are picked.
+- **Clickable players in messages:**
+  - Inbox subjects and bodies, and the Dashboard's inbox preview, link the players they name.
+  - New transfer, bid, loan, contract and academy messages save the player ids with the names of the day (new optional field `inbox.players`, no migration).
+  - Older transfer, contract and injury messages get links when a full name matches exactly one current player; ambiguous names stay plain.
+- **Browser checks:**
+  - **New:** `injury` (19 checks), `tables` (14), `formation` (21), `messages` (5).
+  - **Updated for the new markup:** `m5` (the ratings-history table replaces the chart test), `m6` (adds the ratings card, flags and skill tags: 81 checks) and `career` (finds expiring contracts by their tag).
+- **Gates at the end of the round** (run in T's session, 2026-10-21):
+  - **Pass:**
+    - lint, 280 unit tests in 47 files, the build and the bundle check;
+    - `pnpm calibrate --check` (0.137 reds and 0.900 ms per match) and `pnpm generate --check`;
+    - browser checks m5, m6, sweep, career, tabs, layout, injury, tables, formation and messages;
+    - perf: worst season 4.7 s, 18.7 s at ×4; 41.4 MB after ten seasons; slowest page 200 ms.
+  - **Fails: `pnpm calibrate --world --check`, the peak-age gate.** In the last season, 27–29-year-olds average 64.03 OVR against 64.92 for 24–26 (3 worlds × 20 seasons). At `4002fba` the same command passes, 64.80 against 64.56. Every other world gate passes. No coefficients or targets were changed to hide it.
+    - **It is noise at the gate's edge, not a regression** (checked in this session, 3 worlds × 20 seasons each). 27–29-year-olds against the best younger band:
+
+      | Version | Default seed (CI) | Seed `peak-a` | Seed `peak-b` |
+      | --- | --- | --- | --- |
+      | Before the feedback round (`4002fba`) | 64.8 v 64.6, passes | 64.6 v 65.3, **fails** | 64.5 v 64.5, passes (but **fails** the POT-exceed gate: 13.7% against a 14% minimum) |
+      | After it | 64.0 v 64.9, **fails** | 64.7 v 64.4, passes | 64.7 v 64.4, passes |
+
+    - Over the six runs the gap goes from −0.9 to +0.3 and averages about 0: in these worlds 24–26 and 27–29 peak level. M4 already noted that peak age sits at its edge. Any engine change reshuffles the random path; this time CI's seed landed on the failing side.
+  - **Fails: `edges`, 21/22.** Its extra-time check needs a watched cup tie that is level after 90 minutes. With the new random path, the two or three cup ties it watched were all decided in normal time. Extra time itself is covered by the engine tests.
+- **Settled at the check-in** (T, 2026-10-21):
+  - **The peak-age gate allows 1 OVR** (design doc #64): 27–29-year-olds must be rated at least as high as the younger bands, less 1. The allowance lives in `calibration_targets.json` (`peakAge.tolerance`).
+  - **`edges` uses seed "edges-6"** (test only). Seeds "edges" and "edges-2" to "edges-5" watched one or two cup ties, none level after 90 minutes. With "edges-6" the tie goes to extra time and then **penalties**, so the browser checks now reach a live penalty shootout too.
+  - Six files had a new import above their header comment; moved below it (cosmetic).
+  - Firefox stays pending; it doesn't block the release.
+- **Gates after the check-in, all pass, run one at a time** (2026-10-21):
+  - `pnpm lint`; `pnpm test` (280 tests in 47 files); `pnpm build` and the bundle check;
+  - `pnpm calibrate --check` (0.137 reds a match), `pnpm generate --check`;
+  - `pnpm calibrate --world --check`: peak age 64.0 against 64.9, inside the 1-OVR allowance by 0.1;
+  - all 354 browser checks: m5 91, m6 81, sweep 43, career 11, edges 22, tabs 20, layout 18, perf 9, injury 19, tables 14, formation 21, messages 5;
+  - perf: the worst season 4.9 s (19.5 s at ×4), 40.6 MB after ten seasons, slowest page 213 ms.
+- **Open for T:**
+  - **Academy incentive.** Academy players of 16+ may play without counting toward the 25 (SPEC §7.1), so promoting one mainly allows loans and sales. The options put to T: a pro contract to play, a limited number of free appearances, or the current rule. Nothing changed.
+  - **More status tags:** "tired" and "open bid" were proposed and left for T.
+- **Next:** at T's go after the check-in, Claude pushes `m7-release`, opens the PR, watches CI and the Cloudflare preview, merges with T's OK, tags v0.1.0, creates the GitHub release and runs the production checks (T, 2026-10-21; an earlier note in the feedback session had T running these himself).
+
 ### M7 summary
 - **Built:**
   - **Developer pages removed;** version 0.1.0 shown on Manage Leagues and Settings.
@@ -1445,25 +1532,37 @@ Each point of parity gained cost about one champion point, so the two real-world
     - errors read in plain words, and a page crash shows a message.
   - **Laptop layout** (`layout`): every page fits at 1280×720, 1366×768, 1366×768 at 125% and 960 px. The top bar stays one row, the Menu button is in it, and the Dashboard's match cards no longer overlap.
   - **Release:** the How to play page, `CHANGELOG.md`, the README.
-- **Decisions** (T, Deviations table, design doc #57–#59):
+  - **T's local-test feedback** (chunk 6, part 2):
+    - suspensions for sendings-off, and fewer red cards;
+    - ratings cards, flags, rating changes, and status and skill tags on Squad and Tactics;
+    - pitch views on Tactics and the profile; a ratings-history table on the profile;
+    - whole result rows in colour; more Transfer Market filters; clickable players in messages.
+    - Four new browser checks: `injury`, `tables`, `formation`, `messages`.
+- **Decisions** (T, Deviations table, design doc #57–#64):
   - "mid-range laptop" = the measured season time × 4;
   - T tests Firefox by hand;
   - the release format: the version in the app, a changelog, a GitHub release;
   - one league open at a time;
-  - How to play as a page in the game.
+  - How to play as a page in the game;
+  - suspensions for sendings-off;
+  - pitch views;
+  - cosmetic skill tags;
+  - the ratings-history table and the other player UI changes from T's test;
+  - the world peak-age gate allows 1 OVR.
 - **Judgment calls:**
   - one save per Play: a reload in the middle of a Play loses that stretch, never half of it;
   - saving tactics doesn't refresh other tabs, so the Tactics editor keeps its "Saved" note;
   - layout sizes are what the browser shows of each screen, plus Windows' 125% scaling.
 - **Acceptance** (MILESTONES M7):
-  - the performance budget is met (`perf`);
-  - no known crashers (two bug bashes, eight browser checks);
-  - deployed to Cloudflare Pages as v0.1: after T's local test.
+  - the performance budget is met (`perf`, also after the feedback round);
+  - no known crashers (two bug bashes, twelve browser checks);
+  - deployed to Cloudflare Pages as v0.1: after the check-in with T.
+- **Not green at the end of the feedback round,** then settled at the check-in: the world calibration's peak-age gate, and `edges`' extra-time coverage (chunk 6, part 2).
 - **Known edges, for later:**
-  - a live penalty shootout isn't reached in the browser checks (the engine tests cover shootouts);
   - the "incomplete save" message wasn't triggered in a test;
-  - phones aren't supported (desktop first, down to about 960 px).
+  - phones aren't supported (desktop first, down to about 960 px);
+  - no bans for a build-up of yellow cards.
 
 ## Open issues
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).
-- A live penalty shootout isn't reached in the browser checks; the engine tests cover shootouts.
+- For T: the academy incentive (academy players of 16+ play without counting toward the 25), and whether to add "tired" and "open bid" tags.

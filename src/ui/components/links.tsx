@@ -1,5 +1,6 @@
 /** Links used across the game pages: clubs (crest + name), players, match scores; form badges. */
 import type { FormResult, TeamRef } from "../../common/api";
+import { NationalityFlag } from "./PlayerDetails";
 import { crestUrl } from "../crests";
 import { leaguePath, Link } from "../router";
 import { useShell } from "../shell/Shell";
@@ -25,12 +26,23 @@ export function TeamLink({ team, short = false }: { team: TeamRef; short?: boole
   );
 }
 
-export function PlayerLink({ pid, name }: { pid: number; name: string }) {
+export function PlayerLink({
+  pid,
+  name,
+  nationality,
+}: {
+  pid: number;
+  name: string;
+  nationality?: string;
+}) {
   const { shell } = useShell();
   return (
-    <Link to={leaguePath(shell.lid, "player", pid)} className="text-decoration-none">
-      {name}
-    </Link>
+    <>
+      {nationality && <NationalityFlag nationality={nationality} />}
+      <Link to={leaguePath(shell.lid, "player", pid)} className="text-decoration-none">
+        {name}
+      </Link>
+    </>
   );
 }
 
@@ -47,7 +59,7 @@ export function ScoreLink({ fid, score }: { fid: number; score: string | null })
 
 const FORM_CLASS: Record<FormResult, string> = {
   W: "text-bg-success",
-  D: "text-bg-secondary",
+  D: "text-bg-warning",
   L: "text-bg-danger",
 };
 
