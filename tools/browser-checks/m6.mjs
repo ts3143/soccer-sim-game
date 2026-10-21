@@ -93,12 +93,22 @@ check(
   "Escape closes the ratings card",
   (await page.locator(".player-summary-popover:popover-open").count()) === 0,
 );
+// Over the network (production) the flag can still be loading: give it time.
+const flag = xi.first().locator("img.nationality-flag");
+await flag
+  .evaluate(
+    (el) =>
+      el.complete ||
+      new Promise((done) => {
+        el.addEventListener("load", done, { once: true });
+        el.addEventListener("error", done, { once: true });
+        setTimeout(done, 10_000);
+      }),
+  )
+  .catch(() => {});
 check(
   "nationality has a flat image column after age",
-  await xi
-    .first()
-    .locator("img.nationality-flag")
-    .evaluate((el) => el.complete && el.naturalWidth > 0 && el.closest("td").cellIndex > 5),
+  await flag.evaluate((el) => el.complete && el.naturalWidth > 0 && el.closest("td").cellIndex > 5),
 );
 const firstNames = await names(xi);
 check(

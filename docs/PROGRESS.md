@@ -11,7 +11,7 @@ Claude Code updates this file at the end of each milestone.
 | M4 Economy and market | **Accepted** (T, 2026-10-19) | All gates pass locally, in CI (`calibrate --check`, `calibrate --world --check` with the M4 economy, world-shape and exploit gates; 222 tests) and on the Cloudflare preview (Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. Champion band 76–100 for the MVP (revisit with Europe). See "M4 notes" below. |
 | M5 Core UI | **Accepted** (T, 2026-10-19) | All checks pass locally, in CI and on the Cloudflare preview and production (game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M5 notes" below. |
 | M6 Management UI | **Accepted** (T, 2026-10-20) | All checks pass locally, in CI and on the Cloudflare preview and production (career 11/11, management screens 74/74, game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M6 notes" below. |
-| M7 Polish and release v0.1 | In progress | Chunks 1–6 built, with T's local-test feedback (chunk 6, part 2); every gate passes locally (354 browser checks). Firefox pending (T, not blocking). Next: the PR, merge, tag v0.1.0 and production checks. See "M7 notes" below. |
+| M7 Polish and release v0.1 | **Released as v0.1.0** (2026-10-21) | All checks pass locally, in CI and on the Cloudflare preview and production (354 headless Chrome checks locally; 291 against production; both calibration harnesses with the 1-OVR peak-age allowance). PR #8, merge `02ac0de`, tag and GitHub release v0.1.0. Firefox untested (T, by hand). See "M7 notes" below. |
 
 ## Deviations from spec
 Record every approved change to SPEC.md here, with date and reason. "Review #N" = item N of the kickoff review (answers in `OPEN_QUESTIONS.md` §A2).
@@ -1275,7 +1275,7 @@ Each point of parity gained cost about one champion point, so the two real-world
   - the developer pages at `/dev` are removed in M7, as agreed;
   - Firefox untested.
 
-## M7 notes (2026-10-20, in progress)
+## M7 notes (2026-10-20 to 2026-10-21)
 **Plan** (approved by T): 6 chunks of about an hour.
 1. Remove the developer pages (`/dev`) and their checks; show the version in the app.
 2. Performance pass: one season at a 4× CPU slowdown, ten seasons (time and save size), retention and pruning checked; fixes.
@@ -1509,6 +1509,12 @@ Each point of parity gained cost about one champion point, so the two real-world
   - `pnpm calibrate --world --check`: peak age 64.0 against 64.9, inside the 1-OVR allowance by 0.1;
   - all 354 browser checks: m5 91, m6 81, sweep 43, career 11, edges 22, tabs 20, layout 18, perf 9, injury 19, tables 14, formation 21, messages 5;
   - perf: the worst season 4.9 s (19.5 s at ×4), 40.6 MB after ten seasons, slowest page 213 ms.
+- **Release** (2026-10-21):
+  - **PR #8:** CI passed ("Lint, test, build" 6 min 8 s; "Generation and calibration" 4 min 34 s), and so did the Cloudflare preview. `m5` passed 91/91 against the preview, which served the same bundle as the local build.
+  - **Merged** as `02ac0de`. Tagged **v0.1.0**, with a GitHub release carrying the changelog's 0.1.0 text.
+  - **Production** served the new bundle about 12 minutes after the merge.
+  - **Checks against production:** m5 91, m6 81, edges 22, tabs 20, layout 18, injury 19, tables 14, formation 21, messages 5. That's 291 checks, all passing.
+    - `m6`'s flag check first failed there: over the network the flag hadn't loaded when it was read. The check now waits for the image (up to 10 s); the flags themselves load fine.
 - **Open for T:**
   - **Academy incentive.** Academy players of 16+ may play without counting toward the 25 (SPEC §7.1), so promoting one mainly allows loans and sales. The options put to T: a pro contract to play, a limited number of free appearances, or the current rule. Nothing changed.
   - **More status tags:** "tired" and "open bid" were proposed and left for T.
@@ -1556,7 +1562,7 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Acceptance** (MILESTONES M7):
   - the performance budget is met (`perf`, also after the feedback round);
   - no known crashers (two bug bashes, twelve browser checks);
-  - deployed to Cloudflare Pages as v0.1: after the check-in with T.
+  - deployed to Cloudflare Pages as v0.1: done on 2026-10-21 (PR #8, tag v0.1.0, production checks pass).
 - **Not green at the end of the feedback round,** then settled at the check-in: the world calibration's peak-age gate, and `edges`' extra-time coverage (chunk 6, part 2).
 - **Known edges, for later:**
   - the "incomplete save" message wasn't triggered in a test;
