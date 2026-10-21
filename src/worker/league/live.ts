@@ -23,6 +23,7 @@ import type {
 import { formationById, formationsConfig, slotLabel } from "../../common/config/formations";
 import type { Club, Fixture, GameMeta, Player } from "../../common/schema";
 import { effectiveDials } from "../club/standing";
+import { isSuspended } from "../season/discipline";
 import { checkSetup, cleanSetup, reslot, selectable } from "../club/tactics";
 import { maximizeAssignment } from "../core/assignment";
 import { slotOvr } from "../core/ovr";
@@ -51,10 +52,12 @@ import {
   loadSeason,
   loopWorld,
   meta,
+  playing,
   processDays,
   queued,
 } from "./game";
 import type { LeagueSession } from "./session";
+import { GameError } from "../../common/errors";
 
 /** The engine state as saved: its random stream as plain state, no coefficients. */
 type SavedState = Omit<MatchState, "rng" | "c"> & { rng: RandomState };
@@ -90,7 +93,7 @@ function load(session: LeagueSession): Running {
   const known = running.get(session);
   if (known) return known;
   const row = session.cache.get("meta", "live") as LiveRow | undefined;
-  if (!row) throw new Error("No live match is under way.");
+  if (!row) throw new GameError("No live match is under way.");
   const copy = structuredClone(row.state);
   const state: MatchState = { ...copy, rng: Random.fromState(copy.rng), c: COEFFICIENTS };
   const live = {
@@ -111,7 +114,7 @@ export function forgetRunningMatch(session: LeagueSession): void {
 function availableFor(club: Club, players: readonly Player[], fixture: Fixture): Player[] {
   const opponent = fixture.homeCid === club.cid ? fixture.awayCid : fixture.homeCid;
   return selectable(players, club.cid, fixture.date).filter(
-    (p) => !isInjured(p, fixture.date) && p.loan?.parentCid !== opponent,
+    (p) => !isInjured(p, fixture.date) && !isSuspended(p) && p.loan?.parentCid !== opponent,
   );
 }
 
@@ -254,7 +257,15 @@ export function getLiveLineup(session: LeagueSession): TacticsView {
   const live = load(session);
   const ctx = lineupContext(session, live);
   const input = live.row.side === 0 ? live.state.input.home : live.state.input.away;
-  return tacticsView(ctx.club, setupOf(input), ctx.available, ctx.byPid, ctx.fixture.date, true);
+  return tacticsView(
+    ctx.club,
+    setupOf(input),
+    ctx.available,
+    ctx.byPid,
+    ctx.fixture.date,
+    true,
+    session.cache.getAll("playerStats").filter((r) => r.season === ctx.fixture.season),
+  );
 }
 
 /** Before kick-off: the user's line-up for this match only; the match restarts from kick-off. */
@@ -266,7 +277,7 @@ export function setLiveLineup(
   return queued(session, async () => {
     const live = load(session);
     if (kickedOff(live.state)) {
-      throw new Error("The match has kicked off: make changes at a pause.");
+      throw new GameError("The match has kicked off: make changes at a pause.");
     }
     const ctx = lineupContext(session, live);
     const ids = new Set(ctx.byPid.keys());
@@ -286,7 +297,15 @@ export function setLiveLineup(
     restart(live, user);
     save(session, live);
     await session.cache.flush();
-    return tacticsView(ctx.club, setupOf(user), ctx.available, ctx.byPid, ctx.fixture.date, true);
+    return tacticsView(
+      ctx.club,
+      setupOf(user),
+      ctx.available,
+      ctx.byPid,
+      ctx.fixture.date,
+      true,
+      session.cache.getAll("playerStats").filter((r) => r.season === ctx.fixture.season),
+    );
   });
 }
 
@@ -297,66 +316,72 @@ export function setLiveLineup(
 export function watchNextMatch(
   session: LeagueSession,
   controls: "user" | "ai" = "user",
+  onStart?: () => void,
 ): Promise<PlayReport> {
-  return queued(session, async () => {
-    ensureSeason(session);
-    assertNotLive(session);
-    if (!gameState(session).options.includes("watchNextMatch")) {
-      throw new Error("There is no match of yours to watch now.");
-    }
-    const userCid = meta<GameMeta>(session, "game").userCid;
-    const report = processDays(session, null, () => false, {
-      hold: (day, fixtures) =>
-        fixtures.some(
-          (f) => f.date === day && !f.result && (f.homeCid === userCid || f.awayCid === userCid),
-        ),
-    });
-    const { held, ...played } = report;
-    let live: number | null = null;
-    if (held) {
-      const game = meta<GameMeta>(session, "game");
-      const season = loadSeason(session);
-      const fixture = season.fixtures.find(
-        (f) =>
-          f.date === game.date && !f.result && (f.homeCid === userCid || f.awayCid === userCid),
-      );
-      if (!fixture) throw new Error("The match to watch is missing");
-      const world = loopWorld(session, game.season);
-      const club = world.clubs.find((c) => c.cid === userCid);
-      if (!club) throw new Error("The save has no user club");
-      const setup = fixtureSetup(season, fixture);
-      const ai = squadPlay(season, world.clubs, world.players).prepare(fixture);
-      const side: TeamSide = fixture.homeCid === userCid ? 0 : 1;
-      const mine = side === 0 ? ai.home : ai.away;
-      const user = controls === "ai" ? mine : userTeamInput(club, world.players, fixture, mine);
-      const home = side === 0 ? user : ai.home;
-      const away = side === 0 ? ai.away : user;
-      const sliders = (team: EngineTeamInput, other: EngineTeamInput, isHome: boolean) =>
-        team === user && controls === "user"
-          ? team.sliders
-          : aiSliders(team, other, isHome && !setup.neutral, setup.style.directness);
-      const state = startMatch({
-        seed: setup.seed,
-        home: { ...home, sliders: sliders(home, away, true) },
-        away: { ...away, sliders: sliders(away, home, false) },
-        neutralVenue: setup.neutral,
-        style: setup.style,
-        knockout: setup.knockout,
-        feed: true,
+  return playing(
+    session,
+    "watchNextMatch",
+    async () => {
+      ensureSeason(session);
+      assertNotLive(session);
+      if (!gameState(session).options.includes("watchNextMatch")) {
+        throw new GameError("There is no match of yours to watch now.");
+      }
+      const userCid = meta<GameMeta>(session, "game").userCid;
+      const report = processDays(session, null, () => false, {
+        hold: (day, fixtures) =>
+          fixtures.some(
+            (f) => f.date === day && !f.result && (f.homeCid === userCid || f.awayCid === userCid),
+          ),
       });
-      const started: Running = {
-        row: { fid: fixture.fid, date: fixture.date, side },
-        state,
-        savedClock: 0,
-      };
-      running.set(session, started);
-      save(session, started);
-      live = fixture.fid;
-    }
-    await session.cache.flush();
-    await updateLeagueSummary(session.lid, { lastPlayedAt: new Date().toISOString() });
-    return { ...played, live };
-  });
+      const { held, ...played } = report;
+      let live: number | null = null;
+      if (held) {
+        const game = meta<GameMeta>(session, "game");
+        const season = loadSeason(session);
+        const fixture = season.fixtures.find(
+          (f) =>
+            f.date === game.date && !f.result && (f.homeCid === userCid || f.awayCid === userCid),
+        );
+        if (!fixture) throw new Error("The match to watch is missing");
+        const world = loopWorld(session, game.season);
+        const club = world.clubs.find((c) => c.cid === userCid);
+        if (!club) throw new Error("The save has no user club");
+        const setup = fixtureSetup(season, fixture);
+        const ai = squadPlay(season, world.clubs, world.players).prepare(fixture);
+        const side: TeamSide = fixture.homeCid === userCid ? 0 : 1;
+        const mine = side === 0 ? ai.home : ai.away;
+        const user = controls === "ai" ? mine : userTeamInput(club, world.players, fixture, mine);
+        const home = side === 0 ? user : ai.home;
+        const away = side === 0 ? ai.away : user;
+        const sliders = (team: EngineTeamInput, other: EngineTeamInput, isHome: boolean) =>
+          team === user && controls === "user"
+            ? team.sliders
+            : aiSliders(team, other, isHome && !setup.neutral, setup.style.directness);
+        const state = startMatch({
+          seed: setup.seed,
+          home: { ...home, sliders: sliders(home, away, true) },
+          away: { ...away, sliders: sliders(away, home, false) },
+          neutralVenue: setup.neutral,
+          style: setup.style,
+          knockout: setup.knockout,
+          feed: true,
+        });
+        const started: Running = {
+          row: { fid: fixture.fid, date: fixture.date, side },
+          state,
+          savedClock: 0,
+        };
+        running.set(session, started);
+        save(session, started);
+        live = fixture.fid;
+      }
+      await session.cache.flush();
+      await updateLeagueSummary(session.lid, { lastPlayedAt: new Date().toISOString() });
+      return { ...played, live };
+    },
+    onStart,
+  );
 }
 
 /** Full time: the held day is finished with the live result and saved (runner `resume`). */
@@ -499,6 +524,7 @@ function liveView(session: LeagueSession, live: Running, from: number): LiveMatc
               energy: Math.round(ps.energy * 100),
               booked: ps.booked,
               injured: ps.injured,
+              injuryDays: ps.stats.injuryDays,
             }
           : null,
       ),

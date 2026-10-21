@@ -14,12 +14,13 @@ import {
 } from "react";
 import type { LeagueShell, PlayOption, PlayReport } from "../../common/api";
 import { crestUrl } from "../crests";
-import { formatDate } from "../format";
+import { formatDate, formatDayMonth } from "../format";
 import { leaguePath, Link, navigate, usePath } from "../router";
 import { onWorkerEvent, toWorker } from "../workerClient";
 import { PAGES, SECTIONS } from "./pages";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { ErrorBoundary } from "../components/ErrorBoundary";
+import { LEAGUE_CLOSED } from "../../common/errors";
+import { errorText } from "../errors";
 
 export const PLAY_LABELS: Record<PlayOption, string> = {
   untilNextMatch: "Until next match",
@@ -84,17 +85,17 @@ function PlayMenu() {
     }
   };
   return (
-    <div className="d-flex align-items-center gap-2 position-relative">
+    <div className="d-flex align-items-center gap-2 position-relative flex-shrink-0">
       <div className="btn-group" ref={ref}>
         <button
           type="button"
           className="btn btn-success fw-semibold"
           data-testid="play-button"
-          disabled={busy !== null || options.length === 0}
+          disabled={busy !== null || shell.state.playing !== null || options.length === 0}
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
         >
-          {busy ? (
+          {busy || shell.state.playing ? (
             <>
               <span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />
               Playing…
@@ -116,7 +117,7 @@ function PlayMenu() {
         )}
       </div>
       {last && !busy && (
-        <span className="small text-white-50 d-none d-xl-inline" data-testid="play-result">
+        <span className="small text-white-50 d-none d-xxl-inline" data-testid="play-result">
           {last.matchesPlayed} match{last.matchesPlayed === 1 ? "" : "es"} played
         </span>
       )}
@@ -125,31 +126,48 @@ function PlayMenu() {
   );
 }
 
-function TopBar() {
+/**
+ * One row at every width: below 1200 px the window badge is shorter, below 992 px the
+ * sidebar's Menu button takes the title's place, and the league name gives way first.
+ */
+function TopBar({ menuOpen, onMenu }: { menuOpen: boolean; onMenu: () => void }) {
   const { shell } = useShell();
   const user = shell.clubs.find((c) => c.cid === shell.userCid);
   const { state } = shell;
+  const windowText =
+    state.window &&
+    `${state.window.id === "summer" ? "Summer" : "Winter"} window until ${formatDate(state.window.closes)}`;
   return (
     <nav
       className="navbar navbar-dark bg-dark sticky-top px-3 gap-3 flex-nowrap"
       style={{ borderBottom: `4px solid ${user?.colors.primary ?? "#198754"}` }}
       data-testid="top-bar"
     >
-      <Link to="/" className="navbar-brand fw-bold me-0">
+      <button
+        type="button"
+        className="navbar-toggler d-lg-none flex-shrink-0"
+        aria-label="Menu"
+        aria-expanded={menuOpen}
+        onClick={onMenu}
+        data-testid="menu-button"
+      >
+        <span className="navbar-toggler-icon" />
+      </button>
+      <Link to="/" className="navbar-brand fw-bold me-0 d-none d-lg-block flex-shrink-0">
         Soccer Sim
       </Link>
       <PlayMenu />
       {state.live && (
         <Link
           to={leaguePath(shell.lid, "live")}
-          className="btn btn-danger btn-sm fw-semibold text-nowrap"
+          className="btn btn-danger btn-sm fw-semibold text-nowrap flex-shrink-0"
           data-testid="live-link"
         >
           ● Live match
         </Link>
       )}
       <div
-        className="text-white small d-flex flex-wrap gap-2 align-items-center"
+        className="text-white small d-flex gap-2 align-items-center text-nowrap flex-shrink-0"
         data-testid="game-date"
       >
         <span className="fw-semibold">{formatDate(state.date)}</span>
@@ -157,18 +175,29 @@ function TopBar() {
           {seasonLabel(state.season)} · {PHASE_LABELS[state.phase] ?? state.phase}
         </span>
         {state.window && (
-          <span className="badge text-bg-success">
-            {state.window.id === "summer" ? "Summer" : "Winter"} window until{" "}
-            {formatDate(state.window.closes)}
+          <span className="badge text-bg-success" title={windowText ?? undefined}>
+            <span className="d-none d-xl-inline">{windowText}</span>
+            <span className="d-xl-none">Window until {formatDayMonth(state.window.closes)}</span>
           </span>
         )}
       </div>
-      <div className="ms-auto d-flex align-items-center gap-2 text-white small text-nowrap">
-        <span className="text-white-50 d-none d-md-inline">{shell.name}</span>
+      <div
+        className="ms-auto d-flex align-items-center gap-2 text-white small text-nowrap"
+        style={{ minWidth: 0 }}
+      >
+        <span
+          className="text-white-50 d-none d-md-inline text-truncate"
+          style={{ maxWidth: "16rem" }}
+          title={shell.name}
+          data-testid="league-name"
+        >
+          {shell.name}
+        </span>
         {user && (
           <Link
             to={leaguePath(shell.lid, "squad", user.cid)}
-            className="d-flex align-items-center gap-2 text-white text-decoration-none fw-semibold"
+            className="d-flex align-items-center gap-2 text-white text-decoration-none fw-semibold flex-shrink-0"
+            data-testid="user-club"
           >
             <img src={crestUrl(user.code)} alt="" width={22} height={25} />
             <span className="d-none d-sm-inline">{user.name}</span>
@@ -234,13 +263,17 @@ function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }
             </Link>
           </li>
           <li className="nav-item">
-            <Link to="/" onClick={onNavigate} className="nav-link py-1">
-              Manage Leagues
+            <Link
+              to={leaguePath(shell.lid, "how-to-play")}
+              onClick={onNavigate}
+              className={`nav-link py-1 ${current === "how-to-play" ? "active fw-semibold" : ""}`}
+            >
+              How to play
             </Link>
           </li>
           <li className="nav-item">
-            <Link to="/dev" onClick={onNavigate} className="nav-link py-1 text-body-secondary">
-              Developer pages
+            <Link to="/" onClick={onNavigate} className="nav-link py-1">
+              Manage Leagues
             </Link>
           </li>
         </ul>
@@ -285,6 +318,12 @@ export function Shell({ lid, children }: { lid: number; children: ReactNode }) {
   const [version, setVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const path = usePath();
+  // The worker keeps one league open: another tab opened a different one, or deleted this.
+  const [elsewhere, setElsewhere] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+  // While stopped, this tab makes no calls: any call would reopen its league and stop the other.
+  const stopped = useRef(false);
 
   const reload = useCallback(() => {
     toWorker("getLeagueShell", lid)
@@ -292,21 +331,88 @@ export function Shell({ lid, children }: { lid: number; children: ReactNode }) {
         setShell(s);
         setVersion((v) => v + 1);
       })
-      .catch((e: unknown) => setError(errorText(e)));
+      .catch((e: unknown) => {
+        // Refused because another tab opened a different league: this tab stops.
+        if (e instanceof Error && e.message === LEAGUE_CLOSED) {
+          stopped.current = true;
+          setElsewhere(true);
+        } else {
+          setError(errorText(e));
+        }
+      });
   }, [lid]);
 
-  useEffect(() => {
-    reload();
-    return onWorkerEvent("gameChanged", (event) => {
-      if (event.lid === lid) reload();
-    });
+  /** Opens this league in the worker on purpose: tabs showing another one stop. */
+  const claim = useCallback(() => {
+    toWorker("openLeague", lid)
+      .then(reload)
+      .catch((e: unknown) => setError(errorText(e)));
   }, [lid, reload]);
+  const openHere = () => {
+    stopped.current = false;
+    setElsewhere(false);
+    setError(null);
+    claim();
+  };
 
+  useEffect(() => {
+    claim();
+    const stops = [
+      onWorkerEvent("gameChanged", (event) => {
+        if (event.lid !== lid || stopped.current) return;
+        // The new state at once (a Play started in another tab shows as "Playing…"),
+        // then the rest of the shell.
+        setShell((s) => (s ? { ...s, state: event.state } : s));
+        reload();
+      }),
+      onWorkerEvent("leagueOpened", (event) => {
+        const away = event.lid !== lid;
+        // Another tab opened this league again: carry on, with fresh data.
+        if (!away && stopped.current) reload();
+        stopped.current = away;
+        setElsewhere(away);
+      }),
+      onWorkerEvent("leaguesChanged", (event) => {
+        if (event.leagues.some((l) => l.lid === lid)) return;
+        stopped.current = true;
+        setDeleted(true);
+      }),
+    ];
+    return () => stops.forEach((stop) => stop());
+  }, [lid, reload, claim]);
+
+  if (deleted) {
+    return (
+      <div className="container py-4">
+        <div className="alert alert-secondary" data-testid="league-deleted">
+          This league was deleted. <Link to="/">Back to your leagues</Link>
+        </div>
+      </div>
+    );
+  }
+  if (elsewhere) {
+    return (
+      <div className="container py-4">
+        <div className="alert alert-warning" data-testid="league-elsewhere">
+          <p>
+            Another tab opened a different league. The game keeps one league open at a time, so this
+            tab has stopped.
+          </p>
+          <div className="d-flex flex-wrap gap-3 align-items-center">
+            <button type="button" className="btn btn-primary btn-sm" onClick={openHere}>
+              Open this league here
+            </button>
+            <Link to="/">Back to your leagues</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (error) {
     return (
       <div className="container py-4">
         <div className="alert alert-danger">
-          Could not open this league: {error}. <Link to="/">Back to your leagues</Link>
+          Could not open this league. {error} <Link to="/">Back to your leagues</Link>
         </div>
       </div>
     );
@@ -314,20 +420,13 @@ export function Shell({ lid, children }: { lid: number; children: ReactNode }) {
   if (!shell) return <p className="container py-4">Opening the league…</p>;
   return (
     <ShellContext.Provider value={{ shell, version, reload }}>
-      <TopBar />
+      <TopBar menuOpen={menuOpen} onMenu={() => setMenuOpen((o) => !o)} />
       <div className="d-flex">
         <Sidebar open={menuOpen} onNavigate={() => setMenuOpen(false)} />
         <main className="app-main px-3 px-lg-4 py-3">
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-secondary d-lg-none mb-3"
-            onClick={() => setMenuOpen((o) => !o)}
-          >
-            Menu
-          </button>
           <FiredRedirect />
           <FiredBanner />
-          {children}
+          <ErrorBoundary resetKey={path}>{children}</ErrorBoundary>
         </main>
       </div>
     </ShellContext.Provider>

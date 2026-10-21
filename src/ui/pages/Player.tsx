@@ -1,3 +1,6 @@
+import { StatusBadge } from "../components/StatusBadge";
+import { PlayerPositionMap } from "../components/PlayerPositionMap";
+import { SkillTags } from "../components/SkillTags";
 /**
  * Player profile (SPEC §11): bio, contract, value, mood with its breakdown, condition and
  * injury, ratings, position OVRs, transfer history, the ratings radar, OVR/POT history and
@@ -6,7 +9,9 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import type { PlayerView } from "../../common/api";
-import { RadarChart, RatingHistoryChart } from "../components/charts";
+import { RATING_CODES, ratingsConfig } from "../../common/config/ratings";
+import { RadarChart } from "../components/charts";
+import { NationalityFlag, RatingChange, RatingValue } from "../components/PlayerDetails";
 import { TeamLink } from "../components/links";
 import { formatDate, formatEuros } from "../format";
 import { PageHeader } from "../shell/PageHeader";
@@ -44,9 +49,9 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 function Ratings({ view }: { view: PlayerView }) {
   const groups = [...new Set(view.ratings.map((r) => r.group))];
   return (
-    <div className="row" data-testid="ratings">
+    <div className="profile-rating-groups" data-testid="ratings">
       {groups.map((g) => (
-        <div key={g} className="col-sm-6 col-lg-4 mb-3">
+        <div key={g} className="profile-rating-group">
           <h3 className="h6 small text-uppercase text-body-secondary">{g}</h3>
           <table className="table table-sm small mb-0">
             <tbody>
@@ -54,8 +59,10 @@ function Ratings({ view }: { view: PlayerView }) {
                 .filter((r) => r.group === g)
                 .map((r) => (
                   <tr key={r.code}>
-                    <td>{r.name}</td>
-                    <td className="text-end fw-semibold">{r.value}</td>
+                    <td title={r.name}>{r.name.replace(/\s*\(.*\)/, "")}</td>
+                    <td className="text-end fw-semibold">
+                      <RatingValue value={r.value} />
+                    </td>
                     <td className="text-end" style={{ width: "3em" }}>
                       {r.change ? (
                         <span className={r.change > 0 ? "text-success" : "text-danger"}>
@@ -83,7 +90,18 @@ export function Player({ params }: { params: string[] }) {
   const { data: view, error } = useView(`player/${pid}`, () =>
     toWorker("getPlayer", shell.lid, pid),
   );
-  if (error) return <div className="alert alert-danger">{error}</div>;
+  if (error) {
+    // A long-retired player pruned from the save, or an address that names no player.
+    const gone = /no longer in the save|There's no player/.test(error);
+    return (
+      <div
+        className={`alert ${gone ? "alert-secondary" : "alert-danger"}`}
+        data-testid="player-gone"
+      >
+        {error}
+      </div>
+    );
+  }
   if (!view) return <p>Loading…</p>;
   const status = STATUS_LABELS[view.status] ?? view.status;
   const own = view.status === "club" && view.team?.cid === shell.userCid;
@@ -98,6 +116,7 @@ export function Player({ params }: { params: string[] }) {
   return (
     <>
       <PageHeader title={view.name}>
+        <NationalityFlag nationality={view.nationality} />
         {view.team && <TeamLink team={view.team} />}
         {status && <span className="badge text-bg-secondary">{status}</span>}
         {talk && !shell.state.fired && (
@@ -164,48 +183,86 @@ export function Player({ params }: { params: string[] }) {
           onClose={() => setDialog(null)}
         />
       )}
-      <section className="card mb-3" data-testid="player-bio">
-        <div className="card-body">
-          <div className="d-flex flex-wrap align-items-center gap-4 mb-3">
-            <div className="text-center">
-              <div className="display-6 fw-semibold lh-1">{view.ovr}</div>
-              <div className="small text-body-secondary">OVR</div>
-            </div>
-            <div className="text-center">
-              <div className="display-6 lh-1 text-body-secondary">{view.pot}</div>
-              <div className="small text-body-secondary">POT</div>
-            </div>
-            <div>
-              <div className="h5 mb-0">
-                {view.position}
-                {view.secondary.length > 0 && (
-                  <span className="text-body-secondary fw-normal">
-                    {" "}
-                    · also {view.secondary.join(", ")}
-                  </span>
-                )}
+      <div className="player-profile-top mb-3">
+        <section className="card profile-bio" data-testid="player-bio">
+          <div className="card-body small">
+            <div className="d-flex flex-wrap align-items-center gap-4 mb-3">
+              <div>
+                <div className="h5 mb-0">
+                  {view.position}
+                  {view.secondary.length > 0 && (
+                    <span className="text-body-secondary fw-normal">
+                      {" "}
+                      · also {view.secondary.join(", ")}
+                    </span>
+                  )}
+                </div>
+                <div className="small text-body-secondary">Value {formatEuros(view.value)}</div>
               </div>
-              <div className="small text-body-secondary">Value {formatEuros(view.value)}</div>
+            </div>
+            <p className="small mb-2">
+              {view.contract
+                ? `${formatEuros(view.contract.wage)}/yr until ${formatDate(view.contract.expires)}`
+                : "No professional contract"}
+            </p>
+            <div className="row">
+              <Fact label="Age">
+                {view.age} (born {formatDate(view.birthDate)})
+              </Fact>
+              <Fact label="Nationality">
+                <NationalityFlag nationality={view.nationality} /> {view.nationality}
+                {view.nationality2 ? ` / ${view.nationality2}` : ""}
+              </Fact>
+              <Fact label="Foot">{view.foot === "L" ? "Left" : "Right"}</Fact>
+              <Fact label="Height">{view.heightCm} cm</Fact>
+              {view.shirtNumber !== null && <Fact label="Shirt">{view.shirtNumber}</Fact>}
+              {view.retiredSeason !== null && <Fact label="Retired">{view.retiredSeason}</Fact>}
+              {view.freeAgentSince && (
+                <Fact label="Free agent since">{formatDate(view.freeAgentSince)}</Fact>
+              )}
+            </div>
+            <PlayerPositionMap ovrs={view.positionOvrs} />
+          </div>
+        </section>
+        <section className="card profile-ratings">
+          <div className="card-body">
+            <div className="d-flex flex-wrap gap-4 mb-3">
+              <h2 className="h5 mb-0">
+                Overall: {view.ovr}
+                <RatingChange value={view.ovrChange} />
+              </h2>
+              <h2 className="h5 mb-0">
+                Potential: {view.pot}
+                <RatingChange value={view.potChange} />
+              </h2>
+            </div>
+            <div className="mb-2">
+              <SkillTags ratings={view.ratings.map((r) => r.value)} position={view.position} />
+            </div>
+            <div className="profile-ratings-content">
+              <div>
+                <Ratings view={view} />
+                <h3 className="h6 small text-uppercase text-body-secondary mt-2">
+                  OVR by position
+                </h3>
+                <div className="d-flex flex-wrap gap-2 small" data-testid="position-ovrs">
+                  {view.positionOvrs.map((o) => (
+                    <span
+                      key={o.position}
+                      className={`badge ${o.position === view.position ? "text-bg-primary" : "text-bg-light"}`}
+                    >
+                      {o.position} {o.ovr}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="profile-radar">
+                <RadarChart axes={view.radar} />
+              </div>
             </div>
           </div>
-          <div className="row">
-            <Fact label="Age">
-              {view.age} (born {formatDate(view.birthDate)})
-            </Fact>
-            <Fact label="Nationality">
-              {view.nationality}
-              {view.nationality2 ? ` / ${view.nationality2}` : ""}
-            </Fact>
-            <Fact label="Foot">{view.foot === "L" ? "Left" : "Right"}</Fact>
-            <Fact label="Height">{view.heightCm} cm</Fact>
-            {view.shirtNumber !== null && <Fact label="Shirt">{view.shirtNumber}</Fact>}
-            {view.retiredSeason !== null && <Fact label="Retired">{view.retiredSeason}</Fact>}
-            {view.freeAgentSince && (
-              <Fact label="Free agent since">{formatDate(view.freeAgentSince)}</Fact>
-            )}
-          </div>
-        </div>
-      </section>
+        </section>
+      </div>
       <div className="row g-3 mb-3">
         <section className="col-md-6 col-xl-4" data-testid="player-contract">
           <div className="card h-100">
@@ -220,7 +277,12 @@ export function Player({ params }: { params: string[] }) {
                   <div className="text-body-secondary">
                     {view.contract.yearsLeft} season{view.contract.yearsLeft === 1 ? "" : "s"} left
                     {view.contract.yearsLeft === 1 && (
-                      <span className="badge text-bg-warning ms-2">expires this June</span>
+                      <StatusBadge
+                        label="E"
+                        tone="warning"
+                        className="ms-2"
+                        description={`Contract expires ${formatDate(view.contract.expires)}`}
+                      />
                     )}
                   </div>
                   {view.contract.feeRemaining > 0 && (
@@ -284,19 +346,24 @@ export function Player({ params }: { params: string[] }) {
                       <span className="text-danger">(won't negotiate)</span>
                     )}
                   </div>
-                  <table className="table table-sm mb-2">
-                    <tbody>
-                      {Object.entries(view.mood.components).map(([k, v]) => (
-                        <tr key={k}>
-                          <td>{MOOD_LABELS[k] ?? k}</td>
-                          <td>
-                            <MoodBar value={v} />
-                          </td>
-                          <td className="text-end">{v >= 0 ? `+${v.toFixed(2)}` : v.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <details className="mb-2">
+                    <summary className="text-body-secondary">Mood breakdown</summary>
+                    <table className="table table-sm mb-2">
+                      <tbody>
+                        {Object.entries(view.mood.components).map(([k, v]) => (
+                          <tr key={k}>
+                            <td>{MOOD_LABELS[k] ?? k}</td>
+                            <td>
+                              <MoodBar value={v} />
+                            </td>
+                            <td className="text-end">
+                              {v >= 0 ? `+${v.toFixed(2)}` : v.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </details>
                   <div className="text-body-secondary">
                     Traits:{" "}
                     {view.mood.traits.length
@@ -313,23 +380,6 @@ export function Player({ params }: { params: string[] }) {
           </div>
         </section>
       </div>
-      <section className="card mb-3">
-        <div className="card-body">
-          <h2 className="h6">Ratings</h2>
-          <Ratings view={view} />
-          <h3 className="h6 small text-uppercase text-body-secondary mt-2">OVR by position</h3>
-          <div className="d-flex flex-wrap gap-2 small" data-testid="position-ovrs">
-            {view.positionOvrs.map((o) => (
-              <span
-                key={o.position}
-                className={`badge ${o.position === view.position ? "text-bg-primary" : "text-bg-light"}`}
-              >
-                {o.position} {o.ovr}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
       <section className="card mb-3" data-testid="player-transfers">
         <div className="card-body">
           <h2 className="h6">Transfer history</h2>
@@ -356,21 +406,40 @@ export function Player({ params }: { params: string[] }) {
         </div>
       </section>
       <div className="row g-3 mb-3">
-        <section className="col-lg-5">
+        <section className="col-12">
           <div className="card h-100">
             <div className="card-body">
-              <h2 className="h6">Profile</h2>
-              <div className="d-flex justify-content-center">
-                <RadarChart axes={view.radar} />
+              <h2 className="h6">Ratings history</h2>
+              <div className="table-responsive">
+                <table className="table table-sm small text-nowrap" data-testid="ratings-history">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Age</th>
+                      <th>OVR</th>
+                      <th>POT</th>
+                      {RATING_CODES.map((code) => (
+                        <th key={code} title={ratingsConfig.ratingNames[code]}>
+                          {code.toUpperCase()}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...view.history].reverse().map((h) => (
+                      <tr key={h.date}>
+                        <td>{formatDate(h.date)}</td>
+                        <td>{h.age}</td>
+                        <td className="fw-semibold">{h.ovr}</td>
+                        <td>{h.pot}</td>
+                        {RATING_CODES.map((code, i) => (
+                          <td key={code}>{Math.round(h.ratings[i] ?? 0)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
-          </div>
-        </section>
-        <section className="col-lg-7">
-          <div className="card h-100">
-            <div className="card-body">
-              <h2 className="h6">OVR and POT over time</h2>
-              <RatingHistoryChart points={view.history} />
             </div>
           </div>
         </section>

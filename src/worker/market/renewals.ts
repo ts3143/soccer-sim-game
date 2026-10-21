@@ -101,6 +101,7 @@ export function expireContracts(world: ContractWorld, season: number, date: stri
   const log = emptyLog();
   const ended = `${season}-06-30`;
   const leftUser: string[] = [];
+  const leftRefs: { pid: number; name: string }[] = [];
   for (const p of world.players) {
     if (p.status !== "club" || !p.contract || p.contract.expires > ended) continue;
     const club = world.clubs.find((c) => c.cid === p.cid);
@@ -123,7 +124,10 @@ export function expireContracts(world: ContractWorld, season: number, date: stri
       names: [fullName(p), `${club?.name ?? ""} (contract ended)`],
       fee: 0,
     });
-    if (cid === world.userCid) leftUser.push(fullName(p));
+    if (cid === world.userCid) {
+      leftUser.push(fullName(p));
+      leftRefs.push({ pid: p.pid, name: fullName(p) });
+    }
   }
   if (leftUser.length > 0) {
     log.messages.push({
@@ -132,6 +136,7 @@ export function expireContracts(world: ContractWorld, season: number, date: stri
       kind: "contracts",
       subject: `${leftUser.length} player(s) left at the end of their contracts`,
       body: `Free agents now: ${leftUser.join(", ")}.`,
+      players: leftRefs,
       read: false,
     });
   }
@@ -216,6 +221,7 @@ export function contractWarning(
     date,
     season,
     kind: "contracts",
+    players: expiring.map((p) => ({ pid: p.pid, name: fullName(p) })),
     subject: reminder
       ? `Deadline day tomorrow: ${expiring.length} contract(s) still to renew`
       : `${expiring.length} contract(s) end in June`,

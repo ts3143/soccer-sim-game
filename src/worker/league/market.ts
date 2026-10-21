@@ -6,7 +6,7 @@
  * A transfer has two steps: bid until his club accepts a fee (bidForPlayer), then agree
  * personal terms with the player (signPlayer). A free agent needs only the second step.
  */
-import { exactAge } from "../../common/dates";
+import { exactAge, formatDay } from "../../common/dates";
 import type { BidReply, ContractTalks, LoanReply, OfferView } from "../../common/api";
 import type { GameMeta, IdCounters, Offer, Player } from "../../common/schema";
 import { contractClub } from "../../common/status";
@@ -51,6 +51,7 @@ import {
   saveTransactions,
 } from "./game";
 import type { LeagueSession } from "./session";
+import { GameError } from "../../common/errors";
 
 const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
 
@@ -73,7 +74,8 @@ function nextOid(session: LeagueSession): number {
 /** Fails if the user has no club (sacked, before he takes a job offer). */
 function employed(session: LeagueSession): GameMeta {
   const game = meta<GameMeta>(session, "game");
-  if (game.fired) throw new Error("You have no club: accept a job offer first");
+  if (game.fired)
+    throw new GameError("You have no club right now: take one of your job offers first.");
   return game;
 }
 
@@ -81,7 +83,7 @@ function employed(session: LeagueSession): GameMeta {
 function marketOpen(session: LeagueSession) {
   const game = employed(session);
   const window = openWindow(game.date, game.season);
-  if (!window) throw new Error("The transfer window is closed");
+  if (!window) throw new GameError("The transfer window is closed.");
   return { game, window };
 }
 
@@ -89,7 +91,9 @@ function marketOpen(session: LeagueSession) {
 function notBanned(session: LeagueSession, date: string) {
   const user = session.cache.get("clubs", meta<GameMeta>(session, "game").userCid);
   if (user && transferBanned(user, date)) {
-    throw new Error(`FFP: your club can't sign anyone until ${user.ffp?.bannedUntil ?? ""}`);
+    throw new GameError(
+      `FFP: your club can't sign anyone until ${formatDay(user.ffp?.bannedUntil ?? date)}.`,
+    );
   }
 }
 
@@ -103,7 +107,11 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
   const world = loopWorld(session, game.season);
   const p = session.cache.get("players", pid);
   if (!p || (p.status !== "club" && p.status !== "freeAgent" && p.status !== "loan")) {
-    throw new Error(`Player ${pid} is not at a club or a free agent`);
+    throw new GameError(
+      p?.status === "retired"
+        ? `${p.firstName} ${p.lastName} has retired.`
+        : "That player can't sign a contract now.",
+    );
   }
   const user = world.clubs.find((c) => c.cid === game.userCid);
   const club = world.clubs.find((c) => c.cid === p.cid);
@@ -147,6 +155,7 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
       ffpLimit: FFP.ratio,
       warned: user.ffp?.warned ?? false,
       bannedUntil: transferBanned(user, game.date) ? (user.ffp?.bannedUntil ?? null) : null,
+      cashFrozen: user.cash < 0,
     },
   };
 }
@@ -157,14 +166,17 @@ export function renewContract(session: LeagueSession, pid: number, years: number
     assertNotLive(session);
     const game = meta<GameMeta>(session, "game");
     const talks = contractTalks(session, pid);
-    if (!talks.userPlayer) throw new Error("You can only renew your own players");
-    if (!talks.windowOpen) throw new Error("Contracts can only be renewed in a transfer window");
-    if (!talks.mood.willing) throw new Error(`${talks.name} won't negotiate with your club`);
+    if (!talks.userPlayer) throw new GameError("You can only renew your own players.");
+    if (!talks.windowOpen)
+      throw new GameError("Contracts can only be renewed in a transfer window.");
+    if (!talks.mood.willing) throw new GameError(`${talks.name} won't negotiate with your club`);
     const ask = talks.asks.find((a) => a.years === years);
     const p = session.cache.get("players", pid);
-    if (!ask || !p) throw new Error(`No ask for ${years} years`);
+    if (!ask || !p) throw new GameError("Pick a contract of 1 to 5 years.");
     if (ask.expires <= (p.contract?.expires ?? "")) {
-      throw new Error(`A renewal must run past ${p.contract?.expires ?? "the current contract"}`);
+      throw new GameError(
+        `A new contract must run past the current one (${p.contract ? formatDay(p.contract.expires) : "its end"}).`,
+      );
     }
     signContract(p, ask.wage, ask.expires, game.date);
     session.cache.put("players", p);
@@ -196,16 +208,20 @@ export function bidForPlayer(session: LeagueSession, pid: number, fee: number): 
     const seller = world.clubs.find((c) => c.cid === p?.cid);
     const user = world.clubs.find((c) => c.cid === game.userCid);
     if (!p || !user || p.status !== "club" || !seller) {
-      throw new Error(`Player ${pid} is not at a club you can buy from`);
+      throw new GameError("He isn't at a club you can buy from any more.");
     }
-    if (seller.cid === user.cid) throw new Error("He is already your player");
-    if (!Number.isInteger(fee) || fee <= 0) throw new Error("A bid is a whole number of euros");
+    if (seller.cid === user.cid) throw new GameError("He is already your player");
+    if (!Number.isInteger(fee) || fee <= 0) throw new GameError("A bid is a whole number of euros");
     notBanned(session, game.date);
-    if (agreedOffer(session, user.cid, pid)) throw new Error("A fee is already agreed");
+    if (agreedOffer(session, user.cid, pid)) throw new GameError("A fee is already agreed");
     const budgets = clubBudgets(world, user);
-    if (user.cash < 0) throw new Error("Negative cash: transfers are frozen (SPEC §6.4)");
+    if (user.cash < 0) {
+      throw new GameError(
+        "Your club's cash is below zero: transfers are frozen until it's back above zero",
+      );
+    }
     if (fee > budgets.transfer) {
-      throw new Error(`That is over your transfer budget (${euros(budgets.transfer)})`);
+      throw new GameError(`That is over your transfer budget (${euros(budgets.transfer)})`);
     }
     const { asking } = askingPrice(world, p, game.date);
     const outcome = bidOutcome(fee, asking);
@@ -251,26 +267,29 @@ export function signPlayer(session: LeagueSession, pid: number, years: number) {
     const talks = contractTalks(session, pid);
     // Free agents can be signed at any time (SPEC §3.1); transfers only in a window.
     const { game } = talks.kind === "freeAgent" ? { game: employed(session) } : marketOpen(session);
-    if (talks.kind === "renewal") throw new Error("He is already your player: renew him instead");
+    if (talks.kind === "renewal")
+      throw new GameError("He is already your player: renew him instead");
     notBanned(session, game.date);
     const offer = agreedOffer(session, game.userCid, pid);
     const at = session.cache.get("players", pid)?.cid ?? null;
     if (talks.kind === "transfer" && (!offer || offer.toCid !== at)) {
-      throw new Error("Agree a fee with his club first");
+      throw new GameError("Agree a fee with his club first");
     }
-    if (!talks.mood.willing) throw new Error(`${talks.name} won't negotiate with your club`);
+    if (!talks.mood.willing) throw new GameError(`${talks.name} won't negotiate with your club`);
     const ask = talks.asks.find((a) => a.years === years);
-    if (!ask) throw new Error(`No ask for ${years} years`);
+    if (!ask) throw new GameError("Pick a contract of 1 to 5 years.");
     const world = loopWorld(session, game.season);
     if (seniorsOf(world.players, game.userCid).length >= TRANSFERS.maxSeniors) {
-      throw new Error(`Your squad is full (${TRANSFERS.maxSeniors} seniors)`);
+      throw new GameError(`Your squad is full (${TRANSFERS.maxSeniors} seniors)`);
     }
     const fee = offer?.fee ?? 0;
     if (ask.wage > talks.budget.wageRoom) {
-      throw new Error(`His wage is over your wage room (${euros(talks.budget.wageRoom)} a year)`);
+      throw new GameError(
+        `His wage is over your wage room (${euros(talks.budget.wageRoom)} a year)`,
+      );
     }
     if (fee > talks.budget.transfer) {
-      throw new Error(`The fee is over your transfer budget (${euros(talks.budget.transfer)})`);
+      throw new GameError(`The fee is over your transfer budget (${euros(talks.budget.transfer)})`);
     }
     const log = completeTransfer(world, {
       pid,
@@ -311,7 +330,7 @@ export function respondToOffer(session: LeagueSession, oid: number, accept: bool
     const { game } = marketOpen(session);
     const offer = session.cache.get("offers", oid);
     if (!offer || offer.status !== "open" || offer.toCid !== game.userCid) {
-      throw new Error(`No open bid ${oid} for your players`);
+      throw new GameError("That bid is no longer open.");
     }
     if (!accept) {
       session.cache.put("offers", { ...offer, status: "rejected" });
@@ -321,7 +340,7 @@ export function respondToOffer(session: LeagueSession, oid: number, accept: bool
     const world = loopWorld(session, game.season);
     const p = world.players.find((x) => x.pid === offer.pid);
     const buyer = world.clubs.find((c) => c.cid === offer.fromCid);
-    if (!p || !buyer || p.cid !== game.userCid) throw new Error("That bid no longer stands");
+    if (!p || !buyer || p.cid !== game.userCid) throw new GameError("That bid no longer stands");
     const mood = moodToward(world, p, buyer, game.date);
     const asks = contractAsks(p, game.date, clubRevenue(world, buyer), mood.value, false);
     const years = preferredYears(exactAge(p.birthDate, game.date));
@@ -340,6 +359,7 @@ export function respondToOffer(session: LeagueSession, oid: number, accept: bool
           kind: "transfer",
           subject: `${fullName(p)} stays`,
           body: `The move to ${buyer.name} fell through: ${mood.willing ? `${buyer.name} pulled out` : `${fullName(p)} turned down their terms`}.`,
+          players: [{ pid: p.pid, name: fullName(p) }],
           read: false,
         },
       ]);
@@ -406,16 +426,16 @@ export function proposeLoan(
   return queued(session, async () => {
     assertNotLive(session);
     const { game } = marketOpen(session);
-    if (![0, 0.5, 1].includes(wageShare)) throw new Error("The wage share is 0, 50 or 100%");
+    if (![0, 0.5, 1].includes(wageShare)) throw new GameError("The wage share is 0, 50 or 100%");
     const world = loopWorld(session, game.season);
     const p = world.players.find((x) => x.pid === pid);
     const to = world.clubs.find((c) => c.cid === cid);
     if (!p || !to || p.status !== "club" || p.cid === null) {
-      throw new Error(`Player ${pid} can't go on loan now`);
+      throw new GameError("He can't go on loan now.");
     }
-    if (p.cid === cid) throw new Error("He is already at that club");
+    if (p.cid === cid) throw new GameError("He is already at that club");
     const out = p.cid === game.userCid;
-    if (!out && cid !== game.userCid) throw new Error("You can only loan players in or out");
+    if (!out && cid !== game.userCid) throw new GameError("You can only loan players in or out");
     if (!out) notBanned(session, game.date);
     const name = fullName(p);
     const refuse = (message: string): LoanReply => ({ accepted: false, message });
@@ -464,7 +484,10 @@ export function proposeLoan(
       }
     }
     await session.cache.flush();
-    return { accepted: true, message: `${name} joins ${to.name} on loan until ${until}.` };
+    return {
+      accepted: true,
+      message: `${name} joins ${to.name} on loan until ${formatDay(until)}.`,
+    };
   });
 }
 
@@ -472,7 +495,7 @@ export function proposeLoan(
 export function setWageShare(session: LeagueSession, share: number) {
   return queued(session, async () => {
     assertNotLive(session);
-    if (!(share >= 0 && share <= 1)) throw new Error("The wage share is between 0 and 1");
+    if (!(share >= 0 && share <= 1)) throw new GameError("The wage share is between 0 and 1");
     const game = meta<GameMeta>(session, "game");
     const club = session.cache.get("clubs", game.userCid);
     if (!club) throw new Error("The save has no user club");
@@ -491,12 +514,12 @@ export function listPlayer(session: LeagueSession, pid: number, asking: number |
     const game = employed(session);
     const p = session.cache.get("players", pid);
     if (!p || p.status !== "club" || p.cid !== game.userCid) {
-      throw new Error("You can only list your own players");
+      throw new GameError("You can only list your own players");
     }
     if (asking === null) delete p.listed;
     else {
       if (!Number.isInteger(asking) || asking <= 0) {
-        throw new Error("The asking price is a whole number of euros");
+        throw new GameError("The asking price is a whole number of euros");
       }
       p.listed = { asking, date: game.date };
     }
@@ -519,7 +542,7 @@ export function releasePlayer(session: LeagueSession, pid: number): Promise<stri
     const p = world.players.find((x) => x.pid === pid);
     const club = world.clubs.find((c) => c.cid === game.userCid);
     if (!p || !club || p.status !== "club" || p.cid !== club.cid || !p.contract) {
-      throw new Error("You can only release your own players (not loanees or academy players)");
+      throw new GameError("You can only release your own players (not loanees or academy players)");
     }
     const name = fullName(p);
     const { wage, expires } = p.contract;
@@ -558,6 +581,6 @@ export function releasePlayer(session: LeagueSession, pid: number): Promise<stri
     ]);
     closeOffersFor(session, pid);
     await session.cache.flush();
-    return `${name} is released. You keep paying his ${euros(wage)} a year until ${expires}.`;
+    return `${name} is released. You keep paying his ${euros(wage)} a year until ${formatDay(expires)}.`;
   });
 }

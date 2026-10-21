@@ -134,6 +134,7 @@ export async function getPlayerRatings(lid: number): Promise<PlayerRatingsView> 
         return {
           pid: p.pid,
           name: fullName(p, p.pid),
+          nationality: p.nationality,
           club: club ? teamRef(club) : null,
           leagueId: club?.leagueId ?? null,
           status: p.status,
@@ -323,6 +324,7 @@ export async function getInjuries(lid: number): Promise<InjuriesView> {
         return {
           pid: p.pid,
           name: fullName(p, p.pid),
+          nationality: p.nationality,
           club: teamRef(club),
           leagueId: club?.leagueId ?? "",
           position: p.position,

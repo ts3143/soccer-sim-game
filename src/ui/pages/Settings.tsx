@@ -6,9 +6,9 @@ import { useState } from "react";
 import { navigate } from "../router";
 import { PageHeader } from "../shell/PageHeader";
 import { seasonLabel, useShell } from "../shell/Shell";
+import { APP_VERSION } from "../version";
 import { toWorker } from "../workerClient";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorText } from "../errors";
 
 export function Settings() {
   const { shell, reload } = useShell();
@@ -50,7 +50,7 @@ export function Settings() {
               <h2 className="h6">This league</h2>
               <p className="text-body-secondary">
                 {user?.name ?? "No club"} · season {seasonLabel(shell.state.season)} · saved in this
-                browser only.
+                browser only · Soccer Sim v{APP_VERSION}.
               </p>
               <label htmlFor="league-name" className="form-label fw-semibold mb-1">
                 Name

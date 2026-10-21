@@ -1,9 +1,8 @@
 /**
  * The game UI (M5): starts the game worker, then shows the page for the URL (src/ui/router):
- * Manage Leagues, New league, a league page inside the app shell, or the developer pages.
+ * Manage Leagues, New league, How to play, or a league page inside the app shell.
  */
 import { useEffect, useState } from "react";
-import { Inspector } from "./inspector/Inspector";
 import { BoxScorePage } from "./pages/BoxScorePage";
 import { Cups } from "./pages/Cups";
 import { Dashboard } from "./pages/Dashboard";
@@ -15,6 +14,7 @@ import { FreeAgents } from "./pages/FreeAgents";
 import { GameLog } from "./pages/GameLog";
 import { History } from "./pages/History";
 import { Home } from "./pages/Home";
+import { HowToPlay, HowToPlayPage } from "./pages/HowToPlay";
 import { Inbox } from "./pages/Inbox";
 import { Injuries } from "./pages/Injuries";
 import { LeagueLeaders } from "./pages/LeagueLeaders";
@@ -37,9 +37,8 @@ import { TransferMarket } from "./pages/TransferMarket";
 import { Link, parseRoute, usePath } from "./router";
 import { Shell } from "./shell/Shell";
 import { connectWorker, type Connection } from "./workerClient";
-
-const errorText = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
+import { errorText } from "./errors";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export function App() {
   const [connection, setConnection] = useState<Connection | null>(null);
@@ -54,7 +53,7 @@ export function App() {
   if (error) {
     return (
       <main className="container py-4">
-        <div className="alert alert-danger">Could not start the game worker: {error}</div>
+        <div className="alert alert-danger">The game couldn&apos;t start. {error}</div>
       </main>
     );
   }
@@ -63,7 +62,8 @@ export function App() {
     return (
       <main className="container py-4">
         <div className="alert alert-warning">
-          The game is already open in another tab. Close that tab, then reload this one.
+          The game is already open in another tab, and this browser can run it in one tab only.
+          Close that tab, then reload this one.
         </div>
       </main>
     );
@@ -71,15 +71,25 @@ export function App() {
   return <Routes />;
 }
 
+/** The page for the URL; one that crashes shows a message instead of a blank screen. */
 function Routes() {
-  const route = parseRoute(usePath());
+  const path = usePath();
+  return (
+    <ErrorBoundary resetKey={path}>
+      <Page path={path} />
+    </ErrorBoundary>
+  );
+}
+
+function Page({ path }: { path: string }) {
+  const route = parseRoute(path);
   switch (route.kind) {
     case "home":
       return <Home />;
     case "new":
       return <NewLeague />;
-    case "dev":
-      return <Inspector />;
+    case "howToPlay":
+      return <HowToPlayPage />;
     case "league":
       return (
         <Shell key={route.lid} lid={route.lid}>
@@ -96,7 +106,7 @@ function Routes() {
   }
 }
 
-/** The league page for the URL; pages not built yet show a placeholder. */
+/** The league page for the URL; an unknown page says so. */
 function LeaguePage({ page, params }: { page: string; params: string[] }) {
   switch (page) {
     case "dashboard":
@@ -143,6 +153,8 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <Fired />;
     case "settings":
       return <Settings />;
+    case "how-to-play":
+      return <HowToPlay />;
     case "history":
       return <History />;
     case "team-history":

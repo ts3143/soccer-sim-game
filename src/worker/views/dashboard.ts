@@ -4,6 +4,7 @@
  * alerts (injuries, tired players, expiring contracts, bids); the season's best
  * performers; the latest inbox messages.
  */
+import { withPlayerReferences } from "../league/messages";
 import type { DashboardView } from "../../common/api";
 import { competitionsConfig } from "../../common/config/competitions";
 import type { GameMeta } from "../../common/schema";
@@ -133,7 +134,7 @@ export async function getDashboard(lid: number): Promise<DashboardView> {
         assists: t.assists,
         rating: Math.round((t.ratingTotal / t.appearances) * 100) / 100,
       })),
-    inbox: inbox.slice(0, 5),
+    inbox: withPlayerReferences(inbox.slice(0, 5), players),
     unread: inbox.filter((m) => !m.read).length,
     cash: user.cash,
   };

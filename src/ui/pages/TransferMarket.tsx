@@ -3,8 +3,10 @@
  * listed players (the transfer list, releases, loans out), Incoming offers (answer bids
  * for your players) and Loans. Bids, transfers and loans need an open window.
  */
+import { StatusBadge } from "../components/StatusBadge";
 import { useEffect, useState } from "react";
-import type { PlayerSearchRow, TransferMarketView } from "../../common/api";
+import type { PlayerSearch, PlayerSearchRow, TransferMarketView } from "../../common/api";
+import { nationalitiesConfig } from "../../common/config/nationalities";
 import { POSITIONS } from "../../common/config/ratings";
 import { ContractModal } from "../components/ContractModal";
 import { DataTable } from "../components/DataTable";
@@ -16,6 +18,7 @@ import { PageHeader } from "../shell/PageHeader";
 import { useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
+import { errorText } from "../errors";
 
 const TABS = [
   { key: "search", label: "Search" },
@@ -31,8 +34,6 @@ type Dialog =
   | { kind: "list"; player: Squad }
   | { kind: "release"; player: Squad }
   | { kind: "loan"; player: { pid: number; name: string }; direction: "in" | "out" };
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export function TransferMarket({ params }: { params: string[] }) {
   const { shell } = useShell();
@@ -72,6 +73,11 @@ export function TransferMarket({ params }: { params: string[] }) {
         </span>
         {b.owed > 0 && <span>Owed to released players {formatEuros(b.owed)} a year</span>}
         {b.banned && <span className="text-danger">FFP ban until {formatDate(b.banned)}</span>}
+        {b.cashFrozen && (
+          <span className="text-danger" data-testid="cash-frozen">
+            Cash below zero: transfers frozen
+          </span>
+        )}
       </div>
       {!view.window && (
         <p className="small text-body-secondary">
@@ -124,23 +130,30 @@ function Search({ onDialog, disabled }: { onDialog: (d: Dialog) => void; disable
   const [league, setLeague] = useState("");
   const [minOvr, setMinOvr] = useState(55);
   const [maxAge, setMaxAge] = useState(35);
+  const [filters, setFilters] = useState<PlayerSearch>({});
   const [rows, setRows] = useState<PlayerSearchRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
     toWorker("searchPlayers", shell.lid, {
+      ...filters,
       position: position || undefined,
       leagueId: league || undefined,
       minOvr,
       maxAge,
       limit: 100,
     })
-      .then((r) => alive && setRows(r))
+      .then((r) => {
+        if (alive) {
+          setRows(r);
+          setError(null);
+        }
+      })
       .catch((e: unknown) => alive && setError(errorText(e)));
     return () => {
       alive = false;
     };
-  }, [shell.lid, position, league, minOvr, maxAge, version]);
+  }, [shell.lid, position, league, minOvr, maxAge, filters, version]);
   return (
     <>
       <div className="d-flex flex-wrap gap-2 align-items-center mb-2 small">
@@ -188,6 +201,83 @@ function Search({ onDialog, disabled }: { onDialog: (d: Dialog) => void; disable
         />
         <span className="text-body-secondary">The best 100 matches, other clubs' players.</span>
       </div>
+      <div className="d-flex flex-wrap align-items-end gap-2 small mb-3">
+        <label>
+          Name
+          <input
+            className="form-control form-control-sm"
+            value={filters.name ?? ""}
+            onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+          />
+        </label>
+        <label>
+          Nationality
+          <select
+            className="form-select form-select-sm"
+            value={filters.nationality ?? ""}
+            onChange={(e) => setFilters({ ...filters, nationality: e.target.value || undefined })}
+          >
+            <option value="">Any</option>
+            {[
+              ...new Set(
+                Object.values(nationalitiesConfig.leagueMix).flatMap((m) => Object.keys(m)),
+              ),
+            ]
+              .sort()
+              .map((n) => (
+                <option key={n}>{n}</option>
+              ))}
+          </select>
+        </label>
+        {(
+          [
+            ["minAge", "Min age"],
+            ["maxOvr", "Max OVR"],
+            ["minPot", "Min POT"],
+            ["maxValue", "Max value (€)"],
+            ["maxWage", "Max wage/yr (€)"],
+          ] as const
+        ).map(([key, label]) => (
+          <label key={key}>
+            {label}
+            <input
+              type="number"
+              min={0}
+              className="form-control form-control-sm"
+              style={{ width: key === "maxWage" || key === "maxValue" ? 140 : 90 }}
+              value={filters[key] ?? ""}
+              onChange={(e) =>
+                setFilters({
+                  ...filters,
+                  [key]: e.target.value === "" ? undefined : Number(e.target.value),
+                })
+              }
+            />
+          </label>
+        ))}
+        <label className="form-check">
+          <input
+            type="checkbox"
+            className="form-check-input"
+            checked={filters.expiring ?? false}
+            onChange={(e) => setFilters({ ...filters, expiring: e.target.checked })}
+          />
+          Contract expires this June
+        </label>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary"
+          onClick={() => {
+            setFilters({});
+            setMinOvr(0);
+            setMaxAge(99);
+            setPosition("");
+            setLeague("");
+          }}
+        >
+          Reset filters
+        </button>
+      </div>
       {error && <div className="alert alert-danger">{error}</div>}
       {!rows ? (
         <p>Loading…</p>
@@ -204,7 +294,7 @@ function Search({ onDialog, disabled }: { onDialog: (d: Dialog) => void; disable
               key: "name",
               label: "Name",
               value: (r) => r.name,
-              render: (r) => <PlayerLink pid={r.pid} name={r.name} />,
+              render: (r) => <PlayerLink pid={r.pid} name={r.name} nationality={r.nationality} />,
             },
             { key: "club", label: "Club", value: (r) => r.club ?? "" },
             { key: "pos", label: "Pos", value: (r) => r.position },
@@ -341,7 +431,13 @@ function Listed({ view, onDialog }: { view: TransferMarketView; onDialog: (d: Di
             render: (p) => (
               <>
                 <PlayerLink pid={p.pid} name={p.name} />
-                {p.listed && <span className="badge text-bg-info ms-1">listed</span>}
+                {p.listed && (
+                  <StatusBadge
+                    label="TL"
+                    tone="info"
+                    description={`Transfer listed at ${formatEuros(p.listed.asking)}`}
+                  />
+                )}
               </>
             ),
           },

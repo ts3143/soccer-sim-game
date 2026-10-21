@@ -114,7 +114,9 @@ export function DataTable<T>({
         </div>
       )}
       <div className="table-responsive">
-        <table className={`table ${small ? "table-sm" : ""} table-hover align-middle mb-2`}>
+        <table
+          className={`table ${small ? "table-sm" : ""} table-striped table-hover align-middle mb-2`}
+        >
           <thead>
             <tr>
               {columns.map((c) => (

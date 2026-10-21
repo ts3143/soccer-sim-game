@@ -1,20 +1,29 @@
 /**
- * `pnpm browsercheck [m1 m3 m4 m5 m6 sweep career] [--base URL]`: headless Chrome checks of the game UI
- * against a running production build (`pnpm build && pnpm preview`). Each check is a script
- * in this folder; with no names, all of them run. Needs Google Chrome installed (the
- * checks drive it through playwright-core; no browser download).
+ * `pnpm browsercheck [m5 m6 sweep career edges tabs layout perf injury tables formation messages] [--base URL]`: headless Chrome
+ * checks of the game UI against a running production build (`pnpm build && pnpm preview`).
+ * Each check is a script in this folder; with no names, all of them run. Needs Google Chrome
+ * installed (the checks drive it through playwright-core; no browser download).
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { formationById } from "../../src/common/config/formations";
-import { isSenior } from "../../src/common/status";
-import { bestXi } from "../../src/worker/core/lineup";
-import { generateWorld } from "../../src/worker/generate/world";
 import { realClubNamesToCheck } from "../real-club-names";
 
-const CHECKS = ["m1", "m3", "m4", "m5", "m6", "sweep", "career"];
+const CHECKS = [
+  "m5",
+  "m6",
+  "sweep",
+  "career",
+  "edges",
+  "tabs",
+  "layout",
+  "perf",
+  "injury",
+  "tables",
+  "formation",
+  "messages",
+];
 const args = process.argv.slice(2);
 let base = "http://localhost:4173";
 const names: string[] = [];
@@ -36,27 +45,10 @@ try {
   process.exit(2);
 }
 
-// What the pages must (and must never) show. The M1 check opens seed "browser" as club 0.
-const world = generateWorld({
-  seed: "browser",
-  name: "Browser test",
-  userCid: 0,
-  createdAt: new Date().toISOString(),
-});
-const club = world.clubs[0];
-if (!club) throw new Error("The generated world has no clubs");
-const seniors = world.players.filter((p) => p.cid === club.cid && isSenior(p));
-const xi = bestXi(seniors, formationById(club.tactics.formation));
-const xiNames = xi.playerIndexBySlot.map((i) => {
-  const p = seniors[i];
-  return p ? `${p.firstName} ${p.lastName}` : "?";
-});
+// What the pages must never show: real club names (SPEC §6.1).
 const scratch = mkdtempSync(join(tmpdir(), "browser-checks-"));
 const expected = join(scratch, "expected.json");
-writeFileSync(
-  expected,
-  JSON.stringify({ clubName: club.name, xiNames, realNames: realClubNamesToCheck().names }),
-);
+writeFileSync(expected, JSON.stringify({ realNames: realClubNamesToCheck().names }));
 
 const failed: string[] = [];
 for (const name of chosen) {

@@ -5,7 +5,8 @@ import type { GameMeta, Offer, Player } from "../../common/schema";
 import { askingPrice, seniorsOf } from "../market/transfers";
 import { loopWorld, play } from "./game";
 import { lendable, rankAt } from "../market/loans";
-import { getClubLab, searchPlayers } from "../views/clubLab";
+import { getClubFinances } from "../views/club";
+import { getTransferMarket, searchPlayers } from "../views/market";
 import {
   bidForPlayer,
   contractTalks,
@@ -131,7 +132,7 @@ describe("the user's transfers", () => {
         expect(after).toBe("rejected");
         expect(session.cache.getAll("inbox").some((m) => m.subject.endsWith(" stays"))).toBe(true);
       }
-      await expect(respondToOffer(session, 901, true)).rejects.toThrow(/No open bid/);
+      await expect(respondToOffer(session, 901, true)).rejects.toThrow(/no longer open/);
 
       // Under an FFP ban the user can't bid or borrow.
       const club = session.cache.get("clubs", 0);
@@ -198,7 +199,9 @@ describe("the user's transfers", () => {
         expect(fair.message).toMatch(/doesn't want|wage room|full squad/);
       }
       // A loanee can't be bought, and his contract stays with his parent club.
-      await expect(bidForPlayer(session, outgoing.pid, 1_000_000)).rejects.toThrow(/not at a club/);
+      await expect(bidForPlayer(session, outgoing.pid, 1_000_000)).rejects.toThrow(
+        /isn.t at a club you can buy from/,
+      );
       expect(contractTalks(session, outgoing.pid).kind).toBe("renewal");
 
       await play(session, "untilEndOfSeason");
@@ -216,18 +219,17 @@ describe("the user's transfers", () => {
   );
 
   it(
-    "feeds the Club lab: every club, the user's squad, a market search, the budget control",
+    "feeds the Transfer Market: the user's squad, a market search, the budget control",
     SLOW,
     async () => {
-      const league = await createLeague({ name: "Club lab", seed: "club-lab", userCid: 0 });
+      const league = await createLeague({ name: "Market", seed: "club-lab", userCid: 0 });
       const session = await openLeague(league.lid);
-      const view = await getClubLab(league.lid);
-      expect(view.clubs).toHaveLength(62);
-      expect(view.clubs.filter((c) => c.user).map((c) => c.cid)).toEqual([0]);
+      const view = await getTransferMarket(league.lid);
       expect(view.window).toEqual({ id: "summer", closes: "2026-08-31" });
-      expect(view.squad.length).toBeGreaterThan(25);
+      expect(view.squad.length).toBeGreaterThan(20);
       expect(view.squad.every((p) => p.value > 0)).toBe(true);
-      expect(view.clubs.every((c) => c.squadCostRatio > 0.3 && c.squadCostRatio < 0.9)).toBe(true);
+      expect(view.budget.squadCostRatio).toBeGreaterThan(0.3);
+      expect(view.budget.squadCostRatio).toBeLessThan(0.9);
       const free = await searchPlayers(league.lid, { freeAgents: true, limit: 10 });
       expect(free).toHaveLength(10);
       expect(free.every((p) => p.club === null && p.daysFree !== null)).toBe(true);
@@ -235,11 +237,36 @@ describe("the user's transfers", () => {
       expect(
         keepers.every((p) => p.position === "GK" && p.ovr >= 60 && p.ovr <= 70 && p.cid !== 0),
       ).toBe(true);
+      const candidate = (await searchPlayers(league.lid, { limit: 1 }))[0]!;
+      const filtered = await searchPlayers(league.lid, {
+        name: candidate.name,
+        nationality: candidate.nationality,
+        minAge: candidate.age,
+        maxAge: candidate.age,
+        minPot: candidate.pot,
+        maxValue: candidate.value,
+        maxWage: candidate.wage,
+      });
+      expect(filtered.some((p) => p.pid === candidate.pid)).toBe(true);
+      expect(await searchPlayers(league.lid, { name: candidate.name, maxValue: 0 })).toEqual([]);
+      expect(await searchPlayers(league.lid, { name: candidate.name, maxWage: 0 })).toEqual([]);
+      const expiring = await searchPlayers(league.lid, { expiring: true });
+      expect(expiring.length).toBeGreaterThan(0);
+      expect(expiring.every((p) => p.expires === "2027-06-30")).toBe(true);
+      const eng2 = await searchPlayers(league.lid, { leagueId: "ENG2", limit: 30 });
+      const eng2Clubs = new Set(
+        session.cache
+          .getAll("clubs")
+          .filter((c) => c.leagueId === "ENG2")
+          .map((c) => c.cid),
+      );
+      expect(eng2.every((p) => p.cid !== null && eng2Clubs.has(p.cid))).toBe(true);
+      const before = await getClubFinances(league.lid);
       await setWageShare(session, 1);
-      const wages = (await getClubLab(league.lid)).user;
-      expect(wages.wageShare).toBe(1);
+      const wages = await getClubFinances(league.lid);
+      expect(wages.budget.wageShare).toBe(1);
       expect(wages.budget.transfer).toBe(0);
-      expect(wages.budget.wageRoom).toBeGreaterThan(view.user.budget.wageRoom);
+      expect(wages.budget.wageRoom).toBeGreaterThan(before.budget.wageRoom);
       await expect(setWageShare(session, 2)).rejects.toThrow(/between 0 and 1/);
     },
   );

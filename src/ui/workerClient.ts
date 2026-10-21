@@ -4,7 +4,14 @@
  * onWorkerEvent(). Both are typed against src/common/api.ts.
  */
 import type { UiEvents, WorkerApi, WorkerKind } from "../common/api";
+import { GameError } from "../common/errors";
 import { createRpcClient, type ApiArgs, type ApiResult, type RpcClient } from "../common/rpc";
+
+/** The worker failed to load or stopped: what pages say. */
+const stopped = () =>
+  new GameError(
+    "The game engine stopped unexpectedly. Reload the page to restart it; your game is saved up to the last thing you did.",
+  );
 
 export type Connection = { status: "ready"; kind: WorkerKind } | { status: "blocked" };
 
@@ -27,6 +34,7 @@ async function connect(): Promise<Connection> {
       name: "soccer-sim-game",
     });
     const shared = createRpcClient<WorkerApi, UiEvents>(worker.port);
+    worker.addEventListener("error", () => shared.fail(stopped()));
     client = shared;
     addEventListener("pagehide", (event) => {
       // A page kept in the back/forward cache may come back, so only leave on a real unload.
@@ -42,7 +50,13 @@ async function connect(): Promise<Connection> {
     type: "module",
     name: "soccer-sim-game",
   });
-  client = createRpcClient<WorkerApi, UiEvents>(worker);
+  const dedicated = createRpcClient<WorkerApi, UiEvents>(worker);
+  worker.addEventListener("error", (event) => {
+    // A load failure or a crash; errors inside calls come back as results instead.
+    event.preventDefault();
+    dedicated.fail(stopped());
+  });
+  client = dedicated;
   return { status: "ready", kind: "dedicated" };
 }
 

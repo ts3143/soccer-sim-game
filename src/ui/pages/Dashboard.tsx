@@ -1,5 +1,8 @@
+import { PlayerMentions } from "../components/PlayerMentions";
+import { InjuryTag } from "../components/InjuryTag";
 /** Dashboard (SPEC §11): next match, form, position, board confidence, alerts, inbox preview. */
 import type { DashboardView, MatchView } from "../../common/api";
+import { RESULT_LABEL, resultForClub, resultRowClass } from "../components/results";
 import { DataTable } from "../components/DataTable";
 import { FormBadges, PlayerLink, ScoreLink, TeamLink } from "../components/links";
 import { ZONE_CLASS } from "../components/zones";
@@ -19,8 +22,10 @@ const ordinal = (n: number) => {
 };
 
 function MatchRow({ m }: { m: MatchView }) {
+  const { shell } = useShell();
+  const result = resultForClub(m, shell.userCid);
   return (
-    <tr>
+    <tr className={resultRowClass(result)} data-result={result ?? undefined}>
       <td className="text-nowrap text-body-secondary">{formatDate(m.date)}</td>
       <td className="small text-body-secondary">{m.competitionName}</td>
       <td className="text-end">
@@ -28,6 +33,7 @@ function MatchRow({ m }: { m: MatchView }) {
       </td>
       <td className="text-center">
         <ScoreLink fid={m.fid} score={m.score} />
+        {result && <span className="visually-hidden"> {RESULT_LABEL[result]}</span>}
       </td>
       <td>
         <TeamLink team={m.away} />
@@ -85,7 +91,7 @@ export function Dashboard() {
     <>
       <PageHeader title="Dashboard" />
       <div className="row g-3">
-        <div className="col-lg-8">
+        <div className="col-xl-8">
           <section className="card mb-3" data-testid="club-summary">
             <div className="card-body">
               <div className="d-flex flex-wrap align-items-center gap-3 mb-3">
@@ -108,15 +114,16 @@ export function Dashboard() {
               <NextMatch view={view} />
             </div>
           </section>
+          {/* One above the other: side by side, two club names to a row don't fit. */}
           <div className="row g-3 mb-3">
-            <section className="col-md-6">
+            <section className="col-12">
               <div className="card h-100">
                 <div className="card-body">
                   <h2 className="h6">Coming up</h2>
                   {view.upcoming.length === 0 ? (
                     <p className="small text-body-secondary mb-0">Nothing else scheduled yet.</p>
                   ) : (
-                    <table className="table table-sm small mb-0">
+                    <table className="table table-striped table-hover table-sm small mb-0">
                       <tbody>
                         {view.upcoming.map((m) => (
                           <MatchRow key={m.fid} m={m} />
@@ -127,14 +134,17 @@ export function Dashboard() {
                 </div>
               </div>
             </section>
-            <section className="col-md-6">
+            <section className="col-12">
               <div className="card h-100">
                 <div className="card-body">
                   <h2 className="h6">Recent results</h2>
                   {view.recent.length === 0 ? (
                     <p className="small text-body-secondary mb-0">No games played yet.</p>
                   ) : (
-                    <table className="table table-sm small mb-0" data-testid="recent-results">
+                    <table
+                      className="table table-striped table-hover table-sm small mb-0"
+                      data-testid="recent-results"
+                    >
                       <tbody>
                         {view.recent.map((m) => (
                           <MatchRow key={m.fid} m={m} />
@@ -153,7 +163,10 @@ export function Dashboard() {
                   <h2 className="h6">
                     <Link to={leaguePath(shell.lid, "standings")}>{view.user.leagueName}</Link>
                   </h2>
-                  <table className="table table-sm small mb-0" data-testid="mini-table">
+                  <table
+                    className="table table-striped table-hover table-sm small mb-0"
+                    data-testid="mini-table"
+                  >
                     <thead>
                       <tr>
                         <th className="text-end">#</th>
@@ -233,7 +246,7 @@ export function Dashboard() {
             </section>
           </div>
         </div>
-        <div className="col-lg-4">
+        <div className="col-xl-4">
           <section className="card mb-3" data-testid="board">
             <div className="card-body">
               <h2 className="h6">The board</h2>
@@ -267,7 +280,7 @@ export function Dashboard() {
               <ul className="list-unstyled small mb-0">
                 {a.injured.map((p) => (
                   <li key={p.pid}>
-                    <span className="badge text-bg-danger me-1">Injured</span>
+                    <InjuryTag injury={p} today={shell.state.date} className="me-1" />
                     <PlayerLink pid={p.pid} name={p.name} /> ({p.position}): {p.type}, back{" "}
                     {formatDate(p.until)}
                   </li>
@@ -314,7 +327,7 @@ export function Dashboard() {
                     key={m.mid}
                     className={`mb-2 ${m.read ? "text-body-secondary" : "fw-semibold"}`}
                   >
-                    {m.subject}
+                    <PlayerMentions text={m.subject} players={m.players} />
                     <span className="fw-normal text-body-secondary"> · {formatDate(m.date)}</span>
                   </li>
                 ))}

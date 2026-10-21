@@ -6,10 +6,13 @@ import type { BudgetDials, GameMeta } from "../../common/schema";
 import { promoteAcademyPlayer, releaseAcademyPlayer } from "../season/offseason";
 import { assertNotLive, loopWorld, meta, queued, saveTransactions } from "./game";
 import type { LeagueSession } from "./session";
+import { GameError } from "../../common/errors";
+import { formatDay } from "../../common/dates";
 
 function employed(session: LeagueSession): GameMeta {
   const game = meta<GameMeta>(session, "game");
-  if (game.fired) throw new Error("You have no club: accept a job offer first");
+  if (game.fired)
+    throw new GameError("You have no club right now: take one of your job offers first.");
   return game;
 }
 
@@ -35,7 +38,7 @@ export function decideAcademyPlayer(
     const game = employed(session);
     const world = loopWorld(session, game.season);
     const p = world.players.find((x) => x.pid === pid);
-    if (!p || p.cid !== game.userCid) throw new Error("He isn't in your academy");
+    if (!p || p.cid !== game.userCid) throw new GameError("He isn't in your academy");
     const log =
       decision === "promote"
         ? promoteAcademyPlayer(world, pid, game.season, game.date)
@@ -45,7 +48,7 @@ export function decideAcademyPlayer(
     await session.cache.flush();
     const name = `${p.firstName} ${p.lastName}`.trim();
     return decision === "promote"
-      ? `${name} signs his first professional contract, until ${p.contract?.expires ?? ""}.`
+      ? `${name} signs his first professional contract, until ${p.contract ? formatDay(p.contract.expires) : "the end of the season"}.`
       : `${name} leaves the academy.`;
   });
 }
@@ -57,7 +60,7 @@ export function setBudgetDials(session: LeagueSession, dials: BudgetDials): Prom
     const game = employed(session);
     for (const value of Object.values(dials)) {
       if (!Number.isInteger(value) || value < 0 || value > 100) {
-        throw new Error("Each dial is a whole number from 0 to 100");
+        throw new GameError("Each dial is a whole number from 0 to 100");
       }
     }
     const club = session.cache.get("clubs", game.userCid);
@@ -81,12 +84,12 @@ export function setTicketPrice(
     assertNotLive(session);
     const game = employed(session);
     if (ticketLocked(session)) {
-      throw new Error("The ticket price is set for this season: change it next preseason");
+      throw new GameError("The ticket price is set for this season: change it next preseason");
     }
     const club = session.cache.get("clubs", game.userCid);
     if (!club) throw new Error("The save has no user club");
     if (price !== null && (!Number.isInteger(price) || price < 1 || price > 5 * fair)) {
-      throw new Error(`A ticket costs from €1 to €${5 * fair}`);
+      throw new GameError(`A ticket costs from €1 to €${5 * fair}`);
     }
     session.cache.put("clubs", {
       ...club,

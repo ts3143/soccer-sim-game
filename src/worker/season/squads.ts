@@ -15,6 +15,7 @@
  *   nothing to play for), the club's regular starters give way to fringe players.
  * The same AI picks the user's club in simulated matches.
  */
+import { applyDiscipline, isSuspended } from "./discipline";
 import { isSenior } from "../../common/status";
 import { addDays, ageOn, exactAge } from "../../common/dates";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
@@ -258,7 +259,7 @@ export function pickMatchday(
 ): EngineTeamInput {
   const s = c.selection;
   const medical = effectiveDials(club).medical;
-  const fit = (p: Player) => !isInjured(p, ctx.date);
+  const fit = (p: Player) => !isInjured(p, ctx.date) && !isSuspended(p);
   const seniors = squad.filter((p) => isSenior(p) && fit(p));
   let pool = seniors;
   if (seniors.length < config.rosterRules.minSeniorForMatch) {
@@ -442,6 +443,7 @@ export function squadPlay(
   };
   /** Updates the players who took part (condition, injuries) from a played match. */
   const finish = (fixture: Fixture, result: MatchResult): MatchResult => {
+    for (const pid of applyDiscipline(players, fixture, result)) changed.add(pid);
     for (const stats of result.players) {
       const p = byPid.get(stats.pid);
       if (!p) continue;

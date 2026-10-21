@@ -1,4 +1,5 @@
 /** Weekly Schedule (SPEC §11): one week's fixtures in every competition, day by day. */
+import { RESULT_LABEL, resultForClub, resultRowClass } from "../components/results";
 import { useState } from "react";
 import type { MatchView } from "../../common/api";
 import { ScoreLink, TeamLink } from "../components/links";
@@ -104,27 +105,37 @@ export function Schedule({ params }: { params: string[] }) {
             <h2 className="h6 border-bottom pb-1">
               {dayFormat.format(new Date(`${day}T00:00:00Z`))}
             </h2>
-            <table className="table table-sm small mb-0">
+            <table className="table table-striped table-hover table-sm small mb-0">
               <tbody>
                 {shown
                   .filter((m) => m.date === day)
-                  .map((m) => (
-                    <tr key={m.fid} className={mine(m) ? "table-primary" : ""}>
-                      <td className="text-body-secondary text-nowrap" style={{ width: "14em" }}>
-                        {m.competitionName}
-                        {m.round && !/^\d+$/.test(m.round) ? ` · ${m.round}` : ""}
-                      </td>
-                      <td className="text-end">
-                        <TeamLink team={m.home} />
-                      </td>
-                      <td className="text-center" style={{ width: "9em" }}>
-                        <ScoreLink fid={m.fid} score={m.score} />
-                      </td>
-                      <td>
-                        <TeamLink team={m.away} />
-                      </td>
-                    </tr>
-                  ))}
+                  .map((m) => {
+                    const result = resultForClub(m, shell.userCid);
+                    return (
+                      <tr
+                        key={m.fid}
+                        className={resultRowClass(result) || (mine(m) ? "table-primary" : "")}
+                        data-result={result ?? undefined}
+                      >
+                        <td className="text-body-secondary text-nowrap" style={{ width: "14em" }}>
+                          {m.competitionName}
+                          {m.round && !/^\d+$/.test(m.round) ? ` · ${m.round}` : ""}
+                        </td>
+                        <td className="text-end">
+                          <TeamLink team={m.home} />
+                        </td>
+                        <td className="text-center" style={{ width: "9em" }}>
+                          <ScoreLink fid={m.fid} score={m.score} />
+                          {result && (
+                            <span className="visually-hidden"> {RESULT_LABEL[result]}</span>
+                          )}
+                        </td>
+                        <td>
+                          <TeamLink team={m.away} />
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </section>

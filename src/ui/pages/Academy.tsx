@@ -12,8 +12,7 @@ import { PageHeader } from "../shell/PageHeader";
 import { useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorText } from "../errors";
 
 export function Academy() {
   const { shell, reload } = useShell();
@@ -85,7 +84,7 @@ export function Academy() {
             value: (p) => p.name,
             render: (p) => (
               <>
-                <PlayerLink pid={p.pid} name={p.name} />
+                <PlayerLink pid={p.pid} name={p.name} nationality={p.nationality} />
                 {p.mustDecide && (
                   <span
                     className="badge text-bg-warning ms-1"

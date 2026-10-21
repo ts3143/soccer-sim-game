@@ -38,6 +38,7 @@ import { returnLoans } from "../market/loans";
 import { aiRenewals, expireContracts } from "../market/renewals";
 import { resetForPreseason } from "./squads";
 import { effectiveDials } from "../club/standing";
+import { GameError } from "../../common/errors";
 
 /** Coefficients (provisional, tuned with the calibration harness). */
 export const TURNOVER = {
@@ -545,9 +546,9 @@ export function promoteAcademyPlayer(
 ): TurnoverLog {
   const p = world.players.find((x) => x.pid === pid);
   const ctx = p?.cid == null ? undefined : clubContexts(world).get(p.cid);
-  if (!p || !ctx || p.status !== "academy") throw new Error("He isn't in an academy");
+  if (!p || !ctx || p.status !== "academy") throw new GameError("He isn't in an academy");
   if (ctx.seniors.length >= competitionsConfig.rosterRules.maxSenior) {
-    throw new Error(
+    throw new GameError(
       `Your squad is full (${competitionsConfig.rosterRules.maxSenior} seniors): make room first`,
     );
   }
@@ -565,7 +566,7 @@ export function releaseAcademyPlayer(
 ): TurnoverLog {
   const p = world.players.find((x) => x.pid === pid);
   const club = world.clubs.find((c) => c.cid === p?.cid);
-  if (!p || !club || p.status !== "academy") throw new Error("He isn't in an academy");
+  if (!p || !club || p.status !== "academy") throw new GameError("He isn't in an academy");
   const log = emptyLog();
   releaseFromAcademy(p, club, season, date, log);
   return log;
@@ -606,6 +607,7 @@ export function academyReminder(
     season,
     kind: "contracts",
     subject: "Academy decisions due by 1 July",
+    players: due.map((p) => ({ pid: p.pid, name: fullName(p) })),
     body: `These academy players will be 18 or older on 1 July: ${list}. Promote them on the Youth Academy page, or on 1 July the club decides for you: promoted if they're good enough and there's room in the squad, otherwise released.`,
     read: false,
   };

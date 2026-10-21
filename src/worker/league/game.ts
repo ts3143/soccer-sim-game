@@ -12,7 +12,9 @@
  * matches are played. Each Play action processes days in order (events first, then
  * matches) and saves once at the end.
  */
+import { withPlayerReferences } from "./messages";
 import { addDays } from "../../common/dates";
+import { GameError, LEAGUE_CLOSED } from "../../common/errors";
 import { competitionsConfig } from "../../common/config/competitions";
 import {
   PLAYER_STAT_TOTALS,
@@ -63,7 +65,7 @@ export function liveFixture(session: LeagueSession): number | null {
 
 /** The user's other actions wait while his live match is under way. */
 export function assertNotLive(session: LeagueSession): void {
-  if (liveFixture(session) !== null) throw new Error("Finish your live match first.");
+  if (liveFixture(session) !== null) throw new GameError("Finish your live match first.");
 }
 
 /** The window open on `date` (opening day included, the day after deadline day not). */
@@ -173,7 +175,8 @@ export function ensureSeason(session: LeagueSession): void {
 
 export function saveMessages(session: LeagueSession, rows: readonly NewMessage[]): void {
   const ids = { ...meta<IdCounters>(session, "ids") };
-  for (const row of rows) session.cache.put("inbox", { mid: ids.mid++, ...row });
+  for (const row of withPlayerReferences(rows, session.cache.getAll("players")))
+    session.cache.put("inbox", { mid: ids.mid++, ...row });
   session.cache.put("meta", ids, "ids");
 }
 
@@ -212,6 +215,7 @@ export function gameState(session: LeagueSession): GameState {
     options,
     nextUserFixture: next ?? null,
     live: live === null ? null : { fid: live },
+    playing: running.get(session) ?? null,
     fired: game.fired
       ? {
           date: game.fired.date,
@@ -227,7 +231,8 @@ export function gameState(session: LeagueSession): GameState {
 /** Settings: renames the save, in the save and in the list of saves. */
 export async function renameLeague(session: LeagueSession, name: string): Promise<void> {
   const clean = name.trim();
-  if (clean.length === 0 || clean.length > 60) throw new Error("A name has 1 to 60 characters");
+  if (clean.length === 0 || clean.length > 60)
+    throw new GameError("A league name has 1 to 60 characters.");
   session.cache.put("meta", { ...meta<GameMeta>(session, "game"), name: clean }, "game");
   await session.cache.flush();
   await updateLeagueSummary(session.lid, { name: clean });
@@ -236,7 +241,7 @@ export async function renameLeague(session: LeagueSession, name: string): Promis
 /** The sacked user takes one of his job offers: the game goes on at that club. */
 export async function acceptJobOffer(session: LeagueSession, cid: number): Promise<void> {
   const game = { ...meta<GameMeta>(session, "game") };
-  if (!game.fired?.offers.includes(cid)) throw new Error(`No job offer from club ${cid}`);
+  if (!game.fired?.offers.includes(cid)) throw new GameError("That job offer is no longer open.");
   const club = session.cache.get("clubs", cid);
   game.userCid = cid;
   game.fired = null;
@@ -471,6 +476,14 @@ export async function pruneMatchRecords(
   return deleted;
 }
 
+/** Names of pruned players (meta row "pruned"), for old box scores and links to them. */
+export type PrunedNames = Record<number, { name: string; retired: number | null }>;
+
+/** A player's name, also after he was pruned; null if never known. */
+export function prunedName(session: LeagueSession, pid: number): PrunedNames[number] | null {
+  return (session.cache.get("meta", "pruned") as PrunedNames | undefined)?.[pid] ?? null;
+}
+
 /** Peak OVR below this, no award and no notable spell at the user's club: pruned (SPEC §12). */
 const PRUNE = { afterSeasons: 3, peakOvrBelow: 74, userClubAppearances: 50 };
 
@@ -501,8 +514,8 @@ export async function pruneRetiredPlayers(session: LeagueSession, season: number
     if (forUser >= PRUNE.userClubAppearances) continue;
     pruned.push(p.pid);
   }
-  for (const pid of pruned) cache.delete("players", pid);
-  await cache.flush();
+  // Stat rows first: if the page closes in between, the players are still there and are
+  // pruned at the next rollover, rather than leaving stat rows without a player.
   const tx = db.transaction("playerStats", "readwrite");
   for (const pid of pruned) {
     let cursor = await tx.store.index("pid").openCursor(pid);
@@ -512,6 +525,15 @@ export async function pruneRetiredPlayers(session: LeagueSession, season: number
     }
   }
   await tx.done;
+  // Their names stay (old box scores of the user's matches list them; SPEC §12).
+  const names = { ...((cache.get("meta", "pruned") as PrunedNames | undefined) ?? {}) };
+  for (const pid of pruned) {
+    const p = cache.get("players", pid);
+    if (p) names[pid] = { name: `${p.firstName} ${p.lastName}`.trim(), retired: p.retiredSeason };
+    cache.delete("players", pid);
+  }
+  cache.put("meta", names, "pruned");
+  await cache.flush();
   return pruned.length;
 }
 
@@ -547,19 +569,20 @@ async function advanceToPreseason(session: LeagueSession): Promise<PlayReport> {
   cache.put("meta", game, "game");
   cache.delete("meta", "season");
   ensureSeason(session);
+  // Bids are kept for their season only.
+  for (const offer of cache.getAll("offers")) {
+    if ((offer.season ?? 0) < season) cache.delete("offers", offer.oid);
+  }
 
-  // Last season's rows stay in IndexedDB; drop them from memory once saved.
+  // The new season is saved in one go (a page closed mid-rollover finds the old season or
+  // the new one, never half of each). Last season's rows stay in IndexedDB; drop them from
+  // memory once saved. Pruning follows; what a closed page misses, the next rollover does.
   await cache.flush();
   cache.evict("fixtures", (f) => f.season < season);
   cache.evict("matches", (m) => m.season < season);
   cache.evict("playerStats", (r) => r.season < season);
   cache.evict("awards", (r) => r.season < season);
   cache.evict("transactions", (r) => r.season < season);
-  // Bids are kept for their season only.
-  for (const offer of cache.getAll("offers")) {
-    if ((offer.season ?? 0) < season) cache.delete("offers", offer.oid);
-  }
-  await cache.flush();
 
   await pruneMatchRecords(db, season, game.userCid);
   await pruneRetiredPlayers(session, season);
@@ -574,14 +597,57 @@ const queues = new WeakMap<LeagueSession, Promise<unknown>>();
 
 export function queued<T>(session: LeagueSession, task: () => Promise<T>): Promise<T> {
   const previous = queues.get(session) ?? Promise.resolve();
-  const run = previous.catch(() => undefined).then(task);
+  const run = previous
+    .catch(() => undefined)
+    .then(() => {
+      if (session.closed) throw new GameError(LEAGUE_CLOSED);
+      return task();
+    });
   queues.set(session, run);
   return run;
 }
 
+/** Resolves once no action is queued or running for the save. */
+export async function whenIdle(session: LeagueSession): Promise<void> {
+  for (;;) {
+    const last = queues.get(session);
+    if (!last) return;
+    await last.catch(() => undefined);
+    if (queues.get(session) === last) return;
+  }
+}
+
+/** The Play action under way in each save: every tab shows "Playing…" and waits. */
+const running = new WeakMap<LeagueSession, PlayOption>();
+
+/**
+ * Runs a Play action in the save's queue, marked as under way while it runs. `onStart` is
+ * called once it starts (the worker tells every tab).
+ */
+export function playing<T>(
+  session: LeagueSession,
+  option: PlayOption,
+  task: () => Promise<T>,
+  onStart?: () => void,
+): Promise<T> {
+  return queued(session, async () => {
+    running.set(session, option);
+    onStart?.();
+    try {
+      return await task();
+    } finally {
+      running.delete(session);
+    }
+  });
+}
+
 /** Runs one Play-menu action and saves the result. */
-export function play(session: LeagueSession, option: PlayOption): Promise<PlayReport> {
-  return queued(session, () => runPlay(session, option));
+export function play(
+  session: LeagueSession,
+  option: PlayOption,
+  onStart?: () => void,
+): Promise<PlayReport> {
+  return playing(session, option, () => runPlay(session, option), onStart);
 }
 
 async function runPlay(session: LeagueSession, option: PlayOption): Promise<PlayReport> {
@@ -589,7 +655,9 @@ async function runPlay(session: LeagueSession, option: PlayOption): Promise<Play
   assertNotLive(session);
   const state = gameState(session);
   if (!state.options.includes(option)) {
-    throw new Error(`"${option}" isn't available now (phase ${state.phase}, ${state.date})`);
+    throw new GameError(
+      "That isn't possible now: the game has moved on, maybe in another tab. Pick again from the Play menu.",
+    );
   }
   const userCid = meta<GameMeta>(session, "game").userCid;
   let report: PlayReport;

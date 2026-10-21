@@ -47,6 +47,7 @@ const PROBES = {
   academy: { rows: "academy", min: 1, at: ALL },
   "club-finances": { sel: '[data-testid="dials"]', min: 1, at: ALL },
   settings: { sel: '[data-testid="settings"]', min: 1, at: ALL },
+  "how-to-play": { sel: '[data-testid="how-to-play"]', min: 1, at: ALL },
   "game-log": { rows: "game-log", min: 38, at: ALL },
   "team-history": { rows: "team-seasons", min: 1, at: ALL },
   "league-leaders": { rows: "leaders-goals", min: 10, at: PLAYED },

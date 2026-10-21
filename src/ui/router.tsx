@@ -5,7 +5,8 @@
  * path, so deep links and reloads land on the right page.
  *
  *   /                   Manage Leagues        /new          New league
- *   /dev                Developer pages       /l/:lid       Dashboard
+ *   /how-to-play        How to play (also /l/:lid/how-to-play inside a league)
+ *   /l/:lid             Dashboard
  *   /l/:lid/:page/...   any league page, e.g. /l/1/squad/5 (club 5), /l/1/player/123
  */
 import { useSyncExternalStore, type AnchorHTMLAttributes, type MouseEvent } from "react";
@@ -39,7 +40,7 @@ export function usePath(): string {
 export type Route =
   | { kind: "home" }
   | { kind: "new" }
-  | { kind: "dev" }
+  | { kind: "howToPlay" }
   | { kind: "league"; lid: number; page: string; params: string[] }
   | { kind: "notFound" };
 
@@ -48,7 +49,7 @@ export function parseRoute(path: string): Route {
   const parts = path.split("/").filter(Boolean).map(decodeURIComponent);
   if (parts.length === 0) return { kind: "home" };
   if (parts[0] === "new" && parts.length === 1) return { kind: "new" };
-  if (parts[0] === "dev") return { kind: "dev" };
+  if (parts[0] === "how-to-play" && parts.length === 1) return { kind: "howToPlay" };
   if (parts[0] === "l" && parts[1] !== undefined && /^\d+$/.test(parts[1])) {
     return {
       kind: "league",

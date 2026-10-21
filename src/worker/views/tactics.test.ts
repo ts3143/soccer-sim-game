@@ -82,7 +82,7 @@ describe("tactics", () => {
       const bad: [TacticsSetup, RegExp][] = [
         [{ ...auto.setup, bench: [...auto.setup.bench, first] }, /bench holds 9|picked twice/],
         [{ ...auto.setup, bench: [first, ...auto.setup.bench.slice(1)] }, /picked twice/],
-        [{ ...auto.setup, bench: [outsider] }, /Only your seniors/],
+        [{ ...auto.setup, bench: [outsider] }, /Only eligible, unsuspended/],
         [{ ...auto.setup, sliders: { ...auto.setup.sliders, pressing: 3 } }, /whole steps/],
         [{ ...auto.setup, formation: "4-1-4-1" }, /isn't one of the formations/],
       ];
@@ -105,7 +105,7 @@ describe("tactics", () => {
       const after = await getTactics(league.lid, null);
       expect(after.setup.slots[5]).toBeNull();
       expect(after.warnings).toContain("1 slot is empty.");
-      expect(after.warnings.some((w) => w.includes("injured until 2026-09-01"))).toBe(true);
+      expect(after.warnings.some((w) => w.includes("injured until 1 Sep 2026"))).toBe(true);
       expect(date.date).toBe("2026-07-01");
 
       // Another club: the AI's pick, read-only.

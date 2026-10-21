@@ -4,8 +4,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useShell } from "./Shell";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorText } from "../errors";
 
 export function useView<T>(key: string, load: () => Promise<T>) {
   const { version } = useShell();

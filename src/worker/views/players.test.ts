@@ -45,6 +45,7 @@ describe("squad and player pages", () => {
     expect(Object.keys(profile.mood?.components ?? {})).toContain("playingTime");
     expect(profile.transfers.length).toBeGreaterThanOrEqual(0);
     expect(profile.history.length).toBeGreaterThanOrEqual(1);
+    expect(profile.history.every((h) => h.ratings.length === 22 && h.age >= 15)).toBe(true);
     expect(profile.radar).toHaveLength(8);
     expect(profile.radar.every((a) => a.value > 0 && a.value <= 100)).toBe(true);
     const played = after.players.find((p) => p.season.appearances === 1);

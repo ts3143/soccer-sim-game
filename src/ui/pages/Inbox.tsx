@@ -1,4 +1,5 @@
 /** Inbox (SPEC §11): board messages, bids, contract warnings, FFP, transfers; newest first. */
+import { PlayerMentions } from "../components/PlayerMentions";
 import { useState } from "react";
 import { formatDate } from "../format";
 import { PageHeader } from "../shell/PageHeader";
@@ -72,22 +73,33 @@ export function Inbox() {
           {shown.map((m) => {
             const read = isRead(m.mid, m.read);
             return (
-              <button
-                key={m.mid}
-                type="button"
-                className="list-group-item list-group-item-action"
-                onClick={() => open(m.mid, m.read)}
-                aria-expanded={openMid === m.mid}
-              >
-                <div className="d-flex gap-2 align-items-baseline">
-                  <span className={read ? "" : "fw-semibold"}>{m.subject}</span>
-                  <span className="badge text-bg-light">{kindLabel(m.kind)}</span>
-                  <span className="ms-auto small text-body-secondary text-nowrap">
-                    {formatDate(m.date)}
-                  </span>
+              <article key={m.mid} className="list-group-item p-0">
+                <div className="inbox-heading">
+                  <button
+                    type="button"
+                    className="inbox-message-toggle"
+                    onClick={() => open(m.mid, m.read)}
+                    aria-label={m.subject}
+                    aria-expanded={openMid === m.mid}
+                    aria-controls={`inbox-body-${m.mid}`}
+                  />
+                  <div className="inbox-heading-content d-flex gap-2 align-items-baseline">
+                    <span className={read ? "" : "fw-semibold"}>
+                      <PlayerMentions text={m.subject} players={m.players} />
+                    </span>
+                    <span className="badge text-bg-light">{kindLabel(m.kind)}</span>
+                    <span className="ms-auto small text-body-secondary text-nowrap">
+                      {formatDate(m.date)}{" "}
+                      <span aria-hidden="true">{openMid === m.mid ? "▴" : "▾"}</span>
+                    </span>
+                  </div>
                 </div>
-                {openMid === m.mid && <p className="small mb-0 mt-2">{m.body}</p>}
-              </button>
+                {openMid === m.mid && (
+                  <p id={`inbox-body-${m.mid}`} className="small mb-0 px-3 pb-3">
+                    <PlayerMentions text={m.body} players={m.players} />
+                  </p>
+                )}
+              </article>
             );
           })}
         </div>

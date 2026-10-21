@@ -155,6 +155,8 @@ export interface RpcClient<Api, Events> {
   on<E extends keyof Events & string>(name: E, listener: (payload: Events[E]) => void): () => void;
   /** Tell the worker this tab is going away. */
   close(): void;
+  /** The worker is gone: calls waiting for it, and any made later, fail with `error`. */
+  fail(error: Error): void;
 }
 
 export function createRpcClient<Api, Events>(endpoint: Endpoint): RpcClient<Api, Events> {
@@ -164,6 +166,7 @@ export function createRpcClient<Api, Events>(endpoint: Endpoint): RpcClient<Api,
     { resolve: (value: unknown) => void; reject: (e: Error) => void }
   >();
   const listeners = new Map<string, Set<(payload: never) => void>>();
+  let failed: Error | null = null;
 
   endpoint.addEventListener("message", (event) => {
     const data = event.data;
@@ -186,6 +189,10 @@ export function createRpcClient<Api, Events>(endpoint: Endpoint): RpcClient<Api,
       const id = nextId++;
       const message: CallMessage = { kind: "call", id, name, args };
       return new Promise((resolve, reject) => {
+        if (failed) {
+          reject(failed);
+          return;
+        }
         pending.set(id, { resolve: resolve as (value: unknown) => void, reject });
         endpoint.postMessage(message);
       });
@@ -202,6 +209,11 @@ export function createRpcClient<Api, Events>(endpoint: Endpoint): RpcClient<Api,
     close() {
       const message: ByeMessage = { kind: "bye" };
       endpoint.postMessage(message);
+    },
+    fail(error) {
+      failed = error;
+      for (const { reject } of pending.values()) reject(error);
+      pending.clear();
     },
   };
 }

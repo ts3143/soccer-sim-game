@@ -9,8 +9,8 @@ import { leaguePath, Link, navigate } from "../router";
 import { useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
+import { errorText } from "../errors";
 
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const ordinal = (n: number) => {
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;

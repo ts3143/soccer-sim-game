@@ -13,6 +13,7 @@ import { competitionsConfig, type CompetitionsConfig } from "../../common/config
 import type { Club, ClubSeason, InboxMessage } from "../../common/schema";
 import { seasonDate } from "../schedule/calendar";
 import { type FinanceWorld, operatingRevenue } from "./finance";
+import { formatDay } from "../../common/dates";
 
 export const FFP = { ratio: 0.7 };
 
@@ -65,7 +66,7 @@ export function ffpCheck(
       club.ffp = { warned: true, bannedUntil: banUntil };
       out.bans.push(club.cid);
       subject = "FFP: transfer ban";
-      body = `Squad cost was ${pct(ratio)} of revenue again (limit ${pct(FFP.ratio)}). You can't sign anyone until ${banUntil}.`;
+      body = `Squad cost was ${pct(ratio)} of revenue again (limit ${pct(FFP.ratio)}). You can't sign anyone until ${formatDay(banUntil)}.`;
     } else if (over) {
       club.ffp = { warned: true, bannedUntil: standing.bannedUntil };
       subject = "FFP warning";

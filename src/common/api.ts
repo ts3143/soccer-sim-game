@@ -8,7 +8,7 @@
  */
 import type { Position } from "./config/ratings";
 import type { MatchEvent, MatchResult, Period } from "./match";
-import type { Fixture, Foot, InboxMessage, LeagueSummary, Phase, SliderSettings } from "./schema";
+import type { Fixture, InboxMessage, LeagueSummary, Phase, SliderSettings } from "./schema";
 
 export type WorkerKind = "shared" | "dedicated";
 
@@ -39,145 +39,6 @@ export interface NewLeagueInput {
   /** Empty: the worker picks a random seed. */
   seed: string;
   userCid: number;
-}
-
-export interface CheckResult {
-  name: string;
-  pass: boolean;
-  detail: string;
-}
-
-export interface ClubOverviewRow {
-  cid: number;
-  code: string;
-  name: string;
-  leagueId: string;
-  formation: string;
-  strengthTarget: number;
-  /** Mean slot OVR of the best XI, recomputed from the saved players. */
-  xiStrength: number;
-  seniors: number;
-  academy: number;
-  averageAge: number;
-  /** Whole euros per year. */
-  wageBill: number;
-  revenue: number;
-  squadCostRatio: number;
-  topOvr: number;
-  colors: { primary: string; secondary: string; tertiary: string };
-}
-
-/** M1 generation inspector: a summary of one saved league. */
-export interface LeagueOverview {
-  lid: number;
-  name: string;
-  seed: string;
-  season: number;
-  date: string;
-  userCid: number;
-  leagues: { id: string; name: string }[];
-  counts: { clubs: number; seniors: number; academy: number; freeAgents: number };
-  /** Senior club players per OVR value, ascending. */
-  ovrCounts: { ovr: number; count: number }[];
-  bands: { label: string; min: number; max: number; count: number }[];
-  clubs: ClubOverviewRow[];
-  checks: CheckResult[];
-}
-
-export interface SquadPlayerRow {
-  pid: number;
-  name: string;
-  shirtNumber: number | null;
-  position: Position;
-  secondaryPositions: Position[];
-  age: number;
-  nationality: string;
-  nationality2: string | null;
-  foot: Foot;
-  heightCm: number;
-  ovr: number;
-  pot: number;
-  /** Whole euros per year; null for academy players. */
-  wage: number | null;
-  contractExpires: string | null;
-  status: "club" | "academy";
-  /** Best-XI slot, e.g. "FB R"; null if not in the XI. */
-  xiSlot: string | null;
-  slotOvr: number | null;
-}
-
-export interface SquadView {
-  cid: number;
-  code: string;
-  name: string;
-  leagueId: string;
-  formation: string;
-  strengthTarget: number;
-  xiStrength: number;
-  colors: { primary: string; secondary: string; tertiary: string };
-  players: SquadPlayerRow[];
-}
-
-// ---------------------------------------------------------------------------
-// M2 Match lab (developer-only page)
-
-export interface LabMatchSetup {
-  lid: number;
-  homeCid: number;
-  awayCid: number;
-  seed: string;
-}
-
-export interface LabTeam {
-  cid: number;
-  name: string;
-  code: string;
-  abbr: string;
-  formation: string;
-  sliders: { mentality: number; pressing: number; directness: number };
-}
-
-export interface LabMatch {
-  seed: string;
-  home: LabTeam;
-  away: LabTeam;
-  /** Player names and positions for the box score and feed. */
-  players: Record<number, { name: string; shirtNumber: number | null }>;
-  result: MatchResult;
-}
-
-export interface LabLiveStart {
-  id: number;
-  seed: string;
-  home: LabTeam;
-  away: LabTeam;
-  players: Record<number, { name: string; shirtNumber: number | null }>;
-}
-
-export interface LabLiveStep {
-  events: MatchEvent[];
-  clock: number;
-  period: Period;
-  score: [number, number];
-  finished: boolean;
-  result: MatchResult | null;
-  /** When finished: whether stepping gave the identical result to an instant sim. */
-  identicalToInstant: boolean | null;
-}
-
-export interface LabBatchRow {
-  metric: string;
-  value: number;
-  target: number;
-  low: number;
-  high: number;
-  pass: boolean;
-}
-
-export interface LabBatch {
-  matches: number;
-  msPerMatch: number;
-  rows: LabBatchRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -216,6 +77,8 @@ export interface GameState {
   fired: { date: string; offers: { cid: number; name: string; leagueId: string }[] } | null;
   /** Set while the user watches a match live (M6): play waits until it ends. */
   live: { fid: number } | null;
+  /** The Play action under way (started in any tab), or null. */
+  playing: PlayOption | null;
 }
 
 /** A league table row on the Standings page (form and home/away only for the live season). */
@@ -270,6 +133,11 @@ export interface ScheduleView {
 
 /** One player on the Squad page. */
 export interface SquadPlayerView {
+  listed: { asking: number; date: string } | null;
+  ovrChange: number | null;
+  potChange: number | null;
+  ratings: number[];
+  suspension: number;
   pid: number;
   name: string;
   shirtNumber: number | null;
@@ -310,6 +178,8 @@ export interface TeamSquadView {
 
 /** The player profile (SPEC §11). */
 export interface PlayerView {
+  ovrChange: number | null;
+  potChange: number | null;
   pid: number;
   name: string;
   position: string;
@@ -338,7 +208,7 @@ export interface PlayerView {
   condition: number;
   injury: { type: string; until: string } | null;
   ratings: { code: string; name: string; group: string; value: number; change: number | null }[];
-  positionOvrs: { position: string; ovr: number }[];
+  positionOvrs: { position: Position; ovr: number }[];
   transfers: {
     date: string;
     type: string;
@@ -353,7 +223,14 @@ export interface PlayerView {
   today: string;
   retiredSeason: number | null;
   /** Every development update: OVR and POT over time. */
-  history: { date: string; season: number; ovr: number; pot: number }[];
+  history: {
+    date: string;
+    season: number;
+    age: number;
+    ovr: number;
+    pot: number;
+    ratings: number[];
+  }[];
   /** The profile radar (config `radarAxes`): each axis is the mean of its ratings. */
   radar: { axis: string; value: number }[];
   /** Season rows per club and competition, oldest first. */
@@ -415,6 +292,7 @@ export interface PlayerRatingsView {
   rows: {
     pid: number;
     name: string;
+    nationality: string;
     club: TeamRef | null;
     leagueId: string | null;
     status: string;
@@ -504,6 +382,23 @@ export interface TacticsSetup {
 export type TacticsMode = "asIs" | "reslot" | "auto" | "saved";
 
 export interface TacticsPlayerView {
+  listed: { asking: number; date: string } | null;
+  expires: string | null;
+  expiring: boolean;
+  ovrChange: number | null;
+  potChange: number | null;
+  nationality: string;
+  ratings: number[];
+  pot: number;
+  suspension: number;
+  today: string;
+  season: {
+    appearances: number;
+    minutes: number;
+    goals: number;
+    assists: number;
+    rating: number | null;
+  };
   pid: number;
   name: string;
   position: Position;
@@ -565,6 +460,7 @@ export interface LiveTeamView {
     energy: number;
     booked: boolean;
     injured: boolean;
+    injuryDays: number;
   } | null)[];
   /** Substitutes still available. */
   bench: { pid: number; position: Position; energy: number }[];
@@ -629,6 +525,7 @@ export interface FreeAgentsView {
   rows: {
     pid: number;
     name: string;
+    nationality: string;
     position: Position;
     secondary: Position[];
     age: number;
@@ -664,6 +561,8 @@ export interface TransferMarketView {
     squadCostRatio: number;
     ffpLimit: number;
     banned: string | null;
+    /** Cash below zero: transfer fees are frozen until it's back above zero (SPEC §6.4). */
+    cashFrozen: boolean;
     /** Wages still owed a year to released players. */
     owed: number;
   };
@@ -984,7 +883,7 @@ export interface PlayReport {
 }
 
 // ---------------------------------------------------------------------------
-// Season lab (M3 developer page; the game screens replace it in M5)
+// Shared pieces of the game's pages
 
 export type TableZone = "champions" | "promoted" | "playoffs" | "relegated" | null;
 
@@ -1012,6 +911,8 @@ export interface TableRowView extends TeamRef {
 
 /** A fixture as pages show it. */
 export interface MatchView {
+  /** Result from the home club’s perspective; null until played. Includes shoot-outs. */
+  homeResult: FormResult | null;
   fid: number;
   date: string;
   competition: string;
@@ -1024,64 +925,6 @@ export interface MatchView {
   /** "2–1", "1–1 aet, 4–3 pens"; null if not played yet. */
   score: string | null;
   winnerCid: number | null;
-}
-
-export type SeasonLabTeam = TeamRef;
-export type SeasonLabTableRow = TableRowView;
-export type SeasonLabMatch = MatchView;
-
-export interface SeasonLabKnockout {
-  id: string;
-  name: string;
-  rounds: { name: string; date: string | null; matches: SeasonLabMatch[] }[];
-  winner: SeasonLabTeam | null;
-}
-
-export interface SeasonLabView {
-  lid: number;
-  state: GameState;
-  user: SeasonLabTeam & { leagueId: string };
-  /** The user's club: board target and confidence, hype, reputation, cash. */
-  club: {
-    target: string;
-    confidence: number;
-    hype: number;
-    reputation: number;
-    cash: number;
-    revenue: number;
-    expenses: number;
-  };
-  /** The latest inbox messages, newest first. */
-  inbox: { mid: number; date: string; subject: string; body: string; read: boolean }[];
-  nextUserMatch: SeasonLabMatch | null;
-  leagues: { id: string; name: string; rows: SeasonLabTableRow[] }[];
-  /** The last matchday played (all its matches). */
-  latest: { date: string; matches: SeasonLabMatch[] } | null;
-  cups: SeasonLabKnockout[];
-  playoffs: SeasonLabKnockout[];
-  injuries: {
-    total: number;
-    perSquad: number;
-    user: { name: string; position: string; type: string; until: string }[];
-    mostByClub: { team: SeasonLabTeam; count: number }[];
-  };
-  /** This season's awards and honours (from the final whistle). */
-  awards: {
-    competition: string;
-    competitionName: string;
-    type: string;
-    name: string;
-    club: string;
-  }[];
-  transactions: {
-    counts: Record<string, number>;
-    recent: { date: string; type: string; text: string }[];
-  };
-  academy: {
-    total: number;
-    intakeThisSeason: number;
-    topProspects: { name: string; club: string; age: number; ovr: number; pot: number }[];
-  };
 }
 
 /**
@@ -1123,6 +966,8 @@ export interface ContractTalks {
     ffpLimit: number;
     warned: boolean;
     bannedUntil: string | null;
+    /** Cash below zero: transfer fees are frozen until it's back above zero (SPEC §6.4). */
+    cashFrozen: boolean;
   };
 }
 
@@ -1136,80 +981,15 @@ export interface BidReply {
   talks: ContractTalks;
 }
 
-/** M4 Club lab (developer-only): one club's money, FFP, board and market standing. */
-export interface ClubLabClubRow {
-  cid: number;
-  name: string;
-  code: string;
-  leagueId: string;
-  user: boolean;
-  cash: number;
-  /** Last season's operating revenue (this season's budgets are costed on it). */
-  budgetBase: number;
-  /** This season so far: operating revenue and cash expenses. */
-  revenue: number;
-  expenses: number;
-  /** A year, now: wages and transfer-fee amortisation. */
-  wages: number;
-  amortisation: number;
-  /** Squad cost over the budget base now, and last season's FFP ratio. */
-  squadCostRatio: number;
-  lastSquadCostRatio: number | null;
-  ffp: "ok" | "warned" | "banned";
-  strategy: "contending" | "developing" | "selling";
-  boardTarget: string | null;
-  confidence: number | null;
-  transferBudget: number;
-  wageRoom: number;
-  seniors: number;
-  loansIn: number;
-  loansOut: number;
-}
-
-/** One of the user's players (contracted, loaned out, or on loan to him). */
-export interface ClubLabPlayer {
-  pid: number;
-  name: string;
-  position: string;
-  age: number;
-  ovr: number;
-  pot: number;
-  status: string;
-  /** Loan: "to <club> until <date>" or "from <club> until <date>". */
-  loan: string | null;
-  wage: number;
-  expires: string | null;
-  yearsLeft: number;
-  value: number;
-  mood: number;
-  willing: boolean;
-  /** Unamortised transfer fee. */
-  feeRemaining: number;
-}
-
-export interface ClubLabView {
-  date: string;
-  season: number;
-  window: { id: string; closes: string } | null;
-  fired: boolean;
-  user: {
-    cid: number;
-    name: string;
-    code: string;
-    budget: ContractTalks["budget"];
-    /** The budget control: share of FFP headroom kept for wages (SPEC §6.3). */
-    wageShare: number;
-  };
-  clubs: ClubLabClubRow[];
-  squad: ClubLabPlayer[];
-  offers: OfferView[];
-  /** This season's transfers, signings, loans, renewals and releases, newest first. */
-  transfers: { date: string; type: string; text: string; fee: number }[];
-  inbox: InboxMessage[];
-}
-
-/** A market search in the Club lab. */
+/** A market search (Transfer Market, Free Agents). */
 export interface PlayerSearch {
+  name?: string;
+  nationality?: string;
+  minAge?: number;
+  minPot?: number;
+  maxValue?: number;
+  maxWage?: number;
+  expiring?: boolean;
   position?: string;
   /** Only players at clubs in this league. */
   leagueId?: string;
@@ -1221,6 +1001,7 @@ export interface PlayerSearch {
 }
 
 export interface PlayerSearchRow {
+  nationality: string;
   pid: number;
   name: string;
   position: string;
@@ -1264,12 +1045,11 @@ export interface WorkerApi {
   getClubChoices(): ClubChoice[];
   createLeague(input: NewLeagueInput): LeagueSummary;
   deleteLeague(lid: number): void;
-  getLeagueOverview(lid: number): LeagueOverview;
-  getSquad(lid: number, cid: number): SquadView;
-  simulateLabMatch(setup: LabMatchSetup): LabMatch;
-  startLabMatch(setup: LabMatchSetup): LabLiveStart;
-  stepLabMatch(id: number, possessions: number): LabLiveStep;
-  runLabBatch(lid: number, matches: number): LabBatch;
+  /**
+   * A tab opens a league (its pages call nothing else first). The worker keeps one league
+   * open: tabs showing another stop, and their calls are refused rather than switching back.
+   */
+  openLeague(lid: number): void;
   getGameState(lid: number): GameState;
   getLeagueShell(lid: number): LeagueShell;
   getDashboard(lid: number): DashboardView;
@@ -1338,7 +1118,6 @@ export interface WorkerApi {
   getSchedule(lid: number, week: string | null): ScheduleView;
   markAllInboxRead(lid: number): void;
   playGame(lid: number, option: PlayOption): PlayReport;
-  getSeasonLab(lid: number): SeasonLabView;
   acceptJobOffer(lid: number, cid: number): GameState;
   getInbox(lid: number): InboxMessage[];
   markInboxRead(lid: number, mid: number): void;
@@ -1346,7 +1125,6 @@ export interface WorkerApi {
   renewContract(lid: number, pid: number, years: number): ContractTalks;
   bidForPlayer(lid: number, pid: number, fee: number): BidReply;
   signPlayer(lid: number, pid: number, years: number): ContractTalks;
-  getOffers(lid: number): OfferView[];
   respondToOffer(lid: number, oid: number, accept: boolean): OfferView[];
   /** Loan a player out (to `cid`) or in (`cid` = your club); `wageShare`: the loan club's. */
   proposeLoan(
@@ -1356,16 +1134,19 @@ export interface WorkerApi {
     length: "half" | "season",
     wageShare: number,
   ): LoanReply;
-  getClubLab(lid: number): ClubLabView;
   searchPlayers(lid: number, query: PlayerSearch): PlayerSearchRow[];
   /** The budget control (SPEC §6.3): 0 = all headroom for fees, 1 = all for wages. */
-  setWageShare(lid: number, share: number): ClubLabView;
 }
 
 export interface UiEvents {
   /** The save list changed (a league was created or deleted, in any tab). */
   leaguesChanged: { leagues: LeagueSummary[] };
   tabsChanged: { connectedTabs: number };
-  /** A league's game moved on (a Play action ran, in any tab). */
+  /** A league's game moved on or its data changed (a Play action or any other change, in any tab). */
   gameChanged: { lid: number; state: GameState };
+  /**
+   * The worker opened this league (it keeps one open at a time): tabs showing another
+   * league stop and say so.
+   */
+  leagueOpened: { lid: number };
 }

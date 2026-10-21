@@ -17,7 +17,7 @@
  * slot (a developing club credits young players with half their headroom), less 0.3 per
  * 1% of the buyer's budget base the deal costs a year (fee over four years plus wage).
  */
-import { addDays, exactAge } from "../../common/dates";
+import { addDays, exactAge, formatDay } from "../../common/dates";
 import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
 import { formationById, type FormationSlot } from "../../common/config/formations";
 import { POSITIONS, type Position } from "../../common/config/ratings";
@@ -372,7 +372,8 @@ export function marketDay(
         season,
         kind: "transfer",
         subject: `Bid for ${p.firstName} ${p.lastName}`.trim(),
-        body: `${club.name} bid ${euros(choice.fee)} for ${`${p.firstName} ${p.lastName}`.trim()} (${p.position}, ${p.ovr}). Accept or reject it before the window closes on ${closes}.`,
+        players: [{ pid: p.pid, name: `${p.firstName} ${p.lastName}`.trim() }],
+        body: `${club.name} bid ${euros(choice.fee)} for ${`${p.firstName} ${p.lastName}`.trim()} (${p.position}, ${p.ovr}). Accept or reject it before the window closes on ${formatDay(closes)}.`,
         read: false,
       });
       continue;

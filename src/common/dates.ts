@@ -46,3 +46,14 @@ export function exactAge(birthDate: string, onDate: string): number {
 export function daysBetween(from: string, to: string): number {
   return Math.round((toDate(to).getTime() - toDate(from).getTime()) / 86_400_000);
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * "31 Jan 2028" from an ISO date. For text the game writes into the save (messages,
+ * errors), so it doesn't depend on the browser's language; the UI shows dates the same way.
+ */
+export function formatDay(iso: string): string {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return `${d} ${MONTHS[(m as number) - 1] ?? "?"} ${y}`;
+}

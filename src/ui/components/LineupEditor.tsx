@@ -1,15 +1,18 @@
+import { FormationPitch } from "./FormationPitch";
+import { PlayerStatusTags } from "./PlayerStatusTags";
+import { SkillTags } from "./SkillTags";
 /**
  * The line-up editor, shared by the Tactics page and the pre-match screen of a live match.
  */
 import { useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import type { TacticsMode, TacticsPlayerView, TacticsSetup, TacticsView } from "../../common/api";
 import { formationsConfig } from "../../common/config/formations";
-import { formatDate } from "../format";
+import { PlayerRatings, RatingChange, NationalityFlag } from "./PlayerDetails";
 import { PlayerLink } from "./links";
+import { errorText } from "../errors";
 
 type Place = { area: "slot" | "bench"; index: number } | { area: "reserve"; pid: number };
 
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const samePlace = (a: Place, b: Place) =>
   a.area === b.area &&
   (a.area === "reserve" ? a.pid === (b as typeof a).pid : a.index === (b as typeof a).index);
@@ -44,23 +47,6 @@ function remove(setup: TacticsSetup, at: Place): TacticsSetup {
 
 function conditionClass(c: number) {
   return c < 75 ? "text-danger" : c < 90 ? "text-warning-emphasis" : "";
-}
-
-function Badges({ p }: { p: TacticsPlayerView }) {
-  return (
-    <>
-      {p.injury && (
-        <span
-          className="badge text-bg-danger ms-1"
-          title={`${p.injury.type}, back ${formatDate(p.injury.until)}`}
-        >
-          injured
-        </span>
-      )}
-      {p.academy && <span className="badge text-bg-secondary ms-1">academy</span>}
-      {p.loanee && <span className="badge text-bg-info ms-1">loan</span>}
-    </>
-  );
 }
 
 export interface LineupEditorProps {
@@ -171,7 +157,9 @@ export function LineupEditor({
     <>
       <td className="text-nowrap">
         <PlayerLink pid={p.pid} name={p.name} />
-        <Badges p={p} />
+        <SkillTags ratings={p.ratings} position={p.position} />
+        <PlayerRatings player={p} />
+        <PlayerStatusTags player={p} today={p.today} />
       </td>
       <td>{p.position}</td>
       {slot && (
@@ -182,9 +170,24 @@ export function LineupEditor({
           {p.slotOvr}
         </td>
       )}
-      <td className="text-end">{p.ovr}</td>
+      <td className="text-end text-nowrap">
+        {p.ovr}
+        <RatingChange value={p.ovrChange} />
+      </td>
+      <td className="text-end text-nowrap">
+        {p.pot}
+        <RatingChange value={p.potChange} />
+      </td>
       <td className={`text-end ${conditionClass(p.condition)}`}>{p.condition}%</td>
       <td className="text-end">{p.age}</td>
+      <td>
+        <NationalityFlag nationality={p.nationality} />
+      </td>
+      <td className="text-end">{p.season.appearances}</td>
+      <td className="text-end">{p.season.minutes}</td>
+      <td className="text-end">{p.season.goals}</td>
+      <td className="text-end">{p.season.assists}</td>
+      <td className="text-end">{p.season.rating?.toFixed(2) ?? "—"}</td>
     </>
   );
   const head = (first: string, slot: boolean) => (
@@ -199,8 +202,23 @@ export function LineupEditor({
           </th>
         )}
         <th className="text-end">OVR</th>
+        <th className="text-end">POT</th>
         <th className="text-end">Cond</th>
         <th className="text-end">Age</th>
+        <th title="Nationality">Nat</th>
+        <th title="Season appearances" className="text-end">
+          Apps
+        </th>
+        <th className="text-end">Min</th>
+        <th title="Goals" className="text-end">
+          G
+        </th>
+        <th title="Assists" className="text-end">
+          A
+        </th>
+        <th title="Average match rating" className="text-end">
+          Rating
+        </th>
       </tr>
     </thead>
   );
@@ -290,9 +308,17 @@ export function LineupEditor({
       )}
       <div className="row g-3">
         <div className="col-xl-8">
+          <FormationPitch
+            view={view}
+            selectedSlot={picked?.area === "slot" ? picked.index : undefined}
+            slotProps={(index, filled) => handlers({ area: "slot", index }, filled)}
+          />
           <h2 className="h6">Starting XI</h2>
           <div className="table-responsive">
-            <table className="table table-sm small align-middle" data-testid="tactics-xi">
+            <table
+              className="table table-striped table-hover table-sm small align-middle"
+              data-testid="tactics-xi"
+            >
               {head("Slot", true)}
               <tbody>
                 {view.slots.map((s, i) => {
@@ -300,7 +326,7 @@ export function LineupEditor({
                   return (
                     <tr key={i} className={rowClass(place)} {...handlers(place, s.player !== null)}>
                       <td className="fw-semibold">{s.label}</td>
-                      {s.player ? playerCells(s.player, true) : emptyCells(6)}
+                      {s.player ? playerCells(s.player, true) : emptyCells(13)}
                     </tr>
                   );
                 })}
@@ -309,7 +335,10 @@ export function LineupEditor({
           </div>
           <h2 className="h6">Bench</h2>
           <div className="table-responsive">
-            <table className="table table-sm small align-middle" data-testid="tactics-bench">
+            <table
+              className="table table-striped table-hover table-sm small align-middle"
+              data-testid="tactics-bench"
+            >
               {head("#", false)}
               <tbody>
                 {Array.from({ length: view.benchSize }, (_, i) => {
@@ -318,7 +347,7 @@ export function LineupEditor({
                   return (
                     <tr key={i} className={rowClass(place)} {...handlers(place, p !== undefined)}>
                       <td className="text-body-secondary">{i + 1}</td>
-                      {p ? playerCells(p, false) : emptyCells(5)}
+                      {p ? playerCells(p, false) : emptyCells(12)}
                     </tr>
                   );
                 })}
@@ -349,7 +378,10 @@ export function LineupEditor({
             </div>
           )}
           <div className="table-responsive">
-            <table className="table table-sm small align-middle" data-testid="tactics-reserves">
+            <table
+              className="table table-striped table-hover table-sm small align-middle"
+              data-testid="tactics-reserves"
+            >
               {head("", false)}
               <tbody>
                 {view.reserves.map((p) => {

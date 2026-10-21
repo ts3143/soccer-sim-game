@@ -27,6 +27,7 @@ import {
   seasonRows,
   teamRef,
 } from "./common";
+import { GameError } from "../../common/errors";
 
 const ZONE_LABELS: Record<Exclude<TableZone, null>, string> = {
   champions: "Champions",
@@ -64,7 +65,7 @@ export async function getStandings(
   const s = season ?? game.season;
   const id = leagueId ?? user?.leagueId ?? competitionsConfig.leagues[0]?.id ?? "";
   const league = competitionsConfig.leagues.find((l) => l.id === id);
-  if (!league) throw new Error(`No league ${id}`);
+  if (!league) throw new GameError(`There's no league "${id}" in this game.`);
   const clubs = new Map(cache.getAll("clubs").map((c) => [c.cid, c]));
   let rows: StandingsRow[];
   const notes: string[] = [];

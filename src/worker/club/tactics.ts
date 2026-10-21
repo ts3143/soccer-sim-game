@@ -16,6 +16,8 @@ import { enginePlayer } from "../engine/prepare";
 import type { TeamRatings } from "../engine/teamRatings";
 import { currentCondition, pickMatchday } from "../season/squads";
 import { effectiveDials } from "./standing";
+import { isSuspended } from "../season/discipline";
+import { GameError } from "../../common/errors";
 
 /** Players the club can pick: its seniors (loanees in included) and academy players of 16+. */
 export function selectable(players: readonly Player[], cid: number, date: string): Player[] {
@@ -59,7 +61,11 @@ export function cleanSetup(setup: TacticsSetup, pickable: ReadonlySet<number>): 
 export function currentSetup(club: Club, players: readonly Player[], date: string): TacticsSetup {
   const saved = club.tactics.lineup;
   if (!saved) return autoSetup(club, players, date);
-  const pickable = new Set(selectable(players, club.cid, date).map((p) => p.pid));
+  const pickable = new Set(
+    selectable(players, club.cid, date)
+      .filter((p) => !isSuspended(p))
+      .map((p) => p.pid),
+  );
   return cleanSetup(
     {
       formation: club.tactics.formation,
@@ -95,21 +101,21 @@ export function reslot(
 export function checkSetup(setup: TacticsSetup, pickable: ReadonlySet<number>): void {
   const formation = formationsConfig.formations.find((f) => f.id === setup.formation);
   if (!formation?.mvp)
-    throw new Error(`${setup.formation} isn't one of the formations you can pick`);
+    throw new GameError(`${setup.formation} isn't one of the formations you can pick`);
   if (setup.slots.length !== formation.slots.length) {
-    throw new Error(`A ${formation.id} line-up has ${formation.slots.length} slots`);
+    throw new GameError(`A ${formation.id} line-up has ${formation.slots.length} slots`);
   }
   if (setup.bench.length > formationsConfig.benchSize) {
-    throw new Error(`The bench holds ${formationsConfig.benchSize} players`);
+    throw new GameError(`The bench holds ${formationsConfig.benchSize} players`);
   }
   const named = [...setup.slots.filter((pid): pid is number => pid !== null), ...setup.bench];
-  if (new Set(named).size !== named.length) throw new Error("A player is picked twice");
+  if (new Set(named).size !== named.length) throw new GameError("A player is picked twice");
   if (named.some((pid) => !pickable.has(pid))) {
-    throw new Error("Only your seniors and academy players of 16+ can be picked");
+    throw new GameError("Only eligible, unsuspended players from your club can be picked");
   }
   for (const value of Object.values(setup.sliders)) {
     if (!Number.isInteger(value) || value < -2 || value > 2) {
-      throw new Error("Sliders take whole steps from -2 to +2");
+      throw new GameError("Sliders take whole steps from -2 to +2");
     }
   }
 }

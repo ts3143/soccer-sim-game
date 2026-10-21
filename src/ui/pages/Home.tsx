@@ -4,9 +4,9 @@ import type { LeagueSummary } from "../../common/schema";
 import { formatDate } from "../format";
 import { leaguePath, Link } from "../router";
 import { seasonLabel } from "../shell/Shell";
+import { APP_VERSION } from "../version";
 import { onWorkerEvent, toWorker } from "../workerClient";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorText } from "../errors";
 
 export function Home() {
   const [leagues, setLeagues] = useState<LeagueSummary[] | null>(null);
@@ -35,7 +35,10 @@ export function Home() {
     <main className="container py-4" style={{ maxWidth: 960 }}>
       <div className="d-flex align-items-center gap-3 mb-4">
         <h1 className="h3 mb-0">Soccer Sim</h1>
-        <Link to="/new" className="btn btn-primary ms-auto" data-testid="new-league-link">
+        <Link to="/how-to-play" className="ms-auto" data-testid="how-to-play-link">
+          How to play
+        </Link>
+        <Link to="/new" className="btn btn-primary" data-testid="new-league-link">
           New league
         </Link>
       </div>
@@ -45,6 +48,9 @@ export function Home() {
       ) : leagues.length === 0 ? (
         <div className="text-center py-5" data-testid="no-leagues">
           <p className="lead">No leagues yet.</p>
+          <p className="text-body-secondary">
+            New here? Read <Link to="/how-to-play">How to play</Link> first, or just start.
+          </p>
           <Link to="/new" className="btn btn-lg btn-primary">
             Start a new league
           </Link>
@@ -110,7 +116,7 @@ export function Home() {
         </div>
       )}
       <p className="small text-body-secondary mt-4">
-        Saves stay on this device. <Link to="/dev">Developer pages</Link>
+        Saves stay on this device. Soccer Sim v{APP_VERSION}.
       </p>
     </main>
   );

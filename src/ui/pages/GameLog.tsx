@@ -1,6 +1,7 @@
 /** Game Log (SPEC §11): a club's season of matches in every competition. */
 import { DataTable } from "../components/DataTable";
-import { FormBadges, ScoreLink, TeamLink } from "../components/links";
+import { RESULT_LABEL, resultRowClass } from "../components/results";
+import { ScoreLink, TeamLink } from "../components/links";
 import { formatDate } from "../format";
 import { leaguePath } from "../router";
 import { PageHeader } from "../shell/PageHeader";
@@ -49,6 +50,7 @@ export function GameLog({ params }: { params: string[] }) {
             testId="game-log"
             rows={view.matches}
             rowKey={(r) => r.match.fid}
+            rowClass={(r) => resultRowClass(r.result)}
             pageSize={0}
             columns={[
               {
@@ -68,8 +70,9 @@ export function GameLog({ params }: { params: string[] }) {
               },
               {
                 key: "res",
-                label: "",
-                render: (r) => (r.result ? <FormBadges form={[r.result]} /> : ""),
+                label: "Result",
+                render: (r) =>
+                  r.result ? <span className="fw-semibold">{RESULT_LABEL[r.result]}</span> : "",
               },
               {
                 key: "score",

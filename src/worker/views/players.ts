@@ -3,8 +3,9 @@
  * contracts (expiry badges), condition, injuries, value, mood and season stats; one
  * player's bio, contract, mood breakdown, condition, ratings and transfer history.
  */
+import { ratingChanges } from "../../common/ratingChanges";
 import type { PlayerView, SquadPlayerView, TeamSquadView } from "../../common/api";
-import { exactAge } from "../../common/dates";
+import { exactAge, formatDay } from "../../common/dates";
 import { competitionsConfig } from "../../common/config/competitions";
 import { formationById } from "../../common/config/formations";
 import { POSITIONS, RATING_CODES, ratingsConfig } from "../../common/config/ratings";
@@ -12,13 +13,14 @@ import type { Club, GameMeta, Player } from "../../common/schema";
 import { contractClub, isSenior } from "../../common/status";
 import { effectiveDials } from "../club/standing";
 import { bestXi } from "../core/lineup";
-import { loopWorld } from "../league/game";
+import { loopWorld, prunedName } from "../league/game";
 import { openLeague } from "../league/session";
 import { marketValue, yearsLeft } from "../market/market";
 import { clubLevels, moodAtClub } from "../market/renewals";
 import { leagueLevel } from "../market/transfers";
 import { currentCondition, isInjured } from "../season/squads";
 import { competitionName, leagueTables, seasonFixtures, teamRef } from "./common";
+import { GameError } from "../../common/errors";
 
 const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
 const positionOrder = (p: Player) => POSITIONS.indexOf(p.position);
@@ -28,7 +30,7 @@ export async function getTeamSquad(lid: number, cid: number): Promise<TeamSquadV
   const { cache } = session;
   const game = cache.get("meta", "game") as GameMeta;
   const club = cache.get("clubs", cid);
-  if (!club) throw new Error(`No club ${cid}`);
+  if (!club) throw new GameError(`There's no club ${cid} in this league.`);
   const world = loopWorld(session, game.season);
   const clubs = new Map<number, Club>(world.clubs.map((c) => [c.cid, c]));
   const levels = clubLevels(world, game.date);
@@ -52,6 +54,10 @@ export async function getTeamSquad(lid: number, cid: number): Promise<TeamSquadV
     const mood = status === "academy" ? null : moodAtClub(world, p, game.date, levels);
     const at = clubs.get(p.cid ?? -1);
     return {
+      ...ratingChanges(p, game.season),
+      ratings: p.ratingsHistory.at(-1)?.ratings ?? [],
+      suspension: p.suspension?.remaining ?? 0,
+      listed: p.status === "club" ? (p.listed ?? null) : null,
       pid: p.pid,
       name: fullName(p),
       shirtNumber: p.shirtNumber,
@@ -65,9 +71,9 @@ export async function getTeamSquad(lid: number, cid: number): Promise<TeamSquadV
       status,
       loan:
         p.loan && status === "loan"
-          ? `from ${clubs.get(p.loan.parentCid)?.name ?? "?"} until ${p.loan.until}`
+          ? `from ${clubs.get(p.loan.parentCid)?.name ?? "?"} until ${formatDay(p.loan.until)}`
           : p.loan && status === "loanedOut"
-            ? `at ${at?.name ?? "?"} until ${p.loan.until}`
+            ? `at ${at?.name ?? "?"} until ${formatDay(p.loan.until)}`
             : null,
       condition: Math.round(
         currentCondition(p, game.date, at ? effectiveDials(at).medical : medical),
@@ -131,7 +137,14 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
   const { cache } = session;
   const game = cache.get("meta", "game") as GameMeta;
   const p = cache.get("players", pid) ?? (await session.db.get("players", pid));
-  if (!p) throw new Error(`No player ${pid}`);
+  if (!p) {
+    const gone = prunedName(session, pid);
+    throw new GameError(
+      gone
+        ? `${gone.name} retired${gone.retired ? ` in ${gone.retired}` : ""} and is no longer in the save.`
+        : `There's no player ${pid} in this league.`,
+    );
+  }
   const world = loopWorld(session, game.season);
   const clubs = new Map<number, Club>(world.clubs.map((c) => [c.cid, c]));
   const club = clubs.get(p.cid ?? -1);
@@ -142,9 +155,10 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
       : null;
   const history = p.ratingsHistory;
   const now = history.at(-1)?.ratings ?? [];
-  const before = history.at(-2)?.ratings;
+  const before = history.findLast((h) => h.season < game.season)?.ratings;
   const ref = (cid: number | null) => (cid === null ? null : teamRef(clubs.get(cid)));
   return {
+    ...ratingChanges(p, game.season),
     pid,
     name: fullName(p),
     position: p.position,
@@ -208,7 +222,14 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
     listed: p.status === "club" && p.cid === game.userCid ? (p.listed ?? null) : null,
     today: game.date,
     retiredSeason: p.retiredSeason,
-    history: history.map((h) => ({ date: h.date, season: h.season, ovr: h.ovr, pot: h.pot })),
+    history: history.map((h) => ({
+      date: h.date,
+      season: h.season,
+      age: Math.floor(exactAge(p.birthDate, h.date)),
+      ovr: h.ovr,
+      pot: h.pot,
+      ratings: h.ratings,
+    })),
     radar: Object.entries(ratingsConfig.radarAxes).map(([axis, codes]) => ({
       axis,
       value: Math.round(

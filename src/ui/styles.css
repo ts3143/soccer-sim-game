@@ -17,7 +17,8 @@ tr[role="button"] {
   cursor: pointer;
 }
 
-/* App shell (M5): sidebar beside the page on wide screens, a toggled panel on narrow ones. */
+/* App shell (M5): sidebar beside the page on wide screens, a toggled panel on narrow ones.
+   The top bar stays one 60 px row at every width (the `layout` browser check). */
 .app-sidebar {
   width: 210px;
   flex: 0 0 210px;
@@ -62,4 +63,346 @@ tr[role="button"] {
 }
 .border-dashed {
   border-style: dashed !important;
+}
+
+.nationality-flag {
+  display: inline-block;
+  object-fit: cover;
+  vertical-align: middle;
+  border: 1px solid rgb(0 0 0 / 12%);
+  border-radius: 1px;
+}
+.rating-change {
+  font-size: 0.85em;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.rating-value {
+  display: inline-block;
+  padding: 0 0.2rem;
+  border-radius: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.player-summary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--bs-secondary-color);
+  padding: 0.1rem 0.3rem;
+  margin-left: 0.2rem;
+  vertical-align: middle;
+}
+.player-summary-button:hover,
+.player-summary-button:focus-visible {
+  color: var(--bs-primary);
+  background: var(--bs-tertiary-bg);
+  border-radius: 3px;
+}
+.player-summary-popover {
+  position: fixed;
+  margin: 0;
+  width: min(410px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  padding: 1rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.6rem;
+  background: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  box-shadow: 0 0.5rem 1.6rem rgb(0 0 0 / 18%);
+  text-align: left;
+  white-space: normal;
+}
+.player-summary-popover .btn-close {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+}
+.summary-ratings {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+}
+.player-profile-top {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(0, 3fr);
+  gap: 1rem;
+  align-items: start;
+}
+.profile-bio .col-xl-3,
+.profile-bio .col-md-4 {
+  width: 50%;
+}
+.profile-rating-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+.profile-rating-group .table {
+  --bs-table-bg: transparent;
+  font-size: 0.75rem;
+}
+.profile-rating-group td {
+  padding: 0.12rem 0.15rem;
+  white-space: nowrap;
+  border: 0;
+}
+.profile-rating-group h3 {
+  font-size: 0.7rem;
+  border-bottom: 2px solid var(--bs-border-color);
+  padding-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
+}
+.profile-ratings-content {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(200px, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+}
+.profile-radar {
+  min-width: 0;
+}
+@media (max-width: 1399.98px) {
+  .profile-ratings-content {
+    grid-template-columns: minmax(0, 1fr) 190px;
+  }
+  .profile-rating-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .profile-radar {
+    min-width: 0;
+  }
+}
+@media (max-width: 767.98px) {
+  .player-profile-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .profile-ratings-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .profile-radar {
+    max-width: 300px;
+    justify-self: center;
+  }
+  .profile-rating-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.profile-rating-group td:first-child {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.profile-rating-group table {
+  table-layout: fixed;
+  width: 100%;
+}
+.profile-rating-group td:nth-child(2) {
+  width: 2.5em;
+}
+
+.player-skill-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+.player-skill-tag {
+  color: var(--bs-secondary-color);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: help;
+  text-decoration: none !important;
+}
+.player-skill-tag:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.status-badge {
+  cursor: help;
+}
+.status-badge:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+.injury-tooltip {
+  position: fixed;
+  z-index: 1090;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.35rem;
+  background: #212529;
+  color: #fff;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  white-space: normal;
+  box-shadow: 0 0.2rem 0.6rem rgb(0 0 0 / 20%);
+  pointer-events: none;
+}
+
+/* Quiet zebra rows; row-level Bootstrap result/selection/zone colours take priority. */
+.table-striped {
+  --bs-table-bg: #fafafa;
+  --bs-table-striped-bg: #f0f1f2;
+  --bs-table-hover-bg: #e7e9ec;
+}
+
+/* Shared, attacking-up pitch diagrams. Nodes remain real DOM elements for keyboard/DnD. */
+.football-pitch {
+  position: relative;
+  width: 100%;
+  max-width: 620px;
+  aspect-ratio: 1.35;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid #1b6546;
+  border-radius: 0.5rem;
+  background: repeating-linear-gradient(
+    0deg,
+    #287650 0%,
+    #287650 12.5%,
+    #2c7b54 12.5%,
+    #2c7b54 25%
+  );
+}
+.pitch-markings {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: rgb(255 255 255 / 42%);
+  pointer-events: none;
+}
+.pitch-player,
+.pitch-position {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+.pitch-player {
+  width: 17%;
+  padding: 0.25rem 0.15rem;
+  border: 1px solid rgb(255 255 255 / 75%);
+  border-radius: 0.35rem;
+  background: #f8faf8;
+  color: #192f24;
+  line-height: 1.15;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 16%);
+}
+.pitch-player[role="button"] {
+  cursor: grab;
+}
+.pitch-player:focus-visible,
+.pitch-player-selected {
+  outline: 3px solid #ffdc66;
+  outline-offset: 2px;
+  background: #fff3cd;
+}
+.pitch-slot-label {
+  display: block;
+  font-size: 0.65rem;
+  color: #456453;
+}
+.pitch-player-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  margin: 0.15rem 0;
+}
+.pitch-player-summary {
+  display: block;
+  font-size: 0.6rem;
+}
+.pitch-player-empty {
+  background: #e5ede7;
+  border-style: dashed;
+}
+.pitch-player-unavailable {
+  border-color: #dc3545;
+}
+.football-pitch-compact {
+  aspect-ratio: 0.9;
+  max-width: 290px;
+}
+.pitch-position {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 2.8rem;
+  justify-content: center;
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: 0.35rem;
+  padding: 0.2rem 0.3rem;
+  font-size: 0.65rem;
+  line-height: 1.2;
+}
+.fit-best {
+  background: #155d36;
+  color: #fff;
+}
+.fit-comfortable {
+  background: #d7eddf;
+  color: #174b2e;
+}
+.fit-cover {
+  background: #fff0bf;
+  color: #705407;
+}
+.fit-lower {
+  background: #f7dddd;
+  color: #783030;
+}
+.position-fit-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  font-size: 0.65rem;
+}
+.position-fit-legend span {
+  padding: 0.12rem 0.3rem;
+  border-radius: 0.2rem;
+}
+@media (max-width: 767.98px) {
+  .pitch-player-name {
+    font-size: 0.65rem;
+  }
+  .pitch-player-summary {
+    font-size: 0.55rem;
+  }
+}
+
+/* The toggle and player links are siblings: links never sit inside a button. */
+.inbox-heading {
+  position: relative;
+}
+.inbox-message-toggle {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.inbox-message-toggle:hover {
+  background: var(--bs-tertiary-bg);
+}
+.inbox-message-toggle:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}
+.inbox-heading-content {
+  position: relative;
+  padding: 0.75rem 1rem;
+  pointer-events: none;
+}
+.inbox-heading-content a {
+  pointer-events: auto;
 }

@@ -1,3 +1,5 @@
+import { yearsLeft } from "../market/market";
+import { ratingChanges } from "../../common/ratingChanges";
 /**
  * The Tactics page (M6, SPEC §11): a club's line-up by slot, the bench and everyone else
  * who can play, with slot OVRs, condition and the live team ratings. The user edits and
@@ -5,8 +7,8 @@
  */
 import type { TacticsMode, TacticsPlayerView, TacticsSetup, TacticsView } from "../../common/api";
 import { formationById, formationsConfig, slotLabel } from "../../common/config/formations";
-import { exactAge } from "../../common/dates";
-import type { Club, GameMeta, Player } from "../../common/schema";
+import { exactAge, formatDay } from "../../common/dates";
+import type { Club, GameMeta, Player, PlayerStatsRow } from "../../common/schema";
 import { effectiveDials } from "../club/standing";
 import {
   autoSetup,
@@ -17,12 +19,14 @@ import {
   selectable,
   setupRatings,
 } from "../club/tactics";
+import { isSuspended } from "../season/discipline";
 import { slotOvr } from "../core/ovr";
 import { queued } from "../league/game";
 import type { LeagueSession } from "../league/session";
 import { openLeague } from "../league/session";
 import { currentCondition, isInjured } from "../season/squads";
 import { teamRef } from "./common";
+import { GameError } from "../../common/errors";
 
 const RATING_LABELS: Record<string, string> = {
   passing: "Passing",
@@ -39,7 +43,7 @@ const RISKY_CONDITION = 75;
 function context(session: LeagueSession, cid: number | null) {
   const game = session.cache.get("meta", "game") as GameMeta;
   const club = session.cache.get("clubs", cid ?? game.userCid);
-  if (!club) throw new Error(`No club ${cid ?? game.userCid}`);
+  if (!club) throw new GameError(`There's no club ${cid ?? game.userCid} in this league.`);
   const players = session.cache.getAll("players");
   const pickable = selectable(players, club.cid, game.date);
   return { game, club, players, pickable, byPid: new Map(pickable.map((p) => [p.pid, p])) };
@@ -52,12 +56,33 @@ export function tacticsView(
   byPid: ReadonlyMap<number, Player>,
   date: string,
   editable: boolean,
+  stats: readonly PlayerStatsRow[] = [],
 ): TacticsView {
   const medical = effectiveDials(club).medical;
   const formation = formationById(setup.formation);
   const player = (p: Player, inSlot: number | null): TacticsPlayerView => {
     const slot = inSlot === null ? undefined : formation.slots[inSlot];
+    const rows = stats.filter((r) => r.pid === p.pid && r.cid === club.cid);
+    const total = (key: "appearances" | "minutes" | "goals" | "assists" | "ratingTotal") =>
+      rows.reduce((sum, r) => sum + r[key], 0);
+    const apps = total("appearances");
     return {
+      season: {
+        appearances: apps,
+        minutes: total("minutes"),
+        goals: total("goals"),
+        assists: total("assists"),
+        rating: apps ? total("ratingTotal") / apps : null,
+      },
+      ...ratingChanges(p, Number(date.slice(0, 4)) - (Number(date.slice(5, 7)) < 7 ? 1 : 0)),
+      nationality: p.nationality,
+      ratings: p.ratingsHistory.at(-1)?.ratings ?? [],
+      pot: p.pot,
+      suspension: p.suspension?.remaining ?? 0,
+      listed: p.status === "club" ? (p.listed ?? null) : null,
+      expires: p.contract?.expires ?? null,
+      expiring: p.status !== "academy" && yearsLeft(p, date) === 1,
+      today: date,
       pid: p.pid,
       name: `${p.firstName} ${p.lastName}`.trim(),
       position: p.position,
@@ -92,7 +117,8 @@ export function tacticsView(
   for (const s of slots) {
     const p = s.player;
     if (!p) continue;
-    if (p.injury) warnings.push(`${p.name} (${s.label}) is injured until ${p.injury.until}.`);
+    if (p.injury)
+      warnings.push(`${p.name} (${s.label}) is injured until ${formatDay(p.injury.until)}.`);
     else if (p.condition < RISKY_CONDITION) {
       warnings.push(`${p.name} (${s.label}) is at ${p.condition}% condition: a high injury risk.`);
     }
@@ -129,7 +155,15 @@ export async function getTactics(lid: number, cid: number | null): Promise<Tacti
   const { game, club, players, pickable, byPid } = context(session, cid);
   const user = club.cid === game.userCid;
   const setup = user ? currentSetup(club, players, game.date) : autoSetup(club, players, game.date);
-  return tacticsView(club, setup, pickable, byPid, game.date, user);
+  return tacticsView(
+    club,
+    setup,
+    pickable,
+    byPid,
+    game.date,
+    user,
+    session.cache.getAll("playerStats").filter((r) => r.season === game.season),
+  );
 }
 
 export async function previewTactics(
@@ -139,7 +173,7 @@ export async function previewTactics(
 ): Promise<TacticsView> {
   const session = await openLeague(lid);
   const { game, club, players, pickable, byPid } = context(session, null);
-  const ids = new Set(byPid.keys());
+  const ids = new Set([...byPid.values()].filter((p) => !isSuspended(p)).map((p) => p.pid));
   let next: TacticsSetup;
   if (mode === "saved") {
     next = currentSetup(club, players, game.date);
@@ -155,14 +189,25 @@ export async function previewTactics(
     next = mode === "reslot" ? reslot(clean, setup.formation, byPid) : clean;
   }
   checkSetup(next, ids);
-  return tacticsView(club, next, pickable, byPid, game.date, true);
+  return tacticsView(
+    club,
+    next,
+    pickable,
+    byPid,
+    game.date,
+    true,
+    session.cache.getAll("playerStats").filter((r) => r.season === game.season),
+  );
 }
 
 export async function saveTactics(lid: number, setup: TacticsSetup): Promise<TacticsView> {
   const session = await openLeague(lid);
   await queued(session, async () => {
     const { club, byPid } = context(session, null);
-    checkSetup(setup, new Set(byPid.keys()));
+    checkSetup(
+      setup,
+      new Set([...byPid.values()].filter((p) => !isSuspended(p)).map((p) => p.pid)),
+    );
     session.cache.put("clubs", {
       ...club,
       tactics: {

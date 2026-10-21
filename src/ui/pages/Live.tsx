@@ -4,6 +4,7 @@
  * with the scorers, play and pause, a speed slider, the commentary, live stats, and both
  * teams' energy bars and benches. In-match changes and the half-time screen follow.
  */
+import { InjuryTag } from "../components/InjuryTag";
 import { useEffect, useRef, useState } from "react";
 import type {
   LiveChanges,
@@ -12,6 +13,7 @@ import type {
   LiveTeamView,
   TacticsView,
 } from "../../common/api";
+import { addDays } from "../../common/dates";
 import { formationsConfig } from "../../common/config/formations";
 import type { MatchEvent } from "../../common/match";
 import { LineupEditor } from "../components/LineupEditor";
@@ -21,8 +23,7 @@ import { leaguePath, Link } from "../router";
 import { PageHeader } from "../shell/PageHeader";
 import { useShell } from "../shell/Shell";
 import { toWorker } from "../workerClient";
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorText } from "../errors";
 
 /** The speed slider: possessions per step and the pause between steps (ms). */
 const SPEEDS = [
@@ -355,7 +356,7 @@ export function Live() {
             <div className="row g-3">
               {view.teams.map((t, side) => (
                 <div key={side} className="col-md-6">
-                  <TeamCard team={t} name={name} />
+                  <TeamCard team={t} name={name} date={view.date} />
                 </div>
               ))}
             </div>
@@ -469,7 +470,15 @@ function Stats({ view }: { view: LiveMatchView }) {
   );
 }
 
-function TeamCard({ team, name }: { team: LiveTeamView; name: (pid: number) => string }) {
+function TeamCard({
+  team,
+  name,
+  date,
+}: {
+  team: LiveTeamView;
+  name: (pid: number) => string;
+  date: string;
+}) {
   const onPitch = team.onPitch.filter((p) => p !== null).length;
   return (
     <section
@@ -496,7 +505,12 @@ function TeamCard({ team, name }: { team: LiveTeamView; name: (pid: number) => s
                         Y
                       </span>
                     )}
-                    {p.injured && <span className="badge text-bg-danger ms-1">injured</span>}
+                    {p.injured && (
+                      <InjuryTag
+                        injury={{ type: "Match injury", until: addDays(date, p.injuryDays) }}
+                        today={date}
+                      />
+                    )}
                   </td>
                   <td style={{ width: "35%" }}>
                     <div
@@ -648,7 +662,15 @@ function ChangesPanel({
                       <td className="text-nowrap">
                         {name(p.pid)}
                         {p.booked && <span className="badge text-bg-warning ms-1">Y</span>}
-                        {p.injured && <span className="badge text-bg-danger ms-1">injured</span>}
+                        {p.injured && (
+                          <InjuryTag
+                            injury={{
+                              type: "Match injury",
+                              until: addDays(view.date, p.injuryDays),
+                            }}
+                            today={view.date}
+                          />
+                        )}
                       </td>
                       <td className={`text-end ${p.energy < 50 ? "text-danger" : ""}`}>
                         {p.energy}

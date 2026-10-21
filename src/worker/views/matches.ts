@@ -5,21 +5,25 @@
  */
 import type { BoxScoreView, GameLogView } from "../../common/api";
 import type { Club, Fixture, GameMeta } from "../../common/schema";
+import { prunedName } from "../league/game";
 import { openLeague } from "../league/session";
 import { matchView, resultFor, seasonRows, teamRef } from "./common";
+import { GameError } from "../../common/errors";
 
 export async function getBoxScore(lid: number, fid: number): Promise<BoxScoreView> {
   const session = await openLeague(lid);
   const { cache, db } = session;
   const fixture = cache.get("fixtures", fid) ?? (await db.get("fixtures", fid));
-  if (!fixture) throw new Error(`No match ${fid}`);
+  if (!fixture) throw new GameError(`There's no match ${fid} in this league.`);
   const record = cache.get("matches", fid) ?? (await db.get("matches", fid));
   const clubs = new Map<number, Club>(cache.getAll("clubs").map((c) => [c.cid, c]));
   const players: BoxScoreView["players"] = {};
   for (const s of record?.result.players ?? []) {
     const p = cache.get("players", s.pid) ?? (await db.get("players", s.pid));
     players[s.pid] = {
-      name: p ? `${p.firstName} ${p.lastName}`.trim() : `#${s.pid}`,
+      name: p
+        ? `${p.firstName} ${p.lastName}`.trim()
+        : (prunedName(session, s.pid)?.name ?? `#${s.pid}`),
       shirtNumber: p?.shirtNumber ?? null,
     };
   }

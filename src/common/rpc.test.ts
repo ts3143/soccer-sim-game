@@ -104,4 +104,13 @@ describe("rpc", () => {
     expect(counts).toEqual([1, 0]);
     expect(clients).toHaveLength(0);
   });
+
+  it("fails waiting and later calls once the worker is gone", async () => {
+    const [client] = setup(1).clients;
+    if (!client) throw new Error("no client");
+    const waiting = client.call("echoLater", "late");
+    client.fail(new Error("stopped"));
+    await expect(waiting).rejects.toThrow("stopped");
+    await expect(client.call("add", 1, 2)).rejects.toThrow("stopped");
+  });
 });
