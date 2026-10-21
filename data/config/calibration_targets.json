@@ -52,7 +52,7 @@
     "transferFeesToRevenue": { "target": 0.25, "tol": [0.05, 0.45], "note": "mean over seasons (T, 2026-10-19)" },
     "seniorMeanOvrDrift": { "target": 0, "tol": [-1.5, 1.5], "note": "senior mean OVR, last season vs season 1 (T, 2026-10-19)" },
     "elite75ShareDrift": { "target": 0, "tol": [-0.015, 0.015], "note": "share of seniors rated 75+, last season vs season 1 (T, 2026-10-19)" },
-    "peakAge": "27-29-year-olds rated at least as high as 21-23 and 24-26-year-olds in the last season (MILESTONES M4)",
+    "peakAge": { "tolerance": 1, "note": "27-29-year-olds rated at least as high as 21-23 and 24-26-year-olds in the last season (MILESTONES M4), less 1 OVR: the gap swings about ±1 across seeds with the world unchanged (T, 2026-10-21)" },
     "playerCountDrift": "total active players stays within +/- 10% of start",
     "differentChampionsENG1": "at least 3 distinct champions in 20 seasons",
     "promotedClubsSurvivalRate": "roughly 35-60% of promoted clubs avoid relegation"

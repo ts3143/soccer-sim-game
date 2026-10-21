@@ -79,7 +79,9 @@ const weakest = strengths.indexOf(Math.min(...strengths));
 await cards.nth(weakest).click();
 const club = (await testId("start-league").innerText()).replace(/^Start as /, "");
 await page.fill("#new-league-name", "Edges");
-await page.fill("#new-league-seed", "edges");
+// The seed decides whether a watched cup tie is level after 90 minutes. "edges-6" goes to
+// extra time and penalties; an engine change can move that, and then another seed is needed.
+await page.fill("#new-league-seed", "edges-6");
 await testId("start-league").click();
 await testId("top-bar").waitFor({ timeout: 60_000 });
 const lid = Number(page.url().match(/\/l\/(\d+)/)?.[1]);

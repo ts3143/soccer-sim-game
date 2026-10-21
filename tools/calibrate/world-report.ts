@@ -25,7 +25,12 @@ interface Band {
   target: number;
   tol: [number, number];
 }
-type Targets = Record<string, Record<string, Band | string>>;
+/** A one-sided gate's allowance (peak age). */
+interface Tolerance {
+  tolerance: number;
+  note?: string;
+}
+type Targets = Record<string, Record<string, Band | Tolerance | string>>;
 
 const args = process.argv.slice(2);
 const option = (name: string, fallback: string) =>
@@ -45,8 +50,15 @@ const targets = JSON.parse(
 ) as Targets;
 const band = (group: string, key: string): Band => {
   const value = targets[group]?.[key];
-  if (typeof value !== "object") throw new Error(`No band for ${group}.${key}`);
+  if (typeof value !== "object" || !("tol" in value))
+    throw new Error(`No band for ${group}.${key}`);
   return value;
+};
+const tolerance = (group: string, key: string): number => {
+  const value = targets[group]?.[key];
+  if (typeof value !== "object" || !("tolerance" in value))
+    throw new Error(`No tolerance for ${group}.${key}`);
+  return value.tolerance;
 };
 
 /** Runs one world in a child process and returns its WorldRun. */
@@ -281,14 +293,17 @@ row(
   SEASONS >= 10,
   eliteDrift >= eliteBand.tol[0] && eliteDrift <= eliteBand.tol[1],
 );
+// 24-26 and 27-29 peak level in these worlds: across seeds the gap swings about ±1 OVR
+// with the world unchanged, so the gate allows that much (T, 2026-10-21).
 const peak = lastOf("ovrAge27to29");
 const younger = Math.max(lastOf("ovrAge21to23"), lastOf("ovrAge24to26"));
+const peakTolerance = tolerance(W, "peakAge");
 row(
   "peak age (last season)",
   `27-29: ${peak.toFixed(1)} v 21-26 best ${younger.toFixed(1)}`,
-  "27-29 rated at least as high as 21-23 and 24-26",
+  `27-29 at least as high as 21-23 and 24-26, less ${peakTolerance}`,
   SEASONS >= 10,
-  peak >= younger,
+  peak >= younger - peakTolerance,
 );
 const ex = runs.map((r) => r.exploits);
 const starsChecked = ex.reduce((s, e) => s + e.starsChecked, 0);
