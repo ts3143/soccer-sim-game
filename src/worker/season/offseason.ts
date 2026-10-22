@@ -31,6 +31,7 @@ import { bestPosition, positionOvrs, secondaryPositions } from "../core/ovr";
 import { CEILING_DECAY, estimatePotential, type PotentialClubContext } from "../core/potential";
 import { Random } from "../core/random";
 import { COEFFICIENTS } from "../engine/coefficients";
+import { ratingCentre } from "../engine/ratings";
 import { roundWage, WAGE_STEEPNESS, wageAgeFactor } from "../generate/contracts";
 import { generateAcademyPlayer } from "../generate/youth";
 import { FREE_AGENT_CONTEXT } from "../generate/world";
@@ -44,7 +45,7 @@ import { GameError } from "../../common/errors";
 /** Coefficients (provisional, tuned with the calibration harness). */
 export const TURNOVER = {
   /**
-   * performanceAdj per rating point above the ratings' centre (capped at ±0.15 by the
+   * performanceAdj per rating point above his position's rating centre (capped at ±0.15 by the
    * core). 0.12 since ratings were widened (T, 2026-10-21): the same boost as 0.15 was.
    */
   performancePerPoint: 0.12,
@@ -256,7 +257,7 @@ export function developmentUpdate(
     const share = available > 0 ? tally.minutes / available : 0;
     const performance =
       tally.appearances > 0
-        ? (tally.ratingTotal / tally.appearances - COEFFICIENTS.ratings.centre) *
+        ? (tally.ratingTotal / tally.appearances - ratingCentre(p.position, COEFFICIENTS)) *
           t.performancePerPoint
         : 0;
     const rng = Random.fromSeed(`${world.seed}/dev/${date}/${p.pid}`);

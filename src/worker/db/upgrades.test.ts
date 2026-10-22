@@ -30,9 +30,19 @@ describe("league DB v3 upgrade", () => {
     } as unknown as PlayerStatsRow);
     await v2.put("players", {
       pid: 2,
+      position: "ST",
       devTally: { minutes: 180, appearances: 2, ratingTotal: 15.2, seasonMinutes: 180 },
     } as unknown as Player);
-    await v2.put("players", { pid: 3 } as unknown as Player);
+    await v2.put("players", { pid: 3, position: "CB" } as unknown as Player);
+    await v2.put("players", { pid: 1, position: "GK" } as unknown as Player);
+    await v2.put("playerStats", {
+      pid: 1,
+      season: 2026,
+      cid: 0,
+      competition: "ENG1",
+      appearances: 2,
+      ratingTotal: 13.2,
+    } as unknown as PlayerStatsRow);
     await v2.put(
       "meta",
       { fid: 2, state: { teams: [{ all: [{ stats: oldPlayer(4, "GK", 0, 1) }] }, { all: [] }] } },
@@ -43,12 +53,14 @@ describe("league DB v3 upgrade", () => {
     const v3 = await openLeagueDb(9001);
     expect(v3.version).toBe(LEAGUE_DB_VERSION);
     const match = await v3.get("matches", 1);
-    expect(match?.result.players.map((p) => p.rating)).toEqual([6.9, 8]);
+    expect(match?.result.players.map((p) => p.rating)).toEqual([6.8, 8]);
     // Keepers' post-shot xG wasn't recorded: filled in as neutral (= goals conceded).
     expect(match?.result.players.map((p) => p.psxgFaced)).toEqual([2, 0]);
     expect((await v3.get("playerStats", [2, 2026, 0, "ENG1"]))?.ratingTotal).toBe(13.8);
+    // Keepers' totals move to their own centre (6.8).
+    expect((await v3.get("playerStats", [1, 2026, 0, "ENG1"]))?.ratingTotal).toBe(13.6);
     expect((await v3.get("players", 2))?.devTally?.ratingTotal).toBe(16);
-    expect(await v3.get("players", 3)).toEqual({ pid: 3 });
+    expect(await v3.get("players", 3)).toEqual({ pid: 3, position: "CB" });
     const live = (await v3.get("meta", "live")) as {
       state: { teams: { all: { stats: { psxgFaced: number } }[] }[] };
     };
@@ -57,7 +69,7 @@ describe("league DB v3 upgrade", () => {
 
     // Opening it again changes nothing.
     const again = await openLeagueDb(9001);
-    expect((await again.get("matches", 1))?.result.players.map((p) => p.rating)).toEqual([6.9, 8]);
+    expect((await again.get("matches", 1))?.result.players.map((p) => p.rating)).toEqual([6.8, 8]);
     again.close();
   });
 

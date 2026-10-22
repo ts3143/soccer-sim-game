@@ -4,7 +4,7 @@
 
 ### Changed
 - **Match ratings** average about 6.9 (was 6.6) and spread wider: standout games rate higher and the worst lower, while a 10 stays rare. Tackles, interceptions and key passes count for more, so a midfielder can reach 8 without scoring.
-- **Keepers are rated on goals prevented:** the saves they make against the quality of the shots they face. A clean sheet is usually 7.3–8.0; conceding four after a decent game is about 6; mistakes cost more, but a keeper rarely drops below 4.5.
+- **Keepers are rated on goals prevented:** the saves they make against the quality of the shots they face. They average about 6.8: a clean sheet is usually around 7.5; conceding four after a decent game is about 6; mistakes cost more, but a keeper rarely drops below 4.5.
 - Saves from 0.1.0 have their ratings converted when first opened.
 
 ## 0.1.0 (2026-10-21)

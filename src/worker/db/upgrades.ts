@@ -1,4 +1,5 @@
 import type { IDBPTransaction, StoreNames } from "idb";
+import type { Position } from "../../common/config/ratings";
 import type { PlayerMatchStats } from "../../common/match";
 import { COEFFICIENTS } from "../engine/coefficients";
 import { ratingFromOldScale, ratingTotalFromOldScale } from "../engine/ratings";
@@ -29,30 +30,44 @@ export async function upgradeToV3(tx: UpgradeTransaction): Promise<void> {
   while (match) {
     const row = match.value;
     for (const p of row.result.players as OldPlayerStats[]) {
-      p.rating = ratingFromOldScale(p.rating, COEFFICIENTS);
+      p.rating = ratingFromOldScale(p.rating, p.position, COEFFICIENTS);
       fillPsxg(p);
     }
     await match.update(row);
     match = await match.continue();
   }
 
-  let stats = await tx.objectStore("playerStats").openCursor();
-  while (stats) {
-    const row = stats.value;
-    row.ratingTotal = ratingTotalFromOldScale(row.ratingTotal, row.appearances, COEFFICIENTS);
-    await stats.update(row);
-    stats = await stats.continue();
-  }
-
+  // Season totals and tallies on the scale of the player's position (keepers average lower).
+  const positions = new Map<number, Position>();
   let player = await tx.objectStore("players").openCursor();
   while (player) {
     const row = player.value;
+    positions.set(row.pid, row.position);
     if (row.devTally) {
       const { ratingTotal, appearances } = row.devTally;
-      row.devTally.ratingTotal = ratingTotalFromOldScale(ratingTotal, appearances, COEFFICIENTS);
+      row.devTally.ratingTotal = ratingTotalFromOldScale(
+        ratingTotal,
+        appearances,
+        row.position,
+        COEFFICIENTS,
+      );
       await player.update(row);
     }
     player = await player.continue();
+  }
+
+  let stats = await tx.objectStore("playerStats").openCursor();
+  while (stats) {
+    const row = stats.value;
+    const position = positions.get(row.pid) ?? "CM";
+    row.ratingTotal = ratingTotalFromOldScale(
+      row.ratingTotal,
+      row.appearances,
+      position,
+      COEFFICIENTS,
+    );
+    await stats.update(row);
+    stats = await stats.continue();
   }
 
   const meta = tx.objectStore("meta");

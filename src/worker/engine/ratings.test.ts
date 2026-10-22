@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { Position } from "../../common/config/ratings";
 import type { PlayerMatchStats } from "../../common/match";
 import { COEFFICIENTS as c } from "./coefficients";
-import { matchRating, rawMatchScore, ratingFromOldScale, ratingTotalFromOldScale } from "./ratings";
+import {
+  matchRating,
+  ratingCentre,
+  rawMatchScore,
+  ratingFromOldScale,
+  ratingTotalFromOldScale,
+} from "./ratings";
 import { emptyPlayerStats } from "./state";
 
 const R = c.ratings;
@@ -13,14 +19,20 @@ const player = (position: Position, patch: Partial<PlayerMatchStats> = {}): Play
 });
 /** The rating before the soft limits and rounding. */
 const unbent = (p: PlayerMatchStats, result: "win" | "draw" | "loss") =>
-  R.centre + rawMatchScore(p, result, c) - R.expected[p.position];
+  ratingCentre(p.position, c) + rawMatchScore(p, result, c) - R.expected[p.position];
 const round = (x: number) => Math.round(x * 10) / 10;
 
 describe("match ratings (SPEC §8.7)", () => {
   it("are the centre plus the distance from the position's average", () => {
     const cm = player("CM", { passes: 50, passesCompleted: 45, tackles: 2, keyPasses: 1 });
     expect(matchRating(cm, "draw", c)).toBe(round(unbent(cm, "draw")));
-    expect(R.centre).toBe(6.9);
+    expect(ratingCentre("CM", c)).toBe(6.9);
+  });
+
+  it("centre keepers a little lower, at 6.8", () => {
+    expect(ratingCentre("GK", c)).toBeCloseTo(6.8, 10);
+    const gk = player("GK", { goalsConceded: 1, psxgFaced: 1.2, passes: 30, passesCompleted: 24 });
+    expect(matchRating(gk, "draw", c)).toBe(round(unbent(gk, "draw")));
   });
 
   it("bend above 8.4, so a 10 stays rare", () => {
@@ -71,15 +83,17 @@ describe("match ratings (SPEC §8.7)", () => {
 });
 
 describe("old-scale ratings (saves before league DB v3)", () => {
-  it("map 6.6 to 6.9 and stretch around it, with the soft top", () => {
-    expect(ratingFromOldScale(6.6, c)).toBe(6.9);
-    expect(ratingFromOldScale(7.6, c)).toBe(8);
-    expect(ratingFromOldScale(9.8, c)).toBe(9.4);
-    expect(ratingFromOldScale(3, c)).toBe(3);
+  it("map 6.6 to 6.9 (keepers 6.8) and stretch around it, with the soft top", () => {
+    expect(ratingFromOldScale(6.6, "ST", c)).toBe(6.9);
+    expect(ratingFromOldScale(6.6, "GK", c)).toBe(6.8);
+    expect(ratingFromOldScale(7.6, "CB", c)).toBe(8);
+    expect(ratingFromOldScale(9.8, "W", c)).toBe(9.4);
+    expect(ratingFromOldScale(3, "CM", c)).toBe(3);
   });
 
   it("convert season totals by appearances", () => {
-    expect(ratingTotalFromOldScale(13.2, 2, c)).toBe(13.8);
-    expect(ratingTotalFromOldScale(0, 0, c)).toBe(0);
+    expect(ratingTotalFromOldScale(13.2, 2, "ST", c)).toBe(13.8);
+    expect(ratingTotalFromOldScale(13.2, 2, "GK", c)).toBe(13.6);
+    expect(ratingTotalFromOldScale(0, 0, "GK", c)).toBe(0);
   });
 });

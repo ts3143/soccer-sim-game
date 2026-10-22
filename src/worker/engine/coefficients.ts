@@ -207,12 +207,15 @@ export const COEFFICIENTS = {
   },
   /**
    * Match ratings (SPEC §8.7): 6.0 plus contributions, then centred on what's normal for
-   * the position (expected), so every position averages `centre`. Cameos regress to it.
+   * the position (expected), so every position averages `centre` (keepers, plus
+   * `keeperCentreOffset`). Cameos regress to it.
    * Above `softTop.from` the rating climbs at `softTop.slope`, so 10s stay rare. Keepers
    * are rated mainly on goals prevented and bend at `keeperSoftBottom` (T, 2026-10-21).
    */
   ratings: {
     centre: 6.9,
+    /** Keepers average a little lower: a clean sheet ~7.5, four conceded but blameless ~6.2. */
+    keeperCentreOffset: -0.1,
     softTop: { from: 8.4, slope: 0.5 },
     /** Keepers only: below `from` the rating falls at `slope`, so mistakes aren't brutal. */
     keeperSoftBottom: { from: 5, slope: 0.5 },
