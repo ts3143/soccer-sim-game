@@ -517,11 +517,44 @@ export interface LivePause {
   pid: number | null;
 }
 
-/** Changes the user makes at a pause in a live match (subs, formation, sliders). */
+/** Changes the user makes at a pause in a live match (subs, formation, positions, sliders). */
 export interface LiveChanges {
   subs?: { outPid: number; inPid: number }[];
   formation?: string;
+  /**
+   * Who plays where after the subs and any formation change: a pid per slot, null for a
+   * slot left empty (down to ten). Moving players around the pitch is free (T, 2026-10-21).
+   */
+  slots?: (number | null)[];
   sliders?: Partial<SliderSettings>;
+}
+
+/** How a player's match is going, for the live tactics board. */
+export interface LiveBoardMatch {
+  /** In-match energy, 0–100. */
+  energy: number;
+  booked: boolean;
+  injured: boolean;
+  injuryDays: number;
+  minutes: number;
+  goals: number;
+  assists: number;
+  /** Match rating so far, at the current score; null before he has played. */
+  rating: number | null;
+}
+
+/**
+ * The tactics board at a pause in a live match (T, 2026-10-21): the user's side as the
+ * Tactics editor shows it (slots, the substitutes left on the bench, team ratings now,
+ * energy counted), plus each player's match so far. No reserves: only the bench can come on.
+ */
+export interface LiveBoardView extends TacticsView {
+  /** By pid: everyone on the pitch or the bench. */
+  match: Record<number, LiveBoardMatch>;
+  subsLeft: number;
+  windowsLeft: number;
+  /** At a break, substitutions use no window. */
+  free: boolean;
 }
 
 /** The Free Agents page (M6): every unsigned player, his ask and his mood toward the user's club. */
@@ -1102,8 +1135,12 @@ export interface WorkerApi {
    * time the day is finished and saved.
    */
   stepLiveMatch(lid: number, possessions: number, from: number, autoPause: boolean): LiveMatchView;
-  /** The user's changes at a pause (subs, formation, sliders). */
+  /** The user's changes at a pause (subs, formation, positions, sliders): all or nothing. */
   changeLiveMatch(lid: number, changes: LiveChanges, from: number): LiveMatchView;
+  /** At a pause: the user's side as a tactics board, with each player's match so far. */
+  getLiveBoard(lid: number): LiveBoardView;
+  /** The board as it would be after these changes; nothing is changed or saved. */
+  previewLiveChanges(lid: number, changes: LiveChanges): LiveBoardView;
   /** Before kick-off: the user's line-up for this match, as the Tactics editor shows it. */
   getLiveLineup(lid: number): TacticsView;
   /**

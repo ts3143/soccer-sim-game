@@ -5,6 +5,7 @@ import {
   applyChanges,
   MatchChangeError,
   matchResult,
+  ratingSoFar,
   simulateMatch,
   startMatch,
   stepMatch,
@@ -122,6 +123,58 @@ describe("the user's changes during a watched match", () => {
     );
   });
 
+  it("move players between slots for free, and only players on the pitch", () => {
+    const state = startMatch(watched("w5"));
+    stepMatch(state, 10);
+    const team = state.teams[0];
+    const slots = () => team.slots.map((p) => p?.input.pid ?? null);
+    const before = slots();
+    const swapped = before.map((pid, i) => (i === 5 ? before[6] : i === 6 ? before[5] : pid));
+    applyChanges(state, 0, { slots: swapped as number[] });
+    expect(slots()).toEqual(swapped);
+    expect(team.slots[5]?.slot).toBe(5);
+    expect(team.stats.subsUsed).toBe(0);
+    expect(team.stats.windowsUsed).toBe(0);
+
+    const bench = team.bench[0]!.input.pid;
+    const bad = [
+      swapped.map((pid, i) => (i === 3 ? bench : pid)), // a sub without taking anyone off
+      swapped.map((pid, i) => (i === 3 ? swapped[4] : pid)), // one player in two slots
+      swapped.slice(0, 10), // not every slot
+    ];
+    for (const arrangement of bad) {
+      expect(() => applyChanges(state, 0, { slots: arrangement as number[] })).toThrow(
+        MatchChangeError,
+      );
+    }
+  });
+
+  it("after a red card, a sub comes on for another player and moves into the empty slot", () => {
+    const state = startMatch(watched("w6"));
+    stepMatch(state, 10);
+    const team = state.teams[0];
+    // Send off the player in slot 2 (a centre-back in the 4-4-2 fixtures use).
+    const sentOff = team.slots[2]!;
+    sentOff.sentOff = true;
+    sentOff.slot = null;
+    team.slots[2] = null;
+    const position2 = team.plan.formation.slots[2]!.position;
+    const out = team.slots[7]!.input.pid;
+    const sub = team.bench[0]!;
+    const arrangement = team.slots.map((p, i) =>
+      i === 2 ? sub.input.pid : i === 7 ? null : (p?.input.pid ?? null),
+    );
+    applyChanges(state, 0, { subs: [{ outPid: out, inPid: sub.input.pid }], slots: arrangement });
+    const at = (i: number) => team.slots[i];
+    expect(at(2)?.input.pid).toBe(sub.input.pid);
+    expect(at(7)).toBeNull();
+    expect(team.slots.filter((p) => p !== null)).toHaveLength(10);
+    expect(sub.stats.position).toBe(position2); // judged against the slot he ended up in
+    expect(team.stats.subsUsed).toBe(1);
+    stepMatch(state);
+    expect(matchResult(state).players.some((p) => p.pid === sub.input.pid)).toBe(true);
+  });
+
   it("switch formation with the keeper still in goal, and change sliders", () => {
     const state = startMatch(watched("w4"));
     stepMatch(state, 10);
@@ -160,6 +213,27 @@ describe("box score", () => {
         );
       }
       expect(r.players.every((p) => p.rating >= 3 && p.rating <= 10)).toBe(true);
+    }
+  });
+});
+
+describe("rating so far (the live board)", () => {
+  it("starts near the centre, and at full time is every player's match rating", () => {
+    const state = startMatch({
+      ...prepareMatch(side(3), side(4), { seed: "so-far", style: NEUTRAL, watchedBy: 0 }),
+    });
+    stepMatch(state, 1);
+    const early = state.teams[0].slots.map((p) => (p ? ratingSoFar(state, p) : null));
+    for (const r of early) expect(Math.abs((r ?? 0) - 6.9)).toBeLessThan(0.6);
+    expect(ratingSoFar(state, state.teams[0].bench[0]!)).toBeNull();
+    stepMatch(state);
+    const result = matchResult(state);
+    for (const team of state.teams) {
+      for (const p of team.all.filter((p) => p.onMinute !== null)) {
+        expect(ratingSoFar(state, p)).toBe(
+          result.players.find((r) => r.pid === p.input.pid)?.rating,
+        );
+      }
     }
   });
 });

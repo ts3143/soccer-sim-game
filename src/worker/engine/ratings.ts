@@ -67,15 +67,21 @@ export function ratingCentre(position: Position, c: Coefficients): number {
 /** Limits to 3–10, one decimal. */
 const finish = (rating: number) => Math.round(Math.min(10, Math.max(3, rating)) * 10) / 10;
 
+/**
+ * `rest`: the share of a full match he has still to play, assumed average for his position
+ * (the live board's rating so far; 0 once his match is over).
+ */
 export function matchRating(
   p: PlayerMatchStats,
   result: "win" | "draw" | "loss",
   c: Coefficients,
+  rest = 0,
 ): number {
   const r = c.ratings;
   const weight = Math.min(1, p.minutes / r.fullWeightMinutes);
   const centre = ratingCentre(p.position, c);
-  let rating = softTop(centre + (rawMatchScore(p, result, c) - r.expected[p.position]) * weight, c);
+  const raw = rawMatchScore(p, result, c) + (r.expected[p.position] - 6) * rest;
+  let rating = softTop(centre + (raw - r.expected[p.position]) * weight, c);
   const floor = r.keeperSoftBottom;
   if (p.position === "GK" && rating < floor.from) {
     rating = floor.from - (floor.from - rating) * floor.slope;

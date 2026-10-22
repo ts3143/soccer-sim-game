@@ -11,6 +11,7 @@
  * board and cup draws, through the same code as a simulated day.
  */
 import type {
+  LiveBoardView,
   LiveChanges,
   LiveMatchView,
   LivePause,
@@ -33,18 +34,21 @@ import { aiSliders } from "../engine/aiTactics";
 import { COEFFICIENTS } from "../engine/coefficients";
 import {
   applyChanges,
+  MatchChangeError,
   matchMinute,
   matchResult,
+  ratingSoFar,
   startMatch,
   stepMatch,
   type MatchState,
 } from "../engine/match";
+import { currentMinute, onPitch as onPitchOf } from "../engine/state";
 import { enginePlayer } from "../engine/prepare";
 import type { EngineTeamInput, MatchEvent, Period, TeamSide } from "../engine/types";
 import { fixtureSetup } from "../season/season";
 import { currentCondition, isInjured, squadPlay } from "../season/squads";
 import { competitionName, teamRef } from "../views/common";
-import { tacticsView } from "../views/tactics";
+import { ratingRows, tacticsView } from "../views/tactics";
 import {
   assertNotLive,
   ensureSeason,
@@ -80,12 +84,26 @@ interface Running {
 const SAVE_EVERY_SECONDS = 5 * 60;
 const running = new WeakMap<LeagueSession, Running>();
 
-function save(session: LeagueSession, live: Running): void {
-  const plain: Record<string, unknown> = { ...live.state, rng: live.state.rng.getState() };
+/** The engine state as plain data, its random stream as state: a deep copy. */
+function plainState(state: MatchState): SavedState {
+  const plain: Record<string, unknown> = { ...state, rng: state.rng.getState() };
   delete plain.c;
+  return structuredClone(plain) as SavedState;
+}
+
+/** A running engine state from plain data: a deep copy. */
+function restoreState(saved: SavedState): MatchState {
+  const copy = structuredClone(saved);
+  return { ...copy, rng: Random.fromState(copy.rng), c: COEFFICIENTS };
+}
+
+function save(session: LeagueSession, live: Running): void {
   // A deep copy: the running state keeps changing after this.
-  const state = structuredClone(plain) as SavedState;
-  session.cache.put("meta", { ...live.row, state } satisfies LiveRow, "live");
+  session.cache.put(
+    "meta",
+    { ...live.row, state: plainState(live.state) } satisfies LiveRow,
+    "live",
+  );
   live.savedClock = live.state.clock;
 }
 
@@ -94,8 +112,7 @@ function load(session: LeagueSession): Running {
   if (known) return known;
   const row = session.cache.get("meta", "live") as LiveRow | undefined;
   if (!row) throw new GameError("No live match is under way.");
-  const copy = structuredClone(row.state);
-  const state: MatchState = { ...copy, rng: Random.fromState(copy.rng), c: COEFFICIENTS };
+  const state = restoreState(row.state);
   const live = {
     row: { fid: row.fid, date: row.date, side: row.side },
     state,
@@ -460,6 +477,22 @@ export function stepLive(
   });
 }
 
+/**
+ * The match as it would be after the user's changes: a copy, so a change that breaks a
+ * rule leaves the match as it was, and a preview touches nothing (random stream included).
+ */
+function changedCopy(live: Running, changes: LiveChanges): MatchState {
+  const copy = restoreState(plainState(live.state));
+  try {
+    applyChanges(copy, live.row.side, changes);
+  } catch (error) {
+    if (error instanceof MatchChangeError) throw new GameError(`${error.message}.`);
+    throw error;
+  }
+  return copy;
+}
+
+/** The user's changes at a pause: all of them, or none if one breaks a rule. */
 export function changeLive(
   session: LeagueSession,
   changes: LiveChanges,
@@ -467,11 +500,106 @@ export function changeLive(
 ): Promise<LiveMatchView> {
   return queued(session, async () => {
     const live = load(session);
-    applyChanges(live.state, live.row.side, changes);
+    live.state = changedCopy(live, changes);
     save(session, live);
     await session.cache.flush();
     return liveView(session, live, from);
   });
+}
+
+/**
+ * The pause screen's tactics board (T, 2026-10-21): the user's side through the Tactics
+ * view (slots, the substitutes left, no reserves), with the engine's team ratings now
+ * (energy counted, the hidden form on the day left out) and each player's match so far.
+ */
+function liveBoard(session: LeagueSession, live: Running, state: MatchState): LiveBoardView {
+  const team = state.teams[live.row.side];
+  const club = session.cache.get("clubs", team.input.cid);
+  if (!club) throw new Error(`No club ${team.input.cid}`);
+  const date = live.row.date;
+  const byPid = new Map(
+    team.all.flatMap((ps) => {
+      const p = session.cache.get("players", ps.input.pid);
+      return p ? [[p.pid, p] as const] : [];
+    }),
+  );
+  const setup: TacticsSetup = {
+    formation: team.plan.formation.id,
+    sliders: { ...team.sliders },
+    slots: team.slots.map((ps) => ps?.input.pid ?? null),
+    bench: team.bench.map((ps) => ps.input.pid),
+  };
+  const named = [...setup.slots, ...setup.bench].flatMap((pid) => {
+    const p = pid === null ? undefined : byPid.get(pid);
+    return p ? [p] : [];
+  });
+  const season = session.cache.get("fixtures", live.row.fid)?.season;
+  const stats = session.cache.getAll("playerStats").filter((r) => r.season === season);
+  const view = tacticsView(club, setup, named, byPid, date, true, stats);
+
+  const minute = currentMinute(state);
+  const match: LiveBoardView["match"] = {};
+  for (const ps of [...onPitchOf(team), ...team.bench]) {
+    match[ps.input.pid] = {
+      energy: Math.round(ps.energy * 100),
+      booked: ps.booked,
+      injured: ps.injured,
+      injuryDays: ps.stats.injuryDays,
+      minutes: ps.onMinute === null ? 0 : Math.max(0, (ps.offMinute ?? minute) - ps.onMinute),
+      goals: ps.stats.goals,
+      assists: ps.stats.assists,
+      rating: ratingSoFar(state, ps),
+    };
+  }
+
+  const name = (pid: number) => view.slots.find((s) => s.player?.pid === pid)?.player?.name;
+  const warnings: string[] = [];
+  const empty = setup.slots.filter((pid) => pid === null).length;
+  if (empty > 0)
+    warnings.push(
+      `You're down to ${11 - empty}: ${empty === 1 ? "a slot stays" : `${empty} slots stay`} empty.`,
+    );
+  const keeperSlot = team.plan.formation.slots.findIndex((s) => s.position === "GK");
+  const inGoal = view.slots[keeperSlot]?.player;
+  if (inGoal && inGoal.position !== "GK")
+    warnings.push(`${inGoal.name}, an outfielder, is in goal.`);
+  for (const ps of onPitchOf(team)) {
+    const who = name(ps.input.pid) ?? `#${ps.input.pid}`;
+    if (ps.injured)
+      warnings.push(`${who} is injured: bring someone on, or he plays on at low energy.`);
+    else if (ps.energy < LOW_ENERGY)
+      warnings.push(`${who} is tiring (${Math.round(ps.energy * 100)}% energy).`);
+  }
+
+  // The engine's ratings carry the hidden form on the day; the board shows them without it.
+  const ratings = { ...team.ratings };
+  for (const key of Object.keys(ratings) as (keyof typeof ratings)[]) ratings[key] -= team.form;
+  return {
+    ...view,
+    saved: true,
+    reserves: [],
+    benchSize: setup.bench.length,
+    ratings: ratingRows(ratings),
+    warnings,
+    match,
+    subsLeft: team.subLimit - team.stats.subsUsed,
+    windowsLeft: team.windowLimit - team.stats.windowsUsed,
+    free: state.atBreak,
+  };
+}
+
+/** Below this energy the board warns that a player is tiring. */
+const LOW_ENERGY = 0.5;
+
+export function getLiveBoard(session: LeagueSession): LiveBoardView {
+  const live = load(session);
+  return liveBoard(session, live, live.state);
+}
+
+/** The board after these changes, on a copy: nothing is changed or saved. */
+export function previewLiveChanges(session: LeagueSession, changes: LiveChanges): LiveBoardView {
+  const live = load(session);
+  return liveBoard(session, live, changedCopy(live, changes));
 }
 
 export function getLive(session: LeagueSession, from: number): LiveMatchView | null {

@@ -25,6 +25,7 @@ import { runPossession } from "./possession";
 import { playShootout } from "./shootout";
 import { matchRating } from "./ratings";
 import {
+  currentMinute,
   emit,
   initState,
   onPitch,
@@ -40,6 +41,7 @@ import type {
   MatchInput,
   MatchResult,
   Period,
+  PlayerMatchStats,
   TeamMatchStats,
   TeamSide,
 } from "./types";
@@ -153,39 +155,62 @@ export function matchMinute(clock: number): number {
 
 const CLEAN_SHEET_POSITIONS: readonly Position[] = ["GK", "CB", "FB", "WB"];
 
+/**
+ * A player's stats up to `lastMinute` (full time, or now during a live match): minutes,
+ * passes, clean sheet and energy worked out from the running totals. Rating left at 0.
+ */
+function statsAt(p: PlayerState, lastMinute: number): PlayerMatchStats {
+  const minutes = Math.max(0, (p.offMinute ?? lastMinute) - (p.onMinute ?? 0));
+  const passes = Math.round(p.passShareAcc);
+  return {
+    ...p.stats,
+    minutes,
+    xg: Math.round(p.stats.xg * 100) / 100,
+    xa: Math.round(p.stats.xa * 100) / 100,
+    psxgFaced: Math.round(p.stats.psxgFaced * 100) / 100,
+    passes,
+    passesCompleted: Math.max(0, passes - p.passesFailed - Math.round(p.passFailAcc)),
+    cleanSheet:
+      p.stats.goalsConceded === 0 &&
+      minutes >= 60 &&
+      CLEAN_SHEET_POSITIONS.includes(p.stats.position)
+        ? 1
+        : 0,
+    energyEnd: Math.round((p.slot === null ? p.stats.energyEnd : p.energy) * 100) / 100,
+  };
+}
+
+function outcome(state: MatchState, side: TeamSide): "win" | "draw" | "loss" {
+  const own = state.score[side];
+  const opp = state.score[side === 0 ? 1 : 0];
+  return own > opp ? "win" : own < opp ? "loss" : "draw";
+}
+
+/**
+ * A player's match rating so far (the live board): what he'd get if the rest of his match
+ * were average for his position, at the current score. It starts near the centre, moves
+ * with what he does, and at full time is his match rating. Null if he hasn't played.
+ */
+export function ratingSoFar(state: MatchState, p: PlayerState): number | null {
+  if (p.onMinute === null) return null;
+  const now = currentMinute(state);
+  const result = outcome(state, p.side);
+  if (p.slot === null) return matchRating(statsAt(p, now), result, state.c); // off: his match is over
+  const end = Math.max(now, PERIOD_CAP[state.extraTime ? "extraSecond" : "second"]);
+  return matchRating(statsAt(p, end), result, state.c, (end - now) / 90);
+}
+
 export function matchResult(state: MatchState): MatchResult {
   if (!state.finished) throw new Error("matchResult: the match isn't finished");
   const fullTime = PERIOD_CAP[state.extraTime ? "extraSecond" : "second"];
   const totalPossession = state.teams[0].possessionSeconds + state.teams[1].possessionSeconds;
-  const outcome = (side: TeamSide): "win" | "draw" | "loss" => {
-    const own = state.score[side];
-    const opp = state.score[side === 0 ? 1 : 0];
-    return own > opp ? "win" : own < opp ? "loss" : "draw";
-  };
 
   const players = state.teams.flatMap((t) =>
     t.all
       .filter((p) => p.onMinute !== null)
       .map((p) => {
-        const minutes = Math.max(0, (p.offMinute ?? fullTime) - (p.onMinute ?? 0));
-        const passes = Math.round(p.passShareAcc);
-        const stats = {
-          ...p.stats,
-          minutes,
-          xg: Math.round(p.stats.xg * 100) / 100,
-          xa: Math.round(p.stats.xa * 100) / 100,
-          psxgFaced: Math.round(p.stats.psxgFaced * 100) / 100,
-          passes,
-          passesCompleted: Math.max(0, passes - p.passesFailed - Math.round(p.passFailAcc)),
-          cleanSheet:
-            p.stats.goalsConceded === 0 &&
-            minutes >= 60 &&
-            CLEAN_SHEET_POSITIONS.includes(p.stats.position)
-              ? 1
-              : 0,
-          energyEnd: Math.round((p.slot === null ? p.stats.energyEnd : p.energy) * 100) / 100,
-        };
-        return { ...stats, rating: matchRating(stats, outcome(p.side), state.c) };
+        const stats = statsAt(p, fullTime);
+        return { ...stats, rating: matchRating(stats, outcome(state, p.side), state.c) };
       }),
   );
 
@@ -227,6 +252,11 @@ export interface MatchChanges {
   sliders?: Partial<SliderSettings>;
   /** Switch formation; the players on the pitch are re-slotted by best fit. */
   formation?: string;
+  /**
+   * Who plays where, after the subs and any formation change: a pid per slot, null for a
+   * slot left empty (a team down to ten). Moving players around the pitch is free.
+   */
+  slots?: (number | null)[];
 }
 
 export class MatchChangeError extends Error {}
@@ -252,21 +282,52 @@ function reslot(team: TeamState, formationId: string): void {
   team.slots = slots;
 }
 
+/** Puts the players on the pitch into the given slots (T, 2026-10-21: moves are free). */
+function arrange(team: TeamState, slots: readonly (number | null)[]): void {
+  const players = onPitch(team);
+  const byPid = new Map(players.map((p) => [p.input.pid, p]));
+  const named = slots.filter((pid): pid is number => pid !== null);
+  if (slots.length !== team.plan.formation.slots.length) {
+    throw new MatchChangeError("Every slot of the formation needs a player or a gap");
+  }
+  const valid =
+    named.length === players.length &&
+    new Set(named).size === named.length &&
+    named.every((pid) => byPid.has(pid));
+  if (!valid) {
+    throw new MatchChangeError("Only the players on the pitch can be moved, each to one slot");
+  }
+  team.slots = slots.map((pid, i) => {
+    const p = pid === null ? null : (byPid.get(pid) as PlayerState);
+    if (p) p.slot = i;
+    return p;
+  });
+}
+
 /**
  * Applies the user's changes at a pause (between possessions). Substitutions made before
  * kick-off or at a break are free; otherwise one call uses one window, however many
- * players come on. Throws MatchChangeError if a change breaks the rules.
+ * players come on. Moving players between slots is always free. Throws MatchChangeError
+ * if a change breaks the rules (the state may then be part-changed: callers that must
+ * stay whole apply changes to a copy).
  */
 export function applyChanges(state: MatchState, side: TeamSide, changes: MatchChanges): void {
   if (state.finished) throw new MatchChangeError("The match is over");
   const nothing =
     (changes.subs ?? []).length === 0 &&
     !changes.formation &&
+    !changes.slots &&
     Object.keys(changes.sliders ?? {}).length === 0;
   if (nothing) return;
+  for (const value of Object.values(changes.sliders ?? {})) {
+    if (!Number.isInteger(value) || value < -2 || value > 2) {
+      throw new MatchChangeError("Sliders take whole steps from -2 to +2");
+    }
+  }
   const team = state.teams[side];
   const free = state.atBreak;
   const subs = changes.subs ?? [];
+  const cameOn: PlayerState[] = [];
   if (subs.length > 0) {
     const left = team.subLimit - team.stats.subsUsed;
     if (subs.length > left) throw new MatchChangeError(`Only ${left} substitution(s) left`);
@@ -279,19 +340,18 @@ export function applyChanges(state: MatchState, side: TeamSide, changes: MatchCh
       if (!out) throw new MatchChangeError(`Player ${outPid} is not on the pitch`);
       if (!incoming) throw new MatchChangeError(`Player ${inPid} is not an available substitute`);
       substitute(state, team, out, incoming, out.injured ? "injury" : "manager");
+      cameOn.push(incoming);
     }
     if (!free) team.stats.windowsUsed++;
   }
   if (changes.formation && changes.formation !== team.plan.formation.id)
     reslot(team, changes.formation);
-  if (changes.sliders) {
-    for (const value of Object.values(changes.sliders)) {
-      if (!Number.isInteger(value) || value < -2 || value > 2) {
-        throw new MatchChangeError("Sliders take whole steps from -2 to +2");
-      }
-    }
-    team.sliders = { ...team.sliders, ...changes.sliders };
+  if (changes.slots) arrange(team, changes.slots);
+  // A player who has just come on is judged against the slot he ends up in.
+  for (const p of cameOn) {
+    p.stats.position = team.plan.formation.slots[p.slot ?? 0]?.position ?? p.stats.position;
   }
+  if (changes.sliders) team.sliders = { ...team.sliders, ...changes.sliders };
   refreshTeam(team, state.c);
 }
 

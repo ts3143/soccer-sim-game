@@ -198,7 +198,7 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 - `[DEFAULT]` Academy players aged 16+ may be picked for a matchday squad (their minutes count for development) without counting toward the 25.
 - If fewer than **16 seniors** are fit (`minSeniorForMatch`), academy players aged 16+ fill the bench. Same rule as the default above.
 - Matchday squad: 11 starters + up to 9 substitutes.
-- **Substitutions** follow the real rule: up to **5 in normal time, in at most 3 windows** during play (subs at half-time don't use a window). **Extra time adds a 6th sub and a 4th window** (subs just before extra time and at its half-time don't use a window). Once the subs or windows are used up, an injured player can't be replaced and his team plays on with 10. No concussion substitutes.
+- **Substitutions** follow the real rule: up to **5 in normal time, in at most 3 windows** during play (subs at half-time don't use a window). **Extra time adds a 6th sub and a 4th window** (subs just before extra time and at its half-time don't use a window). Once the subs or windows are used up, an injured player can't be replaced and his team plays on with 10. No concussion substitutes. **Moving players between positions is free** at any pause (T, 2026-10-21), including into a sent-off player's empty slot, leaving another slot empty instead; a sent-off player can't be replaced. A substitute is judged (rated) against the slot he ends up in.
 
 ### 7.2 Youth academy (replaces the draft)
 - Every club gets **3–6 youths aged 15–16 each preseason**; count and quality scale with the Youth academy dial and reputation.
