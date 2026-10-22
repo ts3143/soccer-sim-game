@@ -763,9 +763,13 @@ check(
   "Manage Leagues lists the save",
   /Shell test/.test(await page.locator('[data-testid="league-list"]').innerText()),
 );
+const { version } = JSON.parse(
+  readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+);
 check(
   "Manage Leagues shows the version",
-  /Soccer Sim v0\.1\.0/.test(await page.locator("main").innerText()),
+  (await page.locator("main").innerText()).includes(`Soccer Sim v${version}`),
+  version,
 );
 await page.locator('[data-testid="how-to-play-link"]').click();
 await page.locator('[data-testid="how-to-play"]').waitFor({ timeout: 30_000 });

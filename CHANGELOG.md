@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-10-21)
 
 ### Added
 - **A full tactics board when you pause a live match** (and at half-time): the pitch and tables from before kick-off, with each player's energy and his rating so far. Drag a substitute onto a player to bring him on, or move players between positions; the team ratings show what your changes would do before you make them.

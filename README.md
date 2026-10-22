@@ -2,7 +2,7 @@
 
 A free, browser-based soccer management sim in the spirit of the ZenGM games. Build a club across endless seasons: develop academy prospects through minutes, rotate a fatigued squad, trade in two transfer windows, and fight promotion and relegation.
 
-Status: v0.1, the first release (milestone M7: polish and release). See `docs/SPEC.md` for the design, `docs/MILESTONES.md` for the build plan and `docs/PROGRESS.md` for progress.
+Status: v0.2 (new match ratings, fit highlights in line-ups, a tactics board in live matches), after v0.1, the first release. See `docs/SPEC.md` for the design, `docs/MILESTONES.md` for the build plan and `docs/PROGRESS.md` for progress.
 
 Runs entirely in your browser. Saves stay on your device.
 
