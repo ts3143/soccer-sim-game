@@ -63,6 +63,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-21 | M7 chunk 6 | World peak-age gate: 27–29-year-olds must be rated at least as high as 21–23 and 24–26 in the last season, less 1 OVR (design doc #64). | With the world unchanged, the gap swings about ±1 OVR across seeds (−0.9 to +0.3 over six runs, before and after the red-card change), so the exact gate passed or failed by chance. Approved by T. | `calibration_targets.json` → `peakAge`; `tools/calibrate/world-report.ts` |
 | 2026-10-21 | After v0.1, chunk 1 | Match ratings centred on 6.9 (was 6.6) with a wider spread and a soft top above 8.4; tackles, interceptions and key passes weigh more; keepers rated mainly on goals prevented (post-shot xG faced − goals conceded), with a soft bottom below 5. Development and market value read ratings against the new centre, rescaled to the same effect. Saves upgrade to league DB v3, which converts stored ratings once (design doc #65). | T found standout games rated too low, terrible ones too high and the 6.6 average low, and asked for keepers judged on saves against xG. | SPEC §8.7, §5.3; `calibration_targets.json` → `avgMatchRating` 6.9 (6.8–7.0) |
 | 2026-10-21 | After v0.1, chunk 1 follow-up | Keepers' ratings centre on 6.8 (outfielders 6.9); development, market value and the old-save conversion use each position's centre (design doc #65). | At 6.9 a keeper's clean sheet (7.6) and a blameless four conceded (6.3) both sat above T's targets; one lower centre fixes both. Approved by T. | SPEC §8.7, §5.3 |
+| 2026-10-21 | After v0.1, chunk 2 | Dragging or picking a player in a line-up highlights where he fits: natural (within 3 OVR of his best) darker, cover (4–8 below) lighter, the rest plain; keepers and outfielders never mix. The line-up view gains each player's OVR in every slot and his best OVR, and each slot's position (design doc #66). | T asked for it: taking a CM out, he wants to see the CMs who could come in. | SPEC §11 |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -1608,6 +1609,14 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Known edges, for later:**
   - the rating average sits near its floor with CI's seed: 6.83 (floor 6.8). Short cameos average below 6.9 (they're pulled only partly toward it), which keeps "everyone who played" under the full-game average. Wonderkids went 0.62 → 0.54 → 0.68 a league-season across the two commits (floor 0.5): noise;
   - the top bar shows a Play's end date a moment before the save is written ("Playing…" still shows); leaving the page then loses that Play, as designed. Found while testing, unchanged.
+
+### Chunk 2: fit highlights in line-ups (2026-10-21)
+- **Built:**
+  - the line-up view (`TacticsView`) sends each player's OVR in every slot of the formation shown (wrong foot counted) and his best OVR, and each slot's position;
+  - `src/ui/components/lineupFit.ts`: `slotFit` uses the profile map's bands (`positionFit`), so "natural" here means the same as "comfortable" on the profile; `moveFit` judges a move: into a slot, the mover must suit it; out of a slot, the incoming player must; a swap inside the XI takes the weaker of the two fits; bench and reserve moves are never highlighted;
+  - the Line-up editor (Tactics and the pre-match screen) highlights rows and pitch slots while a player is dragged or picked (`data-fit` on each), with a line under the pitch explaining the colours.
+- **A rule added while testing:** keepers and outfielders never mix. Weak players' OVRs bunch together (an academy keeper at 40 is within 8 of his outfield OVRs), so by the bands alone 105 keepers would "cover" outfield slots and 27 outfielders the keeper's. The `formation` check caught it.
+- **Checks:** lint; 298 unit tests (new: `lineupFit.test.ts`); browser checks `formation` (seven new checks: picking the keeper lights only keepers, an outfielder never a keeper, two strengths only, a dragged spare keeper lights only the keeper's slot, highlights clear), `m6`, `tables`.
 
 ## Open issues
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).

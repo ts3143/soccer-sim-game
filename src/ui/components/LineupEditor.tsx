@@ -10,12 +10,8 @@ import { formationsConfig } from "../../common/config/formations";
 import { PlayerRatings, RatingChange, NationalityFlag } from "./PlayerDetails";
 import { PlayerLink } from "./links";
 import { errorText } from "../errors";
+import { moveFit, samePlace, type Fit, type Place } from "./lineupFit";
 
-type Place = { area: "slot" | "bench"; index: number } | { area: "reserve"; pid: number };
-
-const samePlace = (a: Place, b: Place) =>
-  a.area === b.area &&
-  (a.area === "reserve" ? a.pid === (b as typeof a).pid : a.index === (b as typeof a).index);
 const MVP_FORMATIONS = formationsConfig.formations.filter((f) => f.mvp).map((f) => f.id);
 
 /** Swaps the players at two places; a reserve dropped in takes the place, the other drops out. */
@@ -80,6 +76,8 @@ export function LineupEditor({
   const [setup, setSetup] = useState(initial.setup);
   const [baseline, setBaseline] = useState(initial);
   const [picked, setPicked] = useState<Place | null>(null);
+  // The player being dragged: like a picked one, the places where he fits light up.
+  const [dragging, setDragging] = useState<Place | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const request = useRef(0);
@@ -135,10 +133,15 @@ export function LineupEditor({
           onDragStart: (e: DragEvent) => {
             e.dataTransfer.setData("text/plain", JSON.stringify(place));
             e.dataTransfer.effectAllowed = "move";
+            // After the browser has taken its drag image, so the image isn't highlighted.
+            setTimeout(() => setDragging(place), 0);
           },
+          // Also deferred, so it always lands after the deferred start.
+          onDragEnd: () => setTimeout(() => setDragging(null), 0),
           onDragOver: (e: DragEvent) => e.preventDefault(),
           onDrop: (e: DragEvent) => {
             e.preventDefault();
+            setDragging(null);
             moveTo(place, JSON.parse(e.dataTransfer.getData("text/plain")) as Place);
           },
           onClick: () => (picked ? moveTo(place) : filled && setPicked(place)),
@@ -150,8 +153,14 @@ export function LineupEditor({
           },
         }
       : {};
-  const rowClass = (place: Place) =>
-    picked && samePlace(picked, place) ? "table-primary" : edit ? "tactics-row" : "";
+  /** Where the dragged or picked player fits (T, 2026-10-21): natural, cover, or plain. */
+  const active = dragging ?? picked;
+  const fitAt = (place: Place): Fit => (edit && active ? moveFit(view, active, place) : null);
+  const rowClass = (place: Place) => {
+    if (picked && samePlace(picked, place)) return "table-primary";
+    const fit = fitAt(place);
+    return [edit ? "tactics-row" : "", fit ? `fit-${fit}` : ""].join(" ").trim();
+  };
 
   const playerCells = (p: TacticsPlayerView, slot: boolean): ReactNode => (
     <>
@@ -312,6 +321,7 @@ export function LineupEditor({
             view={view}
             selectedSlot={picked?.area === "slot" ? picked.index : undefined}
             slotProps={(index, filled) => handlers({ area: "slot", index }, filled)}
+            fitAt={(index) => fitAt({ area: "slot", index })}
           />
           <h2 className="h6">Starting XI</h2>
           <div className="table-responsive">
@@ -324,7 +334,12 @@ export function LineupEditor({
                 {view.slots.map((s, i) => {
                   const place: Place = { area: "slot", index: i };
                   return (
-                    <tr key={i} className={rowClass(place)} {...handlers(place, s.player !== null)}>
+                    <tr
+                      key={i}
+                      className={rowClass(place)}
+                      data-fit={fitAt(place) ?? undefined}
+                      {...handlers(place, s.player !== null)}
+                    >
                       <td className="fw-semibold">{s.label}</td>
                       {s.player ? playerCells(s.player, true) : emptyCells(13)}
                     </tr>
@@ -345,7 +360,12 @@ export function LineupEditor({
                   const p = view.bench[i];
                   const place: Place = { area: "bench", index: i };
                   return (
-                    <tr key={i} className={rowClass(place)} {...handlers(place, p !== undefined)}>
+                    <tr
+                      key={i}
+                      className={rowClass(place)}
+                      data-fit={fitAt(place) ?? undefined}
+                      {...handlers(place, p !== undefined)}
+                    >
                       <td className="text-body-secondary">{i + 1}</td>
                       {p ? playerCells(p, false) : emptyCells(12)}
                     </tr>
@@ -364,6 +384,7 @@ export function LineupEditor({
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
+                setDragging(null);
                 takeOut(JSON.parse(e.dataTransfer.getData("text/plain")) as Place);
               }}
               onClick={() => takeOut()}
@@ -387,7 +408,12 @@ export function LineupEditor({
                 {view.reserves.map((p) => {
                   const place: Place = { area: "reserve", pid: p.pid };
                   return (
-                    <tr key={p.pid} className={rowClass(place)} {...handlers(place, true)}>
+                    <tr
+                      key={p.pid}
+                      className={rowClass(place)}
+                      data-fit={fitAt(place) ?? undefined}
+                      {...handlers(place, true)}
+                    >
                       <td />
                       {playerCells(p, false)}
                     </tr>

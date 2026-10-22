@@ -407,6 +407,10 @@ export interface TacticsPlayerView {
   ovr: number;
   /** OVR in the slot he fills (wrong foot counted); on the bench and in reserve, his OVR. */
   slotOvr: number;
+  /** His OVR in each slot of the formation shown (wrong foot counted): where he'd fit. */
+  slotOvrs: number[];
+  /** His OVR at his best position. */
+  bestOvr: number;
   condition: number;
   injury: { type: string; until: string } | null;
   academy: boolean;
@@ -422,7 +426,7 @@ export interface TacticsView {
   saved: boolean;
   /** The setup shown, cleaned of players who can't play for the club any more. */
   setup: TacticsSetup;
-  slots: { label: string; player: TacticsPlayerView | null }[];
+  slots: { label: string; position: Position; player: TacticsPlayerView | null }[];
   bench: TacticsPlayerView[];
   /** Everyone else who can be picked (seniors, loanees in, academy players 16+). */
   reserves: TacticsPlayerView[];

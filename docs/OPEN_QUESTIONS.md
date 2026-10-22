@@ -120,7 +120,7 @@ Still open:
 | --- | --- | --- |
 | 1 | Match ratings felt low for standout games, an average of 6.6 felt low, and terrible games felt too high | Average 6.9 (6.8–7.0), a wider spread with a soft top; tackles, key passes and interceptions count more. Keepers are rated on saves against post-shot xG (goals prevented), swing less, aren't treated too harshly, and big-save games are rewarded: a clean sheet usually 7.3–7.5, four or more conceded with a decent game about 6, several mistakes 4.5–5. Best season averages 7.8–7.9; above 8 only for generational players. Built (SPEC §8.7, design doc #65); see PROGRESS for where it landed. Then keepers average about 6.8 (T, 2026-10-21) so a clean sheet and a blameless 4+ both land on target |
 | 2 | The pause screen in a live match (dropdowns) | The full tactics board, as before kick-off: pitch, XI and bench tables, sliders, team ratings. Moving players between positions is free, including into a sent-off player's empty slot; substitutions cost as now. A "rating so far" column. To build |
-| 3 | Dragging or picking a player in a line-up | Highlight the places where he fits: strongly where it's natural (within 3 OVR of his best), lightly where he can cover (4–8 below); everything else stays plain. No OVR overlay. To build |
+| 3 | Dragging or picking a player in a line-up | Highlight the places where he fits: strongly where it's natural (within 3 OVR of his best), lightly where he can cover (4–8 below); everything else stays plain. No OVR overlay. Built (SPEC §11, design doc #66); keepers and outfielders never mix, since a weak player's OVRs bunch together |
 
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.

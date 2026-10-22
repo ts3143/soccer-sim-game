@@ -1,6 +1,7 @@
 import type { HTMLAttributes } from "react";
 import type { TacticsView } from "../../common/api";
 import { formationById } from "../../common/config/formations";
+import type { Fit } from "./lineupFit";
 import { Pitch } from "./Pitch";
 import { formationCoordinates } from "./pitchLayout";
 
@@ -8,10 +9,13 @@ export function FormationPitch({
   view,
   selectedSlot,
   slotProps,
+  fitAt,
 }: {
   view: TacticsView;
   selectedSlot?: number;
   slotProps?: (index: number, filled: boolean) => HTMLAttributes<HTMLDivElement>;
+  /** How well the player being moved suits each slot (highlighted). */
+  fitAt?: (index: number) => Fit;
 }) {
   const coordinates = formationCoordinates(formationById(view.setup.formation));
   return (
@@ -27,6 +31,7 @@ export function FormationPitch({
         {view.slots.map((s, i) => {
           const p = s.player;
           const c = coordinates[i]!;
+          const fit = fitAt?.(i) ?? null;
           const nameParts = p?.name.trim().split(/\s+/) ?? [];
           const displayName =
             nameParts.length > 1 ? `${nameParts[0]![0]}. ${nameParts.slice(1).join(" ")}` : p?.name;
@@ -34,9 +39,10 @@ export function FormationPitch({
             <div
               key={i}
               {...slotProps?.(i, p !== null)}
-              className={`pitch-player ${selectedSlot === i ? "pitch-player-selected" : ""} ${!p ? "pitch-player-empty" : ""} ${p?.injury || p?.suspension ? "pitch-player-unavailable" : ""}`}
+              className={`pitch-player ${selectedSlot === i ? "pitch-player-selected" : ""} ${!p ? "pitch-player-empty" : ""} ${p?.injury || p?.suspension ? "pitch-player-unavailable" : ""} ${fit ? `pitch-player-fit-${fit}` : ""}`}
               style={{ left: `${c.x}%`, top: `${c.y}%` }}
               data-slot={i}
+              data-fit={fit ?? undefined}
               data-pid={p?.pid}
               aria-label={`${s.label}: ${p ? `${p.name}, slot OVR ${p.slotOvr}, condition ${p.condition}%${p.injury ? ", injured" : ""}${p.suspension ? ", suspended" : ""}` : "Empty slot"}`}
               title={
@@ -63,7 +69,7 @@ export function FormationPitch({
       </Pitch>
       <p className="small text-body-secondary mt-2 mb-0">
         {view.editable
-          ? "Drag between pitch slots and table rows, or select a player or slot and then another to swap. Ratings include fit for the slot."
+          ? "Drag between pitch slots and table rows, or select a player or slot and then another to swap. Ratings include fit for the slot. While you move a player, green marks where he fits: darker for a natural position, lighter where he can cover."
           : "Starting XI and ratings in each slot. See the table below for player details."}
       </p>
     </section>
