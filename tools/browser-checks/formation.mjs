@@ -8,8 +8,8 @@ const errors = [];
 const watch = (p) => p.on("pageerror", (e) => errors.push(e.message));
 watch(page);
 let failures = 0;
-const check = (name, ok) => {
-  console.log(`${ok ? "PASS" : "FAIL"}  ${name}`);
+const check = (name, ok, detail) => {
+  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? `  (${detail})` : ""}`);
   if (!ok) failures++;
 };
 try {
@@ -122,6 +122,63 @@ try {
         await pitch.locator("[data-slot]").evaluateAll((ns) => ns.map((n) => n.dataset.pid)),
       ),
   );
+  // Fit highlights (T, 2026-10-21): picking or dragging a player marks the places he fits.
+  const fitRows = page.locator(
+    '[data-testid="tactics-bench"] tbody tr[data-fit], [data-testid="tactics-reserves"] tbody tr[data-fit]',
+  );
+  const fitPositions = () => fitRows.locator("td:nth-child(3)").allTextContents();
+  const anyFit = () => page.locator("[data-fit]").count();
+  await pitch.locator('[data-slot="0"]').click(); // the keeper, in every formation
+  await fitRows.first().waitFor({ timeout: 10_000 });
+  const keeperFits = await fitPositions();
+  check(
+    "picking the keeper highlights only keepers on the bench and in reserve",
+    keeperFits.length > 0 && keeperFits.every((p) => p.trim() === "GK"),
+    keeperFits.join(", "),
+  );
+  check(
+    "no outfield slot lights up for a keeper",
+    (await pitch.locator("[data-slot][data-fit]").count()) === 0,
+  );
+  await pitch.locator('[data-slot="0"]').click(); // picking him again puts him down
+  await page.waitForFunction(() => document.querySelectorAll("[data-fit]").length === 0);
+  check("putting the player down clears the highlights", (await anyFit()) === 0);
+  await pitch.locator('[data-slot="5"]').click(); // an outfielder
+  await fitRows.first().waitFor({ timeout: 10_000 });
+  const outfieldFits = await fitPositions();
+  check(
+    "picking an outfielder highlights outfielders who suit his slot, never a keeper",
+    outfieldFits.length > 0 && !outfieldFits.some((p) => p.trim() === "GK"),
+    outfieldFits.join(", "),
+  );
+  check(
+    "highlights come in two strengths only: natural and cover",
+    await page
+      .locator("[data-fit]")
+      .evaluateAll((ns) => ns.every((n) => ["natural", "cover"].includes(n.dataset.fit))),
+  );
+  await pitch.locator('[data-slot="5"]').click();
+  await page.waitForFunction(() => document.querySelectorAll("[data-fit]").length === 0);
+  const spareKeeper = page
+    .locator('[data-testid="tactics-bench"] tbody tr, [data-testid="tactics-reserves"] tbody tr')
+    .filter({ has: page.locator("td:nth-child(3)", { hasText: /^GK$/ }) })
+    .first();
+  const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+  await spareKeeper.dispatchEvent("dragstart", { dataTransfer });
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[data-testid="formation-pitch"] [data-slot="0"]')
+        ?.getAttribute("data-fit") === "natural",
+  );
+  check(
+    "dragging a spare keeper lights up the keeper's slot on the pitch, and only it",
+    (await pitch.locator("[data-slot][data-fit]").count()) === 1,
+  );
+  await spareKeeper.dispatchEvent("dragend", { dataTransfer });
+  await page.waitForFunction(() => document.querySelectorAll("[data-fit]").length === 0);
+  check("ending the drag clears the highlights", (await anyFit()) === 0);
+
   const picker = page.getByTestId("team-picker");
   const other = await picker.locator("option").last().getAttribute("value");
   await picker.selectOption(other);

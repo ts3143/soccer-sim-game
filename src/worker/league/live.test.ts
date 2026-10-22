@@ -11,8 +11,10 @@ import {
   changeLive,
   forgetRunningMatch,
   getLive,
+  getLiveBoard,
   getLiveLineup,
   pauseFor,
+  previewLiveChanges,
   setLiveLineup,
   stepLive,
   watchNextMatch,
@@ -271,6 +273,14 @@ describe("watching a match live", () => {
       await changeLive(session, { formation, sliders: { mentality: 2 } }, 0);
       expect(mine().formation).toBe(formation);
       expect(mine().sliders.mentality).toBe(2);
+
+      // Moving players between slots is free, even during play.
+      const arranged = mine().onPitch.map((p) => p?.pid ?? null);
+      [arranged[5], arranged[6]] = [arranged[6] ?? null, arranged[5] ?? null];
+      const used = [mine().subsUsed, mine().windowsUsed];
+      await changeLive(session, { slots: arranged }, 0);
+      expect(mine().onPitch.map((p) => p?.pid ?? null)).toEqual(arranged);
+      expect([mine().subsUsed, mine().windowsUsed]).toEqual(used);
       await expect(changeLive(session, { sliders: { pressing: 5 } }, 0)).rejects.toThrow(
         /whole steps/,
       );
@@ -280,6 +290,65 @@ describe("watching a match live", () => {
       expect(end.finished).toBe(true);
       expect(end.pause).toBeNull();
       expect(end.report).not.toBeNull();
+    },
+  );
+
+  it(
+    "shows the tactics board at a pause; previews and refused changes leave the match untouched",
+    { timeout: 180_000 },
+    async () => {
+      const toHalfTime = async (session: LeagueSession) => {
+        await watchNextMatch(session);
+        let view = await stepLive(session, 1000, 0, true);
+        while (view.pause?.reason !== "halfTime" && !view.finished) {
+          view = await stepLive(session, 1000, 0, true);
+        }
+        return view;
+      };
+      const plain = await league("Board reference");
+      await toHalfTime(plain.session);
+      const reference = await stepLive(plain.session, Infinity, 0, false);
+
+      const { session } = await league("Board");
+      const view = await toHalfTime(session);
+      expect(view.pause?.reason).toBe("halfTime");
+      const team = view.teams[view.userSide];
+      const board = getLiveBoard(session);
+      expect(board.setup.slots).toEqual(team.onPitch.map((p) => p?.pid ?? null));
+      expect(board.bench.map((p) => p.pid)).toEqual(team.bench.map((b) => b.pid));
+      expect(board.reserves).toEqual([]);
+      expect([board.free, board.subsLeft]).toEqual([true, team.subLimit - team.subsUsed]);
+      expect(board.ratings).toHaveLength(7);
+      for (const pid of board.setup.slots) {
+        expect(board.match[pid ?? -1]?.minutes).toBe(45);
+        expect(board.match[pid ?? -1]?.rating).not.toBeNull();
+      }
+      for (const b of board.bench) expect(board.match[b.pid]?.rating).toBeNull();
+
+      // A sub for slot 9, two players swapped: previewed, not made.
+      const sub = board.setup.bench[0] ?? -1;
+      const out = board.setup.slots[9] ?? -1;
+      const slots = board.setup.slots.map((pid, i, all) =>
+        i === 5 ? all[6] : i === 6 ? all[5] : i === 9 ? sub : pid,
+      ) as (number | null)[];
+      const preview = previewLiveChanges(session, { subs: [{ outPid: out, inPid: sub }], slots });
+      expect(preview.setup.slots).toEqual(slots);
+      expect(preview.bench.map((p) => p.pid)).not.toContain(sub);
+      expect(preview.subsLeft).toBe(board.subsLeft - 1);
+      expect(getLiveBoard(session)).toEqual(board);
+
+      // A change that breaks a rule is refused whole: here the man taken off stays in a slot.
+      const wrong = board.setup.slots.map((pid, i) => (i === 3 ? sub : pid));
+      await expect(
+        changeLive(session, { subs: [{ outPid: out, inPid: sub }], slots: wrong }, 0),
+      ).rejects.toThrow(/on the pitch/);
+      expect(getLiveBoard(session)).toEqual(board);
+
+      // Neither touched the match or its random stream.
+      const end = await stepLive(session, Infinity, 0, false);
+      expect(JSON.stringify(session.cache.get("matches", end.fid)?.result)).toBe(
+        JSON.stringify(plain.session.cache.get("matches", reference.fid)?.result),
+      );
     },
   );
 

@@ -30,6 +30,8 @@ import { bestXi } from "../core/lineup";
 import { bestPosition, positionOvrs, secondaryPositions } from "../core/ovr";
 import { CEILING_DECAY, estimatePotential, type PotentialClubContext } from "../core/potential";
 import { Random } from "../core/random";
+import { COEFFICIENTS } from "../engine/coefficients";
+import { ratingCentre } from "../engine/ratings";
 import { roundWage, WAGE_STEEPNESS, wageAgeFactor } from "../generate/contracts";
 import { generateAcademyPlayer } from "../generate/youth";
 import { FREE_AGENT_CONTEXT } from "../generate/world";
@@ -42,10 +44,11 @@ import { GameError } from "../../common/errors";
 
 /** Coefficients (provisional, tuned with the calibration harness). */
 export const TURNOVER = {
-  /** Average match rating with no performance adjustment (ratings are centred on it). */
-  ratingNeutral: 6.6,
-  /** performanceAdj per rating point above neutral (capped at ±0.15 by the core). */
-  performancePerPoint: 0.15,
+  /**
+   * performanceAdj per rating point above his position's rating centre (capped at ±0.15 by the
+   * core). 0.12 since ratings were widened (T, 2026-10-21): the same boost as 0.15 was.
+   */
+  performancePerPoint: 0.12,
   /** POT is recomputed from career arcs below this age; from it, POT = OVR (as in ZenGM). */
   potArcsBelowAge: 29,
   /** Retirement chance by age (outfield); goalkeepers use age − gkShift. */
@@ -254,7 +257,8 @@ export function developmentUpdate(
     const share = available > 0 ? tally.minutes / available : 0;
     const performance =
       tally.appearances > 0
-        ? (tally.ratingTotal / tally.appearances - t.ratingNeutral) * t.performancePerPoint
+        ? (tally.ratingTotal / tally.appearances - ratingCentre(p.position, COEFFICIENTS)) *
+          t.performancePerPoint
         : 0;
     const rng = Random.fromSeed(`${world.seed}/dev/${date}/${p.pid}`);
     const next = developHalfSeason(

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0 (2026-10-21)
+
+### Added
+- **A full tactics board when you pause a live match** (and at half-time): the pitch and tables from before kick-off, with each player's energy and his rating so far. Drag a substitute onto a player to bring him on, or move players between positions; the team ratings show what your changes would do before you make them.
+- **Moving players between positions is free** during a match, including into a sent-off player's empty slot.
+- **See where a player fits** while you drag or pick him on Tactics or before a match: green marks the places that suit him, darker for his natural positions and lighter where he can cover.
+
+### Changed
+- **Match ratings** average about 6.9 (was 6.6) and spread wider: standout games rate higher and the worst lower, while a 10 stays rare. Tackles, interceptions and key passes count for more, so a midfielder can reach 8 without scoring.
+- **Keepers are rated on goals prevented:** the saves they make against the quality of the shots they face. They average about 6.8: a clean sheet is usually around 7.5; conceding four after a decent game is about 6; mistakes cost more, but a keeper rarely drops below 4.5.
+- Saves from 0.1.0 have their ratings converted when first opened.
+
 ## 0.1.0 (2026-10-21)
 
 The first release. Play it at https://soccer-sim-game.pages.dev; the in-game **How to play** page explains the basics.

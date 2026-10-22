@@ -21,6 +21,7 @@ import {
 } from "../club/tactics";
 import { isSuspended } from "../season/discipline";
 import { slotOvr } from "../core/ovr";
+import type { TeamRatings } from "../engine/teamRatings";
 import { queued } from "../league/game";
 import type { LeagueSession } from "../league/session";
 import { openLeague } from "../league/session";
@@ -37,6 +38,15 @@ const RATING_LABELS: Record<string, string> = {
   setPieces: "Set pieces",
   goalkeeping: "Goalkeeping",
 };
+/** The seven team ratings as the pages list them, to one decimal. */
+export function ratingRows(ratings: TeamRatings): TacticsView["ratings"] {
+  return Object.entries(RATING_LABELS).map(([key, label]) => ({
+    key,
+    label,
+    value: Math.round(ratings[key as keyof TeamRatings] * 10) / 10,
+  }));
+}
+
 /** Below this condition a starter's injury risk rises sharply (SPEC §8.4). */
 const RISKY_CONDITION = 75;
 
@@ -90,6 +100,8 @@ export function tacticsView(
       age: Math.floor(exactAge(p.birthDate, date)),
       ovr: p.ovr,
       slotOvr: slot ? Math.round(slotOvr(p, slot)) : p.ovr,
+      slotOvrs: formation.slots.map((s) => Math.round(slotOvr(p, s))),
+      bestOvr: Math.round(Math.max(...p.ovrs)),
       condition: Math.round(currentCondition(p, date, medical)),
       injury:
         p.injury && isInjured(p, date) ? { type: p.injury.type, until: p.injury.until } : null,
@@ -99,7 +111,7 @@ export function tacticsView(
   };
   const slots = formation.slots.map((slot, i) => {
     const p = byPid.get(setup.slots[i] ?? -1);
-    return { label: slotLabel(slot), player: p ? player(p, i) : null };
+    return { label: slotLabel(slot), position: slot.position, player: p ? player(p, i) : null };
   });
   const bench = setup.bench.flatMap((pid) => {
     const p = byPid.get(pid);
@@ -140,11 +152,7 @@ export function tacticsView(
     slots,
     bench,
     reserves,
-    ratings: Object.entries(RATING_LABELS).map(([key, label]) => ({
-      key,
-      label,
-      value: Math.round(ratings[key as keyof typeof ratings] * 10) / 10,
-    })),
+    ratings: ratingRows(ratings),
     warnings,
     benchSize: formationsConfig.benchSize,
   };

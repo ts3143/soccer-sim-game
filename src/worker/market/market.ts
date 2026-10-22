@@ -19,6 +19,8 @@
  */
 import { daysBetween, exactAge } from "../../common/dates";
 import type { Club, ClubSeason, MoodTrait, Player } from "../../common/schema";
+import { COEFFICIENTS } from "../engine/coefficients";
+import { ratingCentre } from "../engine/ratings";
 import { roundWage } from "../generate/contracts";
 
 export const MARKET = {
@@ -32,7 +34,9 @@ export const MARKET = {
     declinePerYear: 0.85,
     /** By contract years left (index 0 = expired / free agent). */
     contract: [0.25, 0.6, 0.85, 1, 1, 1],
-    formPerRatingPoint: 0.15,
+    /** Form: × (1 + perPoint × average rating vs his position's centre, within ±range). */
+    formPerRatingPoint: 0.12,
+    formRange: 1.25,
     /** League factor = exp(perLevel × (league level − 70)), level = average best-XI OVR. */
     leaguePerLevel: 0.06,
     min: 25_000,
@@ -107,7 +111,11 @@ export function marketValue(p: Player, date: string, leagueLevel = 66, avgRating
   let value = v.at75 * Math.exp(v.perOvr * (rated - 75));
   if (age > v.declineFrom) value *= v.declinePerYear ** (age - v.declineFrom);
   value *= v.contract[Math.min(v.contract.length - 1, yearsLeft(p, date))] ?? 1;
-  if (avgRating !== undefined) value *= 1 + v.formPerRatingPoint * clamp(avgRating - 6.6, -1, 1);
+  if (avgRating !== undefined) {
+    const centre = ratingCentre(p.position, COEFFICIENTS);
+    const form = clamp(avgRating - centre, -v.formRange, v.formRange);
+    value *= 1 + v.formPerRatingPoint * form;
+  }
   value *= Math.exp(v.leaguePerLevel * (leagueLevel - 70));
   return Math.max(v.min, Math.round(value / 10_000) * 10_000);
 }

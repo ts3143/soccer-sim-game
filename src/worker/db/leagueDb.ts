@@ -1,10 +1,15 @@
 import { deleteDB, openDB, type IDBPDatabase } from "idb";
 import type { World } from "../generate/world";
 import { LEAGUE_DB_VERSION, leagueDbName, type LeagueDBSchema } from "./schema";
+import { upgradeToV3 } from "./upgrades";
 
-export function openLeagueDb(lid: number): Promise<IDBPDatabase<LeagueDBSchema>> {
-  return openDB<LeagueDBSchema>(leagueDbName(lid), LEAGUE_DB_VERSION, {
-    upgrade(db, oldVersion) {
+/** Opens (and upgrades) a league save. `version` is for tests that build an older save. */
+export function openLeagueDb(
+  lid: number,
+  version = LEAGUE_DB_VERSION,
+): Promise<IDBPDatabase<LeagueDBSchema>> {
+  return openDB<LeagueDBSchema>(leagueDbName(lid), version, {
+    upgrade(db, oldVersion, newVersion, transaction) {
       if (oldVersion < 1) db.createObjectStore("meta");
       if (oldVersion < 2) {
         db.createObjectStore("competitions", { keyPath: "id" });
@@ -31,6 +36,10 @@ export function openLeagueDb(lid: number): Promise<IDBPDatabase<LeagueDBSchema>>
         transactions.createIndex("pids", "pids", { multiEntry: true });
         db.createObjectStore("inbox", { keyPath: "mid" });
         db.createObjectStore("awards", { keyPath: "aid" }).createIndex("season", "season");
+      }
+      // An older save's rows need rescaling; a new save has none.
+      if (oldVersion === 2 && (newVersion ?? 0) >= 3) {
+        upgradeToV3(transaction).catch(() => transaction.abort());
       }
     },
     blocking(_currentVersion, _blockedVersion, event) {

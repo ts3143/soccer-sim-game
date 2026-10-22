@@ -75,6 +75,30 @@ describe("match engine: plausibility", () => {
     expect(result.players.filter((p) => p.startedInSlot !== null)).toHaveLength(22);
   });
 
+  it(
+    "credits keepers with the post-shot xG they face, and rates full games ~6.9",
+    { timeout: 60_000 },
+    () => {
+      const keepers: { prevented: number; faced: number; onTarget: number }[] = [];
+      const ratings: number[] = [];
+      for (let i = 0; i < 150; i++) {
+        const r = simulateMatch(input(i % 20, (i + 7) % 20, `gk${i}`));
+        for (const p of r.players) {
+          if (p.minutes < 80) continue;
+          ratings.push(p.rating);
+          if (p.position !== "GK") continue;
+          const prevented = p.psxgFaced - p.goalsConceded;
+          keepers.push({ prevented, faced: p.psxgFaced, onTarget: p.saves + p.goalsConceded });
+        }
+      }
+      for (const k of keepers) expect(k.faced > 0).toBe(k.onTarget > 0);
+      const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+      expect(Math.abs(mean(keepers.map((k) => k.prevented)))).toBeLessThan(0.25);
+      expect(mean(ratings)).toBeGreaterThan(6.8);
+      expect(mean(ratings)).toBeLessThan(7.05);
+    },
+  );
+
   it("lets stronger teams win more often", { timeout: 60_000 }, () => {
     let strongWins = 0;
     let weakWins = 0;

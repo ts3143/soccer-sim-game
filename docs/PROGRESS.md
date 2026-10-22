@@ -11,7 +11,8 @@ Claude Code updates this file at the end of each milestone.
 | M4 Economy and market | **Accepted** (T, 2026-10-19) | All gates pass locally, in CI (`calibrate --check`, `calibrate --world --check` with the M4 economy, world-shape and exploit gates; 222 tests) and on the Cloudflare preview (Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. Champion band 76–100 for the MVP (revisit with Europe). See "M4 notes" below. |
 | M5 Core UI | **Accepted** (T, 2026-10-19) | All checks pass locally, in CI and on the Cloudflare preview and production (game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M5 notes" below. |
 | M6 Management UI | **Accepted** (T, 2026-10-20) | All checks pass locally, in CI and on the Cloudflare preview and production (career 11/11, management screens 74/74, game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M6 notes" below. |
-| M7 Polish and release v0.1 | In progress | Chunks 1–6 built, with T's local-test feedback (chunk 6, part 2); every gate passes locally (354 browser checks). Firefox pending (T, not blocking). Next: the PR, merge, tag v0.1.0 and production checks. See "M7 notes" below. |
+| M7 Polish and release v0.1 | **Released as v0.1.0** (2026-10-21) | All checks pass locally, in CI and on the Cloudflare preview and production (354 headless Chrome checks locally; 291 against production; both calibration harnesses with the 1-OVR peak-age allowance). PR #8, merge `02ac0de`, tag and GitHub release v0.1.0. Firefox untested (T, by hand). See "M7 notes" below. |
+| After v0.1: T's improvements | **Released as v0.2.0** (2026-10-21) | Match ratings (chunk 1, keepers at 6.8), fit highlights in line-ups (chunk 2), the full tactics board in live matches (chunks 3–4). T tested locally; PR #9 with CI and the Cloudflare preview green; tag v0.2.0 (no GitHub release notes, T). See "After v0.1 notes" below. |
 
 ## Deviations from spec
 Record every approved change to SPEC.md here, with date and reason. "Review #N" = item N of the kickoff review (answers in `OPEN_QUESTIONS.md` §A2).
@@ -60,6 +61,11 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-21 | M7 chunk 6 | Twelve cosmetic skill tags beside player names, worked out from the displayed ratings; no gameplay effect (design doc #62). | Was "Ideas, undecided"; T approved the list and the cutoffs. | SPEC §11, §15 |
 | 2026-10-21 | M7 chunk 6 | The profile's OVR/POT chart becomes a ratings-history table (every update, all 22 ratings). Also: compact status tags (I, E, TL, S, L, A), nationality flags, ratings cards on Squad and Tactics, whole result rows coloured, more Transfer Market filters, and player links in messages, with a new optional saved field `inbox.players` (design doc #63). | T's local-test feedback, ZenGM style. | SPEC §11, §12 |
 | 2026-10-21 | M7 chunk 6 | World peak-age gate: 27–29-year-olds must be rated at least as high as 21–23 and 24–26 in the last season, less 1 OVR (design doc #64). | With the world unchanged, the gap swings about ±1 OVR across seeds (−0.9 to +0.3 over six runs, before and after the red-card change), so the exact gate passed or failed by chance. Approved by T. | `calibration_targets.json` → `peakAge`; `tools/calibrate/world-report.ts` |
+| 2026-10-21 | After v0.1, chunk 1 | Match ratings centred on 6.9 (was 6.6) with a wider spread and a soft top above 8.4; tackles, interceptions and key passes weigh more; keepers rated mainly on goals prevented (post-shot xG faced − goals conceded), with a soft bottom below 5. Development and market value read ratings against the new centre, rescaled to the same effect. Saves upgrade to league DB v3, which converts stored ratings once (design doc #65). | T found standout games rated too low, terrible ones too high and the 6.6 average low, and asked for keepers judged on saves against xG. | SPEC §8.7, §5.3; `calibration_targets.json` → `avgMatchRating` 6.9 (6.8–7.0) |
+| 2026-10-21 | After v0.1, chunk 1 follow-up | Keepers' ratings centre on 6.8 (outfielders 6.9); development, market value and the old-save conversion use each position's centre (design doc #65). | At 6.9 a keeper's clean sheet (7.6) and a blameless four conceded (6.3) both sat above T's targets; one lower centre fixes both. Approved by T. | SPEC §8.7, §5.3 |
+| 2026-10-21 | After v0.1, chunk 2 | Dragging or picking a player in a line-up highlights where he fits: natural (within 3 OVR of his best) darker, cover (4–8 below) lighter, the rest plain; keepers and outfielders never mix. The line-up view gains each player's OVR in every slot and his best OVR, and each slot's position (design doc #66). | T asked for it: taking a CM out, he wants to see the CMs who could come in. | SPEC §11 |
+| 2026-10-21 | After v0.1, chunk 3 | At a pause in a live match, players can be moved between slots for free, including into a sent-off player's empty slot (a sent-off player still can't be replaced). Live changes are all or nothing. New worker calls give the pause screen a tactics board (slots, the substitutes left, team ratings now, each player's energy, goals, assists and rating so far) and a preview of changes (design doc #67). | T lost a centre-back to a red card and couldn't fill the slot; he asked for the full board, free position moves and a rating-so-far column. | SPEC §7.1 |
+| 2026-10-21 | After v0.1, chunk 4 | The pause screen of a live match is the tactics board (pitch, XI and bench tables, formation, sliders, team ratings with a preview; energy and the match so far, rating so far included), replacing the dropdowns. Make changes / Reset / Resume (design doc #67). | T's request: the dropdowns didn't show enough to decide. | SPEC §11 |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -1275,7 +1281,7 @@ Each point of parity gained cost about one champion point, so the two real-world
   - the developer pages at `/dev` are removed in M7, as agreed;
   - Firefox untested.
 
-## M7 notes (2026-10-20, in progress)
+## M7 notes (2026-10-20 to 2026-10-21)
 **Plan** (approved by T): 6 chunks of about an hour.
 1. Remove the developer pages (`/dev`) and their checks; show the version in the app.
 2. Performance pass: one season at a 4× CPU slowdown, ten seasons (time and save size), retention and pruning checked; fixes.
@@ -1509,6 +1515,12 @@ Each point of parity gained cost about one champion point, so the two real-world
   - `pnpm calibrate --world --check`: peak age 64.0 against 64.9, inside the 1-OVR allowance by 0.1;
   - all 354 browser checks: m5 91, m6 81, sweep 43, career 11, edges 22, tabs 20, layout 18, perf 9, injury 19, tables 14, formation 21, messages 5;
   - perf: the worst season 4.9 s (19.5 s at ×4), 40.6 MB after ten seasons, slowest page 213 ms.
+- **Release** (2026-10-21):
+  - **PR #8:** CI passed ("Lint, test, build" 6 min 8 s; "Generation and calibration" 4 min 34 s), and so did the Cloudflare preview. `m5` passed 91/91 against the preview, which served the same bundle as the local build.
+  - **Merged** as `02ac0de`. Tagged **v0.1.0**, with a GitHub release carrying the changelog's 0.1.0 text.
+  - **Production** served the new bundle about 12 minutes after the merge.
+  - **Checks against production:** m5 91, m6 81, edges 22, tabs 20, layout 18, injury 19, tables 14, formation 21, messages 5. That's 291 checks, all passing.
+    - `m6`'s flag check first failed there: over the network the flag hadn't loaded when it was read. The check now waits for the image (up to 10 s); the flags themselves load fine.
 - **Open for T:**
   - **Academy incentive.** Academy players of 16+ may play without counting toward the 25 (SPEC §7.1), so promoting one mainly allows loans and sales. The options put to T: a pro contract to play, a limited number of free appearances, or the current rule. Nothing changed.
   - **More status tags:** "tired" and "open bid" were proposed and left for T.
@@ -1556,12 +1568,78 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Acceptance** (MILESTONES M7):
   - the performance budget is met (`perf`, also after the feedback round);
   - no known crashers (two bug bashes, twelve browser checks);
-  - deployed to Cloudflare Pages as v0.1: after the check-in with T.
+  - deployed to Cloudflare Pages as v0.1: done on 2026-10-21 (PR #8, tag v0.1.0, production checks pass).
 - **Not green at the end of the feedback round,** then settled at the check-in: the world calibration's peak-age gate, and `edges`' extra-time coverage (chunk 6, part 2).
 - **Known edges, for later:**
   - the "incomplete save" message wasn't triggered in a test;
   - phones aren't supported (desktop first, down to about 960 px);
   - no bans for a build-up of yellow cards.
+
+## After v0.1 notes (from 2026-10-21)
+**Plan** (approved by T): 4 chunks of about an hour, on `after-v0.1`, nothing pushed before T's local test.
+1. Match ratings: the 6.9 scale and keepers on goals prevented.
+2. Fit highlights when dragging or picking a player in a line-up.
+3. The full tactics board in a paused live match, game side: the board's data, a preview of changes, free position moves (including into a sent-off player's empty slot).
+4. The board on screen, with a "rating so far" column; the live browser checks updated.
+
+### Chunk 1: match ratings (2026-10-21)
+- **Built:**
+  - ratings centred on 6.9, about 20% wider, with a soft top: above 8.4 they climb at half speed;
+  - tackles and interceptions 0.13 each (was 0.07 before the stretch), key passes 0.22 (was 0.12);
+  - keepers: 0.5 per goal prevented (post-shot xG faced − goals conceded) and −0.1 per goal conceded; no clean-sheet or per-save bonus (saves count through goals prevented); a soft bottom below 5 at half speed;
+  - the engine records `psxgFaced` for keepers: each on-target shot adds xg / (xg + (1 − xg) × saved share), the chance an average keeper concedes it. The penalty saved share (0.65) moved into the coefficients;
+  - development (`performancePerPoint` 0.15 → 0.12) and market value (form 0.15 → 0.12 a point, within ±1.25) read ratings against the new centre. Half-season averages spread 1.24× wider, so the effect is the same (performanceAdj spread 0.0307 v 0.0310 before);
+  - league DB v3: opening an older save converts its box-score ratings, season totals and half-season tallies once (new = 6.9 + 1.12 × (old − 6.6), the best straight-line fit, r = 0.975), in the upgrade transaction; keepers' missing post-shot xG is filled in as neutral.
+- **Where it landed** (neutral sample, 4,500 matches; full games of 80+ minutes):
+
+  | | Before | Now | T's target |
+  | --- | --- | --- | --- |
+  | Average, full games / everyone who played | 6.62 / 6.55 | 6.94 / 6.83 | 6.8–7.0 |
+  | One goal / two / hat-trick | 7.6 / 8.7 / 9.8 | 8.1 / 8.9 / 9.6 | higher for standouts |
+  | Midfielder, no goal or assist, top 1% | 7.3 | 8.0 | about 8 |
+  | A 10 | every 87 matches | every 125 matches | rare |
+  | Keeper: clean sheet (median, 10th–90th) | 7.5 | 7.6 (7.3–8.0) | usually 7.3–7.5 |
+  | Keeper: 4+ conceded, not at fault | — | 6.3 | about 6 |
+  | Keeper: clear mistakes (≥ 1.5 / ≥ 2 goals worse than expected) | — | 5.4 / 5.1, never below 4.5 | 4.5–5 |
+  | Keeper v outfield spread (sd) | — | 0.72 v 0.84 | keepers steadier |
+  | Sent off | 5.2 | 5.1 | lower for terrible games |
+  | Best season averages | 7.4 | 7.6–7.8 by position | 7.8–7.9 |
+
+- **The keeper trade-off:** with keepers averaging 6.9 like everyone, a clean sheet sat about 0.7 above and conceding four about 1.2 below. Pulling clean sheets down to 7.4 would have pushed "four conceded, not at fault" up toward 6.6, so both sat a little high (7.6 and 6.3). **T chose a lower keeper centre, 6.8** (follow-up commit): keepers now average 6.79, a clean sheet 7.5 (10th–90th 7.2–7.9), big-save clean sheets 7.9, four conceded but blameless 6.2, clear mistakes 5.0–5.3. Development, market value and the old-save conversion use each position's centre, so keepers' growth is unchanged.
+- **Checks:** lint; 291 unit tests (new: `ratings.test.ts`, the v3 upgrade, keepers' post-shot xG and the 6.9 average in the engine); `pnpm build`; `pnpm generate --check`; `pnpm calibrate --check` (`avgMatchRating` 6.83 in 6.8–7.0); `pnpm calibrate --world --check`, all pass; browser checks `edges`, `m6`, `sweep`. A throwaway real-browser check made a save with the v0.1.0 build, opened it with the new one, and found all 3,024 ratings, 1,447 season totals and 1,128 tallies converted exactly, then played on.
+- **World calibration, before → after** (CI seed): young regulars +4.16 → +4.21 OVR a year; 33+ −5.44 → −5.45; wonderkids 0.62 → 0.54 a league-season; peak-age gap −0.9 → −0.4 (allowance 1). On a second seed wonderkids went 0.66 → 0.68, so the dip is noise. With the keeper centre at 6.8: +4.20, −5.45, wonderkids 0.68, peak-age gap −0.2; all gates pass.
+- **Known edges, for later:**
+  - the rating average sits near its floor with CI's seed: 6.83 (floor 6.8). Short cameos average below 6.9 (they're pulled only partly toward it), which keeps "everyone who played" under the full-game average. Wonderkids went 0.62 → 0.54 → 0.68 a league-season across the two commits (floor 0.5): noise;
+  - the top bar shows a Play's end date a moment before the save is written ("Playing…" still shows); leaving the page then loses that Play, as designed. Found while testing, unchanged.
+
+### Chunk 2: fit highlights in line-ups (2026-10-21)
+- **Built:**
+  - the line-up view (`TacticsView`) sends each player's OVR in every slot of the formation shown (wrong foot counted) and his best OVR, and each slot's position;
+  - `src/ui/components/lineupFit.ts`: `slotFit` uses the profile map's bands (`positionFit`), so "natural" here means the same as "comfortable" on the profile; `moveFit` judges a move: into a slot, the mover must suit it; out of a slot, the incoming player must; a swap inside the XI takes the weaker of the two fits; bench and reserve moves are never highlighted;
+  - the Line-up editor (Tactics and the pre-match screen) highlights rows and pitch slots while a player is dragged or picked (`data-fit` on each), with a line under the pitch explaining the colours.
+- **A rule added while testing:** keepers and outfielders never mix. Weak players' OVRs bunch together (an academy keeper at 40 is within 8 of his outfield OVRs), so by the bands alone 105 keepers would "cover" outfield slots and 27 outfielders the keeper's. The `formation` check caught it.
+- **Checks:** lint; 298 unit tests (new: `lineupFit.test.ts`); browser checks `formation` (seven new checks: picking the keeper lights only keepers, an outfielder never a keeper, two strengths only, a dragged spare keeper lights only the keeper's slot, highlights clear), `m6`, `tables`.
+
+### Chunk 3: the live tactics board, game side (2026-10-21)
+- **Built:**
+  - engine: `MatchChanges.slots` (who plays where after the subs and any formation change; null = an empty slot) applied after subs and re-slotting; free. Only the players on the pitch can be placed, each once; a substitute is rated against the slot he ends up in. Slider values are checked before anything changes;
+  - engine: `ratingSoFar`: the rating a player would get if the rest of his match were average for his position, at the current score. Off the pitch, his match is over. At full time it equals his match rating (tested for every player). The per-player stats now come from one helper, `statsAt`, shared with `matchResult` (results unchanged: calibration identical);
+  - worker: `getLiveBoard` (a `TacticsView` of the user's side: slots, the substitutes left, no reserves; the engine's team ratings now, energy counted, without the hidden form on the day; each player's energy, booking, injury, minutes, goals, assists and rating so far; subs and windows left; warnings for an empty slot, an outfielder in goal, injuries and players below 50% energy) and `previewLiveChanges` (the same board on a copy of the match);
+  - `changeLive` applies changes to a copy and keeps it only if every change is valid, so a refused change leaves the match as it was (before, a bad slider could leave the subs made); rule errors now reach the player in plain words, not as "Something went wrong";
+  - `src/common/liveChanges.ts`: turns the board's edited line-up into live changes (subs paired with the slot they take, everyone's final slot, the sliders that moved), and says in plain words when a substitute would fill a sent-off player's place or a player would go off without one.
+- **Checks:** lint; 309 unit tests (new: free moves and bad arrangements; T's red-card case, a centre-back on for a midfielder and moved into the empty slot; rating so far equals the match rating at full time; the board at half-time; a preview and a refused change leave the match result byte-for-byte unchanged; the change helper); `pnpm calibrate --check`; browser checks `m6`, `edges`.
+- **Next (chunk 4):** the pause screen shows the board (pitch, XI and bench tables, sliders, team ratings with the preview's changes, fit highlights, energy and rating so far) in place of the dropdowns; the live browser checks follow.
+
+### Chunk 4: the live tactics board on screen (2026-10-21)
+- **Built:**
+  - the pause screen (`Live.tsx` `ChangesPanel`) shows the Line-up editor on the live board: the pitch (energy on each card; "Move a player here" on an empty slot), the XI and the bench with Energy, Min, G, A and Rating (so far) in place of condition and the season's columns, booking and in-match injury badges; no reserves and no Auto. Every edit is turned into live changes (`liveChanges`) and previewed (`previewLiveChanges`); a change the rules refuse reverts, with the reason in plain words. **Make changes** (with the number of substitutions) makes them all at once; **Reset** goes back to the line-up on the pitch; **Resume** drops any not made;
+  - the editor gains a live mode without changing Tactics or the pre-match screen: optional Auto, the save button's wording and id, extra buttons; a change the worker refuses now goes back to the last line-up it showed (before, the table and the edit could disagree);
+  - fit highlights work on the board; a sent-off player's empty slot lights up only for players already on the pitch;
+  - the board refreshes when the match clock moves while it's open (a step that finished after Pause).
+- **Checks:** lint; 310 unit tests; every browser check (14): `m6` rewritten for the board (the board's contents, a free swap, a substitution, the formation and sliders, a free half-time substitution), `career` makes its half-time change on the board, and a new `board` check plays T's case: a centre-back sent off (written into the saved match), a substitute refused for his slot, a centre-back on for a midfielder and moved into the empty slot, the match playing on with ten.
+- **Known edges, for later:**
+  - the pause screen is long at laptop sizes (the board, then the commentary and both teams' cards below); `layout` passes;
+  - a substitute's "rating so far" starts a little below 6.9 (about 6.7 for a 10-minute cameo), because a short cameo's final rating does too: cameos are pulled only partly toward the average (SPEC §8.7).
 
 ## Open issues
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).

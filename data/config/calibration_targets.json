@@ -24,7 +24,7 @@
     "fouls": { "target": 21, "tol": [18, 24] },
     "subsUsedPerTeam": { "target": 4, "tol": [3.3, 4.8] },
     "possessionRange": "95% of team-match possessions between 30% and 70%",
-    "avgMatchRating": { "target": 6.6, "tol": [6.4, 6.8], "note": "0-10 scale; typical range 5.0-8.5, 9+ rare" }
+    "avgMatchRating": { "target": 6.9, "tol": [6.8, 7.0], "note": "0-10 scale, everyone who played (full games ~6.95); 9+ about 1% of full games, a 10 about once in 100+ matches (T, 2026-10-21; was 6.6, 6.4-6.8)" }
   },
   "perSeason": {
     "championPointsENG1": { "target": 84, "tol": [76, 100], "note": "MVP band (T, 2026-10-19; was 90, 82-100): without European football the economy concentrates less money at the top. Revisit when Europe is added." },

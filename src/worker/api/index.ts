@@ -6,7 +6,9 @@ import { acceptJobOffer, gameState, play, queued, renameLeague } from "../league
 import {
   changeLive,
   getLive,
+  getLiveBoard,
   getLiveLineup,
+  previewLiveChanges,
   setLiveLineup,
   stepLive,
   watchNextMatch,
@@ -255,6 +257,12 @@ export function createHandlers(
     },
     async changeLiveMatch(lid, changes, from) {
       return changeLive(await openLeague(lid), changes, from);
+    },
+    async getLiveBoard(lid) {
+      return getLiveBoard(await openLeague(lid));
+    },
+    async previewLiveChanges(lid, changes) {
+      return previewLiveChanges(await openLeague(lid), changes);
     },
     async getLiveLineup(lid) {
       return getLiveLineup(await openLeague(lid));

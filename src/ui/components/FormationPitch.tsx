@@ -1,6 +1,7 @@
 import type { HTMLAttributes } from "react";
-import type { TacticsView } from "../../common/api";
+import type { LiveBoardView, TacticsView } from "../../common/api";
 import { formationById } from "../../common/config/formations";
+import type { Fit } from "./lineupFit";
 import { Pitch } from "./Pitch";
 import { formationCoordinates } from "./pitchLayout";
 
@@ -8,10 +9,16 @@ export function FormationPitch({
   view,
   selectedSlot,
   slotProps,
+  fitAt,
+  match,
 }: {
   view: TacticsView;
   selectedSlot?: number;
   slotProps?: (index: number, filled: boolean) => HTMLAttributes<HTMLDivElement>;
+  /** How well the player being moved suits each slot (highlighted). */
+  fitAt?: (index: number) => Fit;
+  /** A paused live match: energy and in-match injuries instead of condition. */
+  match?: LiveBoardView["match"];
 }) {
   const coordinates = formationCoordinates(formationById(view.setup.formation));
   return (
@@ -27,6 +34,21 @@ export function FormationPitch({
         {view.slots.map((s, i) => {
           const p = s.player;
           const c = coordinates[i]!;
+          const fit = fitAt?.(i) ?? null;
+          const m = p ? match?.[p.pid] : undefined;
+          const unavailable = m ? m.injured : Boolean(p?.injury || p?.suspension);
+          const fresh = m ? `energy ${m.energy}%` : `condition ${p?.condition ?? 0}%`;
+          const status = m
+            ? m.injured
+              ? " · injured"
+              : m.booked
+                ? " · booked"
+                : ""
+            : p?.injury
+              ? " · injured"
+              : p?.suspension
+                ? " · suspended"
+                : "";
           const nameParts = p?.name.trim().split(/\s+/) ?? [];
           const displayName =
             nameParts.length > 1 ? `${nameParts[0]![0]}. ${nameParts.slice(1).join(" ")}` : p?.name;
@@ -34,14 +56,15 @@ export function FormationPitch({
             <div
               key={i}
               {...slotProps?.(i, p !== null)}
-              className={`pitch-player ${selectedSlot === i ? "pitch-player-selected" : ""} ${!p ? "pitch-player-empty" : ""} ${p?.injury || p?.suspension ? "pitch-player-unavailable" : ""}`}
+              className={`pitch-player ${selectedSlot === i ? "pitch-player-selected" : ""} ${!p ? "pitch-player-empty" : ""} ${unavailable ? "pitch-player-unavailable" : ""} ${fit ? `pitch-player-fit-${fit}` : ""}`}
               style={{ left: `${c.x}%`, top: `${c.y}%` }}
               data-slot={i}
+              data-fit={fit ?? undefined}
               data-pid={p?.pid}
-              aria-label={`${s.label}: ${p ? `${p.name}, slot OVR ${p.slotOvr}, condition ${p.condition}%${p.injury ? ", injured" : ""}${p.suspension ? ", suspended" : ""}` : "Empty slot"}`}
+              aria-label={`${s.label}: ${p ? `${p.name}, slot OVR ${p.slotOvr}, ${fresh}${status.replace(" ·", ",")}` : "Empty slot"}`}
               title={
                 p
-                  ? `${p.name} · ${p.position} · slot OVR ${p.slotOvr} · condition ${p.condition}%`
+                  ? `${p.name} · ${p.position} · slot OVR ${p.slotOvr} · ${fresh}${status}`
                   : `${s.label}: Empty slot`
               }
             >
@@ -50,9 +73,10 @@ export function FormationPitch({
               <span className="pitch-player-summary">
                 {p ? (
                   <>
-                    <b>{p.slotOvr}</b> OVR · {p.condition}%
-                    {p.injury ? " · injured" : p.suspension ? " · suspended" : ""}
+                    <b>{p.slotOvr}</b> OVR · {m ? m.energy : p.condition}%{status}
                   </>
+                ) : match ? (
+                  "Move a player here"
                 ) : (
                   "Choose a player"
                 )}
@@ -63,7 +87,7 @@ export function FormationPitch({
       </Pitch>
       <p className="small text-body-secondary mt-2 mb-0">
         {view.editable
-          ? "Drag between pitch slots and table rows, or select a player or slot and then another to swap. Ratings include fit for the slot."
+          ? "Drag between pitch slots and table rows, or select a player or slot and then another to swap. Ratings include fit for the slot. While you move a player, green marks where he fits: darker for a natural position, lighter where he can cover."
           : "Starting XI and ratings in each slot. See the table below for player details."}
       </p>
     </section>

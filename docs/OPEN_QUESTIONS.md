@@ -115,6 +115,13 @@ Still open:
 | 8 | Yellow-card build-up bans | Not built; T to say whether they belong in a later version |
 | 9 | The world calibration's peak-age gate fails with CI's seed since the red-card change (release blocker) | Noise at the gate's edge, not a regression: other seeds pass now and failed before; the 27–29 v 24–26 gap averages about 0 (PROGRESS, M7 chunk 6, part 2). **Answered (T, 2026-10-21):** the gate allows 1 OVR (design doc #64); tuning the age curve can come later |
 
+## A11. After v0.1, answered by T (Oct 21 2026)
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Match ratings felt low for standout games, an average of 6.6 felt low, and terrible games felt too high | Average 6.9 (6.8–7.0), a wider spread with a soft top; tackles, key passes and interceptions count more. Keepers are rated on saves against post-shot xG (goals prevented), swing less, aren't treated too harshly, and big-save games are rewarded: a clean sheet usually 7.3–7.5, four or more conceded with a decent game about 6, several mistakes 4.5–5. Best season averages 7.8–7.9; above 8 only for generational players. Built (SPEC §8.7, design doc #65); see PROGRESS for where it landed. Then keepers average about 6.8 (T, 2026-10-21) so a clean sheet and a blameless 4+ both land on target |
+| 2 | The pause screen in a live match (dropdowns) | The full tactics board, as before kick-off: pitch, XI and bench tables, sliders, team ratings. Moving players between positions is free, including into a sent-off player's empty slot; substitutions cost as now. A "rating so far" column. Built (SPEC §7.1, §11; design doc #67) |
+| 3 | Dragging or picking a player in a line-up | Highlight the places where he fits: strongly where it's natural (within 3 OVR of his best), lightly where he can cover (4–8 below); everything else stays plain. No OVR overlay. Built (SPEC §11, design doc #66); keepers and outfielders never mix, since a weak player's OVRs bunch together |
+
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.
 1. **Hidden traits** (Injury Prone, Hothead) are generated and affect the sim from the MVP but are never shown until scouting arrives in v1.1.
@@ -127,7 +134,7 @@ Build these as written unless T changes them.
 8. **Young free agents** (≤23) unsigned for 12 months leave the game, keeping the pool bounded.
 9. **UI language:** English with British football terms (fixtures, defence, kit, centre-back).
 10. **Performance budget:** one headless match < 5 ms; a full MVP season in-browser < 60 s; save < 100 MB after 10 seasons.
-11. **Engine details added for completeness:** bench of 9; average match rating ~6.6; no away-goals rule; English cup entry (ENG2 round 1, ENG1 round 2); German cup preliminary round for the 4 lowest-placed clubs; GER1 winter break ~21 Dec–9 Jan; nationality mixes per league (`nationalities.json`); 20-season world-stability checks (`calibration_targets.json`).
+11. **Engine details added for completeness:** bench of 9; average match rating ~6.9 (T, 2026-10-21; was ~6.6); no away-goals rule; English cup entry (ENG2 round 1, ENG1 round 2); German cup preliminary round for the 4 lowest-placed clubs; GER1 winter break ~21 Dec–9 Jan; nationality mixes per league (`nationalities.json`); 20-season world-stability checks (`calibration_targets.json`).
 
 ## C. Settled during the build (no decision needed from T up front)
 - Final formation list (MVP ships 4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2).
