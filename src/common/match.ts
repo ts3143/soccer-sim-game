@@ -93,6 +93,11 @@ export interface PlayerMatchStats {
   yellowCards: number;
   redCards: number;
   saves: number;
+  /**
+   * Keepers: post-shot xG of the on-target shots faced, i.e. what an average keeper would
+   * concede from them. Goals prevented = psxgFaced − goalsConceded (SPEC §8.7).
+   */
+  psxgFaced: number;
   goalsConceded: number;
   cleanSheet: number;
   /** Days out if injured in this match, else 0. */

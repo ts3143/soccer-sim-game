@@ -255,6 +255,16 @@ function openPlay(
   };
 }
 
+/**
+ * Post-shot xG of an on-target shot: the chance an average keeper concedes it, given that
+ * it's on target. The goal is decided first and a fixed share of the rest is saved, so
+ * P(on target) = xg + (1 − xg) × that share. Keeper ratings use it (SPEC §8.7).
+ */
+function postShotXg(shot: ShotSpec, c: MatchState["c"]): number {
+  const saved = shot.shotType === "penalty" ? c.penalty.savedShare : c.shotOutcome.saved;
+  return shot.xg / (shot.xg + (1 - shot.xg) * saved);
+}
+
 /** Resolves a shot and records it. Penalties use their own goal chance. */
 function resolveShot(
   s: MatchState,
@@ -275,7 +285,7 @@ function resolveShot(
   if (rng.bool(pGoal)) {
     outcome = "goal";
   } else if (shot.shotType === "penalty") {
-    outcome = rng.bool(0.65) ? "saved" : "off";
+    outcome = rng.bool(c.penalty.savedShare) ? "saved" : "off";
   } else {
     const r = rng.next();
     const blocked = clamp(shot.blocked, 0, 0.9);
@@ -295,10 +305,11 @@ function resolveShot(
   if (outcome === "goal" || outcome === "saved") {
     shooter.stats.shotsOnTarget++;
     att.stats.shotsOnTarget++;
-  }
-  if (outcome === "saved") {
     const keeper = keeperOf(def);
-    if (keeper) keeper.stats.saves++;
+    if (keeper) {
+      keeper.stats.psxgFaced += postShotXg(shot, c);
+      if (outcome === "saved") keeper.stats.saves++;
+    }
   } else if (outcome === "blocked") {
     const blocker = pick(rng, def.pickers.boxDefender);
     if (blocker) blocker.stats.blocks++;

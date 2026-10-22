@@ -259,7 +259,7 @@ export function pick(
 // ---------------------------------------------------------------------------
 // Setup and refresh
 
-function emptyPlayerStats(
+export function emptyPlayerStats(
   pid: number,
   side: TeamSide,
   slot: number | null,
@@ -294,6 +294,7 @@ function emptyPlayerStats(
     yellowCards: 0,
     redCards: 0,
     saves: 0,
+    psxgFaced: 0,
     goalsConceded: 0,
     cleanSheet: 0,
     injuryDays: 0,

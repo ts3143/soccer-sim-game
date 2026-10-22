@@ -12,6 +12,7 @@ Claude Code updates this file at the end of each milestone.
 | M5 Core UI | **Accepted** (T, 2026-10-19) | All checks pass locally, in CI and on the Cloudflare preview and production (game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M5 notes" below. |
 | M6 Management UI | **Accepted** (T, 2026-10-20) | All checks pass locally, in CI and on the Cloudflare preview and production (career 11/11, management screens 74/74, game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M6 notes" below. |
 | M7 Polish and release v0.1 | **Released as v0.1.0** (2026-10-21) | All checks pass locally, in CI and on the Cloudflare preview and production (354 headless Chrome checks locally; 291 against production; both calibration harnesses with the 1-OVR peak-age allowance). PR #8, merge `02ac0de`, tag and GitHub release v0.1.0. Firefox untested (T, by hand). See "M7 notes" below. |
+| After v0.1: T's improvements | **In progress** (from 2026-10-21) | Match ratings (chunk 1), fit highlights in line-ups (chunk 2), the full tactics board in live matches (chunks 3–4). See "After v0.1 notes" below. |
 
 ## Deviations from spec
 Record every approved change to SPEC.md here, with date and reason. "Review #N" = item N of the kickoff review (answers in `OPEN_QUESTIONS.md` §A2).
@@ -60,6 +61,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-21 | M7 chunk 6 | Twelve cosmetic skill tags beside player names, worked out from the displayed ratings; no gameplay effect (design doc #62). | Was "Ideas, undecided"; T approved the list and the cutoffs. | SPEC §11, §15 |
 | 2026-10-21 | M7 chunk 6 | The profile's OVR/POT chart becomes a ratings-history table (every update, all 22 ratings). Also: compact status tags (I, E, TL, S, L, A), nationality flags, ratings cards on Squad and Tactics, whole result rows coloured, more Transfer Market filters, and player links in messages, with a new optional saved field `inbox.players` (design doc #63). | T's local-test feedback, ZenGM style. | SPEC §11, §12 |
 | 2026-10-21 | M7 chunk 6 | World peak-age gate: 27–29-year-olds must be rated at least as high as 21–23 and 24–26 in the last season, less 1 OVR (design doc #64). | With the world unchanged, the gap swings about ±1 OVR across seeds (−0.9 to +0.3 over six runs, before and after the red-card change), so the exact gate passed or failed by chance. Approved by T. | `calibration_targets.json` → `peakAge`; `tools/calibrate/world-report.ts` |
+| 2026-10-21 | After v0.1, chunk 1 | Match ratings centred on 6.9 (was 6.6) with a wider spread and a soft top above 8.4; tackles, interceptions and key passes weigh more; keepers rated mainly on goals prevented (post-shot xG faced − goals conceded), with a soft bottom below 5. Development and market value read ratings against the new centre, rescaled to the same effect. Saves upgrade to league DB v3, which converts stored ratings once (design doc #65). | T found standout games rated too low, terrible ones too high and the 6.6 average low, and asked for keepers judged on saves against xG. | SPEC §8.7, §5.3; `calibration_targets.json` → `avgMatchRating` 6.9 (6.8–7.0) |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -1568,6 +1570,43 @@ Each point of parity gained cost about one champion point, so the two real-world
   - the "incomplete save" message wasn't triggered in a test;
   - phones aren't supported (desktop first, down to about 960 px);
   - no bans for a build-up of yellow cards.
+
+## After v0.1 notes (from 2026-10-21)
+**Plan** (approved by T): 4 chunks of about an hour, on `after-v0.1`, nothing pushed before T's local test.
+1. Match ratings: the 6.9 scale and keepers on goals prevented.
+2. Fit highlights when dragging or picking a player in a line-up.
+3. The full tactics board in a paused live match, game side: the board's data, a preview of changes, free position moves (including into a sent-off player's empty slot).
+4. The board on screen, with a "rating so far" column; the live browser checks updated.
+
+### Chunk 1: match ratings (2026-10-21)
+- **Built:**
+  - ratings centred on 6.9, about 20% wider, with a soft top: above 8.4 they climb at half speed;
+  - tackles and interceptions 0.13 each (was 0.07 before the stretch), key passes 0.22 (was 0.12);
+  - keepers: 0.5 per goal prevented (post-shot xG faced − goals conceded) and −0.1 per goal conceded; no clean-sheet or per-save bonus (saves count through goals prevented); a soft bottom below 5 at half speed;
+  - the engine records `psxgFaced` for keepers: each on-target shot adds xg / (xg + (1 − xg) × saved share), the chance an average keeper concedes it. The penalty saved share (0.65) moved into the coefficients;
+  - development (`performancePerPoint` 0.15 → 0.12) and market value (form 0.15 → 0.12 a point, within ±1.25) read ratings against the new centre. Half-season averages spread 1.24× wider, so the effect is the same (performanceAdj spread 0.0307 v 0.0310 before);
+  - league DB v3: opening an older save converts its box-score ratings, season totals and half-season tallies once (new = 6.9 + 1.12 × (old − 6.6), the best straight-line fit, r = 0.975), in the upgrade transaction; keepers' missing post-shot xG is filled in as neutral.
+- **Where it landed** (neutral sample, 4,500 matches; full games of 80+ minutes):
+
+  | | Before | Now | T's target |
+  | --- | --- | --- | --- |
+  | Average, full games / everyone who played | 6.62 / 6.55 | 6.94 / 6.83 | 6.8–7.0 |
+  | One goal / two / hat-trick | 7.6 / 8.7 / 9.8 | 8.1 / 8.9 / 9.6 | higher for standouts |
+  | Midfielder, no goal or assist, top 1% | 7.3 | 8.0 | about 8 |
+  | A 10 | every 87 matches | every 125 matches | rare |
+  | Keeper: clean sheet (median, 10th–90th) | 7.5 | 7.6 (7.3–8.0) | usually 7.3–7.5 |
+  | Keeper: 4+ conceded, not at fault | — | 6.3 | about 6 |
+  | Keeper: clear mistakes (≥ 1.5 / ≥ 2 goals worse than expected) | — | 5.4 / 5.1, never below 4.5 | 4.5–5 |
+  | Keeper v outfield spread (sd) | — | 0.72 v 0.84 | keepers steadier |
+  | Sent off | 5.2 | 5.1 | lower for terrible games |
+  | Best season averages | 7.4 | 7.6–7.8 by position | 7.8–7.9 |
+
+- **The keeper trade-off** (judgment call, for T): with keepers averaging 6.9 like everyone, a clean sheet sits about 0.7 above and conceding four about 1.2 below. Pulling clean sheets down to 7.4 would push "four conceded, not at fault" up toward 6.6, so both sit a little high (7.6 and 6.3). A keeper offset below 6.9 would fix both; not done without T.
+- **Checks:** lint; 291 unit tests (new: `ratings.test.ts`, the v3 upgrade, keepers' post-shot xG and the 6.9 average in the engine); `pnpm build`; `pnpm generate --check`; `pnpm calibrate --check` (`avgMatchRating` 6.83 in 6.8–7.0); `pnpm calibrate --world --check`, all pass; browser checks `edges`, `m6`, `sweep`. A throwaway real-browser check made a save with the v0.1.0 build, opened it with the new one, and found all 3,024 ratings, 1,447 season totals and 1,128 tallies converted exactly, then played on.
+- **World calibration, before → after** (CI seed): young regulars +4.16 → +4.21 OVR a year; 33+ −5.44 → −5.45; wonderkids 0.62 → 0.54 a league-season; peak-age gap −0.9 → −0.4 (allowance 1). On a second seed wonderkids went 0.66 → 0.68, so the dip is noise.
+- **Known edges, for later:**
+  - two gates sit near their floors with CI's seed: wonderkids 0.54 (floor 0.5) and the rating average 6.83 (floor 6.8). Short cameos average below 6.9 (they're pulled only partly toward it), which keeps "everyone who played" under the full-game average;
+  - the top bar shows a Play's end date a moment before the save is written ("Playing…" still shows); leaving the page then loses that Play, as designed. Found while testing, unchanged.
 
 ## Open issues
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).

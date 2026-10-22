@@ -139,7 +139,7 @@ per rating, with a = ageCurve(group, age, curveType):
 - **coaching:** Coaching dial of the club where he actually plays (incl. loan clubs), mapped to 0.9–1.1.
 - **minutesFactor:** share of available minutes in all competitions in the half-season, with diminishing returns. Zero minutes still gives the 0.2 training base (T, 2026-10-15; was 0.4, which held a young regular's growth to about 1.7× a benched player's, too little for the +4–8 vs 0–2 targets).
 - **challengeFactor:** compares the strength of the level he played at (minutes-weighted average team OVR of opponents/competitions) with his own OVR. Peaks when the level is at or slightly above his OVR; small when he is far too good for the level (blocks the weak-loan exploit) or badly out of his depth.
-- **performanceAdj:** average match rating vs positional expectation, capped at ±0.15.
+- **performanceAdj:** average match rating vs positional expectation (the ratings' centre, 6.9), 0.12 per rating point, capped at ±0.15.
 - **Academy players** (no matches) develop on coaching + Youth academy dial only.
 - **Ceiling decay:** ages 19–23, if he plays under ~15% of available minutes in a season, his hidden ceiling drops 1–3 points (slightly randomised). This creates lost prospects.
 - **Veterans:** minutes keep feeding mental ratings at any age (the mental minutes bonus above); decline is age-driven; the Medical dial slightly slows it.
@@ -297,8 +297,13 @@ Computed from the starting XI by slot (config: `formations_tactics.json`): Passi
 Single-leg cup ties, play-off eliminators and play-off finals: extra time (2 × 15 min, with energy carrying over) then penalties (`pen` vs GK `gko`/`gkr`). Two-legged ties: aggregate, then extra time and penalties in the second leg (no away-goals rule).
 
 ### 8.7 Match ratings
-- 0–10 scale built from event contributions (goals, assists, key passes, tackles, interceptions, saves, errors, cards) relative to positional expectation. Target average ~6.6, typical range 5.0–8.5.
-- Feed: form display, development (`performanceAdj`), awards.
+- 0–10 scale built from event contributions (goals, assists, key passes, tackles, interceptions, blocks, passing, dribbles, cards, the result) relative to what's normal for the position. Average **~6.9** (T, 2026-10-21; was 6.6): a full game averages about 6.95, everyone who played about 6.85. Short cameos are pulled toward 6.9.
+- Tackles, interceptions and key passes count for more than goals alone suggest, so a midfielder who runs a game can reach about 8 without scoring or assisting. Typical full games: one goal ~8.1, two ~8.9, a hat-trick ~9.6.
+- **Soft top:** above 8.4 a rating climbs at half speed, so 9+ is about 1% of full games and a 10 comes about once in 100+ matches.
+- **Keepers** are rated mainly on **goals prevented**: the post-shot xG of the on-target shots they faced (what an average keeper would concede from them) minus the goals they conceded, plus a small knock per goal conceded and the result. Big saves count through it. They swing less than outfielders. Typical full games: a clean sheet ~7.3–8.0, a clean sheet with big saves ~8, four or more conceded without being at fault ~6.3, clear mistakes ~5. **Soft bottom:** below 5.0 a keeper's rating falls at half speed, so even a howler rarely goes below 4.5.
+- Season averages: the best players average about 7.6–7.9; above 8 is for exceptional seasons.
+- Feed: form (market value), development (`performanceAdj`, rescaled so its effect is unchanged), awards.
+- Saves from before the 6.9 scale (league DB v2) have their stored ratings converted once, when opened: new = 6.9 + 1.12 × (old − 6.6), with the soft top.
 
 ### 8.8 League style modifiers
 Small per-league coefficients on inputs only (`competitions_mvp.json`): ENG2 ~10–15% fewer goals (chance quality), slightly more fouls, more direct/aerial AI tactics; GER1 slightly higher-scoring; ENG1 slightly fewer fouls.

@@ -174,6 +174,7 @@ export function matchResult(state: MatchState): MatchResult {
           minutes,
           xg: Math.round(p.stats.xg * 100) / 100,
           xa: Math.round(p.stats.xa * 100) / 100,
+          psxgFaced: Math.round(p.stats.psxgFaced * 100) / 100,
           passes,
           passesCompleted: Math.max(0, passes - p.passesFailed - Math.round(p.passFailAcc)),
           cleanSheet:

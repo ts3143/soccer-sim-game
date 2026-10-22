@@ -18,8 +18,9 @@ import type {
  * One IndexedDB database per league save (SPEC §12). Bump LEAGUE_DB_VERSION and add a
  * step in openLeagueDb()'s upgrade whenever stores or indexes change.
  *   v1 (M0): meta only.   v2 (M1): every store of SPEC §12.
+ *   v3 (after 0.1.0): no store changes; match ratings rescaled to the 6.9 scale (upgrades.ts).
  */
-export const LEAGUE_DB_VERSION = 2;
+export const LEAGUE_DB_VERSION = 3;
 
 export interface LeagueDBSchema extends DBSchema {
   /** Key-value rows; see MetaRows in src/common/schema.ts. */
