@@ -12,7 +12,7 @@ Claude Code updates this file at the end of each milestone.
 | M5 Core UI | **Accepted** (T, 2026-10-19) | All checks pass locally, in CI and on the Cloudflare preview and production (game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M5 notes" below. |
 | M6 Management UI | **Accepted** (T, 2026-10-20) | All checks pass locally, in CI and on the Cloudflare preview and production (career 11/11, management screens 74/74, game pages 90/90, full-season sweep 43/43, Club lab 19/19, Season lab 21/21, M1 18/18 headless Chrome); T tested locally. See "M6 notes" below. |
 | M7 Polish and release v0.1 | **Released as v0.1.0** (2026-10-21) | All checks pass locally, in CI and on the Cloudflare preview and production (354 headless Chrome checks locally; 291 against production; both calibration harnesses with the 1-OVR peak-age allowance). PR #8, merge `02ac0de`, tag and GitHub release v0.1.0. Firefox untested (T, by hand). See "M7 notes" below. |
-| After v0.1: T's improvements | **In progress** (from 2026-10-21) | Match ratings (chunk 1), fit highlights in line-ups (chunk 2), the full tactics board in live matches (chunks 3–4). See "After v0.1 notes" below. |
+| After v0.1: T's improvements | **Built, awaiting T's local test** (2026-10-21) | Match ratings (chunk 1, keepers at 6.8), fit highlights in line-ups (chunk 2), the full tactics board in live matches (chunks 3–4). All checks pass locally; nothing pushed yet. See "After v0.1 notes" below. |
 
 ## Deviations from spec
 Record every approved change to SPEC.md here, with date and reason. "Review #N" = item N of the kickoff review (answers in `OPEN_QUESTIONS.md` §A2).
@@ -65,6 +65,7 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-21 | After v0.1, chunk 1 follow-up | Keepers' ratings centre on 6.8 (outfielders 6.9); development, market value and the old-save conversion use each position's centre (design doc #65). | At 6.9 a keeper's clean sheet (7.6) and a blameless four conceded (6.3) both sat above T's targets; one lower centre fixes both. Approved by T. | SPEC §8.7, §5.3 |
 | 2026-10-21 | After v0.1, chunk 2 | Dragging or picking a player in a line-up highlights where he fits: natural (within 3 OVR of his best) darker, cover (4–8 below) lighter, the rest plain; keepers and outfielders never mix. The line-up view gains each player's OVR in every slot and his best OVR, and each slot's position (design doc #66). | T asked for it: taking a CM out, he wants to see the CMs who could come in. | SPEC §11 |
 | 2026-10-21 | After v0.1, chunk 3 | At a pause in a live match, players can be moved between slots for free, including into a sent-off player's empty slot (a sent-off player still can't be replaced). Live changes are all or nothing. New worker calls give the pause screen a tactics board (slots, the substitutes left, team ratings now, each player's energy, goals, assists and rating so far) and a preview of changes (design doc #67). | T lost a centre-back to a red card and couldn't fill the slot; he asked for the full board, free position moves and a rating-so-far column. | SPEC §7.1 |
+| 2026-10-21 | After v0.1, chunk 4 | The pause screen of a live match is the tactics board (pitch, XI and bench tables, formation, sliders, team ratings with a preview; energy and the match so far, rating so far included), replacing the dropdowns. Make changes / Reset / Resume (design doc #67). | T's request: the dropdowns didn't show enough to decide. | SPEC §11 |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -1628,6 +1629,17 @@ Each point of parity gained cost about one champion point, so the two real-world
   - `src/common/liveChanges.ts`: turns the board's edited line-up into live changes (subs paired with the slot they take, everyone's final slot, the sliders that moved), and says in plain words when a substitute would fill a sent-off player's place or a player would go off without one.
 - **Checks:** lint; 309 unit tests (new: free moves and bad arrangements; T's red-card case, a centre-back on for a midfielder and moved into the empty slot; rating so far equals the match rating at full time; the board at half-time; a preview and a refused change leave the match result byte-for-byte unchanged; the change helper); `pnpm calibrate --check`; browser checks `m6`, `edges`.
 - **Next (chunk 4):** the pause screen shows the board (pitch, XI and bench tables, sliders, team ratings with the preview's changes, fit highlights, energy and rating so far) in place of the dropdowns; the live browser checks follow.
+
+### Chunk 4: the live tactics board on screen (2026-10-21)
+- **Built:**
+  - the pause screen (`Live.tsx` `ChangesPanel`) shows the Line-up editor on the live board: the pitch (energy on each card; "Move a player here" on an empty slot), the XI and the bench with Energy, Min, G, A and Rating (so far) in place of condition and the season's columns, booking and in-match injury badges; no reserves and no Auto. Every edit is turned into live changes (`liveChanges`) and previewed (`previewLiveChanges`); a change the rules refuse reverts, with the reason in plain words. **Make changes** (with the number of substitutions) makes them all at once; **Reset** goes back to the line-up on the pitch; **Resume** drops any not made;
+  - the editor gains a live mode without changing Tactics or the pre-match screen: optional Auto, the save button's wording and id, extra buttons; a change the worker refuses now goes back to the last line-up it showed (before, the table and the edit could disagree);
+  - fit highlights work on the board; a sent-off player's empty slot lights up only for players already on the pitch;
+  - the board refreshes when the match clock moves while it's open (a step that finished after Pause).
+- **Checks:** lint; 310 unit tests; every browser check (14): `m6` rewritten for the board (the board's contents, a free swap, a substitution, the formation and sliders, a free half-time substitution), `career` makes its half-time change on the board, and a new `board` check plays T's case: a centre-back sent off (written into the saved match), a substitute refused for his slot, a centre-back on for a midfielder and moved into the empty slot, the match playing on with ten.
+- **Known edges, for later:**
+  - the pause screen is long at laptop sizes (the board, then the commentary and both teams' cards below); `layout` passes;
+  - a substitute's "rating so far" starts a little below 6.9 (about 6.7 for a 10-minute cameo), because a short cameo's final rating does too: cameos are pulled only partly toward the average (SPEC §8.7).
 
 ## Open issues
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).

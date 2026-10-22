@@ -368,10 +368,15 @@ async function watchLive() {
     if (title !== "Half-time") await testId("resume").click();
   }
   if (title === "Half-time") {
-    const select = testId("changes-subs").locator("tbody tr").nth(8).locator("select");
-    const option = await select.locator("option").nth(1).getAttribute("value");
-    if (option) await select.selectOption(option);
-    await page.locator("#live-slider-mentality").focus();
+    // On the tactics board: the first substitute onto slot 8, and a touch more attacking.
+    const board = testId("changes");
+    await board.locator('[data-testid="tactics-xi"] tbody tr').first().waitFor({ timeout: 30_000 });
+    const bench = board.locator('[data-testid="tactics-bench"] tbody tr');
+    if ((await bench.count()) > 0) {
+      await bench.first().click();
+      await board.locator('[data-testid="tactics-xi"] tbody tr').nth(8).click();
+    }
+    await page.locator("#slider-mentality").focus();
     await page.keyboard.press("ArrowRight");
     await testId("apply-changes").click();
     await page

@@ -39,13 +39,15 @@ export function playerAt(view: TacticsView, place: Place): TacticsPlayerView | n
  * dragged or picked (T, 2026-10-21). Into a slot, he must suit it. Out of a slot onto the
  * bench or reserves, the player coming in must suit it. Between two slots, both must suit
  * their new slots, and the weaker fit counts. Moves among the bench and reserves aren't
- * positional, so they're never highlighted.
+ * positional, so they're never highlighted. During a live match (`live`) an empty slot is
+ * a sent-off player's: only a player already on the pitch can move into it.
  */
-export function moveFit(view: TacticsView, from: Place, to: Place): Fit {
+export function moveFit(view: TacticsView, from: Place, to: Place, live = false): Fit {
   if (samePlace(from, to)) return null;
   const mover = playerAt(view, from);
   if (!mover) return null;
   const other = playerAt(view, to);
+  if (live && to.area === "slot" && !other && from.area !== "slot") return null;
   if (to.area === "slot") {
     const there = slotFit(view, mover, to.index);
     return from.area === "slot" && other ? weaker(there, slotFit(view, other, from.index)) : there;

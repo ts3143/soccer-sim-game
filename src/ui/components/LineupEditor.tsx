@@ -1,12 +1,21 @@
 import { FormationPitch } from "./FormationPitch";
+import { InjuryTag } from "./InjuryTag";
 import { PlayerStatusTags } from "./PlayerStatusTags";
 import { SkillTags } from "./SkillTags";
 /**
- * The line-up editor, shared by the Tactics page and the pre-match screen of a live match.
+ * The line-up editor, shared by the Tactics page, the pre-match screen of a live match and
+ * its pause screen (the live tactics board).
  */
 import { useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
-import type { TacticsMode, TacticsPlayerView, TacticsSetup, TacticsView } from "../../common/api";
+import type {
+  LiveBoardView,
+  TacticsMode,
+  TacticsPlayerView,
+  TacticsSetup,
+  TacticsView,
+} from "../../common/api";
 import { formationsConfig } from "../../common/config/formations";
+import { addDays } from "../../common/dates";
 import { PlayerRatings, RatingChange, NationalityFlag } from "./PlayerDetails";
 import { PlayerLink } from "./links";
 import { errorText } from "../errors";
@@ -45,6 +54,28 @@ function conditionClass(c: number) {
   return c < 75 ? "text-danger" : c < 90 ? "text-warning-emphasis" : "";
 }
 
+function energyClass(e: number) {
+  return e < 50 ? "text-danger" : e < 70 ? "text-warning-emphasis" : "";
+}
+
+/** The live tactics board (a paused match) carries each player's match so far. */
+const isLiveBoard = (view: TacticsView): view is LiveBoardView => "match" in view;
+
+/** The save button's wording and test id. */
+export interface SaveText {
+  label: (setup: TacticsSetup) => string;
+  done: string;
+  pending: string;
+  testId: string;
+}
+
+const TACTICS_SAVE: SaveText = {
+  label: () => "Save",
+  done: "Saved. It applies to the matches you watch.",
+  pending: "Unsaved changes",
+  testId: "save-tactics",
+};
+
 export interface LineupEditorProps {
   initial: TacticsView;
   /** Shows a change: a preview (Tactics page) or applied at once (before a live match). */
@@ -52,15 +83,22 @@ export interface LineupEditorProps {
   /** Saves the line-up (Tactics page). Without it, each change applies as it is made. */
   save?: (setup: TacticsSetup) => Promise<TacticsView>;
   note: string;
-  autoTitle: string;
+  /** The Auto button's tooltip; without it there's no Auto button (a paused live match). */
+  autoTitle?: string;
   /** What the ratings' bracketed changes compare with. */
   baselineLabel: string;
+  /** The save button's wording (the Tactics page's "Save" by default). */
+  saveText?: SaveText;
+  /** More buttons after the save button (the live pause screen's Resume). */
+  actions?: (dirty: boolean) => ReactNode;
 }
 
 /**
  * The line-up editor (SPEC §11 Tactics): the formation, the XI by slot, the bench and the
  * sliders, with slot OVRs and live team ratings. Drag a player onto another place to swap
- * them, or click one and then the other.
+ * them, or click one and then the other. On the live tactics board (a LiveBoardView) it
+ * shows energy and each player's match so far instead of condition and the season, and
+ * no reserves: only the bench can come on.
  */
 export function LineupEditor({
   initial,
@@ -69,6 +107,8 @@ export function LineupEditor({
   note,
   autoTitle,
   baselineLabel,
+  saveText = TACTICS_SAVE,
+  actions,
 }: LineupEditorProps) {
   const [view, setView] = useState(initial);
   // The line-up as edited: it changes at once; the worker's view (slot OVRs, ratings,
@@ -81,7 +121,10 @@ export function LineupEditor({
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const request = useRef(0);
+  // The line-up last shown by the worker: a change it refuses goes back to it.
+  const shownSetup = useRef(initial.setup);
   const edit = view.editable;
+  const live = isLiveBoard(view) ? view : null;
   const dirty = JSON.stringify(setup) !== JSON.stringify(baseline.setup);
 
   const preview = async (next: TacticsSetup, mode: TacticsMode = "asIs") => {
@@ -91,9 +134,12 @@ export function LineupEditor({
     try {
       const shown = await apply(next, mode);
       if (n !== request.current) return;
+      shownSetup.current = shown.setup;
       setView(shown);
       setSetup(shown.setup);
     } catch (e) {
+      if (n !== request.current) return;
+      setSetup(shownSetup.current);
       setMessage({ ok: false, text: errorText(e) });
     }
   };
@@ -102,10 +148,11 @@ export function LineupEditor({
     setSaving(true);
     try {
       const next = await saveSetup(setup);
+      shownSetup.current = next.setup;
       setView(next);
       setSetup(next.setup);
       setBaseline(next);
-      setMessage({ ok: true, text: "Saved. It applies to the matches you watch." });
+      setMessage({ ok: true, text: saveText.done });
     } catch (e) {
       setMessage({ ok: false, text: errorText(e) });
     } finally {
@@ -155,50 +202,84 @@ export function LineupEditor({
       : {};
   /** Where the dragged or picked player fits (T, 2026-10-21): natural, cover, or plain. */
   const active = dragging ?? picked;
-  const fitAt = (place: Place): Fit => (edit && active ? moveFit(view, active, place) : null);
+  const fitAt = (place: Place): Fit =>
+    edit && active ? moveFit(view, active, place, live !== null) : null;
   const rowClass = (place: Place) => {
     if (picked && samePlace(picked, place)) return "table-primary";
     const fit = fitAt(place);
     return [edit ? "tactics-row" : "", fit ? `fit-${fit}` : ""].join(" ").trim();
   };
 
-  const playerCells = (p: TacticsPlayerView, slot: boolean): ReactNode => (
-    <>
-      <td className="text-nowrap">
-        <PlayerLink pid={p.pid} name={p.name} />
-        <SkillTags ratings={p.ratings} position={p.position} />
-        <PlayerRatings player={p} />
-        <PlayerStatusTags player={p} today={p.today} />
-      </td>
-      <td>{p.position}</td>
-      {slot && (
-        <td
-          className={`text-end fw-semibold ${p.slotOvr < p.ovr - 3 ? "text-danger" : ""}`}
-          title="OVR in this slot"
-        >
-          {p.slotOvr}
+  const playerCells = (p: TacticsPlayerView, slot: boolean): ReactNode => {
+    const m = live?.match[p.pid];
+    return (
+      <>
+        <td className="text-nowrap">
+          <PlayerLink pid={p.pid} name={p.name} />
+          {m?.booked && (
+            <span className="badge text-bg-warning ms-1" title="Booked">
+              Y
+            </span>
+          )}
+          {m?.injured && (
+            <InjuryTag
+              injury={{ type: "Match injury", until: addDays(p.today, m.injuryDays) }}
+              today={p.today}
+            />
+          )}
+          <SkillTags ratings={p.ratings} position={p.position} />
+          <PlayerRatings player={p} />
+          <PlayerStatusTags player={p} today={p.today} />
         </td>
-      )}
-      <td className="text-end text-nowrap">
-        {p.ovr}
-        <RatingChange value={p.ovrChange} />
-      </td>
-      <td className="text-end text-nowrap">
-        {p.pot}
-        <RatingChange value={p.potChange} />
-      </td>
-      <td className={`text-end ${conditionClass(p.condition)}`}>{p.condition}%</td>
-      <td className="text-end">{p.age}</td>
-      <td>
-        <NationalityFlag nationality={p.nationality} />
-      </td>
-      <td className="text-end">{p.season.appearances}</td>
-      <td className="text-end">{p.season.minutes}</td>
-      <td className="text-end">{p.season.goals}</td>
-      <td className="text-end">{p.season.assists}</td>
-      <td className="text-end">{p.season.rating?.toFixed(2) ?? "—"}</td>
-    </>
-  );
+        <td>{p.position}</td>
+        {slot && (
+          <td
+            className={`text-end fw-semibold ${p.slotOvr < p.ovr - 3 ? "text-danger" : ""}`}
+            title="OVR in this slot"
+          >
+            {p.slotOvr}
+          </td>
+        )}
+        <td className="text-end text-nowrap">
+          {p.ovr}
+          <RatingChange value={p.ovrChange} />
+        </td>
+        <td className="text-end text-nowrap">
+          {p.pot}
+          <RatingChange value={p.potChange} />
+        </td>
+        {m ? (
+          <td className={`text-end ${energyClass(m.energy)}`} data-testid="board-energy">
+            {m.energy}%
+          </td>
+        ) : (
+          <td className={`text-end ${conditionClass(p.condition)}`}>{p.condition}%</td>
+        )}
+        <td className="text-end">{p.age}</td>
+        <td>
+          <NationalityFlag nationality={p.nationality} />
+        </td>
+        {m ? (
+          <>
+            <td className="text-end">{m.minutes}</td>
+            <td className="text-end">{m.goals}</td>
+            <td className="text-end">{m.assists}</td>
+            <td className="text-end fw-semibold" data-testid="rating-so-far">
+              {m.rating?.toFixed(1) ?? "—"}
+            </td>
+          </>
+        ) : (
+          <>
+            <td className="text-end">{p.season.appearances}</td>
+            <td className="text-end">{p.season.minutes}</td>
+            <td className="text-end">{p.season.goals}</td>
+            <td className="text-end">{p.season.assists}</td>
+            <td className="text-end">{p.season.rating?.toFixed(2) ?? "—"}</td>
+          </>
+        )}
+      </>
+    );
+  };
   const head = (first: string, slot: boolean) => (
     <thead>
       <tr>
@@ -212,27 +293,45 @@ export function LineupEditor({
         )}
         <th className="text-end">OVR</th>
         <th className="text-end">POT</th>
-        <th className="text-end">Cond</th>
+        {live ? (
+          <th className="text-end" title="Energy now">
+            Energy
+          </th>
+        ) : (
+          <th className="text-end">Cond</th>
+        )}
         <th className="text-end">Age</th>
         <th title="Nationality">Nat</th>
-        <th title="Season appearances" className="text-end">
-          Apps
+        {!live && (
+          <th title="Season appearances" className="text-end">
+            Apps
+          </th>
+        )}
+        <th className="text-end" title={live ? "Minutes in this match" : "Season minutes"}>
+          Min
         </th>
-        <th className="text-end">Min</th>
         <th title="Goals" className="text-end">
           G
         </th>
         <th title="Assists" className="text-end">
           A
         </th>
-        <th title="Average match rating" className="text-end">
+        <th
+          title={
+            live
+              ? "Match rating so far: what he'd get if the rest of his match were average"
+              : "Average match rating"
+          }
+          className="text-end"
+        >
           Rating
         </th>
       </tr>
     </thead>
   );
-  const emptyCells = (n: number) => (
-    <td colSpan={n} className="text-body-tertiary fst-italic">
+  /** Empty cells after the first column: the live board has no Apps column. */
+  const emptyCells = (slot: boolean) => (
+    <td colSpan={(slot ? 13 : 12) - (live ? 1 : 0)} className="text-body-tertiary fst-italic">
       empty
     </td>
   );
@@ -257,14 +356,16 @@ export function LineupEditor({
         </select>
         {edit && (
           <>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary"
-              onClick={() => void preview(setup, "auto")}
-              title={autoTitle}
-            >
-              Auto
-            </button>
+            {autoTitle && (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => void preview(setup, "auto")}
+                title={autoTitle}
+              >
+                Auto
+              </button>
+            )}
             {saveSetup ? (
               <>
                 <button
@@ -280,12 +381,13 @@ export function LineupEditor({
                   className="btn btn-sm btn-primary"
                   disabled={!dirty || saving}
                   onClick={() => void save()}
-                  data-testid="save-tactics"
+                  data-testid={saveText.testId}
                 >
-                  Save
+                  {saveText.label(setup)}
                 </button>
+                {actions?.(dirty)}
                 {dirty ? (
-                  <span className="small text-warning-emphasis">Unsaved changes</span>
+                  <span className="small text-warning-emphasis">{saveText.pending}</span>
                 ) : (
                   !view.saved && (
                     <span className="small text-body-secondary">
@@ -322,6 +424,7 @@ export function LineupEditor({
             selectedSlot={picked?.area === "slot" ? picked.index : undefined}
             slotProps={(index, filled) => handlers({ area: "slot", index }, filled)}
             fitAt={(index) => fitAt({ area: "slot", index })}
+            match={live?.match}
           />
           <h2 className="h6">Starting XI</h2>
           <div className="table-responsive">
@@ -341,7 +444,7 @@ export function LineupEditor({
                       {...handlers(place, s.player !== null)}
                     >
                       <td className="fw-semibold">{s.label}</td>
-                      {s.player ? playerCells(s.player, true) : emptyCells(13)}
+                      {s.player ? playerCells(s.player, true) : emptyCells(true)}
                     </tr>
                   );
                 })}
@@ -367,61 +470,65 @@ export function LineupEditor({
                       {...handlers(place, p !== undefined)}
                     >
                       <td className="text-body-secondary">{i + 1}</td>
-                      {p ? playerCells(p, false) : emptyCells(12)}
+                      {p ? playerCells(p, false) : emptyCells(false)}
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
-          <h2 className="h6">Not in the squad</h2>
-          {edit && (
-            <div
-              className="border border-dashed rounded small text-body-secondary px-2 py-1 mb-2"
-              data-testid="take-out"
-              role="button"
-              tabIndex={0}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragging(null);
-                takeOut(JSON.parse(e.dataTransfer.getData("text/plain")) as Place);
-              }}
-              onClick={() => takeOut()}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  takeOut();
-                }
-              }}
-            >
-              Drop a player here (or pick one, then click here) to leave him out.
-            </div>
+          {!live && (
+            <>
+              <h2 className="h6">Not in the squad</h2>
+              {edit && (
+                <div
+                  className="border border-dashed rounded small text-body-secondary px-2 py-1 mb-2"
+                  data-testid="take-out"
+                  role="button"
+                  tabIndex={0}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragging(null);
+                    takeOut(JSON.parse(e.dataTransfer.getData("text/plain")) as Place);
+                  }}
+                  onClick={() => takeOut()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      takeOut();
+                    }
+                  }}
+                >
+                  Drop a player here (or pick one, then click here) to leave him out.
+                </div>
+              )}
+              <div className="table-responsive">
+                <table
+                  className="table table-striped table-hover table-sm small align-middle"
+                  data-testid="tactics-reserves"
+                >
+                  {head("", false)}
+                  <tbody>
+                    {view.reserves.map((p) => {
+                      const place: Place = { area: "reserve", pid: p.pid };
+                      return (
+                        <tr
+                          key={p.pid}
+                          className={rowClass(place)}
+                          data-fit={fitAt(place) ?? undefined}
+                          {...handlers(place, true)}
+                        >
+                          <td />
+                          {playerCells(p, false)}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
-          <div className="table-responsive">
-            <table
-              className="table table-striped table-hover table-sm small align-middle"
-              data-testid="tactics-reserves"
-            >
-              {head("", false)}
-              <tbody>
-                {view.reserves.map((p) => {
-                  const place: Place = { area: "reserve", pid: p.pid };
-                  return (
-                    <tr
-                      key={p.pid}
-                      className={rowClass(place)}
-                      data-fit={fitAt(place) ?? undefined}
-                      {...handlers(place, true)}
-                    >
-                      <td />
-                      {playerCells(p, false)}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
         </div>
         <div className="col-xl-4">
           <section className="card mb-3">
@@ -470,7 +577,9 @@ export function LineupEditor({
             <div className="card-body">
               <h2 className="h6">Team ratings</h2>
               <p className="small text-body-secondary mb-2">
-                At today's condition, on the player OVR scale
+                {live
+                  ? "As things stand, energy counted, on the player OVR scale"
+                  : "At today's condition, on the player OVR scale"}
                 {dirty ? `; the change since ${baselineLabel} in brackets` : ""}.
               </p>
               <table className="table table-sm small mb-0" data-testid="team-ratings">
@@ -505,7 +614,7 @@ export function LineupEditor({
           {view.warnings.length > 0 && (
             <section className="card border-warning" data-testid="tactics-warnings">
               <div className="card-body small">
-                <h2 className="h6">Check before you play</h2>
+                <h2 className="h6">{live ? "Check before you resume" : "Check before you play"}</h2>
                 <ul className="mb-0 ps-3">
                   {view.warnings.map((w) => (
                     <li key={w}>{w}</li>

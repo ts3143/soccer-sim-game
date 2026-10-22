@@ -61,6 +61,22 @@ describe("line-up fit highlights", () => {
     expect(moveFit(view, { area: "slot", index: 1 }, { area: "slot", index: 2 })).toBe(null);
   });
 
+  it("during a live match, an empty (sent-off) slot lights up only for players on the pitch", () => {
+    const tenMen = {
+      ...view,
+      slots: [view.slots[0], { position: "CB", player: null }, view.slots[2]],
+    } as unknown as TacticsView;
+    expect(moveFit(tenMen, { area: "bench", index: 1 }, { area: "slot", index: 1 })).toBe(
+      "natural",
+    );
+    expect(moveFit(tenMen, { area: "bench", index: 1 }, { area: "slot", index: 1 }, true)).toBe(
+      null,
+    );
+    expect(moveFit(tenMen, { area: "slot", index: 2 }, { area: "slot", index: 1 }, true)).toBe(
+      null, // the midfielder doesn't suit centre-back
+    );
+  });
+
   it("never highlights the player's own place or moves among the bench and reserves", () => {
     expect(moveFit(view, { area: "slot", index: 1 }, { area: "slot", index: 1 })).toBe(null);
     expect(moveFit(view, { area: "bench", index: 0 }, { area: "reserve", pid: 6 })).toBe(null);

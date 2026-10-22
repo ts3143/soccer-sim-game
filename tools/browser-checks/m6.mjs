@@ -414,18 +414,65 @@ check(
 // --- Chunk 4: changes during the match ----------------------------------------------------------
 const changes = page.locator('[data-testid="changes"]');
 const myCard = () => page.locator('[data-testid="my-team"]').innerText();
+const board = changes.locator('[data-testid="tactics-xi"] tbody tr');
+const boardBench = changes.locator('[data-testid="tactics-bench"] tbody tr');
+const applyChanges = changes.locator('[data-testid="apply-changes"]');
+const boardPid = (i) =>
+  changes.locator(`[data-testid="formation-pitch"] [data-slot="${i}"]`).getAttribute("data-pid");
 await changes.waitFor({ timeout: 15_000 });
+await board.first().waitFor({ timeout: 15_000 });
 check(
   "paused mid-match, the changes screen says a substitution now uses a window",
   (await page.locator('[data-testid="changes-title"]').innerText()) === "Paused" &&
     /use 1 of your 3 remaining windows/.test(await changes.innerText()),
 );
-const subSelect = (i) =>
-  page.locator('[data-testid="changes-subs"] tbody tr').nth(i).locator("select");
-const firstOption = async (i) =>
-  (await subSelect(i).locator("option").nth(1).getAttribute("value")) ?? "";
-await subSelect(9).selectOption(await firstOption(9));
-await page.locator('[data-testid="apply-changes"]').click();
+check(
+  "the pause screen is the full tactics board: pitch, XI, bench, energy and rating so far",
+  (await changes.getByTestId("formation-pitch").count()) === 1 &&
+    (await board.count()) === 11 &&
+    (await boardBench.count()) > 0 &&
+    (await changes.locator('[data-testid="board-energy"]').count()) ===
+      11 + (await boardBench.count()) &&
+    (await changes.locator('[data-testid="tactics-xi"] [data-testid="rating-so-far"]').count()) ===
+      11 &&
+    (await changes.locator('[data-testid="tactics-reserves"]').count()) === 0,
+  (
+    await changes
+      .locator('[data-testid="tactics-xi"] [data-testid="rating-so-far"]')
+      .allInnerTexts()
+  ).join(" "),
+);
+
+// Moving players between positions is free (T, 2026-10-21).
+const [five, six] = [await boardPid(5), await boardPid(6)];
+await board.nth(5).click();
+await board.nth(6).click();
+await settle(
+  (pid) =>
+    document
+      .querySelector('[data-testid="changes"] [data-testid="formation-pitch"] [data-slot="5"]')
+      ?.getAttribute("data-pid") === pid,
+  six,
+);
+await applyChanges.click();
+await settle(() => /Done: your changes are made/.test(document.body.textContent ?? ""));
+check(
+  "moving two players between positions is free and stays made",
+  /Subs 0\/5 · windows 0\/3/.test(await myCard()) &&
+    (await boardPid(5)) === six &&
+    (await boardPid(6)) === five &&
+    (await applyChanges.isDisabled()),
+);
+
+// A substitution: the first substitute onto slot 9.
+await boardBench.first().click();
+await board.nth(9).click();
+await settle(() =>
+  /Make changes \(1 substitution\)/.test(
+    document.querySelector('[data-testid="apply-changes"]')?.textContent ?? "",
+  ),
+);
+await applyChanges.click();
 await settle(() =>
   /Subs 1\/5 · windows 1\/3/.test(
     document.querySelector('[data-testid="my-team"]')?.textContent ?? "",
@@ -435,12 +482,20 @@ check(
   "a substitution during play comes on and uses a window",
   (await page.locator('[data-testid="live-feed"] .badge', { hasText: "Sub" }).count()) >= 1,
 );
-const formationNow = await page.locator("#live-formation").inputValue();
+const formationNow = await changes.locator("#formation").inputValue();
 const nextFormation = formationNow === "4-4-2" ? "4-3-3" : "4-4-2";
-await page.locator("#live-formation").selectOption(nextFormation);
-await page.locator("#live-slider-mentality").focus();
+await changes.locator("#formation").selectOption(nextFormation);
+await settle(
+  (f) =>
+    document
+      .querySelector('[data-testid="changes"] [data-testid="formation-pitch"]')
+      ?.getAttribute("aria-label")
+      ?.startsWith(f),
+  nextFormation,
+);
+await changes.locator("#slider-mentality").focus();
 await page.keyboard.press("ArrowRight");
-await page.locator('[data-testid="apply-changes"]').click();
+await applyChanges.click();
 await settle(
   (f) => document.querySelector('[data-testid="my-team"] h2')?.textContent.includes(f),
   nextFormation,
@@ -464,8 +519,15 @@ check(
   /don't use a window/.test(await changes.innerText()),
 );
 const used = Number((await myCard()).match(/Subs (\d)\/5/)?.[1] ?? 0);
-await subSelect(4).selectOption(await firstOption(4));
-await page.locator('[data-testid="apply-changes"]').click();
+await board.first().waitFor({ timeout: 15_000 });
+await boardBench.first().click();
+await board.nth(4).click();
+await settle(() =>
+  /Make changes \(1 substitution\)/.test(
+    document.querySelector('[data-testid="apply-changes"]')?.textContent ?? "",
+  ),
+);
+await applyChanges.click();
 await settle(
   (n) =>
     new RegExp(`Subs ${n}/5 · windows 1/3`).test(

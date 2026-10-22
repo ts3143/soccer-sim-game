@@ -2,21 +2,25 @@
  * Watch live (M6, SPEC §11). Before kick-off: the line-up for this match only (the Tactics
  * editor, applied at once) and the opponent's XI. During the match: the score and clock
  * with the scorers, play and pause, a speed slider, the commentary, live stats, and both
- * teams' energy bars and benches. In-match changes and the half-time screen follow.
+ * teams' energy bars and benches. At a pause (or half-time): the tactics board, for
+ * substitutions, free position moves, the formation and the sliders.
  */
 import { InjuryTag } from "../components/InjuryTag";
 import { useEffect, useRef, useState } from "react";
 import type {
+  LiveBoardView,
   LiveChanges,
   LiveMatchView,
   LivePause,
   LiveTeamView,
+  TacticsSetup,
   TacticsView,
 } from "../../common/api";
 import { addDays } from "../../common/dates";
-import { formationsConfig } from "../../common/config/formations";
 import type { MatchEvent } from "../../common/match";
-import { LineupEditor } from "../components/LineupEditor";
+import { LineupEditor, type SaveText } from "../components/LineupEditor";
+import { GameError } from "../../common/errors";
+import { liveChanges } from "../../common/liveChanges";
 import { feedLine, minuteLabel, type FeedContext } from "../components/matchText";
 import { crestUrl } from "../crests";
 import { leaguePath, Link } from "../router";
@@ -108,7 +112,6 @@ function feedLines(
 
 const isHalfTime = (view: LiveMatchView) =>
   view.atBreak && view.period === "second" && view.clock === 45 * 60;
-const MVP_FORMATIONS = formationsConfig.formations.filter((f) => f.mvp).map((f) => f.id);
 
 const energyClass = (e: number) => (e >= 70 ? "bg-success" : e >= 50 ? "bg-warning" : "bg-danger");
 
@@ -270,7 +273,6 @@ export function Live() {
       )}
       {!preMatch && !running && !done && view.clock > 0 && (
         <ChangesPanel
-          key={`${view.feedLength}/${view.teams[view.userSide].subsUsed}`}
           view={view}
           pause={pause ?? (isHalfTime(view) ? { reason: "halfTime", pid: null } : null)}
           onApplied={(next) => {
@@ -554,8 +556,11 @@ const PAUSE_TITLES: Record<LivePause["reason"], string> = {
 };
 
 /**
- * The pause screen (SPEC §11): substitutions, formation and sliders for the user's club.
- * All substitutions made together use one window during play; at a break they're free.
+ * The pause screen (SPEC §11): the live tactics board (T, 2026-10-21). The user's side as
+ * the Tactics editor shows it, with energy and each player's match so far. Substitutions,
+ * position moves (free), the formation and the sliders are previewed as he makes them and
+ * made together with "Make changes": substitutions made together use one window during
+ * play, none at a break.
  */
 function ChangesPanel({
   view,
@@ -569,43 +574,24 @@ function ChangesPanel({
   onResume: () => void;
 }) {
   const { shell } = useShell();
-  const mine = view.teams[view.userSide];
-  const [subs, setSubs] = useState<Record<number, number>>({});
-  const [formation, setFormation] = useState(mine.formation);
-  const [sliders, setSliders] = useState(mine.sliders);
+  // The board as the match stands; `version` moves when it's fetched afresh (the editor restarts).
+  const [board, setBoard] = useState<{ view: LiveBoardView; version: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    toWorker("getLiveBoard", shell.lid)
+      .then((next) => {
+        if (alive) setBoard((b) => ({ view: next, version: (b?.version ?? 0) + 1 }));
+      })
+      .catch((e: unknown) => alive && setError(errorText(e)));
+    return () => {
+      alive = false;
+    };
+  }, [shell.lid, view.clock]);
+
   const name = (pid: number) => view.players[pid]?.name ?? `#${pid}`;
-  const subsLeft = mine.subLimit - mine.subsUsed;
-  const windowsLeft = mine.windowLimit - mine.windowsUsed;
-  const free = view.atBreak;
-  const canSub = subsLeft > 0 && (free || windowsLeft > 0);
-  const chosen = Object.values(subs);
-  const pending = Object.keys(subs).length;
-  const changed =
-    pending > 0 ||
-    formation !== mine.formation ||
-    JSON.stringify(sliders) !== JSON.stringify(mine.sliders);
-
-  const apply = async () => {
-    const changes: LiveChanges = {};
-    if (pending > 0) {
-      changes.subs = Object.entries(subs).map(([out, inPid]) => ({ outPid: Number(out), inPid }));
-    }
-    if (formation !== mine.formation) changes.formation = formation;
-    if (JSON.stringify(sliders) !== JSON.stringify(mine.sliders)) changes.sliders = sliders;
-    setSaving(true);
-    setError(null);
-    try {
-      onApplied(await toWorker("changeLiveMatch", shell.lid, changes, view.feedLength));
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const who = pause?.pid != null ? name(pause.pid) : "";
+  const mine = view.teams[view.userSide];
   const keeperOff =
     pause?.reason === "redCard" && pause.pid !== null && view.players[pause.pid]?.position === "GK";
   const message =
@@ -614,10 +600,30 @@ function ChangesPanel({
       : pause?.reason === "redCard"
         ? keeperOff
           ? `${who} has been sent off, and an outfielder has gone in goal. Bring on your reserve keeper for him if you have one.`
-          : `${who} has been sent off: you're down to ${mine.onPitch.filter((p) => p !== null).length}.`
+          : `${who} has been sent off: you're down to ${mine.onPitch.filter((p) => p !== null).length}. You can move a player into his empty slot; nobody can come on for him.`
         : pause?.reason === "extraTime"
           ? "Level after 90 minutes. Extra time adds a substitution and a window."
           : null;
+
+  const current = board?.view;
+  /** The changes that turn the line-up on the pitch into the one on the board. */
+  const changesFor = (setup: TacticsSetup): LiveChanges => {
+    if (!current) throw new GameError("The board is still loading.");
+    const { changes, problem } = liveChanges(current.setup, setup);
+    if (problem) throw new GameError(problem);
+    return changes;
+  };
+  const saveText: SaveText = {
+    label: (setup) => {
+      const subs = current ? (liveChanges(current.setup, setup).changes.subs?.length ?? 0) : 0;
+      return subs > 0
+        ? `Make changes (${subs} substitution${subs === 1 ? "" : "s"})`
+        : "Make changes";
+    },
+    done: "Done: your changes are made.",
+    pending: "Not made yet",
+    testId: "apply-changes",
+  };
 
   return (
     <section
@@ -629,143 +635,58 @@ function ChangesPanel({
           <h2 className="h5 mb-0" data-testid="changes-title">
             {pause ? PAUSE_TITLES[pause.reason] : "Paused"}
           </h2>
-          <span className="small text-body-secondary">
-            Your changes. Substitutions left: {subsLeft}.{" "}
-            {free
-              ? "This is a break, so substitutions now don't use a window."
-              : windowsLeft > 0
-                ? `Substitutions now use 1 of your ${windowsLeft} remaining window${windowsLeft === 1 ? "" : "s"}: make them all together.`
-                : "No substitution windows left."}
-          </span>
+          {current && (
+            <span className="small text-body-secondary" data-testid="changes-rules">
+              Your changes. Substitutions left: {current.subsLeft}.{" "}
+              {current.free
+                ? "This is a break, so substitutions now don't use a window."
+                : current.windowsLeft > 0
+                  ? `Substitutions now use 1 of your ${current.windowsLeft} remaining window${current.windowsLeft === 1 ? "" : "s"}: make them all together.`
+                  : "No substitution windows left."}{" "}
+              Moving players between positions is free.
+            </span>
+          )}
         </div>
         {message && (
           <div className="alert alert-warning py-2 small" data-testid="changes-message">
             {message}
           </div>
         )}
-        <div className="row g-3">
-          <div className="col-lg-8">
-            <table className="table table-sm small align-middle mb-0" data-testid="changes-subs">
-              <thead>
-                <tr>
-                  <th>Slot</th>
-                  <th>On the pitch</th>
-                  <th className="text-end">Energy</th>
-                  <th>Replace with</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mine.onPitch.map((p, i) =>
-                  p ? (
-                    <tr key={i} className={p.pid === pause?.pid ? "table-danger" : ""}>
-                      <td className="text-body-secondary">{p.slot}</td>
-                      <td className="text-nowrap">
-                        {name(p.pid)}
-                        {p.booked && <span className="badge text-bg-warning ms-1">Y</span>}
-                        {p.injured && (
-                          <InjuryTag
-                            injury={{
-                              type: "Match injury",
-                              until: addDays(view.date, p.injuryDays),
-                            }}
-                            today={view.date}
-                          />
-                        )}
-                      </td>
-                      <td className={`text-end ${p.energy < 50 ? "text-danger" : ""}`}>
-                        {p.energy}
-                      </td>
-                      <td>
-                        <select
-                          className="form-select form-select-sm"
-                          aria-label={`Replace ${name(p.pid)}`}
-                          value={subs[p.pid] ?? ""}
-                          disabled={!canSub || (pending >= subsLeft && subs[p.pid] === undefined)}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setSubs((current) => {
-                              const next = { ...current };
-                              if (value === "") delete next[p.pid];
-                              else next[p.pid] = Number(value);
-                              return next;
-                            });
-                          }}
-                        >
-                          <option value="">—</option>
-                          {mine.bench
-                            .filter((b) => b.pid === subs[p.pid] || !chosen.includes(b.pid))
-                            .map((b) => (
-                              <option key={b.pid} value={b.pid}>
-                                {name(b.pid)} ({b.position}, {view.players[b.pid]?.ovr ?? "?"})
-                              </option>
-                            ))}
-                        </select>
-                      </td>
-                    </tr>
-                  ) : null,
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="col-lg-4">
-            <label htmlFor="live-formation" className="form-label small fw-semibold mb-0">
-              Formation
-            </label>
-            <select
-              id="live-formation"
-              className="form-select form-select-sm mb-3"
-              value={formation}
-              onChange={(e) => setFormation(e.target.value)}
-            >
-              {MVP_FORMATIONS.map((id) => (
-                <option key={id}>{id}</option>
-              ))}
-            </select>
-            {formationsConfig.sliders.map((s) => (
-              <div key={s.key} className="mb-2">
-                <label
-                  htmlFor={`live-slider-${s.key}`}
-                  className="form-label small fw-semibold text-capitalize mb-0"
-                >
-                  {s.key}{" "}
-                  <span className="fw-normal text-body-secondary">
-                    ({sliders[s.key] > 0 ? `+${sliders[s.key]}` : sliders[s.key]})
-                  </span>
-                </label>
-                <input
-                  id={`live-slider-${s.key}`}
-                  type="range"
-                  className="form-range"
-                  min={-2}
-                  max={2}
-                  step={1}
-                  value={sliders[s.key]}
-                  onChange={(e) => setSliders({ ...sliders, [s.key]: Number(e.target.value) })}
-                />
-                <div className="d-flex justify-content-between small text-body-secondary">
-                  <span>{s.low}</span>
-                  <span>{s.high}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        {error && <div className="alert alert-danger py-2 small mt-2">{error}</div>}
-        <div className="d-flex gap-2 mt-3">
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={!changed || saving}
-            onClick={() => void apply()}
-            data-testid="apply-changes"
-          >
-            Make changes
-            {pending > 0 ? ` (${pending} substitution${pending === 1 ? "" : "s"})` : ""}
-          </button>
-          <button type="button" className="btn btn-success" onClick={onResume} data-testid="resume">
-            {changed ? "Resume without these changes" : "Resume"}
-          </button>
-        </div>
+        {error && <div className="alert alert-danger py-2 small">{error}</div>}
+        {!board ? (
+          <p className="small text-body-secondary mb-0">Loading the board…</p>
+        ) : (
+          <LineupEditor
+            key={board.version}
+            initial={board.view}
+            apply={(setup, mode) => {
+              const changes = changesFor(setup);
+              // A new formation from the menu: the game re-slots everyone by best fit.
+              if (mode === "reslot") delete changes.slots;
+              return toWorker("previewLiveChanges", shell.lid, changes);
+            }}
+            save={async (setup) => {
+              const changes = changesFor(setup);
+              onApplied(await toWorker("changeLiveMatch", shell.lid, changes, view.feedLength));
+              const next = await toWorker("getLiveBoard", shell.lid);
+              setBoard((b) => ({ view: next, version: b?.version ?? 0 }));
+              return next;
+            }}
+            note="Drag a substitute onto a player to bring him on, or move players between positions. The team ratings show what your changes would do; nothing happens until you make them."
+            baselineLabel="the line-up on the pitch"
+            saveText={saveText}
+            actions={(dirty) => (
+              <button
+                type="button"
+                className="btn btn-sm btn-success"
+                onClick={onResume}
+                data-testid="resume"
+              >
+                {dirty ? "Resume without these changes" : "Resume"}
+              </button>
+            )}
+          />
+        )}
       </div>
     </section>
   );
