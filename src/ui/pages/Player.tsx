@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 import type { PlayerView } from "../../common/api";
 import { RATING_CODES, ratingsConfig } from "../../common/config/ratings";
 import { RadarChart } from "../components/charts";
-import { NationalityFlag, RatingChange, RatingValue } from "../components/PlayerDetails";
+import { NationalityFlag, RatingChange, RatingsGrid } from "../components/PlayerDetails";
 import { TeamLink } from "../components/links";
 import { formatDate, formatEuros } from "../format";
 import { PageHeader } from "../shell/PageHeader";
@@ -47,37 +47,13 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function Ratings({ view }: { view: PlayerView }) {
-  const groups = [...new Set(view.ratings.map((r) => r.group))];
   return (
     <div className="profile-rating-groups" data-testid="ratings">
-      {groups.map((g) => (
-        <div key={g} className="profile-rating-group">
-          <h3 className="h6 small text-uppercase text-body-secondary">{g}</h3>
-          <table className="table table-sm small mb-0">
-            <tbody>
-              {view.ratings
-                .filter((r) => r.group === g)
-                .map((r) => (
-                  <tr key={r.code}>
-                    <td title={r.name}>{r.name.replace(/\s*\(.*\)/, "")}</td>
-                    <td className="text-end fw-semibold">
-                      <RatingValue value={r.value} />
-                    </td>
-                    <td className="text-end" style={{ width: "3em" }}>
-                      {r.change ? (
-                        <span className={r.change > 0 ? "text-success" : "text-danger"}>
-                          {r.change > 0 ? `+${r.change}` : r.change}
-                        </span>
-                      ) : (
-                        ""
-                      )}
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      ))}
+      <RatingsGrid
+        ratings={view.ratings.map((r) => r.value)}
+        changes={view.ratings.map((r) => r.change)}
+        position={view.position}
+      />
     </div>
   );
 }

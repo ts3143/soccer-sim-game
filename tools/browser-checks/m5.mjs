@@ -402,6 +402,17 @@ check(
   "all 22 ratings are shown by group",
   (await page.locator('[data-testid="ratings"] tbody tr').count()) === 22,
 );
+const listed = (
+  await page.locator('[data-testid="position-ovrs"] .text-bg-primary').innerText()
+).split(" ")[0];
+check(
+  "the profile groups ratings FM style and highlights what counts at his listed position",
+  JSON.stringify(
+    await page.locator('[data-testid="ratings"] .ratings-group-title').allInnerTexts(),
+  ) === JSON.stringify(["TECHNICAL", "MENTAL", "SET PIECES", "PHYSICAL", "GOALKEEPING"]) &&
+    (await page.locator('[data-testid="ratings"] tr.rating-key').count()) >= 3 &&
+    (await page.locator(".ratings-legend").innerText()).includes(`Highlighted for ${listed}:`),
+);
 check(
   "OVR at every position is shown",
   (await page.locator('[data-testid="position-ovrs"] .badge').count()) === 10,

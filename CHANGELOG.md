@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- **Easier-to-read ratings,** in the ratings card and on the profile: grouped like FM into Technical, Mental and Physical, plus Set pieces and Goalkeeping, with full names. The ratings that matter most for the player's position are highlighted (on Tactics, the position of the slot he's in), and only the number is coloured red to green.
+
 ## 0.2.0 (2026-10-21)
 
 ### Added

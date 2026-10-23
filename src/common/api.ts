@@ -141,7 +141,7 @@ export interface SquadPlayerView {
   pid: number;
   name: string;
   shirtNumber: number | null;
-  position: string;
+  position: Position;
   secondary: string[];
   age: number;
   nationality: string;
@@ -182,7 +182,7 @@ export interface PlayerView {
   potChange: number | null;
   pid: number;
   name: string;
-  position: string;
+  position: Position;
   secondary: string[];
   age: number;
   birthDate: string;

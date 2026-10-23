@@ -110,7 +110,7 @@ tr[role="button"] {
 .player-summary-popover {
   position: fixed;
   margin: 0;
-  width: min(410px, calc(100vw - 24px));
+  width: min(480px, calc(100vw - 24px));
   max-height: calc(100vh - 24px);
   overflow-y: auto;
   padding: 1rem;
@@ -126,11 +126,86 @@ tr[role="button"] {
   flex-shrink: 0;
   font-size: 0.65rem;
 }
-.summary-ratings {
+/* The ratings grid (card and profile): FM-style columns, key rows highlighted (T, 2026-10-23). */
+.ratings-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.25rem 0.5rem;
-  font-size: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(var(--ratings-column-min, 128px), 1fr));
+  gap: 0.6rem 0.9rem;
+  font-size: 0.8rem;
+}
+.ratings-group + .ratings-group {
+  margin-top: 0.6rem;
+}
+.ratings-group-title {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--bs-secondary-color);
+  border-bottom: 2px solid var(--bs-border-color);
+  padding-bottom: 0.2rem;
+  margin-bottom: 0.15rem;
+}
+.ratings-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0 2px;
+}
+.ratings-table td {
+  padding: 0.08rem 0.25rem;
+  vertical-align: middle;
+}
+.ratings-table td:first-child {
+  border-left: 3px solid transparent;
+  overflow-wrap: break-word;
+}
+.ratings-table .rating-number {
+  width: 2.7em;
+  text-align: right;
+}
+.ratings-table .rating-delta {
+  width: 2.5em;
+  text-align: right;
+  white-space: nowrap;
+}
+.ratings-table .rating-value {
+  min-width: 2.1em;
+  text-align: center;
+  font-weight: 600;
+}
+.ratings-table tr.rating-key td,
+.rating-swatch.rating-key {
+  background: var(--bs-primary-bg-subtle);
+}
+.ratings-table tr.rating-key td:first-child,
+.rating-swatch.rating-key {
+  border-left-color: var(--bs-primary);
+}
+.ratings-table tr.rating-useful td,
+.rating-swatch.rating-useful {
+  background: color-mix(in srgb, var(--bs-primary-bg-subtle) 40%, transparent);
+}
+.ratings-table tr.rating-useful td:first-child,
+.rating-swatch.rating-useful {
+  border-left-color: var(--bs-primary-border-subtle);
+}
+.ratings-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.6rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color);
+}
+.rating-swatch {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.8rem;
+  margin-right: 0.25rem;
+  border-left: 3px solid;
+  vertical-align: -0.1rem;
 }
 .player-profile-top {
   display: grid;
@@ -142,25 +217,9 @@ tr[role="button"] {
 .profile-bio .col-md-4 {
   width: 50%;
 }
-.profile-rating-groups {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.8rem;
-}
-.profile-rating-group .table {
-  --bs-table-bg: transparent;
+.profile-rating-groups .ratings-grid {
+  --ratings-column-min: 150px;
   font-size: 0.75rem;
-}
-.profile-rating-group td {
-  padding: 0.12rem 0.15rem;
-  white-space: nowrap;
-  border: 0;
-}
-.profile-rating-group h3 {
-  font-size: 0.7rem;
-  border-bottom: 2px solid var(--bs-border-color);
-  padding-bottom: 0.25rem;
-  margin-bottom: 0.3rem;
 }
 .profile-ratings-content {
   display: grid;
@@ -174,9 +233,6 @@ tr[role="button"] {
 @media (max-width: 1399.98px) {
   .profile-ratings-content {
     grid-template-columns: minmax(0, 1fr) 190px;
-  }
-  .profile-rating-groups {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .profile-radar {
     min-width: 0;
@@ -193,20 +249,6 @@ tr[role="button"] {
     max-width: 300px;
     justify-self: center;
   }
-  .profile-rating-groups {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-.profile-rating-group td:first-child {
-  white-space: normal;
-  overflow-wrap: break-word;
-}
-.profile-rating-group table {
-  table-layout: fixed;
-  width: 100%;
-}
-.profile-rating-group td:nth-child(2) {
-  width: 2.5em;
 }
 
 .player-skill-tags {

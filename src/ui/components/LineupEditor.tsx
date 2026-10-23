@@ -15,6 +15,7 @@ import type {
   TacticsView,
 } from "../../common/api";
 import { formationsConfig } from "../../common/config/formations";
+import type { Position } from "../../common/config/ratings";
 import { addDays } from "../../common/dates";
 import { PlayerRatings, RatingChange, NationalityFlag } from "./PlayerDetails";
 import { PlayerLink } from "./links";
@@ -210,7 +211,7 @@ export function LineupEditor({
     return [edit ? "tactics-row" : "", fit ? `fit-${fit}` : ""].join(" ").trim();
   };
 
-  const playerCells = (p: TacticsPlayerView, slot: boolean): ReactNode => {
+  const playerCells = (p: TacticsPlayerView, slot: Position | null): ReactNode => {
     const m = live?.match[p.pid];
     return (
       <>
@@ -228,7 +229,7 @@ export function LineupEditor({
             />
           )}
           <SkillTags ratings={p.ratings} position={p.position} />
-          <PlayerRatings player={p} />
+          <PlayerRatings player={p} slot={slot ?? undefined} />
           <PlayerStatusTags player={p} today={p.today} />
         </td>
         <td>{p.position}</td>
@@ -444,7 +445,7 @@ export function LineupEditor({
                       {...handlers(place, s.player !== null)}
                     >
                       <td className="fw-semibold">{s.label}</td>
-                      {s.player ? playerCells(s.player, true) : emptyCells(true)}
+                      {s.player ? playerCells(s.player, s.position) : emptyCells(true)}
                     </tr>
                   );
                 })}
@@ -470,7 +471,7 @@ export function LineupEditor({
                       {...handlers(place, p !== undefined)}
                     >
                       <td className="text-body-secondary">{i + 1}</td>
-                      {p ? playerCells(p, false) : emptyCells(false)}
+                      {p ? playerCells(p, null) : emptyCells(false)}
                     </tr>
                   );
                 })}
@@ -520,7 +521,7 @@ export function LineupEditor({
                           {...handlers(place, true)}
                         >
                           <td />
-                          {playerCells(p, false)}
+                          {playerCells(p, null)}
                         </tr>
                       );
                     })}
