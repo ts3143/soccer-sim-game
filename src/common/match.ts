@@ -140,6 +140,8 @@ export interface MatchResult {
   winner: TeamSide | null;
   teams: [TeamMatchStats, TeamMatchStats];
   players: PlayerMatchStats[];
+  /** Man of the match: the pid with the highest rating (SPEC §8.7); null if nobody played. */
+  motm: number | null;
   /** Goals, cards, substitutions and injuries (the match record's key events). */
   keyEvents: MatchEvent[];
   /** Match length in seconds, including added time. */

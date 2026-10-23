@@ -2,7 +2,12 @@ import type { IDBPTransaction, StoreNames } from "idb";
 import type { Position } from "../../common/config/ratings";
 import type { PlayerMatchStats } from "../../common/match";
 import { COEFFICIENTS } from "../engine/coefficients";
-import { ratingFromOldScale, ratingTotalFromOldScale } from "../engine/ratings";
+import {
+  manOfTheMatch,
+  ratingFromOldScale,
+  ratingTotalFromOldScale,
+  winningSide,
+} from "../engine/ratings";
 import type { LeagueDBSchema } from "./schema";
 
 type UpgradeTransaction = IDBPTransaction<
@@ -76,5 +81,38 @@ export async function upgradeToV3(tx: UpgradeTransaction): Promise<void> {
   if (live) {
     for (const team of live.state.teams) for (const p of team.all) fillPsxg(p.stats);
     await meta.put(live, "live");
+  }
+}
+
+/**
+ * League DB v4: man of the match (SPEC §8.7; T, 2026-10-23). Names him in every saved match
+ * record and counts the awards on the season stat rows. Other clubs' records older than two
+ * seasons were pruned before, so those seasons' counts are short; the user's clubs' matches
+ * are all kept, so theirs are complete.
+ */
+export async function upgradeToV4(tx: UpgradeTransaction): Promise<void> {
+  const counts = new Map<string, number>();
+  const key = (pid: number, season: number, cid: number, competition: string) =>
+    `${pid}|${season}|${cid}|${competition}`;
+  let match = await tx.objectStore("matches").openCursor();
+  while (match) {
+    const row = match.value;
+    const motm = manOfTheMatch(row.result.players, winningSide(row.result));
+    row.result.motm = motm;
+    const p = row.result.players.find((x) => x.pid === motm);
+    if (p) {
+      const k = key(p.pid, row.season, p.side === 0 ? row.homeCid : row.awayCid, row.competition);
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    await match.update(row);
+    match = await match.continue();
+  }
+
+  let stats = await tx.objectStore("playerStats").openCursor();
+  while (stats) {
+    const row = stats.value;
+    row.motm = counts.get(key(row.pid, row.season, row.cid, row.competition)) ?? 0;
+    await stats.update(row);
+    stats = await stats.continue();
   }
 }

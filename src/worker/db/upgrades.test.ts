@@ -12,7 +12,7 @@ const oldPlayer = (pid: number, position: string, rating: number, goalsConceded 
   minutes: 90,
 });
 
-describe("league DB v3 upgrade", () => {
+describe("league DB upgrades", () => {
   it("moves an older save's ratings to the 6.9 scale, once", async () => {
     const v2 = await openLeagueDb(9001, 2);
     await v2.put("matches", {
@@ -73,7 +73,59 @@ describe("league DB v3 upgrade", () => {
     again.close();
   });
 
-  it("creates a new save at v3 with nothing to convert", async () => {
+  it("names the man of the match in an older save's records and counts the awards", async () => {
+    const v3 = await openLeagueDb(9003, 3);
+    const line = (pid: number, side: 0 | 1, rating: number, goals = 0) => ({
+      pid,
+      side,
+      rating,
+      goals,
+      assists: 0,
+      minutes: 90,
+    });
+    const match = (fid: number, homeGoals: number, awayGoals: number, players: object[]) =>
+      ({
+        fid,
+        season: 2026,
+        competition: "ENG1",
+        homeCid: 5,
+        awayCid: 7,
+        result: { homeGoals, awayGoals, winner: null, players },
+      }) as unknown as MatchRecord;
+    // A clear best; then a tie on 8.1, which goes to the winning (away) side.
+    await v3.put("matches", match(1, 2, 0, [line(10, 0, 8.4, 2), line(20, 1, 6.5)]));
+    await v3.put("matches", match(2, 0, 1, [line(10, 0, 8.1), line(20, 1, 8.1)]));
+    await v3.put("matches", match(3, 1, 0, [line(10, 0, 7.9), line(20, 1, 7.2)]));
+    const stats = (pid: number, cid: number) =>
+      ({
+        pid,
+        season: 2026,
+        cid,
+        competition: "ENG1",
+        appearances: 3,
+      }) as unknown as PlayerStatsRow;
+    await v3.put("playerStats", stats(10, 5));
+    await v3.put("playerStats", stats(20, 7));
+    await v3.put("playerStats", stats(30, 7));
+    v3.close();
+
+    const v4 = await openLeagueDb(9003);
+    expect(v4.version).toBe(LEAGUE_DB_VERSION);
+    expect(
+      await Promise.all([1, 2, 3].map(async (fid) => (await v4.get("matches", fid))?.result.motm)),
+    ).toEqual([10, 20, 10]);
+    expect((await v4.get("playerStats", [10, 2026, 5, "ENG1"]))?.motm).toBe(2);
+    expect((await v4.get("playerStats", [20, 2026, 7, "ENG1"]))?.motm).toBe(1);
+    expect((await v4.get("playerStats", [30, 2026, 7, "ENG1"]))?.motm).toBe(0);
+    v4.close();
+
+    // Opening it again changes nothing.
+    const again = await openLeagueDb(9003);
+    expect((await again.get("playerStats", [10, 2026, 5, "ENG1"]))?.motm).toBe(2);
+    again.close();
+  });
+
+  it("creates a new save at the current version with nothing to convert", async () => {
     const db = await openLeagueDb(9002);
     expect(db.version).toBe(LEAGUE_DB_VERSION);
     expect(await db.count("matches")).toBe(0);

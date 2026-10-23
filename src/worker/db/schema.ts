@@ -19,8 +19,9 @@ import type {
  * step in openLeagueDb()'s upgrade whenever stores or indexes change.
  *   v1 (M0): meta only.   v2 (M1): every store of SPEC §12.
  *   v3 (0.2.0): no store changes; match ratings rescaled to the 6.9 scale (upgrades.ts).
+ *   v4: no store changes; man of the match named in match records, counted on stat rows.
  */
-export const LEAGUE_DB_VERSION = 3;
+export const LEAGUE_DB_VERSION = 4;
 
 export interface LeagueDBSchema extends DBSchema {
   /** Key-value rows; see MetaRows in src/common/schema.ts. */

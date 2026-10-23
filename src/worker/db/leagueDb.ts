@@ -1,7 +1,7 @@
 import { deleteDB, openDB, type IDBPDatabase } from "idb";
 import type { World } from "../generate/world";
 import { LEAGUE_DB_VERSION, leagueDbName, type LeagueDBSchema } from "./schema";
-import { upgradeToV3 } from "./upgrades";
+import { upgradeToV3, upgradeToV4 } from "./upgrades";
 
 /** Opens (and upgrades) a league save. `version` is for tests that build an older save. */
 export function openLeagueDb(
@@ -37,9 +37,13 @@ export function openLeagueDb(
         db.createObjectStore("inbox", { keyPath: "mid" });
         db.createObjectStore("awards", { keyPath: "aid" }).createIndex("season", "season");
       }
-      // An older save's rows need rescaling; a new save has none.
-      if (oldVersion === 2 && (newVersion ?? 0) >= 3) {
-        upgradeToV3(transaction).catch(() => transaction.abort());
+      // An older save's rows need converting, one version at a time; a new save has none.
+      if (oldVersion >= 2) {
+        const target = newVersion ?? 0;
+        void (async () => {
+          if (oldVersion < 3 && target >= 3) await upgradeToV3(transaction);
+          if (oldVersion < 4 && target >= 4) await upgradeToV4(transaction);
+        })().catch(() => transaction.abort());
       }
     },
     blocking(_currentVersion, _blockedVersion, event) {

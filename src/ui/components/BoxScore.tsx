@@ -44,6 +44,7 @@ export function BoxScore({ home, away, players, result, renderName }: Props) {
       `${a.subsUsed} (${a.windowsUsed})`,
     ],
   ];
+  const motm = result.players.find((p) => p.pid === result.motm);
   const key = [...result.keyEvents].sort(
     (x, y) => ("clock" in x ? x.clock : 0) - ("clock" in y ? y.clock : 0),
   );
@@ -60,6 +61,15 @@ export function BoxScore({ home, away, players, result, renderName }: Props) {
             {result.extraTime ? "after extra time" : "full time"}
             {result.penalties ? ` · ${result.penalties} on penalties` : ""}
           </div>
+          {motm && (
+            <div className="small mt-1" data-testid="motm">
+              <span className="motm-star" aria-hidden="true">
+                ★
+              </span>{" "}
+              Man of the match: {renderName ? renderName(motm.pid, name(motm.pid)) : name(motm.pid)}{" "}
+              ({motm.rating.toFixed(1)})
+            </div>
+          )}
         </div>
         <img src={crestUrl(away.code)} alt="" width={36} height={42} />
       </div>
@@ -127,6 +137,7 @@ export function BoxScore({ home, away, players, result, renderName }: Props) {
           title={side === 0 ? home.name : away.name}
           rows={result.players.filter((p) => p.side === side)}
           players={players}
+          motm={result.motm}
           renderName={renderName}
         />
       ))}
@@ -138,11 +149,13 @@ function PlayerTable({
   title,
   rows,
   players,
+  motm,
   renderName,
 }: {
   title: string;
   rows: PlayerMatchStats[];
   players: Props["players"];
+  motm: number | null;
   renderName?: Props["renderName"];
 }) {
   const ordered = [...rows].sort(
@@ -178,6 +191,11 @@ function PlayerTable({
                 {p.yellowCards > 0 && " 🟨"}
                 {p.redCards > 0 && " 🟥"}
                 {p.injuryDays > 0 && " ✚"}
+                {p.pid === motm && (
+                  <span className="motm-star ms-1" title="Man of the match">
+                    ★<span className="visually-hidden"> Man of the match</span>
+                  </span>
+                )}
               </td>
               <td>{p.position}</td>
               <td className="text-body-secondary">{p.minutes}&apos;</td>

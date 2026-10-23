@@ -23,7 +23,7 @@ import {
 } from "./manager";
 import { runPossession } from "./possession";
 import { playShootout } from "./shootout";
-import { matchRating } from "./ratings";
+import { manOfTheMatch, matchRating, winningSide } from "./ratings";
 import {
   currentMinute,
   emit,
@@ -231,6 +231,7 @@ export function matchResult(state: MatchState): MatchResult {
     if (home !== away) winner = home > away ? 0 : 1;
     else if (state.shootout) winner = state.shootout[0] > state.shootout[1] ? 0 : 1;
   }
+  const score = { homeGoals: state.score[0], awayGoals: state.score[1], winner };
   return {
     homeGoals: state.score[0],
     awayGoals: state.score[1],
@@ -239,6 +240,7 @@ export function matchResult(state: MatchState): MatchResult {
     winner,
     teams: teamStats,
     players,
+    motm: manOfTheMatch(players, winningSide(score)),
     keyEvents: [...state.keyEvents],
     duration: state.clock,
   };

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Man of the match:** the highest-rated player in every match, shown in the box score and at full time of a match you watch. Each player's count is on Player Stats, League Leaders and his profile. Saves from 0.2.0 get it for the matches they still hold.
+
+### Changed
+- **Easier-to-read ratings,** in the ratings card and on the profile: grouped like FM into Technical, Mental and Physical, plus Set pieces and Goalkeeping, with full names. The ratings that matter most for the player's position are highlighted (on Tactics, the position of the slot he's in), and only the number is coloured red to green.
+
 ## 0.2.0 (2026-10-21)
 
 ### Added

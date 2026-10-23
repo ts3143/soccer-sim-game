@@ -141,7 +141,7 @@ export interface SquadPlayerView {
   pid: number;
   name: string;
   shirtNumber: number | null;
-  position: string;
+  position: Position;
   secondary: string[];
   age: number;
   nationality: string;
@@ -182,7 +182,7 @@ export interface PlayerView {
   potChange: number | null;
   pid: number;
   name: string;
-  position: string;
+  position: Position;
   secondary: string[];
   age: number;
   birthDate: string;
@@ -245,6 +245,8 @@ export interface PlayerView {
     goals: number;
     assists: number;
     rating: number | null;
+    /** Man of the match awards. */
+    motm: number;
     yellowCards: number;
     redCards: number;
     cleanSheets: number;
@@ -336,6 +338,8 @@ export interface PlayerStatsView {
     saves: number;
     cleanSheets: number;
     rating: number | null;
+    /** Man of the match awards. */
+    motm: number;
   }[];
 }
 
@@ -505,6 +509,8 @@ export interface LiveMatchView {
   pause: LivePause | null;
   /** At full time: the match is saved and the day finished. */
   report: PlayReport | null;
+  /** At full time: the man of the match (SPEC §8.7) and his rating. */
+  motm: { pid: number; rating: number } | null;
 }
 
 /**

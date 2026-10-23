@@ -7,7 +7,7 @@
  * (performanceAdj) and awards.
  */
 import type { Position } from "../../common/config/ratings";
-import type { PlayerMatchStats } from "../../common/match";
+import type { PlayerMatchStats, TeamSide } from "../../common/match";
 import type { Coefficients } from "./coefficients";
 
 const DEFENDERS: readonly Position[] = ["CB", "FB", "WB"];
@@ -87,6 +87,45 @@ export function matchRating(
     rating = floor.from - (floor.from - rating) * floor.slope;
   }
   return finish(rating);
+}
+
+/**
+ * Man of the match (T, 2026-10-23): the highest match rating. Ratings have one decimal, so
+ * ties happen; they go to the winning side, then to more goals and assists, more minutes,
+ * and last the lower pid. `winner`: the side that won, after extra time and penalties.
+ */
+export function manOfTheMatch(
+  players: readonly PlayerMatchStats[],
+  winner: TeamSide | null,
+): number | null {
+  const key = (p: PlayerMatchStats) => [
+    p.rating,
+    p.side === winner ? 1 : 0,
+    p.goals + p.assists,
+    p.minutes,
+    -p.pid,
+  ];
+  let best: PlayerMatchStats | null = null;
+  for (const p of players) {
+    if (!best) {
+      best = p;
+      continue;
+    }
+    const [a, b] = [key(p), key(best)];
+    const i = a.findIndex((x, j) => x !== b[j]);
+    if (i >= 0 && (a[i] ?? 0) > (b[i] ?? 0)) best = p;
+  }
+  return best?.pid ?? null;
+}
+
+/** The side that won a match, or null for a draw: a knockout's winner, else the score. */
+export function winningSide(result: {
+  homeGoals: number;
+  awayGoals: number;
+  winner: TeamSide | null;
+}): TeamSide | null {
+  if (result.winner !== null) return result.winner;
+  return result.homeGoals === result.awayGoals ? null : result.homeGoals > result.awayGoals ? 0 : 1;
 }
 
 /**

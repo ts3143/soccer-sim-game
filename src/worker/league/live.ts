@@ -45,6 +45,7 @@ import {
 import { currentMinute, onPitch as onPitchOf } from "../engine/state";
 import { enginePlayer } from "../engine/prepare";
 import type { EngineTeamInput, MatchEvent, Period, TeamSide } from "../engine/types";
+import type { MatchResult } from "../../common/match";
 import { fixtureSetup } from "../season/season";
 import { currentCondition, isInjured, squadPlay } from "../season/squads";
 import { competitionName, teamRef } from "../views/common";
@@ -688,5 +689,11 @@ function liveView(session: LeagueSession, live: Running, from: number): LiveMatc
     players,
     pause: null,
     report: null,
+    motm: state.finished ? manOfTheMatchOf(matchResult(state)) : null,
   };
+}
+
+function manOfTheMatchOf(result: MatchResult): LiveMatchView["motm"] {
+  const p = result.players.find((x) => x.pid === result.motm);
+  return p ? { pid: p.pid, rating: p.rating } : null;
 }

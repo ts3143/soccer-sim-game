@@ -66,6 +66,8 @@ Record every approved change to SPEC.md here, with date and reason. "Review #N" 
 | 2026-10-21 | After v0.1, chunk 2 | Dragging or picking a player in a line-up highlights where he fits: natural (within 3 OVR of his best) darker, cover (4–8 below) lighter, the rest plain; keepers and outfielders never mix. The line-up view gains each player's OVR in every slot and his best OVR, and each slot's position (design doc #66). | T asked for it: taking a CM out, he wants to see the CMs who could come in. | SPEC §11 |
 | 2026-10-21 | After v0.1, chunk 3 | At a pause in a live match, players can be moved between slots for free, including into a sent-off player's empty slot (a sent-off player still can't be replaced). Live changes are all or nothing. New worker calls give the pause screen a tactics board (slots, the substitutes left, team ratings now, each player's energy, goals, assists and rating so far) and a preview of changes (design doc #67). | T lost a centre-back to a red card and couldn't fill the slot; he asked for the full board, free position moves and a rating-so-far column. | SPEC §7.1 |
 | 2026-10-21 | After v0.1, chunk 4 | The pause screen of a live match is the tactics board (pitch, XI and bench tables, formation, sliders, team ratings with a preview; energy and the match so far, rating so far included), replacing the dropdowns. Make changes / Reset / Resume (design doc #67). | T's request: the dropdowns didn't show enough to decide. | SPEC §11 |
+| 2026-10-23 | Ratings layout | The ratings card and the profile show the 22 ratings FM style: Technical \| Mental + Set pieces \| Physical + Goalkeeping, full names, fixed order. Heavy-weight ratings for the position shown are highlighted as key, medium-weight as useful; only the number is colour-scaled. In the XI the slot's position decides ("this slot"). Display groups relabelled in `ratings_positions.json` (`ant` now shows under Mental, as it develops) (design doc #68). | T: the chips in storage order were hard to read and didn't show what matters for a position. | SPEC §4.2, §11; `ratings_positions.json` → `ratings[].group` |
+| 2026-10-23 | Man of the match | Every match names a man of the match: the highest rating, from either side; ties go to the winning side, then goals + assists, minutes, the lower pid. Saved on the match record (`MatchResult.motm`) and counted on the season stat rows (`PlayerStatsRow.motm`); shown in the box score, at full time live, on Player Stats, League Leaders and the profile's career. League DB v4 fills it in for older saves (design doc #69). | T asked for it, and wants it recorded so later awards can use it. | SPEC §8.7, §10.3, §10.4 |
 
 ## M0 notes (2026-10-14)
 **Built**
@@ -1640,6 +1642,27 @@ Each point of parity gained cost about one champion point, so the two real-world
 - **Known edges, for later:**
   - the pause screen is long at laptop sizes (the board, then the commentary and both teams' cards below); `layout` passes;
   - a substitute's "rating so far" starts a little below 6.9 (about 6.7 for a 10-minute cameo), because a short cameo's final rating does too: cameos are pulled only partly toward the average (SPEC §8.7).
+
+## UI improvements (from 2026-10-23)
+### Ratings layout (2026-10-23)
+- **T's decisions** (design doc #68): FM-style grouping (Technical, Mental, Physical, with Set pieces and Goalkeeping as small blocks); the slot's position drives the highlights on Tactics and the live board, the listed position elsewhere; full names; the profile gets the same treatment.
+- **Built:**
+  - `src/ui/ratingsLayout.ts`: the three columns (`RATING_COLUMNS`) over the config's display groups, short names ("Dribbling", "Reflexes"; the full name on hover), and each rating's importance for a position from the OVR weights (3 = key, 2 = useful, 1 and 0 plain);
+  - `RatingsGrid` (`PlayerDetails.tsx`), shared by the ratings card and the profile: a table per group, highlighted rows (blue tint and a bar on the left, so they don't fight the red-to-green numbers), a legend ("Highlighted for DM (this slot): key, useful"), and the profile's change column. Screen readers hear "(key for CB)";
+  - the card is 480 px wide (was 410) and puts OVR/POT beside the "Ratings" heading, so it stays 469 px tall and fits the 125%-scaled laptop window (506 px) without scrolling; two columns below about 450 px;
+  - `ratings_positions.json`: display groups relabelled (Attacking, Passing, Defending → Technical, except `ant` → Mental; Specialist → Set pieces). Display only: the engine reads the age-curve groups, which already had this split;
+  - `SquadPlayerView.position` and `PlayerView.position` are typed `Position` (they always were position codes).
+- **Checks:** lint; 314 unit tests (new: `ratingsLayout.test.ts`); browser checks `m6` (new: the keeper's card groups and highlights for GK), `m5` (new: the profile's groups and legend), `layout`, `sweep`. By hand in a real browser: a full-back swapped into the right-wing slot shows "Highlighted for W (this slot)" with the winger's key ratings; no label wraps at 1263–1349 px on the profile or in the card.
+- **Known edge:** at phone width (390 px) the top bar overflows the page; it did before this change (phones aren't a target).
+
+### Man of the match (2026-10-23)
+- **T's request:** the highest match rating gets man of the match, recorded so that later awards can use it.
+- **Built:**
+  - engine: `manOfTheMatch` (`engine/ratings.ts`) picks the highest rating; ties (ratings have one decimal) go to the winning side (after extra time and penalties), then more goals + assists, more minutes, the lower pid. `matchResult` sets `MatchResult.motm` (a pid), so simulated and watched matches name him the same way; the RNG is untouched, so results and calibration don't move;
+  - saved: on the match record, and as a count on the season stat row (`PlayerStatsRow.motm`, per club and competition, like clean sheets). Future awards can read the season counts, or the current and last season's match records (all kept);
+  - league DB v4 (`upgradeToV4`): names the man of the match in every saved match record of an older save and counts the awards on its stat rows. A v2 save goes through v3 then v4 in the same upgrade. Other clubs' records older than two seasons were pruned before, so their counts for those seasons stay short; the user's clubs' are complete;
+  - shown: a gold ★ and a "Man of the match: name (8.7)" line in the box score; the full-time banner of a watched match; a MotM column on Player Stats and in the profile's career table; a ninth League Leaders category.
+- **Checks:** lint; 317 unit tests (new: the rule and its tie-breaks, `matchResult` names the top-rated player, a whole season counts exactly one award per match in every competition, the v4 upgrade with a tie, run twice); browser checks `m5` (nine League Leaders categories), `m6`, `layout` (new: full time and the box score name the same player, starred, with the top rating). By hand in a real browser: a save made with the v0.2.0 build (a whole season, 1,305 matches) opened with this build: league DB v4, every match names its top-rated player, the 2,607 stat rows count 1,305 awards in all, and the box score and League Leaders show them.
 
 ## Open issues
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).

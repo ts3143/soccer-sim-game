@@ -78,8 +78,20 @@ check(
 check(
   "the chart icon opens a compact card with all 22 colour-scaled ratings and season stats",
   (await summary.count()) === 1 &&
-    (await summary.locator(".summary-ratings .rating-value").count()) === 22 &&
+    (await summary.locator(".ratings-grid tbody tr .rating-value").count()) === 22 &&
     /Season stats/.test(await summary.innerText()),
+);
+check(
+  "the card groups ratings FM style and highlights what counts in the player's slot (here the keeper's)",
+  (await xi.first().locator("td").first().innerText()).trim() === "GK" &&
+    JSON.stringify(await summary.locator(".ratings-group-title").allInnerTexts()) ===
+      JSON.stringify(["TECHNICAL", "MENTAL", "SET PIECES", "PHYSICAL", "GOALKEEPING"]) &&
+    JSON.stringify(
+      (await summary.locator("tr.rating-key td:first-child").allInnerTexts()).map((t) =>
+        t.replace(/\s*\(key for GK\)$/, "").trim(),
+      ),
+    ) === JSON.stringify(["Reflexes", "One-on-ones", "Handling"]) &&
+    /Highlighted for GK/.test(await summary.locator(".ratings-legend").innerText()),
 );
 check(
   "the ratings card stays inside the viewport above the scrolling table",

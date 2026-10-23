@@ -279,6 +279,7 @@ function emptyStats(pid: number, season: number, cid: number, competition: strin
     appearances: 0,
     starts: 0,
     cleanSheets: 0,
+    motm: 0,
     ratingTotal: 0,
   };
   return { ...row, ...Object.fromEntries(PLAYER_STAT_TOTALS.map((k) => [k, 0])) } as PlayerStatsRow;
@@ -305,6 +306,7 @@ function recordMatch(session: LeagueSession, fixture: Fixture, result: MatchResu
     row.appearances++;
     if (p.startedInSlot !== null) row.starts++;
     if (p.cleanSheet) row.cleanSheets++;
+    if (result.motm === p.pid) row.motm++;
     row.ratingTotal += p.rating;
     for (const stat of PLAYER_STAT_TOTALS) row[stat] += p[stat];
     cache.put("playerStats", row);

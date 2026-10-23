@@ -66,6 +66,8 @@ describe("match engine: plausibility", () => {
   it("produces a full match with consistent stats", () => {
     const result = simulateMatch(input(0, 1, "stats"));
     const [home, away] = result.teams;
+    const best = Math.max(...result.players.map((p) => p.rating));
+    expect(result.players.find((p) => p.pid === result.motm)?.rating).toBe(best);
     expect(home.goals).toBe(result.homeGoals);
     expect(away.goals).toBe(result.awayGoals);
     expect(home.possession + away.possession).toBeCloseTo(1, 6);
