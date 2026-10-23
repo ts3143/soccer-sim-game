@@ -100,6 +100,7 @@ export async function getLeagueLeaders(
         (r) => r.appearances >= minApps,
         `min. ${minApps} appearances`,
       ),
+      top("motm", "Man of the match", (r) => r.motm),
       top(
         "cleanSheets",
         "Clean sheets",
@@ -218,6 +219,7 @@ export async function getPlayerStats(
           cleanSheets: r.cleanSheets,
           rating:
             r.appearances > 0 ? Math.round((r.ratingTotal / r.appearances) * 100) / 100 : null,
+          motm: r.motm,
         };
       }),
   };

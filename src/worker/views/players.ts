@@ -271,6 +271,7 @@ async function careerOf(
       goals: r.goals,
       assists: r.assists,
       rating: r.appearances > 0 ? Math.round((r.ratingTotal / r.appearances) * 100) / 100 : null,
+      motm: r.motm,
       yellowCards: r.yellowCards,
       redCards: r.redCards,
       cleanSheets: r.cleanSheets,

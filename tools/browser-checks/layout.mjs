@@ -367,9 +367,24 @@ live = [
 ];
 check("Live, at full time: the result and the links fit", live.length === 0, live.join("; "));
 await scan();
+const motmOf = async (id) =>
+  (await testId(id).innerText()).replace(/^.*Man of the match:\s*/s, "").trim();
+const liveMotm = await motmOf("live-motm");
 await testId("live-done").getByRole("link", { name: "Box score" }).click();
 await testId("box-score").waitFor({ timeout: 30_000 });
 const boxPath = new URL(page.url()).pathname;
+const topRated = await testId("box-score").evaluate((box) => {
+  const rows = [...box.querySelectorAll(".table-hover tbody tr")];
+  const rating = (tr) => Number(tr.lastElementChild?.textContent);
+  const best = Math.max(...rows.map(rating));
+  const starred = rows.filter((tr) => tr.querySelector(".motm-star"));
+  return starred.length === 1 && rating(starred[0]) === best;
+});
+check(
+  "full time and the box score name the same man of the match, starred, with the top rating",
+  liveMotm !== "" && (await motmOf("motm")) === liveMotm && topRated,
+  `live "${liveMotm}", box score "${await motmOf("motm")}"`,
+);
 
 // --- Every page at every size -------------------------------------------------------------------------
 async function allPages(stage, withWindow) {

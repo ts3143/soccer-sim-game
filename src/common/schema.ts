@@ -407,6 +407,8 @@ export type PlayerStatsRow = {
   appearances: number;
   starts: number;
   cleanSheets: number;
+  /** Man of the match awards (SPEC §8.7). */
+  motm: number;
   /** Sum of match ratings; average = ratingTotal / appearances. */
   ratingTotal: number;
 } & Record<PlayerStatTotal, number>;

@@ -508,8 +508,9 @@ const sidebarLink = (name) =>
 await sidebarLink("League Leaders").click();
 await page.locator('[data-testid="leaders-goals"] tbody tr').first().waitFor({ timeout: 30_000 });
 check(
-  "League Leaders shows eight categories with the top ten",
-  (await page.locator('[data-testid="leaders"] > section').count()) === 8 &&
+  "League Leaders shows nine categories (man of the match included) with the top ten",
+  (await page.locator('[data-testid="leaders"] > section').count()) === 9 &&
+    (await page.locator('[data-testid="leaders-motm"]').count()) === 1 &&
     (await page.locator('[data-testid="leaders-goals"] tbody tr').count()) === 10,
 );
 await page.getByRole("link", { name: "German top flight" }).click();

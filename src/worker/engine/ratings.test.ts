@@ -3,6 +3,7 @@ import type { Position } from "../../common/config/ratings";
 import type { PlayerMatchStats } from "../../common/match";
 import { COEFFICIENTS as c } from "./coefficients";
 import {
+  manOfTheMatch,
   matchRating,
   ratingCentre,
   rawMatchScore,
@@ -79,6 +80,24 @@ describe("match ratings (SPEC §8.7)", () => {
     expect(matchRating(gk, "loss", c)).toBe(
       round(Math.max(3, floor.from - (floor.from - u) * floor.slope)),
     );
+  });
+});
+
+describe("man of the match (SPEC §8.7)", () => {
+  const line = (pid: number, side: 0 | 1, rating: number, patch: Partial<PlayerMatchStats> = {}) =>
+    player("CM", { pid, side, rating, ...patch });
+
+  it("goes to the highest rating, on either side", () => {
+    const players = [line(1, 0, 7.4), line(2, 1, 8.3), line(3, 0, 8.2)];
+    expect(manOfTheMatch(players, 0)).toBe(2);
+  });
+
+  it("breaks ties: winning side, then goals and assists, minutes, then the lower pid", () => {
+    expect(manOfTheMatch([line(1, 0, 8.1), line(2, 1, 8.1)], 1)).toBe(2);
+    expect(manOfTheMatch([line(1, 0, 8.1), line(2, 0, 8.1, { assists: 1 })], 0)).toBe(2);
+    expect(manOfTheMatch([line(1, 0, 8.1, { minutes: 60 }), line(2, 1, 8.1)], null)).toBe(2);
+    expect(manOfTheMatch([line(5, 0, 8.1), line(4, 1, 8.1)], null)).toBe(4);
+    expect(manOfTheMatch([], null)).toBeNull();
   });
 });
 

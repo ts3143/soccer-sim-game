@@ -443,6 +443,7 @@ function Career({ view }: { view: PlayerView }) {
       yellowCards: rows.reduce((s, r) => s + r.yellowCards, 0),
       redCards: rows.reduce((s, r) => s + r.redCards, 0),
       rating: apps > 0 ? ratingSum / apps : null,
+      motm: rows.reduce((s, r) => s + r.motm, 0),
     };
   };
   const cells = (t: ReturnType<typeof total>) => (
@@ -453,6 +454,7 @@ function Career({ view }: { view: PlayerView }) {
       <td className="text-end">{t.goals}</td>
       <td className="text-end">{t.assists}</td>
       <td className="text-end">{t.rating === null ? "" : t.rating.toFixed(2)}</td>
+      <td className="text-end">{t.motm}</td>
       <td className="text-end">{t.yellowCards}</td>
       <td className="text-end">{t.redCards}</td>
     </>
@@ -474,6 +476,9 @@ function Career({ view }: { view: PlayerView }) {
                 <th className="text-end">G</th>
                 <th className="text-end">A</th>
                 <th className="text-end">Rating</th>
+                <th className="text-end" title="Man of the match">
+                  MotM
+                </th>
                 <th className="text-end">YC</th>
                 <th className="text-end">RC</th>
               </tr>

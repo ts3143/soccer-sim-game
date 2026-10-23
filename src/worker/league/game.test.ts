@@ -85,6 +85,15 @@ describe("the season loop in a save", () => {
       scored.set(row.competition, (scored.get(row.competition) ?? 0) + row.goals);
     }
     expect(scored).toEqual(goals);
+    // Each match names one man of the match, counted once on the season rows.
+    const awards = new Map<string, number>();
+    for (const row of straight.stats) {
+      awards.set(row.competition, (awards.get(row.competition) ?? 0) + row.motm);
+    }
+    const played = new Map<string, number>();
+    for (const f of straight.fixtures)
+      played.set(f.competition, (played.get(f.competition) ?? 0) + 1);
+    expect(awards).toEqual(played);
     // Every league match has at least 11 players per side; club-season rows hold the table.
     const appearances = straight.stats
       .filter((r) => r.competition === "ENG1")

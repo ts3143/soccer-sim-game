@@ -303,6 +303,7 @@ Single-leg cup ties, play-off eliminators and play-off finals: extra time (2 × 
 - **Soft top:** above 8.4 a rating climbs at half speed, so 9+ is about 1% of full games and a 10 comes about once in 100+ matches.
 - **Keepers** are rated mainly on **goals prevented**: the post-shot xG of the on-target shots they faced (what an average keeper would concede from them) minus the goals they conceded, plus a small knock per goal conceded and the result. Big saves count through it. They average a little lower, **~6.8** (T, 2026-10-21), and swing less than outfielders. Typical full games: a clean sheet ~7.5 (7.2–7.9), a clean sheet with big saves ~7.9, four or more conceded without being at fault ~6.2, clear mistakes ~5. **Soft bottom:** below 5.0 a keeper's rating falls at half speed, so even a howler rarely goes below 4.5.
 - Season averages: the best players average about 7.6–7.9; above 8 is for exceptional seasons.
+- **Man of the match** (T, 2026-10-23): the player with the highest match rating, from either side. Ratings have one decimal, so ties go to the winning side, then more goals + assists, more minutes, and last the lower pid. Saved on the match record and counted per player on the season stat rows (10.3, 10.4), so later awards (e.g. player of the month) can use either. Shown in the box score, at full time of a watched match, on Player Stats, League Leaders and the profile's career table.
 - Feed: form (market value), development (`performanceAdj`, rescaled so its effect is unchanged), awards.
 - Saves from before the 6.9 scale (league DB v2) have their stored ratings converted once, when opened: new = 6.9 + 1.12 × (old − 6.6) (keepers 6.8 + …), with the soft top.
 
@@ -333,10 +334,10 @@ Minutes; goals, assists; shots, shots on target; passes attempted/completed, key
 Possession, shots, shots on target, xG, corners, passes, fouls, cards.
 
 ### 10.3 Season rows
-Per player per club per competition per season (ZenGM-style). Per-90 values derived. Advanced stats (Value Added, on-pitch xG difference per 90, PPDA) are `[v1.1]`.
+Per player per club per competition per season (ZenGM-style), including man of the match awards (8.7). Per-90 values derived. Advanced stats (Value Added, on-pitch xG difference per 90, PPDA) are `[v1.1]`.
 
 ### 10.4 Match records
-Box score + scoring summary + key events (goals with assister, cards, subs, injuries) + basic team stats. **No play-by-play is saved:** the live feed exists only on screen while watching.
+Box score + scoring summary + key events (goals with assister, cards, subs, injuries) + basic team stats + the man of the match (8.7). **No play-by-play is saved:** the live feed exists only on screen while watching.
 
 ### 10.5 Awards and history `[MVP]`
 Player of the Year, Golden Boot, Team of the Season (per league); league champions, promotions/relegations, cup winners; club history; player career stats; transactions log.

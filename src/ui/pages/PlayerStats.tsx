@@ -82,6 +82,7 @@ export function PlayerStats({ params }: { params: string[] }) {
       render: (r) => r.rating?.toFixed(2) ?? "",
       align: "end",
     },
+    { key: "motm", label: "MotM", title: "Man of the match", value: (r) => r.motm, align: "end" },
   ];
   return (
     <>

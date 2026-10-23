@@ -214,6 +214,14 @@ export function Live() {
           data-testid="live-done"
         >
           <span>Full time. The match and the rest of the day are saved.</span>
+          {view.motm && (
+            <span data-testid="live-motm">
+              <span className="motm-star" aria-hidden="true">
+                ★
+              </span>{" "}
+              Man of the match: {name(view.motm.pid)} ({view.motm.rating.toFixed(1)})
+            </span>
+          )}
           <Link to={leaguePath(shell.lid, "box-score", view.fid)}>Box score</Link>
           <Link to={leaguePath(shell.lid)}>Dashboard</Link>
         </div>

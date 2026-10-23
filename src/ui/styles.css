@@ -190,6 +190,9 @@ tr[role="button"] {
 .rating-swatch.rating-useful {
   border-left-color: var(--bs-primary-border-subtle);
 }
+.motm-star {
+  color: #d4a017;
+}
 .ratings-legend {
   display: flex;
   flex-wrap: wrap;
