@@ -244,15 +244,13 @@ export function Player({ params }: { params: string[] }) {
             </p>
             <div className="row">
               <Fact label="Age">
-                {view.age} (born {formatDate(view.birthDate)}
-                {view.birthplace && (
-                  <>
-                    {" "}
-                    in <span data-testid="birthplace">{view.birthplace}</span>
-                  </>
-                )}
-                )
+                {view.age} (born {formatDate(view.birthDate)})
               </Fact>
+              {view.birthplace && (
+                <Fact label="Birthplace">
+                  <span data-testid="birthplace">{view.birthplace}</span>
+                </Fact>
+              )}
               <Fact label="Nationality">
                 <NationalityFlag nationality={view.nationality} /> {view.nationality}
                 {view.nationality2 ? ` / ${view.nationality2}` : ""}

@@ -114,11 +114,13 @@ try {
   }
   check("a regular's profile shows his last five matches", found !== null);
   const birthplace = (await page.locator('[data-testid="birthplace"]').innerText()).trim();
-  const age = await page.locator('[data-testid="player-bio"]').innerText();
+  const bio = await page.locator('[data-testid="player-bio"]').innerText();
   check(
-    "his bio says where he was born",
-    birthplace.length > 1 && new RegExp(`born \\d+ \\w+ \\d{4} in ${birthplace}\\)`).test(age),
-    age.slice(0, 200),
+    "his bio lists his Birthplace, and his age just with the date",
+    birthplace.length > 1 &&
+      bio.includes(`Birthplace\n${birthplace}`) &&
+      /\d+ \(born \d+ \w+ \d{4}\)/.test(bio),
+    bio.slice(0, 300),
   );
   if (found) {
     const ratings = await found.locator('[data-testid="form-rating"]').allInnerTexts();
