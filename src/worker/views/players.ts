@@ -248,6 +248,14 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
     })),
     career,
     honours: honoursOf(await allAwards(session), pid, career, clubs),
+    injuries: [...(p.injuries ?? [])].reverse().map((i) => ({
+      date: i.date,
+      type: i.type,
+      days: i.days,
+      fid: i.fid,
+      opponent: i.opponentCid === null ? null : teamRef(clubs.get(i.opponentCid)),
+    })),
+    injuriesSince: game.injuriesSince ?? game.date,
     form: formOf(session, pid, game.season, career, clubs),
   };
 }

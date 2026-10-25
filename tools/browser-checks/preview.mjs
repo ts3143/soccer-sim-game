@@ -1,6 +1,6 @@
 // The pre-match card of a watched match (both clubs' last five, the last meeting, a
-// derby), the profile's Form card (his last five matches with ratings) and his birthplace
-// (T, 2026-10-25).
+// derby), and on the profile: the Form card (his last five matches with ratings), his
+// birthplace and his injury history (T, 2026-10-25).
 import { chromium } from "playwright-core";
 const BASE = process.env.BASE ?? "http://localhost:4173";
 const browser = await chromium.launch({ channel: "chrome", headless: true });
@@ -19,6 +19,7 @@ const idle = () =>
     null,
     { timeout: 300_000 },
   );
+const go = (path) => page.goto(`${BASE}${path}?worker=dedicated`);
 const play = async (name) => {
   await page.locator('[data-testid="play-button"]').click();
   await page.locator('[data-testid="play-menu"]').getByRole("button", { name }).click();
@@ -131,6 +132,28 @@ try {
       ratings.join(", "),
     );
   }
+  // Someone injured now: the injury tops his history.
+  await go(`/l/${lid}/injuries`);
+  const injured = page.locator('[data-testid="injuries"] tbody tr').first();
+  await injured.waitFor({ timeout: 30_000 });
+  const type = (await injured.locator("td").nth(4).innerText()).trim();
+  await injured.locator('a[href*="/player/"]').click();
+  const history = page.locator('[data-testid="player-injuries"]');
+  await history.waitFor({ timeout: 30_000 });
+  const injuries = await history
+    .locator('[data-testid="injury-row"]')
+    .evaluateAll((trs) => trs.map((tr) => [...tr.cells].map((td) => td.innerText.trim())));
+  check(
+    "an injured player's history starts with his current injury, and says where",
+    injuries.length > 0 &&
+      injuries[0][1] === type &&
+      injuries.every(
+        (r) =>
+          /^\d+ (days?|weeks)$/.test(r[2]) && /^(In training|In a match against .+)$/.test(r[3]),
+      ),
+    JSON.stringify(injuries),
+  );
+  check("the history says since when", (await history.innerText()).includes("Since 1 Jul 2026."));
   check("no browser errors", errors.length === 0, errors.join("; "));
 } finally {
   await browser.close();

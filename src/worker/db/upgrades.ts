@@ -135,3 +135,14 @@ export async function upgradeToV5(tx: UpgradeTransaction): Promise<void> {
     player = await player.continue();
   }
 }
+
+/**
+ * League DB v6: injury histories (T, 2026-10-25). Players' injuries are recorded from now
+ * on: the save notes the day (its current game date), and profiles say "since" it.
+ */
+export async function upgradeToV6(tx: UpgradeTransaction): Promise<void> {
+  const meta = tx.objectStore("meta");
+  const game = (await meta.get("game")) as GameMeta | undefined;
+  if (!game || game.injuriesSince) return;
+  await meta.put({ ...game, injuriesSince: game.date }, "game");
+}

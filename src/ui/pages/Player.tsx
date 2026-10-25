@@ -13,6 +13,7 @@ import { RATING_CODES, ratingsConfig } from "../../common/config/ratings";
 import { RadarChart } from "../components/charts";
 import { NationalityFlag, RatingChange, RatingsGrid } from "../components/PlayerDetails";
 import { ScoreLink, TeamLink } from "../components/links";
+import { leaguePath, Link } from "../router";
 import { resultRowClass } from "../components/results";
 import { HonourBadge, HonoursCard } from "../components/Honours";
 import { formatDate, formatEuros } from "../format";
@@ -92,6 +93,67 @@ function Form({ view }: { view: PlayerView }) {
               </tbody>
             </table>
           </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** "4 days", "3 weeks": how long an injury kept him out. */
+const timeOut = (days: number) =>
+  days < 14 ? `${days} day${days === 1 ? "" : "s"}` : `${Math.round(days / 7)} weeks`;
+
+/** Every injury since the history began, newest first: in a match (and whose) or training. */
+function InjuryHistory({ view }: { view: PlayerView }) {
+  const { shell } = useShell();
+  return (
+    <section className="card mb-3" data-testid="player-injuries">
+      <div className="card-body">
+        <h2 className="h6">Injury history</h2>
+        {view.injuries.length === 0 ? (
+          <p className="small text-body-secondary mb-0">
+            No injuries since {formatDate(view.injuriesSince)}.
+          </p>
+        ) : (
+          <>
+            <table className="table table-sm small mb-1">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Injury</th>
+                  <th>Out</th>
+                  <th>How</th>
+                </tr>
+              </thead>
+              <tbody>
+                {view.injuries.map((i, n) => (
+                  <tr key={n} data-testid="injury-row">
+                    <td className="text-nowrap text-body-secondary">{formatDate(i.date)}</td>
+                    <td>{i.type}</td>
+                    <td className="text-nowrap">{timeOut(i.days)}</td>
+                    <td>
+                      {i.fid !== null ? (
+                        <>
+                          <Link to={leaguePath(shell.lid, "box-score", i.fid)}>In a match</Link>
+                          {i.opponent && (
+                            <>
+                              {" "}
+                              against <TeamLink team={i.opponent} />
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        "In training"
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="small text-body-secondary mb-0">
+              Since {formatDate(view.injuriesSince)}.
+            </p>
+          </>
         )}
       </div>
     </section>
@@ -448,6 +510,7 @@ export function Player({ params }: { params: string[] }) {
           )}
         </div>
       </section>
+      <InjuryHistory view={view} />
       <div className="row g-3 mb-3">
         <section className="col-12">
           <div className="card h-100">

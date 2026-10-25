@@ -240,6 +240,7 @@ export function generateWorld(options: WorldOptions): World {
       date: seasonStart,
       userCid: options.userCid,
       createdWithVersion: WORLD_VERSION,
+      injuriesSince: seasonStart,
     },
     ids: { pid, fid: 1, oid: 1, xid: 1, mid: 1, aid: 1 },
     rng: root.getState(),

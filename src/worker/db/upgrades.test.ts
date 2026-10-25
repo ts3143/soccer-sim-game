@@ -160,6 +160,19 @@ describe("league DB upgrades", () => {
     v5.close();
   });
 
+  it("starts an older save's injury histories on its current date", async () => {
+    const v5 = await openLeagueDb(9005, 5);
+    await v5.put("meta", { seed: "s", date: "2028-02-03" }, "game");
+    v5.close();
+    const v6 = await openLeagueDb(9005);
+    expect(await v6.get("meta", "game")).toEqual({
+      seed: "s",
+      date: "2028-02-03",
+      injuriesSince: "2028-02-03",
+    });
+    v6.close();
+  });
+
   it("creates a new save at the current version with nothing to convert", async () => {
     const db = await openLeagueDb(9002);
     expect(db.version).toBe(LEAGUE_DB_VERSION);

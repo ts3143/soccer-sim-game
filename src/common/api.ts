@@ -264,6 +264,18 @@ export interface PlayerView {
     competitionName: string;
     club: TeamRef;
   }[];
+  /** His injuries since `injuriesSince`, newest first (T, 2026-10-25). */
+  injuries: {
+    date: string;
+    type: string;
+    /** Days out, as expected when it happened. */
+    days: number;
+    /** In a match: its fixture and the opponent; null for a training injury. */
+    fid: number | null;
+    opponent: TeamRef | null;
+  }[];
+  /** Since when injuries are recorded: the league's start, or an older save's upgrade. */
+  injuriesSince: string;
   /** His last five matches this season, newest first, from his club's side. */
   form: (ClubMatchView & {
     rating: number;

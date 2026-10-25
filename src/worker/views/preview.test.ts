@@ -94,6 +94,23 @@ describe("match preview and player form (T, 2026-10-25)", () => {
         expect(m.minutes).toBe(line?.minutes);
         expect(m.motm).toBe(box.result?.motm === regular?.pid);
       }
+      // Injury history (T, 2026-10-25): since the league began, newest first.
+      const hurt = session.cache.getAll("players").filter((p) => (p.injuries?.length ?? 0) > 0);
+      expect(hurt.length).toBeGreaterThan(20);
+      const inMatch = hurt.find((p) => p.injuries?.some((i) => i.fid !== null));
+      const history = await getPlayer(league.lid, inMatch?.pid ?? -1);
+      expect(history.injuriesSince).toBe("2026-07-01");
+      const injuryDates = history.injuries.map((i) => i.date);
+      expect(injuryDates).toEqual([...injuryDates].sort().reverse());
+      for (const i of history.injuries) {
+        expect(i.days).toBeGreaterThan(0);
+        if (i.fid === null) expect(i.opponent).toBeNull();
+        else {
+          const f = session.cache.get("fixtures", i.fid);
+          expect(f?.date).toBe(i.date);
+          expect([f?.homeCid, f?.awayCid]).toContain(i.opponent?.cid);
+        }
+      }
       // Nobody plays for an academy player yet: no form.
       const youngster = session.cache
         .getAll("players")
