@@ -2,12 +2,12 @@
  * The Dashboard (M5, SPEC §11): the user's club at a glance. Its position, record and
  * form; the next match and what follows; recent results; the league table; the board;
  * alerts (injuries, tired players, expiring contracts, bids); the season's best
- * performers; the latest inbox messages.
+ * performers; the inbox, where bids for the user's players are answered.
  */
 import { withPlayerReferences } from "../league/messages";
-import type { DashboardView } from "../../common/api";
+import type { DashboardView, InboxMessageView } from "../../common/api";
 import { competitionsConfig } from "../../common/config/competitions";
-import type { GameMeta } from "../../common/schema";
+import type { GameMeta, InboxMessage, Offer } from "../../common/schema";
 import { contractClub, isSenior } from "../../common/status";
 import { effectiveDials } from "../club/standing";
 import { openLeague } from "../league/session";
@@ -17,6 +17,23 @@ import { formOf, leagueTables, matchView, seasonFixtures, teamRef } from "./comm
 
 /** Players below this condition show as tired. */
 const TIRED_BELOW = 75;
+
+/**
+ * The bid a message announces: the offer for its player made on its date, by the club it
+ * names. Older saves' bid messages name no club: they match only when one offer fits.
+ */
+function bidOf(m: InboxMessage, offers: readonly Offer[]): InboxMessageView["bid"] {
+  const pid = m.players?.[0]?.pid;
+  if (pid === undefined || (m.bidFrom === undefined && !m.subject.startsWith("Bid for "))) {
+    return undefined;
+  }
+  const matches = offers.filter(
+    (o) =>
+      o.pid === pid && o.date === m.date && (m.bidFrom === undefined || o.fromCid === m.bidFrom),
+  );
+  const offer = matches.length === 1 ? matches[0] : undefined;
+  return offer && { oid: offer.oid, status: offer.status };
+}
 
 export async function getDashboard(lid: number): Promise<DashboardView> {
   const session = await openLeague(lid);
@@ -63,6 +80,7 @@ export async function getDashboard(lid: number): Promise<DashboardView> {
   const league = competitionsConfig.leagues.find((l) => l.id === user.leagueId);
   const seasonRow = cache.get("clubSeasons", [user.cid, game.season]);
   const inbox = cache.getAll("inbox").sort((a, b) => b.mid - a.mid);
+  const offers = cache.getAll("offers").filter((o) => o.toCid === user.cid);
   return {
     user: { ...teamRef(user), leagueId: user.leagueId, leagueName: league?.name ?? user.leagueId },
     position: row?.position ?? null,
@@ -118,8 +136,7 @@ export async function getDashboard(lid: number): Promise<DashboardView> {
         })),
       expiring: players.filter((p) => contractClub(p) === user.cid && yearsLeft(p, game.date) === 1)
         .length,
-      bids: cache.getAll("offers").filter((o) => o.toCid === user.cid && o.status === "open")
-        .length,
+      bids: offers.filter((o) => o.status === "open").length,
     },
     topPlayers: [...perPlayer]
       .filter(([, t]) => t.appearances >= 3)
@@ -134,7 +151,10 @@ export async function getDashboard(lid: number): Promise<DashboardView> {
         assists: t.assists,
         rating: Math.round((t.ratingTotal / t.appearances) * 100) / 100,
       })),
-    inbox: withPlayerReferences(inbox.slice(0, 5), players),
+    inbox: withPlayerReferences(inbox, players).map((m) => {
+      const bid = bidOf(m, offers);
+      return bid ? { ...m, bid } : m;
+    }),
     unread: inbox.filter((m) => !m.read).length,
     cash: user.cash,
   };

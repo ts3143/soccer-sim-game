@@ -12,6 +12,7 @@ import { estimatePotential, type PotentialClubContext } from "../core/potential"
 import { Random } from "../core/random";
 import { assignContracts } from "./contracts";
 import { commercialBase, expectedTvAndGates, ticketPrice } from "../finance/finance";
+import { bornLocally } from "./birthplace";
 import { generateFreeAgents, generateReleasedYouth } from "./freeAgents";
 import { generateSquad } from "./squad";
 
@@ -226,6 +227,9 @@ export function generateWorld(options: WorldOptions): World {
     if (entry) entry.pot = player.pot;
   }
 
+  // Local lads: about half of each academy's home-country players (own stream per player).
+  bornLocally(options.seed, players, new Map(clubs.map((c) => [c.cid, c])));
+
   const meta: World["meta"] = {
     game: {
       name: options.name,
@@ -236,6 +240,7 @@ export function generateWorld(options: WorldOptions): World {
       date: seasonStart,
       userCid: options.userCid,
       createdWithVersion: WORLD_VERSION,
+      injuriesSince: seasonStart,
     },
     ids: { pid, fid: 1, oid: 1, xid: 1, mid: 1, aid: 1 },
     rng: root.getState(),

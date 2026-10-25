@@ -525,6 +525,17 @@ export function LineupEditor({
                         </tr>
                       );
                     })}
+                    {view.unavailable?.map((p) => (
+                      <tr
+                        key={p.pid}
+                        className="tactics-unavailable"
+                        title="Can't play in this match"
+                        data-testid="unavailable"
+                      >
+                        <td />
+                        {playerCells(p, null)}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>

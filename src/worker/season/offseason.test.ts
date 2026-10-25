@@ -165,6 +165,15 @@ describe("the end of the season", () => {
       expect(lines.find((l) => l.pid === boot?.pid && l.competition === league.id)?.goals).toBe(
         most,
       );
+      const provider = of("topAssists");
+      expect(provider).toHaveLength(1);
+      const leagueLines = lines.filter((l) => l.competition === league.id);
+      const mostAssists = Math.max(...leagueLines.map((l) => l.assists));
+      const tied = leagueLines.filter((l) => l.assists === mostAssists);
+      // Ties go to the fewer minutes, as for the Golden Boot.
+      expect(provider[0]?.pid).toBe(
+        tied.sort((a, b) => a.minutes - b.minutes || a.pid - b.pid)[0]?.pid,
+      );
     }
     expect(awards.filter((a) => a.type === "cupWinner")).toHaveLength(2);
     expect(awards.filter((a) => a.type === "relegated")).toHaveLength(3);
@@ -191,6 +200,11 @@ describe("preseason", () => {
       expect([15, 16]).toContain(wholeYears(p.birthDate, date));
       expect(p.pot).toBeGreaterThanOrEqual(p.ovr);
     }
+    // Local lads: about half of the home-country youths are born in the club's city.
+    const clubOf = (cid: number | null) => pre.clubs.find((c) => c.cid === cid);
+    const home = log.added.filter((p) => clubOf(p.cid)?.country === p.nationality);
+    const local = home.filter((p) => p.birthplace === clubOf(p.cid)?.city);
+    expect(Math.abs(local.length / home.length - 0.5)).toBeLessThan(0.12);
   });
 
   it("promotes or releases every academy player of 18, and logs it", () => {

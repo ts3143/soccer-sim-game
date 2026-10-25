@@ -353,7 +353,7 @@ export function marketDay(
     if (!choice) continue;
     const { p } = choice;
     if (p.status === "club" && p.cid === world.userCid) {
-      // A bid for the user's player: he answers it in his inbox.
+      // A bid for the user's player: he answers it from the message in his inbox.
       const offer: NewOffer = {
         pid: p.pid,
         fromCid: club.cid,
@@ -375,6 +375,7 @@ export function marketDay(
         players: [{ pid: p.pid, name: `${p.firstName} ${p.lastName}`.trim() }],
         body: `${club.name} bid ${euros(choice.fee)} for ${`${p.firstName} ${p.lastName}`.trim()} (${p.position}, ${p.ovr}). Accept or reject it before the window closes on ${formatDay(closes)}.`,
         read: false,
+        bidFrom: club.cid,
       });
       continue;
     }

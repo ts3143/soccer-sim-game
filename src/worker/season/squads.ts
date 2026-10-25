@@ -22,7 +22,7 @@ import { competitionsConfig, type CompetitionsConfig } from "../../common/config
 import { formationById } from "../../common/config/formations";
 import { RATING_INDEX, type Position } from "../../common/config/ratings";
 import type { MatchResult, PlayerMatchStats } from "../../common/match";
-import type { Club, Fixture, Player } from "../../common/schema";
+import type { Club, Fixture, InjuryRecord, Player } from "../../common/schema";
 import { maximizeAssignment } from "../core/assignment";
 import { Random } from "../core/random";
 import { slotOvr } from "../core/ovr";
@@ -85,11 +85,22 @@ export function injuryType(days: number): string {
   return "Serious injury";
 }
 
+/** Sets a new injury and adds it to his history (T, 2026-10-25). */
+function injure(p: Player, record: InjuryRecord): void {
+  p.injury = { type: record.type, until: addDays(record.date, record.days) };
+  (p.injuries ??= []).push(record);
+}
+
 /**
- * Updates a player after a match: condition from his energy at the end, any injury, and
- * his development tally (minutes and rating).
+ * Updates a player after a match: condition from his energy at the end, any injury (with
+ * the fixture and the opponent, for his history), and his development tally.
  */
-export function applyMatch(p: Player, stats: PlayerMatchStats, date: string): void {
+export function applyMatch(
+  p: Player,
+  stats: PlayerMatchStats,
+  fixture: Pick<Fixture, "fid" | "date" | "homeCid" | "awayCid">,
+): void {
+  const date = fixture.date;
   p.condition = Math.round(stats.energyEnd * 1000) / 10;
   p.conditionDate = date;
   const tally = p.devTally ?? { minutes: 0, appearances: 0, ratingTotal: 0, seasonMinutes: 0 };
@@ -100,7 +111,13 @@ export function applyMatch(p: Player, stats: PlayerMatchStats, date: string): vo
     seasonMinutes: tally.seasonMinutes + stats.minutes,
   };
   if (stats.injuryDays > 0) {
-    p.injury = { type: injuryType(stats.injuryDays), until: addDays(date, stats.injuryDays) };
+    injure(p, {
+      date,
+      type: injuryType(stats.injuryDays),
+      days: stats.injuryDays,
+      fid: fixture.fid,
+      opponentCid: stats.side === 0 ? fixture.awayCid : fixture.homeCid,
+    });
   } else if (p.injury && p.injury.until <= date) {
     p.injury = null;
   }
@@ -162,7 +179,7 @@ export function trainingInjuries(
         (e.injuries.medicalBase - (e.injuries.medicalSpan * dial) / 100);
       if (!rng.bool(risk)) continue;
       const days = drawInjuryDays(rng);
-      p.injury = { type: injuryType(days), until: addDays(day, days) };
+      injure(p, { date: day, type: injuryType(days), days, fid: null, opponentCid: null });
       out.push({ pid: p.pid, date: day, days });
     }
   }
@@ -447,7 +464,7 @@ export function squadPlay(
     for (const stats of result.players) {
       const p = byPid.get(stats.pid);
       if (!p) continue;
-      applyMatch(p, stats, fixture.date);
+      applyMatch(p, stats, fixture);
       changed.add(p.pid);
       if (stats.injuryDays > 0) injuries.push(stats.injuryDays);
     }

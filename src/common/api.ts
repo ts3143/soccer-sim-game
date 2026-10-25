@@ -186,6 +186,8 @@ export interface PlayerView {
   secondary: string[];
   age: number;
   birthDate: string;
+  /** His home town (T, 2026-10-25); null when the name data had none. */
+  birthplace: string | null;
   nationality: string;
   nationality2: string | null;
   foot: string;
@@ -251,6 +253,37 @@ export interface PlayerView {
     redCards: number;
     cleanSheets: number;
   }[];
+  /**
+   * His honours, oldest first: his awards, and his club's titles, cups and promotions in
+   * seasons he played in that competition for it (T, 2026-10-25).
+   */
+  honours: {
+    season: number;
+    type: HonourType;
+    competition: string;
+    competitionName: string;
+    club: TeamRef;
+  }[];
+  /** His injuries since `injuriesSince`, newest first (T, 2026-10-25). */
+  injuries: {
+    date: string;
+    type: string;
+    /** Days out, as expected when it happened. */
+    days: number;
+    /** In a match: its fixture and the opponent; null for a training injury. */
+    fid: number | null;
+    opponent: TeamRef | null;
+  }[];
+  /** Since when injuries are recorded: the league's start, or an older save's upgrade. */
+  injuriesSince: string;
+  /** His last five matches this season, newest first, from his club's side. */
+  form: (ClubMatchView & {
+    rating: number;
+    minutes: number;
+    goals: number;
+    assists: number;
+    motm: boolean;
+  })[];
 }
 
 /** A box score page: the fixture, and the saved match record if it's still kept. */
@@ -262,15 +295,18 @@ export interface BoxScoreView {
 }
 
 /** A club's season of matches (Game Log). */
+/** One match from a club's side: a Game Log row, a form entry. */
+export interface ClubMatchView {
+  match: MatchView;
+  venue: "H" | "A" | "N";
+  opponent: TeamRef;
+  result: FormResult | null;
+}
+
 export interface GameLogView {
   team: TeamRef;
   season: number;
-  matches: {
-    match: MatchView;
-    venue: "H" | "A" | "N";
-    opponent: TeamRef;
-    result: FormResult | null;
-  }[];
+  matches: ClubMatchView[];
   record: { won: number; drawn: number; lost: number; goalsFor: number; goalsAgainst: number };
 }
 
@@ -434,6 +470,8 @@ export interface TacticsView {
   bench: TacticsPlayerView[];
   /** Everyone else who can be picked (seniors, loanees in, academy players 16+). */
   reserves: TacticsPlayerView[];
+  /** Before a live match: who can't play in it (injured, suspended), shown but not pickable. */
+  unavailable?: TacticsPlayerView[];
   /** The seven team ratings (player-OVR scale) at today's condition, sliders included. */
   ratings: { key: string; label: string; value: number }[];
   warnings: string[];
@@ -774,6 +812,13 @@ export interface HistoryView {
         club: TeamRef | null;
         goals: number | null;
       } | null;
+      /** Most league assists; null for seasons that ended before the award existed. */
+      topAssists: {
+        pid: number | null;
+        name: string;
+        club: TeamRef | null;
+        assists: number | null;
+      } | null;
     }[];
     cups: { id: string; name: string; winner: TeamRef | null }[];
   }[];
@@ -849,7 +894,33 @@ export interface FinancesView {
 /** Win, draw or loss, for form guides. */
 export type FormResult = "W" | "D" | "L";
 
-/** The Dashboard (M5, SPEC §11): the user's club at a glance. */
+/** What the player profile counts as honours, in display order. */
+export type HonourType =
+  | "champions"
+  | "cupWinner"
+  | "promoted"
+  | "playerOfTheYear"
+  | "goldenBoot"
+  | "topAssists"
+  | "teamOfTheSeason";
+
+/** Before a match (SPEC §11, T 2026-10-25): recent results, the last meeting, a derby. */
+export interface MatchPreviewView {
+  fid: number;
+  /** Each club's last five results this season before this match, oldest first: home, then away. */
+  form: [ClubMatchView[], ClubMatchView[]];
+  /** The clubs' latest meeting before this match; null if they haven't met in this save. */
+  lastMeeting: MatchView | null;
+  /** The city both clubs come from ("Manchester"), or null. */
+  derby: string | null;
+}
+
+/** An inbox message; a bid message carries its offer while the offer is kept (its season). */
+export type InboxMessageView = InboxMessage & {
+  bid?: { oid: number; status: OfferView["status"] };
+};
+
+/** The Dashboard (M5, SPEC §11): the user's club at a glance, with the whole inbox. */
 export interface DashboardView {
   user: TeamRef & { leagueId: string; leagueName: string };
   position: number | null;
@@ -888,7 +959,8 @@ export interface DashboardView {
     assists: number;
     rating: number;
   }[];
-  inbox: InboxMessage[];
+  /** Every message, newest first. */
+  inbox: InboxMessageView[];
   unread: number;
   cash: number;
 }
@@ -1100,6 +1172,7 @@ export interface WorkerApi {
   getPlayer(lid: number, pid: number): PlayerView;
   getBoxScore(lid: number, fid: number): BoxScoreView;
   getGameLog(lid: number, cid: number, season: number | null): GameLogView;
+  getMatchPreview(lid: number, fid: number): MatchPreviewView;
   getLeagueLeaders(lid: number, leagueId: string | null, season: number | null): LeagueLeadersView;
   getPlayerRatings(lid: number): PlayerRatingsView;
   getPlayerStats(lid: number, season: number | null, competition: string | null): PlayerStatsView;
@@ -1166,7 +1239,6 @@ export interface WorkerApi {
   markAllInboxRead(lid: number): void;
   playGame(lid: number, option: PlayOption): PlayReport;
   acceptJobOffer(lid: number, cid: number): GameState;
-  getInbox(lid: number): InboxMessage[];
   markInboxRead(lid: number, mid: number): void;
   getContractTalks(lid: number, pid: number): ContractTalks;
   renewContract(lid: number, pid: number, years: number): ContractTalks;

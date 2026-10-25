@@ -67,6 +67,7 @@ export function tacticsView(
   date: string,
   editable: boolean,
   stats: readonly PlayerStatsRow[] = [],
+  unavailable?: readonly Player[],
 ): TacticsView {
   const medical = effectiveDials(club).medical;
   const formation = formationById(setup.formation);
@@ -152,6 +153,11 @@ export function tacticsView(
     slots,
     bench,
     reserves,
+    ...(unavailable && {
+      unavailable: [...unavailable]
+        .sort((a, b) => b.ovr - a.ovr || a.pid - b.pid)
+        .map((p) => player(p, null)),
+    }),
     ratings: ratingRows(ratings),
     warnings,
     benchSize: formationsConfig.benchSize,

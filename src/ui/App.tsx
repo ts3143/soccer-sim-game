@@ -15,7 +15,6 @@ import { GameLog } from "./pages/GameLog";
 import { History } from "./pages/History";
 import { Home } from "./pages/Home";
 import { HowToPlay, HowToPlayPage } from "./pages/HowToPlay";
-import { Inbox } from "./pages/Inbox";
 import { Injuries } from "./pages/Injuries";
 import { LeagueLeaders } from "./pages/LeagueLeaders";
 import { Live } from "./pages/Live";
@@ -34,8 +33,8 @@ import { TeamHistory } from "./pages/TeamHistory";
 import { TeamStats } from "./pages/TeamStats";
 import { Transactions } from "./pages/Transactions";
 import { TransferMarket } from "./pages/TransferMarket";
-import { Link, parseRoute, usePath } from "./router";
-import { Shell } from "./shell/Shell";
+import { leaguePath, Link, navigate, parseRoute, usePath } from "./router";
+import { Shell, useShell } from "./shell/Shell";
 import { connectWorker, type Connection } from "./workerClient";
 import { errorText } from "./errors";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -106,13 +105,21 @@ function Page({ path }: { path: string }) {
   }
 }
 
+/** Replaces the URL with the league's Dashboard. */
+function ToDashboard() {
+  const { shell } = useShell();
+  useEffect(() => navigate(leaguePath(shell.lid), { replace: true }), [shell.lid]);
+  return null;
+}
+
 /** The league page for the URL; an unknown page says so. */
 function LeaguePage({ page, params }: { page: string; params: string[] }) {
   switch (page) {
     case "dashboard":
       return <Dashboard />;
     case "inbox":
-      return <Inbox />;
+      // The inbox lives on the Dashboard now: old links and bookmarks go there.
+      return <ToDashboard />;
     case "standings":
       return <Standings params={params} />;
     case "cups":

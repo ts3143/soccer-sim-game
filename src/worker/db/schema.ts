@@ -20,8 +20,10 @@ import type {
  *   v1 (M0): meta only.   v2 (M1): every store of SPEC §12.
  *   v3 (0.2.0): no store changes; match ratings rescaled to the 6.9 scale (upgrades.ts).
  *   v4: no store changes; man of the match named in match records, counted on stat rows.
+ *   v5: no store changes; academy players of a club's own country born in its city (half).
+ *   v6: no store changes; injury histories start (meta game `injuriesSince`).
  */
-export const LEAGUE_DB_VERSION = 4;
+export const LEAGUE_DB_VERSION = 6;
 
 export interface LeagueDBSchema extends DBSchema {
   /** Key-value rows; see MetaRows in src/common/schema.ts. */

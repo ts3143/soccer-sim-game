@@ -52,6 +52,11 @@ export interface GameMeta {
   createdWithVersion: number;
   /** Set when the board sacks the user: the date and the clubs offering him a job. */
   fired?: { date: string; offers: number[] } | null;
+  /**
+   * Since when players' injury histories are kept: the league's start, or for an older
+   * save the day it was upgraded (league DB v6).
+   */
+  injuriesSince?: string;
 }
 
 /** Next free integer ID per entity type. */
@@ -291,6 +296,18 @@ export interface Injury {
   until: string;
 }
 
+/** One injury in a player's history (T, 2026-10-25). */
+export interface InjuryRecord {
+  /** The day it happened. */
+  date: string;
+  type: string;
+  /** Days out, as expected when it happened. */
+  days: number;
+  /** In a match: its fixture and the opponent; both null for a training injury. */
+  fid: number | null;
+  opponentCid: number | null;
+}
+
 export interface TransferRecord {
   date: string;
   season: number;
@@ -341,6 +358,8 @@ export interface Player {
   loan: { parentCid: number; until: string; wageShare: number } | null;
   contract: Contract | null;
   injury: Injury | null;
+  /** Every injury since `GameMeta.injuriesSince`, oldest first (absent: none yet). */
+  injuries?: InjuryRecord[];
   /**
    * Between-match condition, 0–100, as of `conditionDate`. It recovers with rest from
    * then on (src/worker/season/squads.ts works out today's value).
@@ -350,6 +369,11 @@ export interface Player {
   conditionDate?: string | null;
   /** Domestic ban; absent in older saves. Served by club fixtures, including cups. */
   suspension?: { remaining: number; date: string };
+  /**
+   * Yellow cards toward a ban in `season` (SPEC §8.9), all domestic competitions; every
+   * fifth is a one-match ban. Absent in older saves (they count from their next yellow).
+   */
+  yellows?: { season: number; count: number };
   /** Minutes and ratings since the last development update (reset at each one). */
   devTally?: DevTally;
   /**
@@ -501,6 +525,11 @@ export interface InboxMessage {
   subject: string;
   body: string;
   read: boolean;
+  /**
+   * A bid for the user's player (the first of `players`): the bidding club. With the
+   * player and the message date it names the offer. Absent in older saves.
+   */
+  bidFrom?: number;
 }
 
 export interface AwardRow {

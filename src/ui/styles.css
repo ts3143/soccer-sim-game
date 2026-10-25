@@ -439,6 +439,17 @@ tr[role="button"] {
   }
 }
 
+/* Before a live match: players who can't play are listed, greyed out, not pickable. */
+.tactics-unavailable > td {
+  opacity: 0.55;
+}
+
+/* The Dashboard's inbox scrolls on its own. */
+.inbox-list {
+  max-height: 40rem;
+  overflow-y: auto;
+}
+
 /* The toggle and player links are siblings: links never sit inside a button. */
 .inbox-heading {
   position: relative;

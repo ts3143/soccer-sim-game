@@ -31,8 +31,12 @@ const PLAYED = [1, 2, 3, 4];
 // What each sidebar page must show, and at which stages (an empty state is fine elsewhere).
 // `rows` counts data rows of a table (an "empty" row has a single cell).
 const PROBES = {
-  dashboard: { sel: '[data-testid="club-summary"]', min: 1, at: ALL },
-  inbox: { sel: '[data-testid="inbox-list"] button', min: 1, at: [1, 2, 3, 4, 5] },
+  // The club summary and the inbox's messages (the board's from day one).
+  dashboard: {
+    sel: '[data-testid="club-summary"], [data-testid="inbox-list"] button',
+    min: 2,
+    at: ALL,
+  },
   standings: { rows: "standings-table", min: 18, at: ALL },
   cups: { sel: '[data-testid="cup-tie"]', min: 1, at: [2, 3, 4] },
   schedule: { sel: '[data-testid="schedule-day"]', min: 1, at: [0, 1, 2, 5] },

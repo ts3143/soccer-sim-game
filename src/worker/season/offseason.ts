@@ -41,6 +41,7 @@ import { aiRenewals, expireContracts } from "../market/renewals";
 import { resetForPreseason } from "./squads";
 import { effectiveDials } from "../club/standing";
 import { GameError } from "../../common/errors";
+import { localBirthplace } from "../generate/birthplace";
 
 /** Coefficients (provisional, tuned with the calibration harness). */
 export const TURNOVER = {
@@ -448,6 +449,7 @@ export function youthIntake(world: LoopWorld, season: number, date: string): Tur
         date,
       );
       player.shirtNumber = freeShirtNumber(world, club.cid, 36);
+      player.birthplace = localBirthplace(world.seed, player, club) ?? player.birthplace;
       world.players.push(player);
       updatePot(player, date, contexts.get(club.cid), world.seed);
       log.added.push(player);
@@ -706,8 +708,9 @@ const TEAM_OF_THE_SEASON: Record<"gk" | "def" | "mid" | "att", number> = {
 const AWARD_MIN_SHARE = { playerOfTheYear: 0.5, teamOfTheSeason: 0.4 };
 
 /**
- * Season awards and honours: per league champions, Player of the Year, Golden Boot,
- * Team of the Season, promotions and relegations; per cup the winner; play-off winners.
+ * Season awards and honours: per league champions, Player of the Year, Golden Boot, Top
+ * assists (T, 2026-10-25), Team of the Season, promotions and relegations; per cup the
+ * winner; play-off winners.
  */
 export function seasonAwards(
   state: SeasonState,
@@ -743,6 +746,10 @@ export function seasonAwards(
       (a, b) => b.goals - a.goals || a.minutes - b.minutes || a.pid - b.pid,
     )[0];
     if (boot && boot.goals > 0) playerAward(league.id, "goldenBoot", boot);
+    const provider = [...leagueLines].sort(
+      (a, b) => b.assists - a.assists || a.minutes - b.minutes || a.pid - b.pid,
+    )[0];
+    if (provider && provider.assists > 0) playerAward(league.id, "topAssists", provider);
     const poty = leagueLines
       .filter((l) => l.minutes >= AWARD_MIN_SHARE.playerOfTheYear * full)
       .sort(

@@ -4,12 +4,12 @@
  * player's bio, contract, mood breakdown, condition, ratings and transfer history.
  */
 import { ratingChanges } from "../../common/ratingChanges";
-import type { PlayerView, SquadPlayerView, TeamSquadView } from "../../common/api";
+import type { HonourType, PlayerView, SquadPlayerView, TeamSquadView } from "../../common/api";
 import { exactAge, formatDay } from "../../common/dates";
 import { competitionsConfig } from "../../common/config/competitions";
 import { formationById } from "../../common/config/formations";
 import { POSITIONS, RATING_CODES, ratingsConfig } from "../../common/config/ratings";
-import type { Club, GameMeta, Player } from "../../common/schema";
+import type { AwardRow, Club, GameMeta, Player } from "../../common/schema";
 import { contractClub, isSenior } from "../../common/status";
 import { effectiveDials } from "../club/standing";
 import { bestXi } from "../core/lineup";
@@ -19,7 +19,14 @@ import { marketValue, yearsLeft } from "../market/market";
 import { clubLevels, moodAtClub } from "../market/renewals";
 import { leagueLevel } from "../market/transfers";
 import { currentCondition, isInjured } from "../season/squads";
-import { competitionName, leagueTables, seasonFixtures, teamRef } from "./common";
+import {
+  allAwards,
+  clubMatch,
+  competitionName,
+  leagueTables,
+  seasonFixtures,
+  teamRef,
+} from "./common";
 import { GameError } from "../../common/errors";
 
 const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
@@ -157,6 +164,7 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
   const now = history.at(-1)?.ratings ?? [];
   const before = history.findLast((h) => h.season < game.season)?.ratings;
   const ref = (cid: number | null) => (cid === null ? null : teamRef(clubs.get(cid)));
+  const career = await careerOf(session, pid, game.season, clubs);
   return {
     ...ratingChanges(p, game.season),
     pid,
@@ -165,6 +173,7 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
     secondary: p.secondaryPositions,
     age: Math.floor(exactAge(p.birthDate, game.date)),
     birthDate: p.birthDate,
+    birthplace: p.birthplace || null,
     nationality: p.nationality,
     nationality2: p.nationality2,
     foot: p.foot,
@@ -237,8 +246,98 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
           Math.max(1, codes.length),
       ),
     })),
-    career: await careerOf(session, pid, game.season, clubs),
+    career,
+    honours: honoursOf(await allAwards(session), pid, career, clubs),
+    injuries: [...(p.injuries ?? [])].reverse().map((i) => ({
+      date: i.date,
+      type: i.type,
+      days: i.days,
+      fid: i.fid,
+      opponent: i.opponentCid === null ? null : teamRef(clubs.get(i.opponentCid)),
+    })),
+    injuriesSince: game.injuriesSince ?? game.date,
+    form: formOf(session, pid, game.season, career, clubs),
   };
+}
+
+const CLUB_HONOURS: readonly HonourType[] = ["champions", "cupWinner", "promoted"];
+const PLAYER_HONOURS: readonly HonourType[] = [
+  "playerOfTheYear",
+  "goldenBoot",
+  "topAssists",
+  "teamOfTheSeason",
+];
+
+/**
+ * His honours, oldest first: his own awards, and his club's titles, cups and promotions
+ * (from the league it went up from) in seasons he played at least once in that
+ * competition for that club.
+ */
+export function honoursOf(
+  awards: readonly AwardRow[],
+  pid: number,
+  career: PlayerView["career"],
+  clubs: ReadonlyMap<number, Club>,
+): PlayerView["honours"] {
+  const order = [...CLUB_HONOURS, ...PLAYER_HONOURS];
+  const played = (a: AwardRow) =>
+    career.some(
+      (r) =>
+        r.season === a.season &&
+        r.club.cid === a.cid &&
+        r.competition === a.competition &&
+        r.appearances > 0,
+    );
+  return awards
+    .filter((a) =>
+      a.pid === null
+        ? CLUB_HONOURS.includes(a.type as HonourType) && played(a)
+        : a.pid === pid && PLAYER_HONOURS.includes(a.type as HonourType),
+    )
+    .map((a) => ({
+      season: a.season,
+      type: a.type as HonourType,
+      competition: a.competition,
+      competitionName: competitionName(a.competition),
+      club: teamRef(clubs.get(a.cid ?? -1)),
+    }))
+    .sort((a, b) => a.season - b.season || order.indexOf(a.type) - order.indexOf(b.type));
+}
+
+/**
+ * His last five matches this season, newest first (fewer early on: last season's don't
+ * count, T 2026-10-25): the played fixtures of the clubs he appeared for, read back until
+ * five have him in the match record.
+ */
+function formOf(
+  session: Awaited<ReturnType<typeof openLeague>>,
+  pid: number,
+  season: number,
+  career: PlayerView["career"],
+  clubs: ReadonlyMap<number, Club>,
+): PlayerView["form"] {
+  const form: PlayerView["form"] = [];
+  const cids = new Set(
+    career.filter((r) => r.season === season && r.appearances > 0).map((r) => r.club.cid),
+  );
+  const fixtures = seasonFixtures(session, season)
+    .filter((f) => f.result && (cids.has(f.homeCid) || cids.has(f.awayCid)))
+    .reverse();
+  for (const f of fixtures) {
+    const record = session.cache.get("matches", f.fid);
+    const line = record?.result.players.find((l) => l.pid === pid);
+    if (!record || !line) continue;
+    form.push({
+      ...clubMatch(f, line.side === 0 ? f.homeCid : f.awayCid, clubs),
+      rating: line.rating,
+      minutes: line.minutes,
+      goals: line.goals,
+      assists: line.assists,
+      motm: record.result.motm === pid,
+    });
+    if (form.length === 5) break;
+  }
+  return form;
 }
 
 /** A player's season rows, every club and competition, oldest first (SPEC §10.3). */

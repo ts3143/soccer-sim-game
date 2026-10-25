@@ -309,7 +309,6 @@ const longPid = await c.evaluate(async (lid) => {
 const overflows = [];
 const pages = [
   "",
-  "inbox",
   "standings",
   "cups",
   "schedule",

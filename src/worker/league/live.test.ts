@@ -154,6 +154,45 @@ describe("watching a match live", () => {
   });
 
   it(
+    "lists injured and suspended players before kick-off, without letting them be picked",
+    { timeout: 180_000 },
+    async () => {
+      const { session } = await league("Unavailable");
+      const mine = session.cache
+        .getAll("players")
+        .filter((p) => p.cid === 0 && p.status === "club")
+        .sort((a, b) => b.ovr - a.ovr);
+      const [hurt, banned] = [mine[0], mine[1]];
+      if (!hurt || !banned) throw new Error("no players");
+      session.cache.put("players", {
+        ...hurt,
+        injury: {
+          type: "Test strain",
+          until: "2026-12-31",
+          since: "2026-07-01",
+        } as typeof hurt.injury,
+      });
+      session.cache.put("players", { ...banned, suspension: { remaining: 1, date: "2026-07-01" } });
+      await watchNextMatch(session);
+      const view = getLiveLineup(session);
+      const out = (view.unavailable ?? []).map((p) => p.pid);
+      expect(out).toEqual(expect.arrayContaining([hurt.pid, banned.pid]));
+      const pickable = [
+        ...view.setup.slots,
+        ...view.setup.bench,
+        ...view.reserves.map((p) => p.pid),
+      ];
+      expect(pickable).not.toContain(hurt.pid);
+      expect(pickable).not.toContain(banned.pid);
+      expect(view.unavailable?.find((p) => p.pid === hurt.pid)?.injury?.until).toBe("2026-12-31");
+      expect(view.unavailable?.find((p) => p.pid === banned.pid)?.suspension).toBe(1);
+      const tried = await setLiveLineup(session, { ...view.setup, bench: [hurt.pid] }, "asIs");
+      expect(tried.setup.bench).not.toContain(hurt.pid);
+      expect(tried.unavailable?.map((p) => p.pid)).toContain(hurt.pid);
+    },
+  );
+
+  it(
     "changes the line-up for this match before kick-off, and only then",
     { timeout: 180_000 },
     async () => {

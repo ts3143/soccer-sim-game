@@ -1,13 +1,13 @@
 /**
- * Box score and Game Log (M5, SPEC §11): a match's saved record (box score, key events,
- * player ratings; other clubs' matches are kept two seasons) and a club's season of
- * matches in every competition.
+ * Box score, Game Log and match preview (M5, SPEC §11): a match's saved record (box score,
+ * key events, player ratings; other clubs' matches are kept two seasons), a club's season
+ * of matches in every competition, and what a watched match's pre-match card shows.
  */
-import type { BoxScoreView, GameLogView } from "../../common/api";
+import type { BoxScoreView, ClubMatchView, GameLogView, MatchPreviewView } from "../../common/api";
 import type { Club, Fixture, GameMeta } from "../../common/schema";
 import { prunedName } from "../league/game";
-import { openLeague } from "../league/session";
-import { matchView, resultFor, seasonRows, teamRef } from "./common";
+import { openLeague, type LeagueSession } from "../league/session";
+import { byDate, clubMatch, matchView, resultFor, seasonRows, teamRef } from "./common";
 import { GameError } from "../../common/errors";
 
 export async function getBoxScore(lid: number, fid: number): Promise<BoxScoreView> {
@@ -41,7 +41,7 @@ export async function getGameLog(
   const clubs = new Map<number, Club>(session.cache.getAll("clubs").map((c) => [c.cid, c]));
   const own = (await seasonRows(session, "fixtures", s))
     .filter((f: Fixture) => f.homeCid === cid || f.awayCid === cid)
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.fid - b.fid));
+    .sort(byDate);
   const record = { won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0 };
   const matches = own.map((f) => {
     const home = f.homeCid === cid;
@@ -53,12 +53,57 @@ export async function getGameLog(
       else if (result === "D") record.drawn++;
       else record.lost++;
     }
-    return {
-      match: matchView(f, clubs),
-      venue: f.neutral ? ("N" as const) : home ? ("H" as const) : ("A" as const),
-      opponent: teamRef(clubs.get(home ? f.awayCid : f.homeCid)),
-      result,
-    };
+    return clubMatch(f, cid, clubs);
   });
   return { team: teamRef(clubs.get(cid)), season: s, matches, record };
+}
+
+const played = (f: Fixture, before: Fixture) => f.result !== null && byDate(f, before) < 0;
+
+/**
+ * Before a match: both clubs' last five results this season (fewer early on: last season's
+ * don't count, T 2026-10-25), their latest meeting in any season of the save, and a derby
+ * when both come from the same city.
+ */
+export async function getMatchPreview(lid: number, fid: number): Promise<MatchPreviewView> {
+  const session = await openLeague(lid);
+  const fixture = session.cache.get("fixtures", fid) ?? (await session.db.get("fixtures", fid));
+  if (!fixture) throw new GameError(`There's no match ${fid} in this league.`);
+  const clubs = new Map<number, Club>(session.cache.getAll("clubs").map((c) => [c.cid, c]));
+  const both = (f: Fixture) =>
+    (f.homeCid === fixture.homeCid && f.awayCid === fixture.awayCid) ||
+    (f.homeCid === fixture.awayCid && f.awayCid === fixture.homeCid);
+  const thisSeason = await seasonRows(session, "fixtures", fixture.season);
+  const form = (cid: number): ClubMatchView[] =>
+    thisSeason
+      .filter((f) => (f.homeCid === cid || f.awayCid === cid) && played(f, fixture))
+      .sort(byDate)
+      .slice(-5)
+      .map((f) => clubMatch(f, cid, clubs));
+  const home = clubs.get(fixture.homeCid);
+  const away = clubs.get(fixture.awayCid);
+  return {
+    fid,
+    form: [form(fixture.homeCid), form(fixture.awayCid)],
+    lastMeeting: await lastMeeting(session, fixture, both, clubs),
+    derby: home && away && home.city === away.city ? home.city : null,
+  };
+}
+
+/** The latest played meeting before this fixture, searching back season by season. */
+async function lastMeeting(
+  session: LeagueSession,
+  fixture: Fixture,
+  both: (f: Fixture) => boolean,
+  clubs: ReadonlyMap<number, Club>,
+) {
+  for (let season = fixture.season; ; season--) {
+    const rows = await seasonRows(session, "fixtures", season);
+    if (rows.length === 0) return null; // before the save began
+    const met = rows
+      .filter((f) => both(f) && played(f, fixture))
+      .sort(byDate)
+      .at(-1);
+    if (met) return matchView(met, clubs);
+  }
 }

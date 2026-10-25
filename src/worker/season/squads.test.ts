@@ -65,10 +65,20 @@ describe("condition", () => {
 
   it("is set by the match and reset to full in preseason", () => {
     const p = someone();
-    applyMatch(p, { energyEnd: 0.63, injuryDays: 0 } as PlayerMatchStats, DATE);
+    const fixture = (fid: number, date: string) => ({ fid, date, homeCid: 1, awayCid: 2 });
+    applyMatch(p, { energyEnd: 0.63, injuryDays: 0 } as PlayerMatchStats, fixture(5, DATE));
     expect([p.condition, p.conditionDate]).toEqual([63, DATE]);
-    applyMatch(p, { energyEnd: 0.8, injuryDays: 10 } as PlayerMatchStats, "2026-09-19");
+    expect(p.injuries).toBeUndefined();
+    applyMatch(
+      p,
+      { energyEnd: 0.8, injuryDays: 10, side: 1 } as PlayerMatchStats,
+      fixture(6, "2026-09-19"),
+    );
     expect(p.injury).toEqual({ type: "Muscle strain", until: "2026-09-29" });
+    // His history: the match and the opponent (he played away, so the home club).
+    expect(p.injuries).toEqual([
+      { date: "2026-09-19", type: "Muscle strain", days: 10, fid: 6, opponentCid: 1 },
+    ]);
     expect(isInjured(p, "2026-09-28")).toBe(true);
     expect(isInjured(p, "2026-09-29")).toBe(false);
     expect(resetForPreseason(p, "2027-07-01")).toBe(true);
@@ -96,7 +106,13 @@ describe("training injuries", () => {
     for (const i of whole.injured) {
       const p = whole.players.find((x) => x.pid === i.pid) as Player;
       expect((p.injury?.until ?? "") > i.date).toBe(true);
+      // In his history as a training injury: no fixture, no opponent.
+      expect(p.injuries).toContainEqual(
+        expect.objectContaining({ date: i.date, days: i.days, fid: null, opponentCid: null }),
+      );
     }
+    const recorded = whole.players.reduce((n, p) => n + (p.injuries?.length ?? 0), 0);
+    expect(recorded).toBe(whole.injured.length);
   });
 
   it("hurts tired and injury-prone players more, and fewer with a high Medical dial", () => {

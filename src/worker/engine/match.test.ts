@@ -4,7 +4,7 @@ import type { Club, Player } from "../../common/schema";
 import { generateWorld } from "../generate/world";
 import { matchResult, simulateMatch, startMatch, stepMatch } from "./match";
 import { teamInput } from "./prepare";
-import type { MatchInput } from "./types";
+import type { MatchEvent, MatchInput, ShotStory } from "./types";
 
 const world = generateWorld({
   seed: "engine-test",
@@ -59,6 +59,55 @@ describe("match engine: determinism", () => {
       withFeed.homeGoals + withFeed.awayGoals,
     );
     expect(events.some((e) => e.type === "shot")).toBe(true);
+  });
+
+  it("tells the commentary how each shot came about", () => {
+    const shots: Extract<MatchEvent, { type: "shot" }>[] = [];
+    const sides = new Map<number, number>();
+    for (const seed of Array.from({ length: 10 }, (_, i) => `story-${i}`)) {
+      const match = input(6, 7, seed, true);
+      for (const [side, team] of [match.home, match.away].entries())
+        for (const p of team.players) sides.set(p.pid, side);
+      const state = startMatch(match);
+      while (!state.finished)
+        for (const e of stepMatch(state, 10)) if (e.type === "shot") shots.push(e);
+    }
+    const story = (pred: (s: ShotStory) => boolean) =>
+      shots.filter((s) => s.story && pred(s.story));
+    // Saves name the other side's keeper; blocks one of its defenders.
+    for (const shot of shots.filter((s) => s.outcome === "saved" || s.outcome === "blocked")) {
+      const by = shot.story?.stoppedBy;
+      expect(by).toBeDefined();
+      expect(sides.get(by as number)).toBe(1 - shot.side);
+    }
+    expect(
+      shots
+        .filter((s) => s.outcome === "goal" || s.outcome === "off")
+        .some((s) => s.story?.stoppedBy !== undefined),
+    ).toBe(false);
+    // Set-piece headers name their taker; only headers come from set pieces.
+    const setPieces = story((s) => s.setPiece !== undefined);
+    expect(setPieces.length).toBeGreaterThan(0);
+    for (const shot of setPieces) {
+      expect(shot.shotType).toBe("header");
+      const taker = shot.story?.setPiece?.takerPid;
+      if (taker !== null && taker !== undefined) expect(sides.get(taker)).toBe(shot.side);
+    }
+    // Set pieces, penalties and direct free kicks carry no open-play build-up.
+    for (const shot of [
+      ...setPieces,
+      ...shots.filter((s) => s.shotType === "penalty" || s.shotType === "freeKick"),
+    ]) {
+      expect(shot.story?.origin).toBeUndefined();
+      expect(shot.story?.followUp).toBeUndefined();
+      expect(shot.story?.flank).toBeUndefined();
+    }
+    expect(story((s) => s.flank !== undefined).length).toBeGreaterThan(0);
+    expect(story((s) => s.origin === "longBall").length).toBeGreaterThan(0);
+    expect(story((s) => s.followUp === true).length).toBeGreaterThan(0);
+    // Flanks only on crosses and dribbles.
+    for (const shot of story((s) => s.flank !== undefined))
+      expect(["header", "dribble"]).toContain(shot.shotType);
   });
 });
 

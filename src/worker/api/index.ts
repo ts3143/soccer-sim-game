@@ -1,4 +1,3 @@
-import { withPlayerReferences } from "../league/messages";
 import type { UiEvents, WorkerApi, WorkerKind } from "../../common/api";
 import type { ApiHandlers, RpcHost } from "../../common/rpc";
 import { listLeagues } from "../db/globalDb";
@@ -47,7 +46,7 @@ import {
   getTeamHistory,
   getTransactions,
 } from "../views/history";
-import { getBoxScore, getGameLog } from "../views/matches";
+import { getBoxScore, getGameLog, getMatchPreview } from "../views/matches";
 import { getPlayer, getTeamSquad } from "../views/players";
 import {
   getInjuries,
@@ -124,6 +123,9 @@ export function createHandlers(
 
     async getGameLog(lid, cid, season) {
       return getGameLog(lid, cid, season);
+    },
+    async getMatchPreview(lid, fid) {
+      return getMatchPreview(lid, fid);
     },
 
     async getLeagueLeaders(lid, leagueId, season) {
@@ -278,13 +280,6 @@ export function createHandlers(
       });
       await announceLeagues();
       return gameState(session);
-    },
-
-    async getInbox(lid) {
-      const { cache } = await openLeague(lid);
-      return withPlayerReferences(cache.getAll("inbox"), cache.getAll("players")).sort(
-        (a, b) => b.mid - a.mid,
-      );
     },
 
     async getContractTalks(lid, pid) {

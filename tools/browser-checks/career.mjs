@@ -33,7 +33,10 @@ page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
 // --- Helpers ---------------------------------------------------------------------------------------
 const testId = (id) => page.locator(`[data-testid="${id}"]`);
 const go = async (name) => {
-  await testId("sidebar").getByRole("link", { name, exact: true }).click();
+  // By name, after any unread count (the Dashboard's).
+  await testId("sidebar")
+    .getByRole("link", { name: new RegExp(`^${name}\\s*\\d*$`) })
+    .click();
   await page.waitForFunction(
     () => !document.querySelector("main")?.innerText.includes("Loading…"),
     null,
@@ -338,19 +341,24 @@ async function loanOut() {
   }
 }
 
-/** Answers bids for your players: accepts the first open one. */
+/** Answers bids for your players in the Dashboard's inbox: accepts the first open one. */
 async function answerBids() {
-  await go("Transfer Market");
-  await tab(/Incoming offers/);
-  await testId("all-offers").waitFor({ timeout: 15_000 });
-  const open = testId("open-offers").locator("tbody tr");
-  if ((await open.count()) === 0) return;
-  const name = await open.first().locator("td a").first().innerText();
-  const fee = await open.first().locator("td").nth(2).innerText();
-  await open.first().getByRole("button", { name: "Accept" }).click();
-  await page.waitForTimeout(500);
+  await go("Dashboard");
+  await testId("inbox-list").waitFor({ timeout: 15_000 });
+  const bid = testId("inbox-list")
+    .locator("article")
+    .filter({ has: page.locator(".badge", { hasText: "Open bid" }) })
+    .first();
+  if ((await bid.count()) === 0) return;
+  // Held by the body's id: once answered, the message loses its "Open bid" badge.
+  const toggle = bid.locator(".inbox-message-toggle");
+  const body = page.locator(`#${await toggle.getAttribute("aria-controls")}`);
+  await toggle.click();
+  const text = await body.innerText();
+  await body.getByRole("button", { name: "Accept" }).click();
+  await body.getByText(/^Bid (completed|rejected)$/).waitFor({ timeout: 15_000 });
   done.bidsAccepted++;
-  log(`accepted a bid of ${fee} for ${name}`);
+  log(`accepted in the inbox: ${text.split(" (")[0]}`);
 }
 
 /** Watches the next match: kick off fast, stop at half-time, change things, play to full time. */

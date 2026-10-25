@@ -20,6 +20,7 @@ import { openLeague } from "../league/session";
 import { squadCost } from "../market/transfers";
 import { playoffId } from "../season/season";
 import {
+  allAwards,
   describeTransaction,
   formOf,
   leagueTables,
@@ -31,13 +32,6 @@ import { GameError } from "../../common/errors";
 
 const clubsOf = (session: LeagueSession) =>
   new Map<number, Club>(session.cache.getAll("clubs").map((c) => [c.cid, c]));
-
-/** Every award row: past seasons from IndexedDB, the current one from the cache. */
-async function allAwards(session: LeagueSession): Promise<AwardRow[]> {
-  const game = session.cache.get("meta", "game") as GameMeta;
-  const past = (await session.db.getAll("awards")).filter((a) => a.season !== game.season);
-  return [...past, ...session.cache.getAll("awards").filter((a) => a.season === game.season)];
-}
 
 export async function getHistory(lid: number): Promise<HistoryView> {
   const session = await openLeague(lid);
@@ -51,15 +45,19 @@ export async function getHistory(lid: number): Promise<HistoryView> {
     const find = (type: string, competition: string) =>
       own.find((a) => a.type === type && a.competition === competition);
     const leagues = [];
+    // The award winner's season row in that league (null once he's pruned).
+    const statsOf = async (a: AwardRow | undefined, league: string) => {
+      if (a?.pid == null || a.cid == null) return null;
+      const key: [number, number, number, string] = [a.pid, season, a.cid, league];
+      return (
+        session.cache.get("playerStats", key) ?? (await session.db.get("playerStats", key)) ?? null
+      );
+    };
     for (const league of competitionsConfig.leagues) {
       const boot = find("goldenBoot", league.id);
-      let goals: number | null = null;
-      if (boot?.pid != null && boot.cid != null) {
-        const key: [number, number, number, string] = [boot.pid, season, boot.cid, league.id];
-        const row =
-          session.cache.get("playerStats", key) ?? (await session.db.get("playerStats", key));
-        goals = row?.goals ?? null;
-      }
+      const goals = (await statsOf(boot, league.id))?.goals ?? null;
+      const provider = find("topAssists", league.id);
+      const assists = (await statsOf(provider, league.id))?.assists ?? null;
       const poty = find("playerOfTheYear", league.id);
       leagues.push({
         id: league.id,
@@ -74,6 +72,9 @@ export async function getHistory(lid: number): Promise<HistoryView> {
           .map((a) => teamRef(clubs.get(a.cid ?? -1))),
         playerOfTheYear: poty ? { pid: poty.pid, name: poty.name, club: ref(poty) } : null,
         goldenBoot: boot ? { pid: boot.pid, name: boot.name, club: ref(boot), goals } : null,
+        topAssists: provider
+          ? { pid: provider.pid, name: provider.name, club: ref(provider), assists }
+          : null,
       });
     }
     out.push({

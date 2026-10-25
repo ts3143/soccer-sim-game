@@ -18,6 +18,23 @@ const teams = (list: TeamRef[]) =>
     ))
   );
 
+/** A season's leading scorer or provider, with his tally. */
+function Leader({
+  leader,
+  count,
+}: {
+  leader: { pid: number | null; name: string } | null;
+  count: number | null;
+}) {
+  if (!leader) return <>—</>;
+  return (
+    <>
+      {leader.pid !== null ? <PlayerLink pid={leader.pid} name={leader.name} /> : leader.name}
+      {count !== null && <span className="text-body-secondary"> ({count})</span>}
+    </>
+  );
+}
+
 export function History() {
   const { shell } = useShell();
   const { data: view, error } = useView("history", () => toWorker("getHistory", shell.lid));
@@ -43,6 +60,7 @@ export function History() {
                       <th>Relegated</th>
                       <th>Player of the Year</th>
                       <th>Golden Boot</th>
+                      <th>Top assists</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -77,20 +95,10 @@ export function History() {
                           )}
                         </td>
                         <td>
-                          {l.goldenBoot ? (
-                            <>
-                              {l.goldenBoot.pid !== null ? (
-                                <PlayerLink pid={l.goldenBoot.pid} name={l.goldenBoot.name} />
-                              ) : (
-                                l.goldenBoot.name
-                              )}
-                              {l.goldenBoot.goals !== null && (
-                                <span className="text-body-secondary"> ({l.goldenBoot.goals})</span>
-                              )}
-                            </>
-                          ) : (
-                            "—"
-                          )}
+                          <Leader leader={l.goldenBoot} count={l.goldenBoot?.goals ?? null} />
+                        </td>
+                        <td data-testid="top-assists">
+                          <Leader leader={l.topAssists} count={l.topAssists?.assists ?? null} />
                         </td>
                       </tr>
                     ))}
