@@ -331,7 +331,13 @@ check(
 );
 const savedXi = await names(preXi);
 const newcomer = await nameIn(preReserves.first());
-await preReserves.first().dragTo(preXi.nth(10));
+// Pick, then click the slot: the pre-match page is too long to show both rows for a drag
+// (the slot ends up under the top bar). Dragging is checked on the Tactics page.
+const intoSlot10 = async () => {
+  await preReserves.first().click();
+  await preXi.nth(10).click();
+};
+await intoSlot10();
 await settle(
   (n) =>
     document
@@ -351,7 +357,7 @@ check(
   "a change applies to the match, and My saved line-up goes back",
   JSON.stringify(await names(preXi)) === JSON.stringify(savedXi),
 );
-await preReserves.first().dragTo(preXi.nth(10));
+await intoSlot10();
 await settle(
   (n) =>
     document

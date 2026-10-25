@@ -261,7 +261,17 @@ describe("the season loop in a save", () => {
   it("prunes long-retired players nobody will look up, with their stat rows", SLOW, async () => {
     const session = await openLeague(1);
     const retired = session.cache.getAll("players").filter((p) => p.status === "retired");
-    const ordinary = retired.find((p) => Math.max(...p.ratingsHistory.map((r) => r.ovr)) < 70);
+    // One the rule doesn't keep: no award, not a former player of the user's club.
+    const userCid = (session.cache.get("meta", "game") as GameMeta).userCid;
+    const kept = new Set([
+      ...(await session.db.getAll("awards")).map((a) => a.pid),
+      ...(await session.db.getAll("playerStats"))
+        .filter((r) => r.cid === userCid)
+        .map((r) => r.pid),
+    ]);
+    const ordinary = retired.find(
+      (p) => Math.max(...p.ratingsHistory.map((r) => r.ovr)) < 70 && !kept.has(p.pid),
+    );
     const star = retired.find((p) => p !== ordinary);
     expect(ordinary && star).toBeTruthy();
     if (!ordinary || !star) return;

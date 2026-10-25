@@ -112,7 +112,7 @@ Still open:
 | --- | --- | --- |
 | 6 | Academy incentive: academy players of 16+ play without counting toward the 25 (SPEC §7.1), so promoting one mainly allows loans and sales | Options put to T: a pro contract to play, a limited number of free appearances, or the current rule. Nothing changed |
 | 7 | More status tags | "Tired" and "open bid" proposed; T to say |
-| 8 | Yellow-card build-up bans | Not built; T to say whether they belong in a later version |
+| 8 | Yellow-card build-up bans | **Answered (T, 2026-10-25):** a one-match ban after five yellows. Built as every fifth yellow of a season, all domestic competitions together (SPEC §8.9) |
 | 9 | The world calibration's peak-age gate fails with CI's seed since the red-card change (release blocker) | Noise at the gate's edge, not a regression: other seeds pass now and failed before; the 27–29 v 24–26 gap averages about 0 (PROGRESS, M7 chunk 6, part 2). **Answered (T, 2026-10-21):** the gate allows 1 OVR (design doc #64); tuning the age curve can come later |
 
 ## A11. After v0.1, answered by T (Oct 21 2026)

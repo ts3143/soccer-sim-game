@@ -253,6 +253,7 @@ function lineupContext(session: LeagueSession, live: Running) {
   const club = world.clubs.find((c) => c.cid === game.userCid);
   if (!fixture || !club) throw new Error("The live match's fixture or club is missing");
   const available = availableFor(club, world.players, fixture);
+  const ids = new Set(available.map((p) => p.pid));
   /** The AI's pick for the user's club in this match, in `formation`. */
   const aiPick = (formation: string) => {
     const clubs = world.clubs.map((c) =>
@@ -267,6 +268,8 @@ function lineupContext(session: LeagueSession, live: Running) {
     world,
     available,
     byPid: new Map(available.map((p) => [p.pid, p])),
+    /** His players who can't play today: listed, not pickable. */
+    unavailable: selectable(world.players, club.cid, fixture.date).filter((p) => !ids.has(p.pid)),
     aiPick,
   };
 }
@@ -283,6 +286,7 @@ export function getLiveLineup(session: LeagueSession): TacticsView {
     ctx.fixture.date,
     true,
     session.cache.getAll("playerStats").filter((r) => r.season === ctx.fixture.season),
+    ctx.unavailable,
   );
 }
 
@@ -323,6 +327,7 @@ export function setLiveLineup(
       ctx.fixture.date,
       true,
       session.cache.getAll("playerStats").filter((r) => r.season === ctx.fixture.season),
+      ctx.unavailable,
     );
   });
 }

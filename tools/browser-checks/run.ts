@@ -24,6 +24,7 @@ const CHECKS = [
   "formation",
   "messages",
   "board",
+  "prematch",
 ];
 const args = process.argv.slice(2);
 let base = "http://localhost:4173";

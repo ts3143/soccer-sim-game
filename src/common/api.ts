@@ -434,6 +434,8 @@ export interface TacticsView {
   bench: TacticsPlayerView[];
   /** Everyone else who can be picked (seniors, loanees in, academy players 16+). */
   reserves: TacticsPlayerView[];
+  /** Before a live match: who can't play in it (injured, suspended), shown but not pickable. */
+  unavailable?: TacticsPlayerView[];
   /** The seven team ratings (player-OVR scale) at today's condition, sliders included. */
   ratings: { key: string; label: string; value: number }[];
   warnings: string[];

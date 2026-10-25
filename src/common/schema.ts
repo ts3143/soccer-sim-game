@@ -350,6 +350,11 @@ export interface Player {
   conditionDate?: string | null;
   /** Domestic ban; absent in older saves. Served by club fixtures, including cups. */
   suspension?: { remaining: number; date: string };
+  /**
+   * Yellow cards toward a ban in `season` (SPEC §8.9), all domestic competitions; every
+   * fifth is a one-match ban. Absent in older saves (they count from their next yellow).
+   */
+  yellows?: { season: number; count: number };
   /** Minutes and ratings since the last development update (reset at each one). */
   devTally?: DevTally;
   /**

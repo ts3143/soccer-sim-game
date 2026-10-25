@@ -300,7 +300,7 @@ export function Live() {
             <LineupEditor
               initial={lineup}
               apply={(setup, mode) => toWorker("setLiveLineup", shell.lid, setup, mode)}
-              note="Changes here are for this match only: your saved Tactics stay as they are. Only players fit to play are listed."
+              note="Changes here are for this match only: your saved Tactics stay as they are. Injured and suspended players are greyed out under Not in the squad: they can't play."
               autoTitle="The AI's rotation for this match"
               baselineLabel="the line-up you started with"
             />

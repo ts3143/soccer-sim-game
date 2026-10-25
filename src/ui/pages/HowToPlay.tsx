@@ -82,8 +82,9 @@ function Guide() {
           </li>
           <li>You can have up to 25 senior players. Academy players don&apos;t count.</li>
           <li>
-            A second yellow means a one-match suspension; a straight red means three. Bans are
-            served in domestic league and cup fixtures, even while injured.
+            A second yellow means a one-match suspension; a straight red means three; every fifth
+            yellow card in a season means one. Bans are served in domestic league and cup fixtures,
+            even while injured.
           </li>
         </ul>
       </Part>
