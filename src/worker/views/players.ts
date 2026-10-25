@@ -173,6 +173,7 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
     secondary: p.secondaryPositions,
     age: Math.floor(exactAge(p.birthDate, game.date)),
     birthDate: p.birthDate,
+    birthplace: p.birthplace || null,
     nationality: p.nationality,
     nationality2: p.nationality2,
     foot: p.foot,

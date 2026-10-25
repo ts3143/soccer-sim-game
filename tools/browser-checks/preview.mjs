@@ -1,5 +1,6 @@
 // The pre-match card of a watched match (both clubs' last five, the last meeting, a
-// derby) and the profile's Form card (his last five matches with ratings) (T, 2026-10-25).
+// derby), the profile's Form card (his last five matches with ratings) and his birthplace
+// (T, 2026-10-25).
 import { chromium } from "playwright-core";
 const BASE = process.env.BASE ?? "http://localhost:4173";
 const browser = await chromium.launch({ channel: "chrome", headless: true });
@@ -112,6 +113,13 @@ try {
     }
   }
   check("a regular's profile shows his last five matches", found !== null);
+  const birthplace = (await page.locator('[data-testid="birthplace"]').innerText()).trim();
+  const age = await page.locator('[data-testid="player-bio"]').innerText();
+  check(
+    "his bio says where he was born",
+    birthplace.length > 1 && new RegExp(`born \\d+ \\w+ \\d{4} in ${birthplace}\\)`).test(age),
+    age.slice(0, 200),
+  );
   if (found) {
     const ratings = await found.locator('[data-testid="form-rating"]').allInnerTexts();
     check(

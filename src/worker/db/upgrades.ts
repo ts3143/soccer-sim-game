@@ -8,6 +8,8 @@ import {
   ratingTotalFromOldScale,
   winningSide,
 } from "../engine/ratings";
+import type { GameMeta } from "../../common/schema";
+import { bornLocally } from "../generate/birthplace";
 import type { LeagueDBSchema } from "./schema";
 
 type UpgradeTransaction = IDBPTransaction<
@@ -114,5 +116,22 @@ export async function upgradeToV4(tx: UpgradeTransaction): Promise<void> {
     row.motm = counts.get(key(row.pid, row.season, row.cid, row.competition)) ?? 0;
     await stats.update(row);
     stats = await stats.continue();
+  }
+}
+
+/**
+ * League DB v5: local lads (T, 2026-10-25). About half of the academy players and academy
+ * graduates of a club's own country are born in the club's city, the same ones a new world
+ * from this seed would pick. Birthplaces weren't shown before, so nothing seen changes.
+ */
+export async function upgradeToV5(tx: UpgradeTransaction): Promise<void> {
+  const game = (await tx.objectStore("meta").get("game")) as GameMeta | undefined;
+  if (!game) return;
+  const clubs = new Map((await tx.objectStore("clubs").getAll()).map((c) => [c.cid, c]));
+  let player = await tx.objectStore("players").openCursor();
+  while (player) {
+    const row = player.value;
+    if (bornLocally(game.seed, [row], clubs).length > 0) await player.update(row);
+    player = await player.continue();
   }
 }

@@ -200,6 +200,11 @@ describe("preseason", () => {
       expect([15, 16]).toContain(wholeYears(p.birthDate, date));
       expect(p.pot).toBeGreaterThanOrEqual(p.ovr);
     }
+    // Local lads: about half of the home-country youths are born in the club's city.
+    const clubOf = (cid: number | null) => pre.clubs.find((c) => c.cid === cid);
+    const home = log.added.filter((p) => clubOf(p.cid)?.country === p.nationality);
+    const local = home.filter((p) => p.birthplace === clubOf(p.cid)?.city);
+    expect(Math.abs(local.length / home.length - 0.5)).toBeLessThan(0.12);
   });
 
   it("promotes or releases every academy player of 18, and logs it", () => {

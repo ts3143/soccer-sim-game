@@ -41,6 +41,7 @@ import { aiRenewals, expireContracts } from "../market/renewals";
 import { resetForPreseason } from "./squads";
 import { effectiveDials } from "../club/standing";
 import { GameError } from "../../common/errors";
+import { localBirthplace } from "../generate/birthplace";
 
 /** Coefficients (provisional, tuned with the calibration harness). */
 export const TURNOVER = {
@@ -448,6 +449,7 @@ export function youthIntake(world: LoopWorld, season: number, date: string): Tur
         date,
       );
       player.shirtNumber = freeShirtNumber(world, club.cid, 36);
+      player.birthplace = localBirthplace(world.seed, player, club) ?? player.birthplace;
       world.players.push(player);
       updatePot(player, date, contexts.get(club.cid), world.seed);
       log.added.push(player);

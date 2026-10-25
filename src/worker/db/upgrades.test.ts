@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
-import type { MatchRecord, Player, PlayerStatsRow } from "../../common/schema";
+import type { Club, MatchRecord, Player, PlayerStatsRow } from "../../common/schema";
+import { localBirthplace } from "../generate/birthplace";
 import { openLeagueDb } from "./leagueDb";
 import { LEAGUE_DB_VERSION } from "./schema";
 
@@ -123,6 +124,40 @@ describe("league DB upgrades", () => {
     const again = await openLeagueDb(9003);
     expect((await again.get("playerStats", [10, 2026, 5, "ENG1"]))?.motm).toBe(2);
     again.close();
+  });
+
+  it("makes local lads of an older save's academy players, as a new world would", async () => {
+    const v4 = await openLeagueDb(9004, 4);
+    await v4.put("meta", { seed: "old-save" }, "game");
+    const leeds = { cid: 1, city: "Leeds", country: "ENG" };
+    await v4.put("clubs", leeds as unknown as Club);
+    await v4.put("clubs", { cid: 2, city: "Bristol", country: "ENG" } as unknown as Club);
+    const promoted = [{ type: "academyPromotion", fromCid: 1, toCid: 1 }];
+    const kinds = [
+      { status: "academy", nationality: "ENG", transfers: [], eligible: true },
+      { status: "club", nationality: "ENG", transfers: promoted, eligible: true },
+      { status: "academy", nationality: "FRA", transfers: [], eligible: false },
+      { status: "club", nationality: "ENG", transfers: [], eligible: false },
+    ];
+    const players = Array.from({ length: 80 }, (_, pid) => ({
+      pid,
+      cid: 1,
+      birthplace: "Sheffield",
+      ...(kinds[pid % 4] as (typeof kinds)[number]),
+    }));
+    for (const p of players) await v4.put("players", p as unknown as Player);
+    v4.close();
+
+    const v5 = await openLeagueDb(9004);
+    let local = 0;
+    for (const p of players) {
+      const expected = (p.eligible ? localBirthplace("old-save", p, leeds) : null) ?? "Sheffield";
+      expect((await v5.get("players", p.pid))?.birthplace).toBe(expected);
+      if (expected === "Leeds") local++;
+    }
+    expect(local).toBeGreaterThan(10);
+    expect(local).toBeLessThan(30);
+    v5.close();
   });
 
   it("creates a new save at the current version with nothing to convert", async () => {

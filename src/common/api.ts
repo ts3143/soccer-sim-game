@@ -186,6 +186,8 @@ export interface PlayerView {
   secondary: string[];
   age: number;
   birthDate: string;
+  /** His home town (T, 2026-10-25); null when the name data had none. */
+  birthplace: string | null;
   nationality: string;
   nationality2: string | null;
   foot: string;

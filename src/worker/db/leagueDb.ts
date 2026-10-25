@@ -1,7 +1,7 @@
 import { deleteDB, openDB, type IDBPDatabase } from "idb";
 import type { World } from "../generate/world";
 import { LEAGUE_DB_VERSION, leagueDbName, type LeagueDBSchema } from "./schema";
-import { upgradeToV3, upgradeToV4 } from "./upgrades";
+import { upgradeToV3, upgradeToV4, upgradeToV5 } from "./upgrades";
 
 /** Opens (and upgrades) a league save. `version` is for tests that build an older save. */
 export function openLeagueDb(
@@ -43,6 +43,7 @@ export function openLeagueDb(
         void (async () => {
           if (oldVersion < 3 && target >= 3) await upgradeToV3(transaction);
           if (oldVersion < 4 && target >= 4) await upgradeToV4(transaction);
+          if (oldVersion < 5 && target >= 5) await upgradeToV5(transaction);
         })().catch(() => transaction.abort());
       }
     },
