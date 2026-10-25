@@ -251,6 +251,17 @@ export interface PlayerView {
     redCards: number;
     cleanSheets: number;
   }[];
+  /**
+   * His honours, oldest first: his awards, and his club's titles, cups and promotions in
+   * seasons he played in that competition for it (T, 2026-10-25).
+   */
+  honours: {
+    season: number;
+    type: HonourType;
+    competition: string;
+    competitionName: string;
+    club: TeamRef;
+  }[];
   /** His last five matches this season, newest first, from his club's side. */
   form: (ClubMatchView & {
     rating: number;
@@ -787,6 +798,13 @@ export interface HistoryView {
         club: TeamRef | null;
         goals: number | null;
       } | null;
+      /** Most league assists; null for seasons that ended before the award existed. */
+      topAssists: {
+        pid: number | null;
+        name: string;
+        club: TeamRef | null;
+        assists: number | null;
+      } | null;
     }[];
     cups: { id: string; name: string; winner: TeamRef | null }[];
   }[];
@@ -861,6 +879,16 @@ export interface FinancesView {
 
 /** Win, draw or loss, for form guides. */
 export type FormResult = "W" | "D" | "L";
+
+/** What the player profile counts as honours, in display order. */
+export type HonourType =
+  | "champions"
+  | "cupWinner"
+  | "promoted"
+  | "playerOfTheYear"
+  | "goldenBoot"
+  | "topAssists"
+  | "teamOfTheSeason";
 
 /** Before a match (SPEC §11, T 2026-10-25): recent results, the last meeting, a derby. */
 export interface MatchPreviewView {

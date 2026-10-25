@@ -11,7 +11,14 @@ import type {
   TeamRef,
 } from "../../common/api";
 import { competitionsConfig } from "../../common/config/competitions";
-import type { Club, Fixture, GameMeta, SeasonMeta, TransactionRow } from "../../common/schema";
+import type {
+  AwardRow,
+  Club,
+  Fixture,
+  GameMeta,
+  SeasonMeta,
+  TransactionRow,
+} from "../../common/schema";
 import type { StoreValue } from "idb";
 import type { LeagueDBSchema } from "../db/schema";
 import type { LeagueSession } from "../league/session";
@@ -161,6 +168,13 @@ export async function seasonRows<S extends SeasonStore>(
     getAllFromIndex(store: string, index: string, key: number): Promise<unknown[]>;
   };
   return (await db.getAllFromIndex(store, "season", season)) as StoreValue<LeagueDBSchema, S>[];
+}
+
+/** Every award row: past seasons from IndexedDB, the current one from the cache. */
+export async function allAwards(session: LeagueSession): Promise<AwardRow[]> {
+  const game = session.cache.get("meta", "game") as GameMeta;
+  const past = (await session.db.getAll("awards")).filter((a) => a.season !== game.season);
+  return [...past, ...session.cache.getAll("awards").filter((a) => a.season === game.season)];
 }
 
 /** A transaction as one line, from its name snapshots (they read after players are pruned). */

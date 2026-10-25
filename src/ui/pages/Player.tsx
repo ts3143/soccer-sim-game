@@ -14,6 +14,7 @@ import { RadarChart } from "../components/charts";
 import { NationalityFlag, RatingChange, RatingsGrid } from "../components/PlayerDetails";
 import { ScoreLink, TeamLink } from "../components/links";
 import { resultRowClass } from "../components/results";
+import { HonourBadge, HonoursCard } from "../components/Honours";
 import { formatDate, formatEuros } from "../format";
 import { PageHeader } from "../shell/PageHeader";
 import { seasonLabel, useShell } from "../shell/Shell";
@@ -481,6 +482,7 @@ export function Player({ params }: { params: string[] }) {
           </div>
         </section>
       </div>
+      <HonoursCard honours={view.honours} />
       <Career view={view} />
     </>
   );
@@ -554,7 +556,22 @@ function Career({ view }: { view: PlayerView }) {
                       <td>
                         <TeamLink team={r.club} />
                       </td>
-                      <td>{r.competitionName}</td>
+                      <td>
+                        {r.competitionName}
+                        {view.honours
+                          .filter(
+                            (h) =>
+                              h.season === season &&
+                              h.club.cid === r.club.cid &&
+                              h.competition === r.competition,
+                          )
+                          .map((h) => (
+                            <span key={h.type}>
+                              {" "}
+                              <HonourBadge honour={h} />
+                            </span>
+                          ))}
+                      </td>
                       {cells(total([r]))}
                     </tr>
                   )),

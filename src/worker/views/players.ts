@@ -4,12 +4,12 @@
  * player's bio, contract, mood breakdown, condition, ratings and transfer history.
  */
 import { ratingChanges } from "../../common/ratingChanges";
-import type { PlayerView, SquadPlayerView, TeamSquadView } from "../../common/api";
+import type { HonourType, PlayerView, SquadPlayerView, TeamSquadView } from "../../common/api";
 import { exactAge, formatDay } from "../../common/dates";
 import { competitionsConfig } from "../../common/config/competitions";
 import { formationById } from "../../common/config/formations";
 import { POSITIONS, RATING_CODES, ratingsConfig } from "../../common/config/ratings";
-import type { Club, GameMeta, Player } from "../../common/schema";
+import type { AwardRow, Club, GameMeta, Player } from "../../common/schema";
 import { contractClub, isSenior } from "../../common/status";
 import { effectiveDials } from "../club/standing";
 import { bestXi } from "../core/lineup";
@@ -19,7 +19,14 @@ import { marketValue, yearsLeft } from "../market/market";
 import { clubLevels, moodAtClub } from "../market/renewals";
 import { leagueLevel } from "../market/transfers";
 import { currentCondition, isInjured } from "../season/squads";
-import { clubMatch, competitionName, leagueTables, seasonFixtures, teamRef } from "./common";
+import {
+  allAwards,
+  clubMatch,
+  competitionName,
+  leagueTables,
+  seasonFixtures,
+  teamRef,
+} from "./common";
 import { GameError } from "../../common/errors";
 
 const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
@@ -239,8 +246,53 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
       ),
     })),
     career,
+    honours: honoursOf(await allAwards(session), pid, career, clubs),
     form: formOf(session, pid, game.season, career, clubs),
   };
+}
+
+const CLUB_HONOURS: readonly HonourType[] = ["champions", "cupWinner", "promoted"];
+const PLAYER_HONOURS: readonly HonourType[] = [
+  "playerOfTheYear",
+  "goldenBoot",
+  "topAssists",
+  "teamOfTheSeason",
+];
+
+/**
+ * His honours, oldest first: his own awards, and his club's titles, cups and promotions
+ * (from the league it went up from) in seasons he played at least once in that
+ * competition for that club.
+ */
+export function honoursOf(
+  awards: readonly AwardRow[],
+  pid: number,
+  career: PlayerView["career"],
+  clubs: ReadonlyMap<number, Club>,
+): PlayerView["honours"] {
+  const order = [...CLUB_HONOURS, ...PLAYER_HONOURS];
+  const played = (a: AwardRow) =>
+    career.some(
+      (r) =>
+        r.season === a.season &&
+        r.club.cid === a.cid &&
+        r.competition === a.competition &&
+        r.appearances > 0,
+    );
+  return awards
+    .filter((a) =>
+      a.pid === null
+        ? CLUB_HONOURS.includes(a.type as HonourType) && played(a)
+        : a.pid === pid && PLAYER_HONOURS.includes(a.type as HonourType),
+    )
+    .map((a) => ({
+      season: a.season,
+      type: a.type as HonourType,
+      competition: a.competition,
+      competitionName: competitionName(a.competition),
+      club: teamRef(clubs.get(a.cid ?? -1)),
+    }))
+    .sort((a, b) => a.season - b.season || order.indexOf(a.type) - order.indexOf(b.type));
 }
 
 /**
