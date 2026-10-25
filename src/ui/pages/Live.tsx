@@ -19,6 +19,7 @@ import type {
 import { addDays } from "../../common/dates";
 import type { MatchEvent } from "../../common/match";
 import { LineupEditor, type SaveText } from "../components/LineupEditor";
+import { MatchPreview } from "../components/MatchPreview";
 import { GameError } from "../../common/errors";
 import { liveChanges } from "../../common/liveChanges";
 import {
@@ -331,6 +332,9 @@ export function Live() {
       )}
       {preMatch ? (
         <div className="row g-3" data-testid="pre-match">
+          <div className="col-12">
+            <MatchPreview fid={view.fid} teams={[view.teams[0].team, view.teams[1].team]} />
+          </div>
           <div className="col-xxl-9">
             <h2 className="h5">Your line-up for this match</h2>
             <LineupEditor

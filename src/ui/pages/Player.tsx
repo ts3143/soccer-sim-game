@@ -12,7 +12,8 @@ import type { PlayerView } from "../../common/api";
 import { RATING_CODES, ratingsConfig } from "../../common/config/ratings";
 import { RadarChart } from "../components/charts";
 import { NationalityFlag, RatingChange, RatingsGrid } from "../components/PlayerDetails";
-import { TeamLink } from "../components/links";
+import { ScoreLink, TeamLink } from "../components/links";
+import { resultRowClass } from "../components/results";
 import { formatDate, formatEuros } from "../format";
 import { PageHeader } from "../shell/PageHeader";
 import { seasonLabel, useShell } from "../shell/Shell";
@@ -36,6 +37,65 @@ const STATUS_LABELS: Record<string, string> = {
   freeAgent: "Free agent",
   retired: "Retired",
 };
+
+/** His last five matches (this season and last), newest first, with his rating. */
+function Form({ view }: { view: PlayerView }) {
+  return (
+    <section className="card mb-3" data-testid="player-form">
+      <div className="card-body">
+        <h2 className="h6">Form</h2>
+        {view.form.length === 0 ? (
+          <p className="small text-body-secondary mb-0">No matches this season or last.</p>
+        ) : (
+          <div className="table-responsive">
+            <table className="table table-sm small align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Competition</th>
+                  <th title="Home, away or neutral">Venue</th>
+                  <th>Opponent</th>
+                  <th>Score</th>
+                  <th className="text-end">Min</th>
+                  <th className="text-end">G</th>
+                  <th className="text-end">A</th>
+                  <th className="text-end">Rating</th>
+                </tr>
+              </thead>
+              <tbody>
+                {view.form.map((m) => (
+                  <tr key={m.match.fid} className={resultRowClass(m.result)}>
+                    <td className="text-nowrap">{formatDate(m.match.date)}</td>
+                    <td>{m.match.competitionName}</td>
+                    <td>{m.venue}</td>
+                    <td>
+                      <TeamLink team={m.opponent} />
+                    </td>
+                    <td>
+                      {m.result && <span className="fw-semibold me-1">{m.result}</span>}
+                      <ScoreLink fid={m.match.fid} score={m.match.score} />
+                    </td>
+                    <td className="text-end">{m.minutes}</td>
+                    <td className="text-end">{m.goals}</td>
+                    <td className="text-end">{m.assists}</td>
+                    <td className="text-end fw-semibold text-nowrap" data-testid="form-rating">
+                      {m.rating.toFixed(1)}
+                      {m.motm && (
+                        <span className="motm-star ms-1" title="Man of the match">
+                          ★
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -356,6 +416,7 @@ export function Player({ params }: { params: string[] }) {
           </div>
         </section>
       </div>
+      <Form view={view} />
       <section className="card mb-3" data-testid="player-transfers">
         <div className="card-body">
           <h2 className="h6">Transfer history</h2>

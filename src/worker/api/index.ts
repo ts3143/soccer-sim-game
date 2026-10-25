@@ -46,7 +46,7 @@ import {
   getTeamHistory,
   getTransactions,
 } from "../views/history";
-import { getBoxScore, getGameLog } from "../views/matches";
+import { getBoxScore, getGameLog, getMatchPreview } from "../views/matches";
 import { getPlayer, getTeamSquad } from "../views/players";
 import {
   getInjuries,
@@ -123,6 +123,9 @@ export function createHandlers(
 
     async getGameLog(lid, cid, season) {
       return getGameLog(lid, cid, season);
+    },
+    async getMatchPreview(lid, fid) {
+      return getMatchPreview(lid, fid);
     },
 
     async getLeagueLeaders(lid, leagueId, season) {

@@ -91,8 +91,9 @@ function Guide() {
       <Part title="Watching a match live">
         <ul>
           <li>
-            <b>Play → Watch your next match</b>. Before kick-off you can change the line-up for this
-            match only; your saved tactics stay as they are.
+            <b>Play → Watch your next match</b>. Before kick-off, a preview shows both clubs&apos;
+            last five results and their last meeting, and you can change the line-up for this match
+            only; your saved tactics stay as they are.
           </li>
           <li>
             Pause at any time to make substitutions, or change the formation or sliders. You have 5

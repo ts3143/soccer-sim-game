@@ -251,6 +251,14 @@ export interface PlayerView {
     redCards: number;
     cleanSheets: number;
   }[];
+  /** His last five matches (this season and last), newest first, from his club's side. */
+  form: (ClubMatchView & {
+    rating: number;
+    minutes: number;
+    goals: number;
+    assists: number;
+    motm: boolean;
+  })[];
 }
 
 /** A box score page: the fixture, and the saved match record if it's still kept. */
@@ -262,15 +270,18 @@ export interface BoxScoreView {
 }
 
 /** A club's season of matches (Game Log). */
+/** One match from a club's side: a Game Log row, a form entry. */
+export interface ClubMatchView {
+  match: MatchView;
+  venue: "H" | "A" | "N";
+  opponent: TeamRef;
+  result: FormResult | null;
+}
+
 export interface GameLogView {
   team: TeamRef;
   season: number;
-  matches: {
-    match: MatchView;
-    venue: "H" | "A" | "N";
-    opponent: TeamRef;
-    result: FormResult | null;
-  }[];
+  matches: ClubMatchView[];
   record: { won: number; drawn: number; lost: number; goalsFor: number; goalsAgainst: number };
 }
 
@@ -851,6 +862,17 @@ export interface FinancesView {
 /** Win, draw or loss, for form guides. */
 export type FormResult = "W" | "D" | "L";
 
+/** Before a match (SPEC §11, T 2026-10-25): recent results, the last meeting, a derby. */
+export interface MatchPreviewView {
+  fid: number;
+  /** Each club's last five results before this match, oldest first: home, then away. */
+  form: [ClubMatchView[], ClubMatchView[]];
+  /** The clubs' latest meeting before this match; null if they haven't met in this save. */
+  lastMeeting: MatchView | null;
+  /** The city both clubs come from ("Manchester"), or null. */
+  derby: string | null;
+}
+
 /** An inbox message; a bid message carries its offer while the offer is kept (its season). */
 export type InboxMessageView = InboxMessage & {
   bid?: { oid: number; status: OfferView["status"] };
@@ -1108,6 +1130,7 @@ export interface WorkerApi {
   getPlayer(lid: number, pid: number): PlayerView;
   getBoxScore(lid: number, fid: number): BoxScoreView;
   getGameLog(lid: number, cid: number, season: number | null): GameLogView;
+  getMatchPreview(lid: number, fid: number): MatchPreviewView;
   getLeagueLeaders(lid: number, leagueId: string | null, season: number | null): LeagueLeadersView;
   getPlayerRatings(lid: number): PlayerRatingsView;
   getPlayerStats(lid: number, season: number | null, competition: string | null): PlayerStatsView;

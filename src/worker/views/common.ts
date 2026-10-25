@@ -2,7 +2,14 @@
  * Shared pieces of the page views (M5): clubs, competitions, fixtures and league tables as
  * the pages show them. Used by the game pages and the developer Season lab.
  */
-import type { FormResult, MatchView, TableRowView, TableZone, TeamRef } from "../../common/api";
+import type {
+  ClubMatchView,
+  FormResult,
+  MatchView,
+  TableRowView,
+  TableZone,
+  TeamRef,
+} from "../../common/api";
 import { competitionsConfig } from "../../common/config/competitions";
 import type { Club, Fixture, GameMeta, SeasonMeta, TransactionRow } from "../../common/schema";
 import type { StoreValue } from "idb";
@@ -52,6 +59,25 @@ export function matchView(f: Fixture, clubs: ReadonlyMap<number, Club>): MatchVi
     winnerCid: f.result?.winnerCid ?? null,
   };
 }
+
+/** A fixture from one club's side (Game Log rows, form). */
+export function clubMatch(
+  f: Fixture,
+  cid: number,
+  clubs: ReadonlyMap<number, Club>,
+): ClubMatchView {
+  const home = f.homeCid === cid;
+  return {
+    match: matchView(f, clubs),
+    venue: f.neutral ? "N" : home ? "H" : "A",
+    opponent: teamRef(clubs.get(home ? f.awayCid : f.homeCid)),
+    result: resultFor(f, cid),
+  };
+}
+
+/** Played fixtures in date order, latest last. */
+export const byDate = (a: Fixture, b: Fixture): number =>
+  a.date < b.date ? -1 : a.date > b.date ? 1 : a.fid - b.fid;
 
 /** A club's result in a played fixture (a shoot-out decides it in a knockout tie). */
 export function resultFor(f: Fixture, cid: number): FormResult | null {

@@ -1,5 +1,7 @@
 /** Links used across the game pages: clubs (crest + name), players, match scores; form badges. */
-import type { FormResult, TeamRef } from "../../common/api";
+import type { ClubMatchView, FormResult, TeamRef } from "../../common/api";
+import { formatDate } from "../format";
+import { RESULT_LABEL } from "./results";
 import { NationalityFlag } from "./PlayerDetails";
 import { crestUrl } from "../crests";
 import { leaguePath, Link } from "../router";
@@ -62,6 +64,32 @@ const FORM_CLASS: Record<FormResult, string> = {
   D: "text-bg-warning",
   L: "text-bg-danger",
 };
+
+/** A club's recent matches as W/D/L badges, each linking to its box score. */
+export function FormStrip({ matches }: { matches: ClubMatchView[] }) {
+  const { shell } = useShell();
+  if (matches.length === 0) return <span className="text-body-secondary small">no games yet</span>;
+  return (
+    <span className="d-inline-flex gap-1">
+      {matches.map(({ match, result }) => {
+        const r = result ?? "D";
+        const label = `${RESULT_LABEL[r]}: ${match.home.name} ${match.score ?? ""} ${match.away.name}, ${match.competitionName}, ${formatDate(match.date)}`;
+        return (
+          <Link
+            key={match.fid}
+            to={leaguePath(shell.lid, "box-score", match.fid)}
+            className={`badge text-decoration-none ${FORM_CLASS[r]}`}
+            style={{ width: "1.6em" }}
+            title={label}
+            aria-label={label}
+          >
+            {r}
+          </Link>
+        );
+      })}
+    </span>
+  );
+}
 
 export function FormBadges({ form }: { form: FormResult[] }) {
   if (form.length === 0) return <span className="text-body-secondary small">no games yet</span>;
