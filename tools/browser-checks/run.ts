@@ -1,5 +1,5 @@
 /**
- * `pnpm browsercheck [m5 m6 sweep career edges tabs layout perf injury tables formation messages board] [--base URL]`: headless Chrome
+ * `pnpm browsercheck [m5 m6 sweep career edges tabs layout perf injury tables formation messages board prematch commentary] [--base URL]`: headless Chrome
  * checks of the game UI against a running production build (`pnpm build && pnpm preview`).
  * Each check is a script in this folder; with no names, all of them run. Needs Google Chrome
  * installed (the checks drive it through playwright-core; no browser download).
@@ -25,6 +25,7 @@ const CHECKS = [
   "messages",
   "board",
   "prematch",
+  "commentary",
 ];
 const args = process.argv.slice(2);
 let base = "http://localhost:4173";

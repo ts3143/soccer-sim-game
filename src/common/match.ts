@@ -11,6 +11,23 @@ export type ShotType = "central" | "header" | "dribble" | "longShot" | "penalty"
 export type ShotOutcome = "goal" | "saved" | "blocked" | "off";
 export type Period = "first" | "second" | "extraFirst" | "extraSecond" | "penalties";
 
+/**
+ * How a shot came about, for the live commentary's words only: nothing in the game reads
+ * it back. Feeds saved before it existed lack it.
+ */
+export interface ShotStory {
+  /** A header from a corner or a crossed free kick, and who delivered it. */
+  setPiece?: { kind: "corner" | "freeKick"; takerPid: number | null };
+  /** The wing the cross or the dribble came from (the creator's slot). */
+  flank?: "L" | "R";
+  /** How the move began: a long ball forward, or the ball won back in the final third. */
+  origin?: "longBall" | "wonHigh";
+  /** A rebound after a block, or the second ball after a cleared set piece. */
+  followUp?: true;
+  /** The keeper who saved it, or the defender who blocked it. */
+  stoppedBy?: number;
+}
+
 /** Something that happened, for the live feed and (key types) the match record. */
 export type MatchEvent =
   | { type: "kickoff"; period: Period; clock: number }
@@ -24,6 +41,7 @@ export type MatchEvent =
       shotType: ShotType;
       xg: number;
       outcome: ShotOutcome;
+      story?: ShotStory;
     }
   | {
       type: "goal";

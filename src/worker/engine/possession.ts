@@ -22,9 +22,12 @@ import {
   type TeamState,
   type Zone,
 } from "./state";
-import type { ShotOutcome, ShotType, TeamSide } from "./types";
+import type { ShotOutcome, ShotStory, ShotType, TeamSide } from "./types";
 
 type Phase = "buildUp" | "progression" | "chance";
+
+/** What the live commentary says about how a possession's open-play chances came about. */
+type Moment = Pick<ShotStory, "origin" | "followUp">;
 
 interface PossessionEnd {
   ball: TeamSide;
@@ -167,6 +170,15 @@ interface ShotSpec {
   xg: number;
   /** Chance a non-goal is blocked (rest: saved or off target). */
   blocked: number;
+  /** For the commentary only (no random draws, no effect on play). */
+  story?: ShotStory;
+}
+
+/** The wing a player's slot is on, for the commentary. */
+function flankOf(team: TeamState, p: PlayerState | null): ShotStory["flank"] {
+  const slot = p?.slot;
+  const side = slot === null || slot === undefined ? null : team.plan.formation.slots[slot]?.side;
+  return side === "L" || side === "R" ? side : undefined;
 }
 
 function xgFor(s: MatchState, att: TeamState, def: TeamState, base: number, skill: number): number {
@@ -211,6 +223,7 @@ function openPlay(
       assister: crosser,
       xg: xgFor(s, att, def, c.xg.header, avg(shooter.eff, "hdr", "jmp")),
       blocked: c.shotOutcome.blocked * c.shotOutcome.headerBlockedFactor,
+      story: { flank: flankOf(att, crosser) },
     };
   }
   if (kind === "dribble") {
@@ -232,6 +245,7 @@ function openPlay(
       assister,
       xg: xgFor(s, att, def, c.xg.dribble, dribbler.eff[R.fin] as number),
       blocked: c.shotOutcome.blocked,
+      story: { flank: flankOf(att, dribbler) },
     };
   }
   if (!succeeds) {
@@ -302,17 +316,22 @@ function resolveShot(
     assister.stats.keyPasses++;
     assister.stats.xa += xg;
   }
+  let stopper: PlayerState | null = null;
   if (outcome === "goal" || outcome === "saved") {
     shooter.stats.shotsOnTarget++;
     att.stats.shotsOnTarget++;
     const keeper = keeperOf(def);
     if (keeper) {
       keeper.stats.psxgFaced += postShotXg(shot, c);
-      if (outcome === "saved") keeper.stats.saves++;
+      if (outcome === "saved") {
+        keeper.stats.saves++;
+        stopper = keeper;
+      }
     }
   } else if (outcome === "blocked") {
     const blocker = pick(rng, def.pickers.boxDefender);
     if (blocker) blocker.stats.blocks++;
+    stopper = blocker;
   }
   const clock = s.clock;
   const assistPid = assister?.input.pid ?? null;
@@ -327,6 +346,7 @@ function resolveShot(
       shotType: shot.shotType,
       xg,
       outcome,
+      story: stopper ? { ...shot.story, stoppedBy: stopper.input.pid } : shot.story,
     },
     false,
   );
@@ -374,7 +394,12 @@ function takePenalty(s: MatchState, att: TeamState, def: TeamState): ShotOutcome
 }
 
 /** A corner or crossed free kick: (Aerial and Set Pieces) vs Aerial decides if it becomes a header. */
-function setPieceDelivery(s: MatchState, att: TeamState, def: TeamState): ShotOutcome | "cleared" {
+function setPieceDelivery(
+  s: MatchState,
+  att: TeamState,
+  def: TeamState,
+  kind: "corner" | "freeKick",
+): ShotOutcome | "cleared" {
   const { c, rng } = s;
   const A = att.ratings;
   const attackQuality =
@@ -402,6 +427,7 @@ function setPieceDelivery(s: MatchState, att: TeamState, def: TeamState): ShotOu
     assister: taker && taker !== shooter && credited ? taker : null,
     xg: xgFor(s, att, def, c.xg.header * c.setPiece.xgFactor, avg(shooter.eff, "hdr", "jmp")),
     blocked: c.shotOutcome.blocked * c.shotOutcome.headerBlockedFactor,
+    story: { setPiece: { kind, takerPid: taker?.input.pid ?? null } },
   });
 }
 
@@ -436,6 +462,7 @@ export function runPossession(s: MatchState): { inPlay: number; dead: number } {
   let dead = 0;
   let zone = s.zone;
   let end: PossessionEnd | null = null;
+  const moment: Moment = zone === "att" ? { origin: "wonHigh" } : {};
   const lose = (shares: { def: number; mid: number; att: number }): PossessionEnd => ({
     ball: defSide,
     zone: startZoneFrom(rng, shares),
@@ -466,6 +493,7 @@ export function runPossession(s: MatchState): { inPlay: number; dead: number } {
       );
       if (rng.bool(p)) {
         progressivePass(s, att);
+        moment.origin = "longBall";
         if (rng.bool(0.5)) {
           const target = pick(rng, att.pickers.header);
           if (target) target.stats.aerialsWon++;
@@ -542,19 +570,21 @@ export function runPossession(s: MatchState): { inPlay: number; dead: number } {
         end = lose(c.startZone.afterChanceLoss);
         break;
       }
+      shot.story = { ...shot.story, ...moment };
       outcome = resolveShot(s, att, def, shot);
     } else if (step === "corner") {
       att.stats.corners++;
       emit(s, { type: "corner", clock: s.clock, side: att.side }, false);
       dead += c.setPiece.cornerDead;
-      outcome = setPieceDelivery(s, att, def);
+      outcome = setPieceDelivery(s, att, def, "corner");
     } else if (step === "freeKick") {
       const r = rng.next();
       if (r < c.setPiece.directShot) outcome = directFreeKick(s, att, def);
       else if (r < c.setPiece.directShot + c.setPiece.crossed)
-        outcome = setPieceDelivery(s, att, def);
+        outcome = setPieceDelivery(s, att, def, "freeKick");
       else {
         step = "chance"; // played short
+        delete moment.followUp;
         continue;
       }
     } else {
@@ -581,16 +611,20 @@ export function runPossession(s: MatchState): { inPlay: number; dead: number } {
       else end = { ball: defSide, zone: "def", dead: c.time.deadAfterSave };
     } else if (outcome === "blocked") {
       if (rng.bool(c.setPiece.cornerFromBlock)) step = "corner";
-      else if (rng.bool(c.chance.reboundRetained)) step = "chance";
-      else
+      else if (rng.bool(c.chance.reboundRetained)) {
+        step = "chance";
+        moment.followUp = true;
+      } else
         end = {
           ball: defSide,
           zone: rng.bool(0.6) ? "def" : "mid",
           dead: c.time.deadAfterTurnover,
         };
     } else if (outcome === "cleared") {
-      if (rng.bool(c.setPiece.secondBall)) step = "chance";
-      else end = lose(c.startZone.afterChanceLoss);
+      if (rng.bool(c.setPiece.secondBall)) {
+        step = "chance";
+        moment.followUp = true;
+      } else end = lose(c.startZone.afterChanceLoss);
     } else {
       end = { ball: defSide, zone: "def", dead: c.time.deadAfterShotOff };
     }

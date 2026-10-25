@@ -21,7 +21,13 @@ import type { MatchEvent } from "../../common/match";
 import { LineupEditor, type SaveText } from "../components/LineupEditor";
 import { GameError } from "../../common/errors";
 import { liveChanges } from "../../common/liveChanges";
-import { feedLine, minuteLabel, type FeedContext } from "../components/matchText";
+import {
+  feedLine,
+  isKeyMoment,
+  minuteLabel,
+  type FeedContext,
+  type FeedRecent,
+} from "../components/matchText";
 import { crestUrl } from "../crests";
 import { leaguePath, Link } from "../router";
 import { PageHeader } from "../shell/PageHeader";
@@ -58,12 +64,33 @@ function rememberSpeed(n: number) {
   }
 }
 
+/** The commentary shows every chance, or only the key moments. */
+const FEED_KEY = "soccer-sim:live-feed";
+
+function storedFullFeed(): boolean {
+  try {
+    return localStorage.getItem(FEED_KEY) !== "key";
+  } catch {
+    return true;
+  }
+}
+
+function rememberFullFeed(full: boolean) {
+  try {
+    localStorage.setItem(FEED_KEY, full ? "full" : "key");
+  } catch {
+    // Storage blocked: the choice just isn't remembered.
+  }
+}
+
 type LineKind = "goal" | "yellow" | "red" | "sub" | "injury" | "period" | "other";
 
 interface Line {
-  clock: number;
+  /** "23'", "45+2'"; empty for shoot-out kicks. */
+  minute: string;
   text: string;
   kind: LineKind;
+  key: boolean;
 }
 
 function kindOf(event: MatchEvent): LineKind {
@@ -92,7 +119,10 @@ const BADGES: Partial<Record<LineKind, [string, string]>> = {
   injury: ["Injury", "text-bg-danger"],
 };
 
-/** The feed's lines, newest first (each event read in the period it happened in). */
+/**
+ * The feed's lines, newest first. Each event is read in the period it happened in, with
+ * the shot or foul behind it and the score so far.
+ */
 function feedLines(
   feed: readonly MatchEvent[],
   ctx: FeedContext,
@@ -100,12 +130,17 @@ function feedLines(
 ): Line[] {
   const lines: Line[] = [];
   let period = start;
+  const score: [number, number] = [0, 0];
+  const recent: FeedRecent = { shot: null, foul: null, score };
   for (const event of feed) {
     if (event.type === "kickoff") period = event.period;
-    const text = feedLine(event, ctx, period);
+    else if (event.type === "shot") recent.shot = event;
+    else if (event.type === "foul") recent.foul = event;
+    else if (event.type === "goal") score[event.side]++;
+    const text = feedLine(event, ctx, recent);
     // Shoot-out kicks have no clock: they follow extra time.
-    const clock = "clock" in event ? event.clock : 120 * 60;
-    if (text) lines.push({ clock, text, kind: kindOf(event) });
+    const minute = "clock" in event ? minuteLabel(event.clock, period) : "";
+    if (text) lines.push({ minute, text, kind: kindOf(event), key: isKeyMoment(event) });
   }
   return lines.reverse();
 }
@@ -118,6 +153,7 @@ const energyClass = (e: number) => (e >= 70 ? "bg-success" : e >= 50 ? "bg-warni
 export function Live() {
   const { shell } = useShell();
   const [view, setView] = useState<LiveMatchView | null>(null);
+  const [fullFeed, setFullFeed] = useState(storedFullFeed);
   const [lineup, setLineup] = useState<TacticsView | null>(null);
   const [feed, setFeed] = useState<MatchEvent[]>([]);
   const [missing, setMissing] = useState(false);
@@ -333,30 +369,60 @@ export function Live() {
           <div className="col-xl-5">
             <section className="card h-100">
               <div className="card-body">
-                <h2 className="h6">Commentary</h2>
+                <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+                  <h2 className="h6 mb-0 me-auto">Commentary</h2>
+                  <div
+                    className="btn-group btn-group-sm"
+                    role="group"
+                    aria-label="Commentary detail"
+                    data-testid="feed-mode"
+                  >
+                    {(
+                      [
+                        [false, "Key moments"],
+                        [true, "Full commentary"],
+                      ] as const
+                    ).map(([full, label]) => (
+                      <button
+                        key={label}
+                        type="button"
+                        className={`btn ${fullFeed === full ? "btn-secondary" : "btn-outline-secondary"}`}
+                        aria-pressed={fullFeed === full}
+                        onClick={() => {
+                          setFullFeed(full);
+                          rememberFullFeed(full);
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <ul
                   className="list-unstyled small mb-0"
                   data-testid="live-feed"
                   style={{ maxHeight: 560, overflowY: "auto" }}
                 >
-                  {feedLines(feed, ctx, view.period).map((l, i) => {
-                    const badge = BADGES[l.kind];
-                    return (
-                      <li
-                        key={i}
-                        className={`py-1 ${l.kind === "goal" ? "fw-semibold" : ""} ${l.kind === "period" ? "text-body-secondary fst-italic" : ""}`}
-                      >
-                        <span
-                          className="text-body-secondary me-2 d-inline-block"
-                          style={{ width: 42 }}
+                  {feedLines(feed, ctx, view.period)
+                    .filter((l) => fullFeed || l.key)
+                    .map((l, i) => {
+                      const badge = BADGES[l.kind];
+                      return (
+                        <li
+                          key={i}
+                          className={`py-1 ${l.kind === "goal" ? "fw-semibold" : ""} ${l.kind === "period" ? "text-body-secondary fst-italic" : ""}`}
                         >
-                          {minuteLabel(l.clock)}
-                        </span>
-                        {badge && <span className={`badge ${badge[1]} me-1`}>{badge[0]}</span>}
-                        {l.text}
-                      </li>
-                    );
-                  })}
+                          <span
+                            className="text-body-secondary me-2 d-inline-block"
+                            style={{ width: 42 }}
+                          >
+                            {l.minute}
+                          </span>
+                          {badge && <span className={`badge ${badge[1]} me-1`}>{badge[0]}</span>}
+                          {l.text}
+                        </li>
+                      );
+                    })}
                 </ul>
               </div>
             </section>

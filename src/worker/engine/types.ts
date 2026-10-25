@@ -66,6 +66,7 @@ export type {
   Period,
   PlayerMatchStats,
   ShotOutcome,
+  ShotStory,
   ShotType,
   TeamMatchStats,
 } from "../../common/match";

@@ -104,6 +104,10 @@ function Guide() {
             The speed slider sets the pace; <b>To full time</b> plays the rest at once. A match is
             saved as it goes: close the game and it carries on where you left it.
           </li>
+          <li>
+            The commentary tells how each chance came about. Switch it to <b>Key moments</b> for
+            just the goals, cards, substitutions and big chances.
+          </li>
         </ul>
       </Part>
       <Part title="Transfers, loans and contracts">
