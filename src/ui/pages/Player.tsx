@@ -38,14 +38,14 @@ const STATUS_LABELS: Record<string, string> = {
   retired: "Retired",
 };
 
-/** His last five matches (this season and last), newest first, with his rating. */
+/** His last five matches this season, newest first, with his rating. */
 function Form({ view }: { view: PlayerView }) {
   return (
     <section className="card mb-3" data-testid="player-form">
       <div className="card-body">
         <h2 className="h6">Form</h2>
         {view.form.length === 0 ? (
-          <p className="small text-body-secondary mb-0">No matches this season or last.</p>
+          <p className="small text-body-secondary mb-0">No matches this season.</p>
         ) : (
           <div className="table-responsive">
             <table className="table table-sm small align-middle mb-0">

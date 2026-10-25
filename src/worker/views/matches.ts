@@ -61,8 +61,9 @@ export async function getGameLog(
 const played = (f: Fixture, before: Fixture) => f.result !== null && byDate(f, before) < 0;
 
 /**
- * Before a match: both clubs' last five results (this season, then last), their latest
- * meeting in any season of the save, and a derby when both come from the same city.
+ * Before a match: both clubs' last five results this season (fewer early on: last season's
+ * don't count, T 2026-10-25), their latest meeting in any season of the save, and a derby
+ * when both come from the same city.
  */
 export async function getMatchPreview(lid: number, fid: number): Promise<MatchPreviewView> {
   const session = await openLeague(lid);
@@ -72,23 +73,18 @@ export async function getMatchPreview(lid: number, fid: number): Promise<MatchPr
   const both = (f: Fixture) =>
     (f.homeCid === fixture.homeCid && f.awayCid === fixture.awayCid) ||
     (f.homeCid === fixture.awayCid && f.awayCid === fixture.homeCid);
-  const form = async (cid: number): Promise<ClubMatchView[]> => {
-    const own = (season: number) =>
-      seasonRows(session, "fixtures", season).then((rows) =>
-        rows.filter((f) => (f.homeCid === cid || f.awayCid === cid) && played(f, fixture)),
-      );
-    let recent = await own(fixture.season);
-    if (recent.length < 5) recent = [...(await own(fixture.season - 1)), ...recent];
-    return recent
+  const thisSeason = await seasonRows(session, "fixtures", fixture.season);
+  const form = (cid: number): ClubMatchView[] =>
+    thisSeason
+      .filter((f) => (f.homeCid === cid || f.awayCid === cid) && played(f, fixture))
       .sort(byDate)
       .slice(-5)
       .map((f) => clubMatch(f, cid, clubs));
-  };
   const home = clubs.get(fixture.homeCid);
   const away = clubs.get(fixture.awayCid);
   return {
     fid,
-    form: [await form(fixture.homeCid), await form(fixture.awayCid)],
+    form: [form(fixture.homeCid), form(fixture.awayCid)],
     lastMeeting: await lastMeeting(session, fixture, both, clubs),
     derby: home && away && home.city === away.city ? home.city : null,
   };

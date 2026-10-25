@@ -251,7 +251,7 @@ export interface PlayerView {
     redCards: number;
     cleanSheets: number;
   }[];
-  /** His last five matches (this season and last), newest first, from his club's side. */
+  /** His last five matches this season, newest first, from his club's side. */
   form: (ClubMatchView & {
     rating: number;
     minutes: number;
@@ -865,7 +865,7 @@ export type FormResult = "W" | "D" | "L";
 /** Before a match (SPEC §11, T 2026-10-25): recent results, the last meeting, a derby. */
 export interface MatchPreviewView {
   fid: number;
-  /** Each club's last five results before this match, oldest first: home, then away. */
+  /** Each club's last five results this season before this match, oldest first: home, then away. */
   form: [ClubMatchView[], ClubMatchView[]];
   /** The clubs' latest meeting before this match; null if they haven't met in this save. */
   lastMeeting: MatchView | null;

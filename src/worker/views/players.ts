@@ -19,15 +19,7 @@ import { marketValue, yearsLeft } from "../market/market";
 import { clubLevels, moodAtClub } from "../market/renewals";
 import { leagueLevel } from "../market/transfers";
 import { currentCondition, isInjured } from "../season/squads";
-import {
-  byDate,
-  clubMatch,
-  competitionName,
-  leagueTables,
-  seasonFixtures,
-  seasonRows,
-  teamRef,
-} from "./common";
+import { clubMatch, competitionName, leagueTables, seasonFixtures, teamRef } from "./common";
 import { GameError } from "../../common/errors";
 
 const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
@@ -247,47 +239,42 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
       ),
     })),
     career,
-    form: await formOf(session, pid, game.season, career, clubs),
+    form: formOf(session, pid, game.season, career, clubs),
   };
 }
 
 /**
- * His last five matches, newest first: the played fixtures of the clubs he appeared for
- * this season and last, read back until five have him in the match record (other clubs'
- * records are kept two seasons).
+ * His last five matches this season, newest first (fewer early on: last season's don't
+ * count, T 2026-10-25): the played fixtures of the clubs he appeared for, read back until
+ * five have him in the match record.
  */
-async function formOf(
+function formOf(
   session: Awaited<ReturnType<typeof openLeague>>,
   pid: number,
   season: number,
   career: PlayerView["career"],
   clubs: ReadonlyMap<number, Club>,
-): Promise<PlayerView["form"]> {
+): PlayerView["form"] {
   const form: PlayerView["form"] = [];
-  for (const s of [season, season - 1]) {
-    const cids = new Set(
-      career.filter((r) => r.season === s && r.appearances > 0).map((r) => r.club.cid),
-    );
-    if (cids.size === 0) continue;
-    const fixtures = (await seasonRows(session, "fixtures", s))
-      .filter((f) => f.result && (cids.has(f.homeCid) || cids.has(f.awayCid)))
-      .sort(byDate)
-      .reverse();
-    for (const f of fixtures) {
-      const record =
-        s === season ? session.cache.get("matches", f.fid) : await session.db.get("matches", f.fid);
-      const line = record?.result.players.find((l) => l.pid === pid);
-      if (!record || !line) continue;
-      form.push({
-        ...clubMatch(f, line.side === 0 ? f.homeCid : f.awayCid, clubs),
-        rating: line.rating,
-        minutes: line.minutes,
-        goals: line.goals,
-        assists: line.assists,
-        motm: record.result.motm === pid,
-      });
-      if (form.length === 5) return form;
-    }
+  const cids = new Set(
+    career.filter((r) => r.season === season && r.appearances > 0).map((r) => r.club.cid),
+  );
+  const fixtures = seasonFixtures(session, season)
+    .filter((f) => f.result && (cids.has(f.homeCid) || cids.has(f.awayCid)))
+    .reverse();
+  for (const f of fixtures) {
+    const record = session.cache.get("matches", f.fid);
+    const line = record?.result.players.find((l) => l.pid === pid);
+    if (!record || !line) continue;
+    form.push({
+      ...clubMatch(f, line.side === 0 ? f.homeCid : f.awayCid, clubs),
+      rating: line.rating,
+      minutes: line.minutes,
+      goals: line.goals,
+      assists: line.assists,
+      motm: record.result.motm === pid,
+    });
+    if (form.length === 5) break;
   }
   return form;
 }
