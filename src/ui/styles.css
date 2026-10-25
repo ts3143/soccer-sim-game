@@ -439,6 +439,12 @@ tr[role="button"] {
   }
 }
 
+/* The Dashboard's inbox scrolls on its own. */
+.inbox-list {
+  max-height: 40rem;
+  overflow-y: auto;
+}
+
 /* The toggle and player links are siblings: links never sit inside a button. */
 .inbox-heading {
   position: relative;

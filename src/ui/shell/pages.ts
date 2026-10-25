@@ -18,7 +18,6 @@ export interface PageDef {
 
 export const PAGES: PageDef[] = [
   { key: "dashboard", title: "Dashboard", section: "General" },
-  { key: "inbox", title: "Inbox", section: "General" },
   { key: "standings", title: "Standings", section: "League", season: true },
   { key: "cups", title: "Cups", section: "League", season: true },
   { key: "schedule", title: "Schedule", section: "League" },

@@ -37,8 +37,11 @@ await page.locator('[data-testid="start-league"]').click();
 await page.locator('[data-testid="top-bar"]').waitFor({ timeout: 60_000 });
 
 // --- Chunk 1: Tactics ---------------------------------------------------------------------------
+// By name, after any unread count (the Dashboard's).
 const sidebar = (name) =>
-  page.locator('[data-testid="sidebar"]').getByRole("link", { name, exact: true });
+  page
+    .locator('[data-testid="sidebar"]')
+    .getByRole("link", { name: new RegExp(`^${name}\\s*\\d*$`) });
 const xi = page.locator('[data-testid="tactics-xi"] tbody tr');
 const bench = page.locator('[data-testid="tactics-bench"] tbody tr');
 const reserves = page.locator('[data-testid="tactics-reserves"] tbody tr');

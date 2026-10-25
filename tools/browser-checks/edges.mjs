@@ -36,7 +36,7 @@ const scan = async () => {
   for (const n of expected.realNames) if (text.includes(n)) leaks.add(n);
 };
 const go = async (name) => {
-  // Prefix match: the Inbox link carries an unread count.
+  // Prefix match: the Dashboard link carries an unread count.
   await testId("sidebar")
     .getByRole("link", { name: new RegExp(`^${name}(\\s|$)`) })
     .first()
@@ -105,8 +105,11 @@ check(
   /No one is injured/.test(await main()) ||
     (await testId("injuries").locator("tbody tr td").count()) > 1,
 );
-await go("Inbox");
-check("the Inbox has its welcome messages", /board/i.test(await main()));
+await go("Dashboard");
+check(
+  "the Dashboard's inbox has its welcome messages",
+  /board/i.test(await testId("inbox-list").innerText()),
+);
 await go("Game Log");
 const unplayed = testId("game-log").locator("tbody tr a[href*='/box-score/']").first();
 if ((await unplayed.count()) > 0) {
@@ -260,8 +263,11 @@ check(
     /Promoted from the English second tier/.test(await honours(up.cid)),
 );
 await scan();
-await go("Inbox");
-check("the board sets a target for the new season", /board's target/i.test(await main()));
+await go("Dashboard");
+check(
+  "the board sets a target for the new season",
+  /board's target/i.test(await testId("inbox-list").innerText()),
+);
 
 // --- C: negative cash, then an FFP ban, written into the save while the game is closed ------------
 await page.close();

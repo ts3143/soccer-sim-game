@@ -88,12 +88,20 @@ describe("a market day", () => {
     const w = freshWorld();
     // Make the user's players the obvious targets: a cheap, willing squad.
     for (const p of w.players) if (p.cid === 0) p.moodTraits = [];
-    const offers = days
+    const logs = days
       .filter((d) => d.window === "summer" && !d.deadline)
-      .flatMap((d) => marketDay(w, 2026, d).offers);
+      .map((d) => marketDay(w, 2026, d));
+    const offers = logs.flatMap((log) => log.offers);
+    const messages = logs.flatMap((log) => log.messages);
     for (const o of offers) {
       expect(o).toMatchObject({ toCid: 0, status: "open", expires: "2026-08-31" });
       expect(w.players.find((p) => p.pid === o.pid)?.cid).toBe(0);
+      // Its message names the player and the club, so the inbox can answer it.
+      expect(
+        messages.filter(
+          (m) => m.date === o.date && m.players?.[0]?.pid === o.pid && m.bidFrom === o.fromCid,
+        ),
+      ).toHaveLength(1);
     }
     expect(offers.length).toBeGreaterThan(0);
     expect(new Set(offers.map((o) => o.pid)).size).toBe(offers.length);

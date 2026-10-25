@@ -216,7 +216,7 @@ Dynamic per club: hype (fast-moving, recent results), reputation (slow-moving), 
 - **AI buying:** needs-based (fills its weakest XI slots) within transfer budget and FFP headroom.
 - **AI strategy:** contending / developing / selling. A contender won't sell a starter mid-season without a premium; a seller takes fair offers.
 - **AI valuation:** market value × importance to its XI × years left on contract (one year left = cheap). **Nonlinear value** so two average players never equal one star (prevents exploits).
-- **AI-to-AI transfers** every window; AI clubs bid for the user's players (arrives in the Inbox).
+- **AI-to-AI transfers** every window; AI clubs bid for the user's players (arrives in the Inbox, answered in the message or on the Transfer Market).
 - **Market value (€)** derived from OVR, POT, age, contract years left and form; scaled by league level. Shown on profiles and used for AI pricing.
 - `[MVP]` Market = simulated clubs + free agents. `[v1.1]` Rest of World market.
 
@@ -350,7 +350,7 @@ Mirror ZenGM's layout: a **top-bar Play button** (sim options + phase steps) and
 
 | Section | Screens `[MVP]` |
 | --- | --- |
-| General | Dashboard (next match, form, position, board confidence, condition alerts, inbox preview), Inbox (board messages, incoming bids, injuries, window deadlines, contract expiries) |
+| General | Dashboard (next match, form, position, board confidence, condition alerts, and the Inbox: board messages, incoming bids, injuries, window deadlines, contract expiries) |
 | League / World | Standings (zones for promotion, play-offs, relegation), Cups (own page, brackets), Weekly Schedule, Finances/Facilities overview of all clubs, History (champions, cup winners, awards, top scorers), Power Rankings, Transactions |
 | Team | Squad, Tactics, Schedule (Sim game / Watch live), Box score / Game log, Finances/Facilities, History, Youth Academy |
 | Players | Free Agents, Transfer Market (tabs: Search, Your listed players, Incoming offers, Loans), Player profile, Contract negotiation (modal) |
@@ -382,7 +382,8 @@ Screen details:
 - **Transfer Market, Search:** name, nationality (including second nationality), league, position, minimum/maximum OVR, age range, minimum POT, maximum value, maximum yearly wage and final-year contract filters apply before the best 100 results are selected.
 - **Transfer Market, Your listed players** (T, 2026-10-19): listing a player with an asking price makes AI clubs that need his position bid around that price during the windows. Unlisted players still get occasional bids.
 - **Player profile:** compact bio and a positional OVR pitch map at top left, the ratings (4.2 layout, highlighted for his listed position) and the radar at top right with signed changes since last season; long labels have full-name tooltips. The positional map shows all ten position groups across 14 central/left/right spots; colours indicate best, comfortable (within 3 OVR), cover (4–8 below best), or less suited (9+ below best). This is an OVR comparison, not a new familiarity mechanic. Left/right share the stored base position OVR; Tactics applies foot fit. The mood breakdown is expandable. The **radar chart** uses 8 grouped axes (see config). Also includes a ratings-history table (age, OVR, POT and all 22 ratings at every update), career stats, contract, mood (with ZenGM-style breakdown popup), condition and injury, transfer history.
-- **Inbox** (T, 2026-10-21): subjects and bodies, and the Dashboard's message previews, link the players they name. New transfer, bid, loan, contract and academy messages keep stable player IDs with snapshot names (§12). Older transfer, contract and injury messages gain links when a full name identifies a unique current player; ambiguous names stay plain text. Opening and marking messages read work independently of the links.
+- **Inbox** (T, 2026-10-25): lives in the Dashboard's right-hand column, with no page of its own (old `/inbox` links open the Dashboard; the sidebar's unread count sits on Dashboard). Every message, newest first, in a list that scrolls on its own; a filter by kind and Mark all read. A bid for one of the user's players carries **Accept** and **Reject** in its message while the bid is open (the same answer as Transfer Market › Incoming offers), and the bid's status once it closes.
+- **Inbox player links** (T, 2026-10-21): subjects and bodies link the players they name. New transfer, bid, loan, contract and academy messages keep stable player IDs with snapshot names (§12). Older transfer, contract and injury messages gain links when a full name identifies a unique current player; ambiguous names stay plain text. Opening and marking messages read work independently of the links.
 - **Finances (own club):** revenue/expense breakdown, cash over seasons, FFP gauge, budget dials, ticket price, transfer/wage budgets and shift control.
 - **New league screen:** pick your club (any of the 62).
 - `[v1.1]` Watch List, Compare Players (overlaid radar charts), advanced-stats views.
@@ -407,7 +408,7 @@ Screen details:
 | `matches` | Box score, scoring summary, key events, team stats, player match ratings |
 | `offers` | Live bids, loan offers, negotiations, deadlines |
 | `transactions` | Permanent log (transfers, loans, signings, renewals, releases, academy promotions, retirements) with name snapshots |
-| `inbox` | Messages to the user, with the players they name (IDs + snapshot names; optional, absent in older saves) |
+| `inbox` | Messages to the user, with the players they name (IDs + snapshot names) and, for a bid, the bidding club (`bidFrom`); both optional, absent in older saves |
 | `awards` | Season awards, champions, cup winners, records (with name snapshots) |
 
 - **Stored:** position OVRs + POT. **Derived on the fly:** team ratings/OVR, standings, per-90s, market value. **Match-only:** in-match energy.

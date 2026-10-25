@@ -501,6 +501,11 @@ export interface InboxMessage {
   subject: string;
   body: string;
   read: boolean;
+  /**
+   * A bid for the user's player (the first of `players`): the bidding club. With the
+   * player and the message date it names the offer. Absent in older saves.
+   */
+  bidFrom?: number;
 }
 
 export interface AwardRow {

@@ -1,6 +1,6 @@
-import { PlayerMentions } from "../components/PlayerMentions";
+/** Dashboard (SPEC §11): next match, form, position, board confidence, alerts, the inbox. */
+import { InboxPanel } from "../components/InboxPanel";
 import { InjuryTag } from "../components/InjuryTag";
-/** Dashboard (SPEC §11): next match, form, position, board confidence, alerts, inbox preview. */
 import type { DashboardView, MatchView } from "../../common/api";
 import { RESULT_LABEL, resultForClub, resultRowClass } from "../components/results";
 import { DataTable } from "../components/DataTable";
@@ -302,7 +302,7 @@ export function Dashboard() {
                 {a.bids > 0 && (
                   <li>
                     <span className="badge text-bg-primary me-1">Bids</span>
-                    <Link to={leaguePath(shell.lid, "inbox")}>
+                    <Link to={leaguePath(shell.lid, "transfer-market", "offers")}>
                       {a.bids} bid{a.bids === 1 ? "" : "s"} for your players
                     </Link>
                   </li>
@@ -313,27 +313,7 @@ export function Dashboard() {
               </ul>
             </div>
           </section>
-          <section className="card" data-testid="inbox-preview">
-            <div className="card-body">
-              <h2 className="h6">
-                <Link to={leaguePath(shell.lid, "inbox")}>Inbox</Link>
-                {view.unread > 0 && (
-                  <span className="badge text-bg-primary ms-2">{view.unread} new</span>
-                )}
-              </h2>
-              <ul className="list-unstyled small mb-0">
-                {view.inbox.map((m) => (
-                  <li
-                    key={m.mid}
-                    className={`mb-2 ${m.read ? "text-body-secondary" : "fw-semibold"}`}
-                  >
-                    <PlayerMentions text={m.subject} players={m.players} />
-                    <span className="fw-normal text-body-secondary"> · {formatDate(m.date)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </section>
+          <InboxPanel messages={view.inbox} />
         </div>
       </div>
     </>

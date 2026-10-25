@@ -6,6 +6,7 @@ import { askingPrice, seniorsOf } from "../market/transfers";
 import { loopWorld, play } from "./game";
 import { lendable, rankAt } from "../market/loans";
 import { getClubFinances } from "../views/club";
+import { getDashboard } from "../views/dashboard";
 import { getTransferMarket, searchPlayers } from "../views/market";
 import {
   bidForPlayer,
@@ -90,6 +91,52 @@ describe("the user's transfers", () => {
     const { db } = await openLeague(league.lid);
     expect((await db.get("players", p.pid))?.cid).toBe(0);
     expect((await db.getAll("offers")).length).toBe(3);
+  });
+
+  it("links bid messages to their offers in the Dashboard's inbox", SLOW, async () => {
+    const league = await createLeague({ name: "Inbox bids", seed: "inbox-bids", userCid: 0 });
+    const session = await openLeague(league.lid);
+    const [a, b] = seniorsOf(session.cache.getAll("players"), 0) as [Player, Player];
+    const [x, y] = session.cache.getAll("clubs").filter((c) => c.cid !== 0);
+    const offer = (oid: number, pid: number, fromCid: number): Offer => ({
+      oid,
+      pid,
+      fromCid,
+      toCid: 0,
+      kind: "transfer",
+      status: "open",
+      fee: 1_000_000,
+      expires: "2026-08-31",
+      date: "2026-07-01",
+      season: 2026,
+    });
+    const message = (mid: number, p: Player, subject: string, bidFrom?: number) => ({
+      mid,
+      date: "2026-07-01",
+      season: 2026,
+      kind: "transfer",
+      subject,
+      body: "",
+      read: false,
+      players: [{ pid: p.pid, name: `${p.firstName} ${p.lastName}` }],
+      ...(bidFrom === undefined ? {} : { bidFrom }),
+    });
+    // Two clubs bid for a on the same day; b's bid message is from an older save (no club).
+    session.cache.put("offers", offer(900, a.pid, x?.cid ?? 1));
+    session.cache.put("offers", offer(901, a.pid, y?.cid ?? 2));
+    session.cache.put("offers", offer(902, b.pid, x?.cid ?? 1));
+    session.cache.put("inbox", message(900, a, "Bid for a", y?.cid));
+    session.cache.put("inbox", message(901, b, "Bid for b"));
+    session.cache.put("inbox", message(902, b, "Sold b"));
+    session.cache.put("inbox", message(903, a, "Bid for a")); // two offers fit: no link
+    const bidOf = async (mid: number) =>
+      (await getDashboard(league.lid)).inbox.find((m) => m.mid === mid)?.bid;
+    expect(await bidOf(900)).toEqual({ oid: 901, status: "open" });
+    expect(await bidOf(901)).toEqual({ oid: 902, status: "open" });
+    expect(await bidOf(902)).toBeUndefined();
+    expect(await bidOf(903)).toBeUndefined();
+    await respondToOffer(session, 901, false);
+    expect(await bidOf(900)).toEqual({ oid: 901, status: "rejected" });
   });
 
   it(

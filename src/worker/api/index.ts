@@ -1,4 +1,3 @@
-import { withPlayerReferences } from "../league/messages";
 import type { UiEvents, WorkerApi, WorkerKind } from "../../common/api";
 import type { ApiHandlers, RpcHost } from "../../common/rpc";
 import { listLeagues } from "../db/globalDb";
@@ -278,13 +277,6 @@ export function createHandlers(
       });
       await announceLeagues();
       return gameState(session);
-    },
-
-    async getInbox(lid) {
-      const { cache } = await openLeague(lid);
-      return withPlayerReferences(cache.getAll("inbox"), cache.getAll("players")).sort(
-        (a, b) => b.mid - a.mid,
-      );
     },
 
     async getContractTalks(lid, pid) {

@@ -67,14 +67,17 @@ try {
     db.close();
     return game.userCid;
   }, lid);
-  await page.goto(`${BASE}/l/${lid}/inbox?worker=dedicated`);
+  await page.goto(`${BASE}/l/${lid}?worker=dedicated`);
   const article = page.locator("article").filter({ hasText: "Regression signing" });
   const link = article.locator(".inbox-heading-content a");
   await link.waitFor();
   check("subject player mention is linked", (await link.count()) === 1);
   const href = await link.getAttribute("href");
   await article.locator("button").click();
-  check("expanded body player mention is linked", (await article.locator("p a").count()) === 1);
+  check(
+    "expanded body player mention is linked",
+    (await article.locator('[id^="inbox-body-"] a').count()) === 1,
+  );
   check("links are outside toggle buttons", (await page.locator("button a").count()) === 0);
   await link.click();
   await page.waitForURL((url) => url.pathname === href);

@@ -849,7 +849,12 @@ export interface FinancesView {
 /** Win, draw or loss, for form guides. */
 export type FormResult = "W" | "D" | "L";
 
-/** The Dashboard (M5, SPEC §11): the user's club at a glance. */
+/** An inbox message; a bid message carries its offer while the offer is kept (its season). */
+export type InboxMessageView = InboxMessage & {
+  bid?: { oid: number; status: OfferView["status"] };
+};
+
+/** The Dashboard (M5, SPEC §11): the user's club at a glance, with the whole inbox. */
 export interface DashboardView {
   user: TeamRef & { leagueId: string; leagueName: string };
   position: number | null;
@@ -888,7 +893,8 @@ export interface DashboardView {
     assists: number;
     rating: number;
   }[];
-  inbox: InboxMessage[];
+  /** Every message, newest first. */
+  inbox: InboxMessageView[];
   unread: number;
   cash: number;
 }
@@ -1166,7 +1172,6 @@ export interface WorkerApi {
   markAllInboxRead(lid: number): void;
   playGame(lid: number, option: PlayOption): PlayReport;
   acceptJobOffer(lid: number, cid: number): GameState;
-  getInbox(lid: number): InboxMessage[];
   markInboxRead(lid: number, mid: number): void;
   getContractTalks(lid: number, pid: number): ContractTalks;
   renewContract(lid: number, pid: number, years: number): ContractTalks;

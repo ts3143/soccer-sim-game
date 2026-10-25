@@ -145,7 +145,7 @@ check(
 );
 await leakCheck("the league pages");
 
-// --- Chunk 2: Dashboard, Inbox, the shared table ----------------------------------------
+// --- Chunk 2: Dashboard and its inbox, the shared table ----------------------------------------
 await page.locator('[data-testid="sidebar"]').getByRole("link", { name: "Dashboard" }).click();
 await page.locator('[data-testid="club-summary"]').waitFor({ timeout: 30_000 });
 const summary = await page.locator('[data-testid="club-summary"]').innerText();
@@ -175,7 +175,6 @@ check(
 check("the alerts card is filled", (await page.locator('[data-testid="alerts"] li').count()) >= 1);
 const unreadBefore = Number(await page.locator('[data-testid="unread"]').innerText());
 check("the sidebar shows unread messages", unreadBefore > 0, String(unreadBefore));
-await page.locator('[data-testid="inbox-preview"]').getByRole("link", { name: "Inbox" }).click();
 await page.locator('[data-testid="inbox-list"]').waitFor();
 await page.locator('[data-testid="inbox-list"] button').first().click();
 await page.waitForFunction(
@@ -185,7 +184,7 @@ await page.waitForFunction(
 );
 check(
   "opening a message marks it read",
-  (await page.locator('[data-testid="inbox-list"] article > p').count()) === 1,
+  (await page.locator('[data-testid="inbox-list"] [id^="inbox-body-"]').count()) === 1,
 );
 const markAll = page.getByRole("button", { name: "Mark all read" });
 if (await markAll.isEnabled()) await markAll.click();

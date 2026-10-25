@@ -52,8 +52,8 @@ function Guide() {
             makes your substitutions, as it does for every club.
           </li>
           <li>
-            The <b>Inbox</b> collects the board&apos;s messages, bids for your players, injuries and
-            deadline reminders.
+            The <b>Inbox</b>, on the Dashboard, collects the board&apos;s messages, bids for your
+            players, injuries and deadline reminders. Open a bid to accept or reject it there.
           </li>
         </ul>
       </Part>
@@ -118,7 +118,7 @@ function Guide() {
           </li>
           <li>
             List a player with an asking price, and clubs that need his position will bid in the
-            windows. Bids arrive in your Inbox.
+            windows. Bids arrive in your Inbox, where you answer them.
           </li>
           <li>
             Contracts end on 30 June. Renewals happen only in the windows, so a player in his last
