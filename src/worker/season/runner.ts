@@ -123,7 +123,7 @@ export function runDays(
   options: DaysOptions,
 ): DaysResult {
   const config = options.config ?? competitionsConfig;
-  const squads = squadPlay(state, world.clubs, world.players, config);
+  const squads = squadPlay(state, world.clubs, world.players, world.userCid, config);
   const events = seasonEvents(state.season, config);
   const out: DaysResult = {
     date: from,

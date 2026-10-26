@@ -162,6 +162,8 @@ export function Live() {
   const [pause, setPause] = useState<LivePause | null>(null);
   const [speed, setSpeed] = useState(storedSpeed);
   const [error, setError] = useState<string | null>(null);
+  // Before kick-off: why the line-up can't start the match, as the editor last showed.
+  const [cantStart, setCantStart] = useState<string[] | null>(null);
   const busy = useRef(false);
 
   useEffect(() => {
@@ -230,6 +232,8 @@ export function Live() {
 
   const done = view.report !== null;
   const preMatch = lineup !== null && view.clock === 0 && !done;
+  // Kick-off waits for a line-up of players who can all play (T, 2026-10-25).
+  const blocked = preMatch ? (cantStart ?? lineup.cantStart ?? []) : [];
   const ctx: FeedContext = {
     name: (pid) => (pid === null ? "?" : (view.players[pid]?.name ?? `#${pid}`)),
     team: (side) => view.teams[side].team.name,
@@ -268,6 +272,7 @@ export function Live() {
           <button
             type="button"
             className="btn btn-success"
+            disabled={blocked.length > 0}
             onClick={() => {
               setPause(null);
               setRunning((r) => !r);
@@ -316,6 +321,12 @@ export function Live() {
           )}
         </div>
       )}
+      {blocked.length > 0 && (
+        <div className="alert alert-warning py-2 small" data-testid="kickoff-blocked">
+          <b>Your line-up can&apos;t kick off yet.</b> {blocked.join(" ")} Swap them out, or press{" "}
+          <b>Auto</b> for the AI&apos;s pick.
+        </div>
+      )}
       {!preMatch && !running && !done && view.clock > 0 && (
         <ChangesPanel
           view={view}
@@ -340,8 +351,9 @@ export function Live() {
             <LineupEditor
               initial={lineup}
               apply={(setup, mode) => toWorker("setLiveLineup", shell.lid, setup, mode)}
-              note="Changes here are for this match only: your saved Tactics stay as they are. Injured and suspended players are greyed out under Not in the squad: they can't play."
-              autoTitle="The AI's rotation for this match"
+              onView={(v) => setCantStart(v.cantStart ?? [])}
+              note="Your saved tactics. Changes here are for this match only; your Tactics page stays as it is. Injured or suspended players in your line-up must come out before kick-off; others who can't play are greyed out under Not in the squad."
+              autoTitle="The AI's pick for this match, as in a simulated one: tired players rested, injured and suspended ones left out"
               baselineLabel="the line-up you started with"
             />
           </div>

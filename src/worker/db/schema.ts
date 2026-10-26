@@ -22,8 +22,9 @@ import type {
  *   v4: no store changes; man of the match named in match records, counted on stat rows.
  *   v5: no store changes; academy players of a club's own country born in its city (half).
  *   v6: no store changes; injury histories start (meta game `injuriesSince`).
+ *   v7: no store changes; the user's club gets a saved line-up if it has none.
  */
-export const LEAGUE_DB_VERSION = 6;
+export const LEAGUE_DB_VERSION = 7;
 
 export interface LeagueDBSchema extends DBSchema {
   /** Key-value rows; see MetaRows in src/common/schema.ts. */

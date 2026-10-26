@@ -135,8 +135,8 @@ check(
     (await reserves.count()) > 0,
 );
 check(
-  "it says no line-up is saved yet, and Save is off",
-  (await page.getByText("No line-up saved yet").count()) === 1 &&
+  "the AI's pick is already saved as his tactics, and Save is off",
+  (await page.getByText("No line-up saved yet").count()) === 0 &&
     (await page.locator('[data-testid="save-tactics"]').isDisabled()),
 );
 check("the seven team ratings are shown", Object.keys(await ratings()).length === 7);
@@ -385,6 +385,32 @@ await page.keyboard.press("ArrowRight");
 await page.keyboard.press("ArrowRight");
 await settle(
   () => document.querySelector('[data-testid="live-speed-label"]')?.textContent === "Normal",
+);
+
+// Training on the way may have hurt someone in his line-up: kick-off waits until he's
+// swapped out for a reserve (T, 2026-10-25).
+const inLineup =
+  '[data-testid="pre-match"] :is([data-testid="tactics-xi"], [data-testid="tactics-bench"]) tbody tr';
+const blockedBy = page
+  .locator(inLineup)
+  .filter({ has: page.locator('[data-testid="injury-tag"], .status-badge:text-matches("^S\\d")') });
+for (let i = 0; i < 5 && (await page.locator('[data-testid="kickoff-blocked"]').count()) > 0; i++) {
+  const out = await nameIn(blockedBy.first());
+  await page
+    .locator(
+      '[data-testid="pre-match"] [data-testid="tactics-reserves"] tbody tr:not([data-testid])',
+    )
+    .first()
+    .click();
+  await blockedBy.first().click();
+  await settle(
+    ([sel, n]) => ![...document.querySelectorAll(sel)].some((tr) => tr.textContent.includes(n)),
+    [inLineup, out],
+  );
+}
+check(
+  "Kick off is on once nobody in his line-up is injured or suspended",
+  !(await page.locator('[data-testid="live-play"]').isDisabled()),
 );
 
 await page.locator('[data-testid="live-play"]').click();
@@ -1042,6 +1068,11 @@ await page.waitForFunction(() => location.pathname.endsWith("/live"), null, { ti
 await page.locator('[data-testid="live-scoreboard"]').waitFor({ timeout: 30_000 });
 check("the Game Log's next match can be watched live", (await clockText()) === "Kick-off");
 await page.locator('[data-testid="pre-match"]').waitFor({ timeout: 15_000 });
+// Someone in his saved line-up hurt or banned by now: Auto leaves him out.
+if ((await page.locator('[data-testid="kickoff-blocked"]').count()) > 0) {
+  await page.locator('[data-testid="pre-match"]').getByRole("button", { name: "Auto" }).click();
+  await page.locator('[data-testid="kickoff-blocked"]').waitFor({ state: "detached" });
+}
 await page.locator('[data-testid="live-play"]').click();
 await page.waitForFunction(
   () => document.querySelector('[data-testid="live-clock"]')?.textContent !== "Kick-off",

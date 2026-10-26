@@ -38,6 +38,7 @@ import {
 } from "../season/offseason";
 import { closeSeasonBooks, openSeasonBooks, settleMonths } from "../finance/finance";
 import { BOARD, jobOffers, preseasonBoard } from "../club/board";
+import { withAutoLineup } from "../club/tactics";
 import type { NewOffer } from "../market/aiMarket";
 import { runDays, type DaysOptions, type NewMessage } from "../season/runner";
 import {
@@ -246,6 +247,10 @@ export async function acceptJobOffer(session: LeagueSession, cid: number): Promi
   game.userCid = cid;
   game.fired = null;
   session.cache.put("meta", game, "game");
+  // His tactic there starts as the AI's pick, as at a new league.
+  if (club) {
+    session.cache.put("clubs", withAutoLineup(club, session.cache.getAll("players"), game.date));
+  }
   const row = session.cache.get("clubSeasons", [cid, game.season]);
   if (row) {
     session.cache.put("clubSeasons", {

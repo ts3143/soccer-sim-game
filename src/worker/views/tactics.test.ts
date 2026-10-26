@@ -14,15 +14,20 @@ const rating = (v: { ratings: { key: string; value: number }[] }, key: string) =
 
 describe("tactics", () => {
   it(
-    "shows the AI's pick, previews changes, saves the line-up and checks the rules",
+    "starts as the AI's pick, previews changes, saves the line-up and checks the rules",
     { timeout: 120_000 },
     async () => {
       const league = await createLeague({ name: "Tactics", seed: "tactics-view", userCid: 0 });
       const session = await openLeague(league.lid);
 
+      // A new league saves the AI's pick as the user's tactics.
       const auto = await getTactics(league.lid, null);
       expect(auto.editable).toBe(true);
-      expect(auto.saved).toBe(false);
+      expect(auto.saved).toBe(true);
+      expect(session.cache.get("clubs", 0)?.tactics.lineup).toEqual({
+        slots: auto.setup.slots,
+        bench: auto.setup.bench,
+      });
       expect(auto.slots).toHaveLength(11);
       expect(auto.slots.every((s) => s.player !== null)).toBe(true);
       expect(auto.slots[0]?.label).toBe("GK");
@@ -82,7 +87,7 @@ describe("tactics", () => {
       const bad: [TacticsSetup, RegExp][] = [
         [{ ...auto.setup, bench: [...auto.setup.bench, first] }, /bench holds 9|picked twice/],
         [{ ...auto.setup, bench: [first, ...auto.setup.bench.slice(1)] }, /picked twice/],
-        [{ ...auto.setup, bench: [outsider] }, /Only eligible, unsuspended/],
+        [{ ...auto.setup, bench: [outsider] }, /Only players from your club/],
         [{ ...auto.setup, sliders: { ...auto.setup.sliders, pressing: 3 } }, /whole steps/],
         [{ ...auto.setup, formation: "4-1-4-1" }, /isn't one of the formations/],
       ];
@@ -90,23 +95,40 @@ describe("tactics", () => {
         await expect(saveTactics(league.lid, setup)).rejects.toThrow(message);
       }
 
-      // A player who leaves drops out; an injured starter is flagged.
+      // A player who leaves drops out; injured and suspended starters stay, flagged.
       const leaver = moved.setup.slots[5] ?? -1;
       const hurt = moved.setup.slots[6] ?? -1;
+      const banned = moved.setup.slots[7] ?? -1;
       const date = session.cache.get("meta", "game") as { date: string };
       const leaving = session.cache.get("players", leaver);
       const injured = session.cache.get("players", hurt);
-      if (!leaving || !injured) throw new Error("missing players");
+      const suspended = session.cache.get("players", banned);
+      if (!leaving || !injured || !suspended) throw new Error("missing players");
       session.cache.put("players", { ...leaving, cid: 1 });
       session.cache.put("players", {
         ...injured,
         injury: { type: "Hamstring", until: "2026-09-01" },
       });
+      session.cache.put("players", { ...suspended, suspension: { remaining: 2, date: date.date } });
       const after = await getTactics(league.lid, null);
       expect(after.setup.slots[5]).toBeNull();
+      expect(after.setup.slots[6]).toBe(hurt);
+      expect(after.setup.slots[7]).toBe(banned);
       expect(after.warnings).toContain("1 slot is empty.");
       expect(after.warnings.some((w) => w.includes("injured until 1 Sep 2026"))).toBe(true);
+      expect(after.warnings.some((w) => w.endsWith("is suspended for the next 2 matches."))).toBe(
+        true,
+      );
       expect(date.date).toBe("2026-07-01");
+      // They can be saved there, and moved to the bench.
+      const benched: TacticsSetup = {
+        ...after.setup,
+        slots: after.setup.slots.map((pid) => (pid === banned ? null : pid)),
+        bench: [banned, ...after.setup.bench.slice(0, 8)],
+      };
+      const kept = await saveTactics(league.lid, benched);
+      expect(kept.setup.bench[0]).toBe(banned);
+      expect(kept.warnings).toContain("1 suspended player on the bench.");
 
       // Another club: the AI's pick, read-only.
       const theirs = await getTactics(league.lid, 1);

@@ -10,6 +10,7 @@ import {
 } from "../engine/ratings";
 import type { GameMeta } from "../../common/schema";
 import { bornLocally } from "../generate/birthplace";
+import { withAutoLineup } from "../club/tactics";
 import type { LeagueDBSchema } from "./schema";
 
 type UpgradeTransaction = IDBPTransaction<
@@ -145,4 +146,25 @@ export async function upgradeToV6(tx: UpgradeTransaction): Promise<void> {
   const game = (await meta.get("game")) as GameMeta | undefined;
   if (!game || game.injuriesSince) return;
   await meta.put({ ...game, injuriesSince: game.date }, "game");
+}
+
+/**
+ * League DB v7: the user's club always has a saved line-up (T, 2026-10-25). An older save
+ * without one gets the AI's pick on its current date, as a new league does. If that pick
+ * can't be made, the save opens without one (the Tactics page then shows the AI's pick).
+ */
+export async function upgradeToV7(tx: UpgradeTransaction): Promise<void> {
+  const game = (await tx.objectStore("meta").get("game")) as GameMeta | undefined;
+  if (typeof game?.userCid !== "number") return;
+  const clubs = tx.objectStore("clubs");
+  const club = await clubs.get(game.userCid);
+  if (!club?.tactics || club.tactics.lineup) return;
+  const players = await tx.objectStore("players").index("cid").getAll(game.userCid);
+  let next: typeof club;
+  try {
+    next = withAutoLineup(club, players, game.date);
+  } catch {
+    return;
+  }
+  await clubs.put(next);
 }

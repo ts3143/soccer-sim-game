@@ -72,7 +72,7 @@ export interface SaveText {
 
 const TACTICS_SAVE: SaveText = {
   label: () => "Save",
-  done: "Saved. It applies to the matches you watch.",
+  done: "Saved. Every match starts from it, watched or simulated.",
   pending: "Unsaved changes",
   testId: "save-tactics",
 };
@@ -92,6 +92,8 @@ export interface LineupEditorProps {
   saveText?: SaveText;
   /** More buttons after the save button (the live pause screen's Resume). */
   actions?: (dirty: boolean) => ReactNode;
+  /** Called with each view the worker shows (before a live match: can it kick off?). */
+  onView?: (view: TacticsView) => void;
 }
 
 /**
@@ -110,6 +112,7 @@ export function LineupEditor({
   baselineLabel,
   saveText = TACTICS_SAVE,
   actions,
+  onView,
 }: LineupEditorProps) {
   const [view, setView] = useState(initial);
   // The line-up as edited: it changes at once; the worker's view (slot OVRs, ratings,
@@ -138,6 +141,7 @@ export function LineupEditor({
       shownSetup.current = shown.setup;
       setView(shown);
       setSetup(shown.setup);
+      onView?.(shown);
     } catch (e) {
       if (n !== request.current) return;
       setSetup(shownSetup.current);

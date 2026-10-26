@@ -13,7 +13,8 @@
  *   a bigger match follows within a few days (fixture congestion);
  * - rest: in matches that matter less than an ordinary league match (early cup rounds,
  *   nothing to play for), the club's regular starters give way to fringe players.
- * The same AI picks the user's club in simulated matches.
+ * The same AI picks the user's club in simulated matches, starting from his saved
+ * line-up: his XI are its regulars and his bench comes first (SPEC §8.3; T, 2026-10-25).
  */
 import { applyDiscipline, isSuspended } from "./discipline";
 import { isSenior } from "../../common/status";
@@ -22,7 +23,7 @@ import { competitionsConfig, type CompetitionsConfig } from "../../common/config
 import { formationById } from "../../common/config/formations";
 import { RATING_INDEX, type Position } from "../../common/config/ratings";
 import type { MatchResult, PlayerMatchStats } from "../../common/match";
-import type { Club, Fixture, InjuryRecord, Player } from "../../common/schema";
+import type { Club, Fixture, InjuryRecord, Player, SavedLineup } from "../../common/schema";
 import { maximizeAssignment } from "../core/assignment";
 import { Random } from "../core/random";
 import { slotOvr } from "../core/ovr";
@@ -260,6 +261,11 @@ export interface MatchdayContext {
   importance: number;
   /** Importance of the club's next match if it is within `congestionDays`; else 0. */
   nextImportance: number;
+  /**
+   * The user's saved line-up, for his club in a simulated match: his XI start unless
+   * tiredness or rotation says otherwise, and his bench comes first. Absent for AI clubs.
+   */
+  preferred?: SavedLineup;
 }
 
 /**
@@ -276,26 +282,41 @@ export function pickMatchday(
 ): EngineTeamInput {
   const s = c.selection;
   const medical = effectiveDials(club).medical;
+  const preferred = ctx.preferred;
+  const named = new Set([...(preferred?.slots ?? []), ...(preferred?.bench ?? [])]);
   const fit = (p: Player) => !isInjured(p, ctx.date) && !isSuspended(p);
+  const youth = (p: Player) =>
+    p.status === "academy" &&
+    fit(p) &&
+    ageOn(p.birthDate, ctx.date) >= config.rosterRules.academyMatchdayMinAge;
   const seniors = squad.filter((p) => isSenior(p) && fit(p));
-  let pool = seniors;
+  // Academy players the user picked play when fit; others only to make up the numbers.
+  let pool = [...seniors, ...squad.filter((p) => named.has(p.pid) && youth(p))];
   if (seniors.length < config.rosterRules.minSeniorForMatch) {
     const academy = squad
-      .filter(
-        (p) =>
-          p.status === "academy" &&
-          fit(p) &&
-          ageOn(p.birthDate, ctx.date) >= config.rosterRules.academyMatchdayMinAge,
-      )
+      .filter((p) => youth(p) && !named.has(p.pid))
       .sort((a, b) => b.ovr - a.ovr || a.pid - b.pid);
-    pool = [...seniors, ...academy.slice(0, Math.max(0, MATCHDAY_SQUAD - seniors.length))];
+    pool = [...pool, ...academy.slice(0, Math.max(0, MATCHDAY_SQUAD - pool.length))];
   }
   const formation = formationById(club.tactics.formation);
   const condition = new Map(pool.map((p) => [p.pid, currentCondition(p, ctx.date, medical, c)]));
 
-  // Regular starters: the best XI at full condition.
+  // Regular starters: the best XI at full condition, or the user's. Each of his counts
+  // as the best in his saved slot, so a fresh XI starts as saved.
   const fresh = formation.slots.map((slot) => pool.map((p) => slotOvr(p, slot)));
-  const regulars = new Set(maximizeAssignment(fresh).map((i) => (pool[i] as Player).pid));
+  const regulars = new Set<number>();
+  if (preferred) {
+    const index = new Map(pool.map((p, i) => [p.pid, i]));
+    preferred.slots.forEach((pid, j) => {
+      const i = pid === null ? undefined : index.get(pid);
+      const row = fresh[j];
+      if (pid === null || i === undefined || !row) return;
+      row[i] = Math.max(...row) + 1;
+      regulars.add(pid);
+    });
+  } else {
+    for (const i of maximizeAssignment(fresh)) regulars.add((pool[i] as Player).pid);
+  }
 
   const importance = Math.max(0.1, ctx.importance);
   const fatigueWeight =
@@ -312,15 +333,24 @@ export function pickMatchday(
   const scores = fresh.map((row) => row.map((ovr, j) => ovr - (penalties[j] as number)));
   const lineup = maximizeAssignment(scores).map((i) => (pool[i] as Player).pid);
 
-  // Bench: area minimums first, then the best of the rest (tiredness counts a little).
+  // Bench: the user's as saved, then area minimums, then the best of the rest
+  // (tiredness counts a little).
   const inXi = new Set(lineup);
   const benchValue = (p: Player) => p.ovr - 0.1 * (100 - (condition.get(p.pid) ?? 100));
   const others = pool
     .filter((p) => !inXi.has(p.pid))
     .sort((a, b) => benchValue(b) - benchValue(a) || a.pid - b.pid);
   const bench: Player[] = [];
+  for (const pid of preferred?.bench ?? []) {
+    const p = others.find((x) => x.pid === pid);
+    if (p && bench.length < BENCH_SIZE) bench.push(p);
+  }
   for (const [area, minimum] of Object.entries(BENCH_MINIMUM)) {
-    bench.push(...others.filter((p) => AREA[p.position] === area).slice(0, minimum));
+    const have = bench.filter((p) => AREA[p.position] === area).length;
+    const room = Math.max(0, Math.min(minimum - have, BENCH_SIZE - bench.length));
+    bench.push(
+      ...others.filter((p) => AREA[p.position] === area && !bench.includes(p)).slice(0, room),
+    );
   }
   for (const p of others) {
     if (bench.length >= BENCH_SIZE) break;
@@ -344,7 +374,7 @@ export function pickMatchday(
 
 export interface SquadPlay {
   play: PlayFixture;
-  /** Both clubs' matchday squads as the AI picks them, for a match the user watches. */
+  /** Both clubs' matchday squads as the AI picks them (the user's from his line-up). */
   prepare: (fixture: Fixture) => { home: EngineTeamInput; away: EngineTeamInput };
   /** Applies a match played elsewhere (watched live) to the players, as `play` does. */
   finish: (fixture: Fixture, result: MatchResult) => MatchResult;
@@ -370,6 +400,8 @@ export function squadPlay(
   state: SeasonState,
   clubs: readonly Club[],
   players: readonly Player[],
+  /** The user's club: the AI starts from his saved line-up (null: every club is the AI's). */
+  userCid: number | null,
   config: CompetitionsConfig = competitionsConfig,
   c: SquadCoefficients = SQUAD_COEFFICIENTS,
 ): SquadPlay {
@@ -454,7 +486,8 @@ export function squadPlay(
       // A loanee can't play against his parent club (SPEC §7.4).
       const opponent = fixture.homeCid === cid ? fixture.awayCid : fixture.homeCid;
       const squad = (squads.get(cid) ?? []).filter((p) => p.loan?.parentCid !== opponent);
-      return pickMatchday(club, squad, context(fixture, cid), config, c);
+      const preferred = cid === userCid ? club.tactics.lineup : undefined;
+      return pickMatchday(club, squad, { ...context(fixture, cid), preferred }, config, c);
     };
     return { home: side(fixture.homeCid), away: side(fixture.awayCid) };
   };
