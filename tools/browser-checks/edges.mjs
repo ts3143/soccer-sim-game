@@ -161,6 +161,11 @@ for (
   await page.waitForFunction(() => location.pathname.endsWith("/live"), null, { timeout: 120_000 });
   await testId("pre-match").waitFor({ timeout: 30_000 });
   cupWatched++;
+  // Someone in the saved line-up hurt or banned by now: Auto leaves him out (T, 2026-10-25).
+  if ((await testId("kickoff-blocked").count()) > 0) {
+    await testId("pre-match").getByRole("button", { name: "Auto" }).click();
+    await testId("kickoff-blocked").waitFor({ state: "detached" });
+  }
   await page.locator("#live-speed").focus();
   await page.keyboard.press("End");
   await testId("live-play").click();

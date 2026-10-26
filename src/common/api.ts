@@ -470,8 +470,16 @@ export interface TacticsView {
   bench: TacticsPlayerView[];
   /** Everyone else who can be picked (seniors, loanees in, academy players 16+). */
   reserves: TacticsPlayerView[];
-  /** Before a live match: who can't play in it (injured, suspended), shown but not pickable. */
+  /**
+   * Before a live match: who can't play in it (injured, suspended) and isn't in the
+   * line-up, shown but not pickable.
+   */
   unavailable?: TacticsPlayerView[];
+  /**
+   * Before a live match: why this line-up can't kick off (T, 2026-10-25): a player in it
+   * who can't play today, or an empty slot. Empty: it can.
+   */
+  cantStart?: string[];
   /** The seven team ratings (player-OVR scale) at today's condition, sliders included. */
   ratings: { key: string; label: string; value: number }[];
   warnings: string[];
@@ -1223,8 +1231,10 @@ export interface WorkerApi {
   /** Before kick-off: the user's line-up for this match, as the Tactics editor shows it. */
   getLiveLineup(lid: number): TacticsView;
   /**
-   * Before kick-off: changes the line-up for this match only ("auto" = the AI's rotation
-   * for this fixture, "saved" = the saved Tactics line-up). The match restarts from kick-off.
+   * Before kick-off: changes the line-up for this match only ("auto" = the AI's pick for
+   * this fixture, as in a simulated match; "saved" = the saved Tactics as they are). One
+   * that can start the match restarts it from kick-off; one that can't is kept, with why
+   * (`cantStart`), and kick-off waits.
    */
   setLiveLineup(lid: number, setup: TacticsSetup, mode: TacticsMode): TacticsView;
   getHistory(lid: number): HistoryView;

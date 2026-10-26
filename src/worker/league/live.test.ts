@@ -154,41 +154,74 @@ describe("watching a match live", () => {
   });
 
   it(
-    "lists injured and suspended players before kick-off, without letting them be picked",
+    "shows the saved tactics as they are, and won't kick off with someone who can't play",
     { timeout: 180_000 },
     async () => {
       const { session } = await league("Unavailable");
+      const lineup = session.cache.get("clubs", 0)?.tactics.lineup;
+      if (!lineup) throw new Error("no saved line-up");
+      const named = new Set([...lineup.slots, ...lineup.bench]);
       const mine = session.cache
         .getAll("players")
         .filter((p) => p.cid === 0 && p.status === "club")
         .sort((a, b) => b.ovr - a.ovr);
-      const [hurt, banned] = [mine[0], mine[1]];
-      if (!hurt || !banned) throw new Error("no players");
-      session.cache.put("players", {
-        ...hurt,
-        injury: {
-          type: "Test strain",
-          until: "2026-12-31",
-          since: "2026-07-01",
-        } as typeof hurt.injury,
-      });
+      const [hurt, banned] = mine.filter((p) => lineup.slots.includes(p.pid));
+      const outside = mine.find((p) => !named.has(p.pid));
+      if (!hurt || !banned || !outside) throw new Error("no players");
+      const injury = { type: "Test strain", until: "2026-12-31" };
+      session.cache.put("players", { ...hurt, injury });
+      session.cache.put("players", { ...outside, injury });
       session.cache.put("players", { ...banned, suspension: { remaining: 1, date: "2026-07-01" } });
       await watchNextMatch(session);
+
+      // His tactics as saved: the two stay in their slots; kick-off says why it can't start.
       const view = getLiveLineup(session);
-      const out = (view.unavailable ?? []).map((p) => p.pid);
-      expect(out).toEqual(expect.arrayContaining([hurt.pid, banned.pid]));
-      const pickable = [
-        ...view.setup.slots,
-        ...view.setup.bench,
-        ...view.reserves.map((p) => p.pid),
+      expect(view.setup.slots).toEqual(lineup.slots);
+      expect(view.setup.bench).toEqual(lineup.bench);
+      const slotOf = (pid: number) => view.slots[lineup.slots.indexOf(pid)]?.label;
+      const name = (p: typeof hurt) => `${p.firstName} ${p.lastName}`.trim();
+      // In slot order.
+      const problems: [number, string][] = [
+        [lineup.slots.indexOf(hurt.pid), `${name(hurt)} (${slotOf(hurt.pid)}) is injured.`],
+        [lineup.slots.indexOf(banned.pid), `${name(banned)} (${slotOf(banned.pid)}) is suspended.`],
       ];
-      expect(pickable).not.toContain(hurt.pid);
-      expect(pickable).not.toContain(banned.pid);
-      expect(view.unavailable?.find((p) => p.pid === hurt.pid)?.injury?.until).toBe("2026-12-31");
-      expect(view.unavailable?.find((p) => p.pid === banned.pid)?.suspension).toBe(1);
-      const tried = await setLiveLineup(session, { ...view.setup, bench: [hurt.pid] }, "asIs");
-      expect(tried.setup.bench).not.toContain(hurt.pid);
-      expect(tried.unavailable?.map((p) => p.pid)).toContain(hurt.pid);
+      expect(view.cantStart).toEqual(problems.sort((a, b) => a[0] - b[0]).map(([, text]) => text));
+      expect(view.unavailable?.map((p) => p.pid)).toEqual([outside.pid]);
+      await expect(stepLive(session, 1, 0)).rejects.toThrow(/can't start the match/);
+
+      // Someone who can't play can't be brought in; one in the line-up can be moved.
+      const tried = await setLiveLineup(session, { ...view.setup, bench: [outside.pid] }, "asIs");
+      expect(tried.setup.bench).toEqual([]);
+      expect(tried.unavailable?.map((p) => p.pid)).toContain(outside.pid);
+      const benched = await setLiveLineup(
+        session,
+        {
+          ...view.setup,
+          slots: view.setup.slots.map((pid) => (pid === hurt.pid ? (lineup.bench[0] ?? pid) : pid)),
+          bench: [hurt.pid, ...lineup.bench.slice(1)],
+        },
+        "asIs",
+      );
+      expect(benched.setup.bench[0]).toBe(hurt.pid);
+      expect(benched.cantStart).toContain(`${name(hurt)} (bench) is injured.`);
+
+      // Auto leaves them out, and the match can kick off; My saved line-up brings them back.
+      const auto = await setLiveLineup(session, benched.setup, "auto");
+      const picked = [...auto.setup.slots, ...auto.setup.bench];
+      expect(picked).not.toContain(hurt.pid);
+      expect(picked).not.toContain(banned.pid);
+      expect(auto.cantStart).toEqual([]);
+      const saved = await setLiveLineup(session, auto.setup, "saved");
+      expect(saved.setup.slots).toEqual(lineup.slots);
+      expect(saved.cantStart).toHaveLength(2);
+      await expect(stepLive(session, 1, 0)).rejects.toThrow(/can't start the match/);
+      // The draft survives a closed game.
+      forgetRunningMatch(session);
+      expect(getLiveLineup(session).setup.slots).toEqual(lineup.slots);
+      await setLiveLineup(session, saved.setup, "auto");
+      expect((await stepLive(session, 1, 0)).clock).toBeGreaterThan(0);
+      // His saved tactics never changed.
+      expect(session.cache.get("clubs", 0)?.tactics.lineup).toEqual(lineup);
     },
   );
 

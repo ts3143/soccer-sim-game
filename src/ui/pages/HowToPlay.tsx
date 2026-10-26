@@ -94,8 +94,10 @@ function Guide() {
         <ul>
           <li>
             <b>Play → Watch your next match</b>. Before kick-off, a preview shows both clubs&apos;
-            last five results and their last meeting, and you can change the line-up for this match
-            only; your saved tactics stay as they are.
+            last five results and their last meeting. Your saved tactics are shown as they are, and
+            you can change them for this match only. If someone in your line-up is injured or
+            suspended, or a slot is empty, the match can&apos;t kick off until you swap him out or
+            press <b>Auto</b> for the AI&apos;s pick.
           </li>
           <li>
             Pause at any time to make substitutions, or change the formation or sliders. You have 5

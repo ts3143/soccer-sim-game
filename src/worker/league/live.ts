@@ -3,9 +3,10 @@
  *
  * "Watch your next match" plays every day before the user's next match, then that day's
  * events, market and training, and holds the day before its matches (runner `hold`).
- * The user's match then runs here possession by possession: he manages his club (his
- * saved line-up and sliders, injured players replaced by the AI's pick), the AI the
- * other. Its state is saved as it goes (meta row "live"), random stream included, so a
+ * The user's match then runs here possession by possession: he manages his club, the AI
+ * the other. It starts from his saved tactics as they are; before kick-off he can change
+ * them for this match, and it can't kick off while his line-up names a player who can't
+ * play today or has an empty slot (T, 2026-10-25). Its state is saved as it goes (meta row "live"), random stream included, so a
  * closed game resumes exactly where it was: no do-overs. At full time the held day is
  * finished with the live result (runner `resume`): the other matches, money, tables,
  * board and cup draws, through the same code as a simulated day.
@@ -25,7 +26,7 @@ import { formationById, formationsConfig, slotLabel } from "../../common/config/
 import type { Club, Fixture, GameMeta, Player } from "../../common/schema";
 import { effectiveDials } from "../club/standing";
 import { isSuspended } from "../season/discipline";
-import { checkSetup, cleanSetup, reslot, selectable } from "../club/tactics";
+import { checkSetup, cleanSetup, currentSetup, reslot, selectable } from "../club/tactics";
 import { maximizeAssignment } from "../core/assignment";
 import { slotOvr } from "../core/ovr";
 import { Random, type RandomState } from "../core/random";
@@ -72,6 +73,11 @@ interface LiveRow {
   date: string;
   side: TeamSide;
   state: SavedState;
+  /**
+   * Before kick-off, the user's line-up while it can't start the match (`kickOffProblems`).
+   * The state holds a playable stand-in until he fixes it. Absent or null: it can start.
+   */
+  draft?: TacticsSetup | null;
 }
 
 interface Running {
@@ -115,7 +121,7 @@ function load(session: LeagueSession): Running {
   if (!row) throw new GameError("No live match is under way.");
   const state = restoreState(row.state);
   const live = {
-    row: { fid: row.fid, date: row.date, side: row.side },
+    row: { fid: row.fid, date: row.date, side: row.side, draft: row.draft ?? null },
     state,
     savedClock: state.clock,
   };
@@ -199,32 +205,47 @@ function inputFromSetup(
 }
 
 /**
- * The user's matchday squad for a watched match: his saved line-up (or the AI's pick),
- * with players who can't play today replaced, the bench topped up from the AI's, today's
- * condition and his sliders.
+ * The engine input for the user's line-up. One that can't start the match yet gets a
+ * playable stand-in until he fixes it: players who can't play left out, empty slots
+ * filled and the bench topped up from the AI's pick.
  */
-export function userTeamInput(
-  club: Club,
-  players: readonly Player[],
-  fixture: Fixture,
-  ai: EngineTeamInput,
-): EngineTeamInput {
-  const available = availableFor(club, players, fixture);
-  const saved = club.tactics.lineup
-    ? cleanSetup(
-        {
-          formation: club.tactics.formation,
-          sliders: club.tactics.sliders,
-          slots: club.tactics.lineup.slots,
-          bench: club.tactics.lineup.bench,
-        },
-        new Set(available.map((p) => p.pid)),
-      )
-    : { ...setupOf(ai), sliders: { ...club.tactics.sliders } };
-  return inputFromSetup(club, saved, available, fixture.date, ai.lineup, [
-    ...ai.bench,
-    ...ai.lineup,
-  ]);
+function userInput(ctx: PreMatch, setup: TacticsSetup, ai: EngineTeamInput): EngineTeamInput {
+  const ready = kickOffProblems(setup, ctx).length === 0;
+  const playable = cleanSetup(setup, new Set(ctx.available.map((p) => p.pid)));
+  const topUp = ready ? [] : [...ai.bench, ...ai.lineup];
+  return inputFromSetup(ctx.club, playable, ctx.available, ctx.fixture.date, ai.lineup, topUp);
+}
+
+/**
+ * Why a line-up can't start the match (T, 2026-10-25): an empty slot, or a player in the
+ * XI or on the bench who can't play today. Empty when it can.
+ */
+function kickOffProblems(setup: TacticsSetup, ctx: PreMatch): string[] {
+  const ok = new Set(ctx.available.map((p) => p.pid));
+  const slots = formationById(setup.formation).slots;
+  const problems: string[] = [];
+  const empty = setup.slots.filter((pid) => pid === null).length;
+  if (empty > 0) problems.push(`${empty} slot${empty === 1 ? " is" : "s are"} empty.`);
+  const places: [number | null, string][] = [
+    ...setup.slots.map((pid, i): [number | null, string] => [
+      pid,
+      slots[i] ? slotLabel(slots[i]) : "XI",
+    ]),
+    ...setup.bench.map((pid): [number, string] => [pid, "bench"]),
+  ];
+  for (const [pid, place] of places) {
+    if (pid === null || ok.has(pid)) continue;
+    const p = ctx.everyone.get(pid);
+    const why = !p
+      ? "can't play for the club"
+      : isInjured(p, ctx.fixture.date)
+        ? "is injured"
+        : isSuspended(p)
+          ? "is suspended"
+          : "can't play against his parent club";
+    problems.push(`${p ? `${p.firstName} ${p.lastName}`.trim() : `#${pid}`} (${place}) ${why}.`);
+  }
+  return problems;
 }
 
 /** Restarts the match from kick-off with a new line-up (before kick-off only). */
@@ -244,12 +265,14 @@ function restart(live: Running, user: EngineTeamInput): void {
 
 const kickedOff = (state: MatchState) => state.clock > 0 || state.inPlaySeconds > 0;
 
+type PreMatch = ReturnType<typeof preMatchContext>;
+
 /** What the pre-match line-up editor needs: the fixture, the club and who can play. */
-function lineupContext(session: LeagueSession, live: Running) {
+function preMatchContext(session: LeagueSession, fid: number, side: TeamSide) {
   const game = meta<GameMeta>(session, "game");
   const season = loadSeason(session);
   const world = loopWorld(session, game.season);
-  const fixture = season.fixtures.find((f) => f.fid === live.row.fid);
+  const fixture = season.fixtures.find((f) => f.fid === fid);
   const club = world.clubs.find((c) => c.cid === game.userCid);
   if (!fixture || !club) throw new Error("The live match's fixture or club is missing");
   const available = availableFor(club, world.players, fixture);
@@ -265,37 +288,53 @@ function lineupContext(session: LeagueSession, live: Running) {
         : c,
     );
     const both = squadPlay(season, clubs, world.players, club.cid).prepare(fixture);
-    return live.row.side === 0 ? both.home : both.away;
+    return side === 0 ? both.home : both.away;
   };
+  const everyone = selectable(world.players, club.cid, fixture.date);
   return {
     fixture,
     club,
     world,
     available,
     byPid: new Map(available.map((p) => [p.pid, p])),
-    /** His players who can't play today: listed, not pickable. */
-    unavailable: selectable(world.players, club.cid, fixture.date).filter((p) => !ids.has(p.pid)),
+    /** Everyone he can name in a line-up, including those who can't play today. */
+    everyone: new Map(everyone.map((p) => [p.pid, p])),
+    /** His players who can't play today. */
+    unavailable: everyone.filter((p) => !ids.has(p.pid)),
     aiPick,
   };
 }
 
-export function getLiveLineup(session: LeagueSession): TacticsView {
-  const live = load(session);
-  const ctx = lineupContext(session, live);
-  const input = live.row.side === 0 ? live.state.input.home : live.state.input.away;
-  return tacticsView(
+/** The pre-match editor's view of a line-up: who can't play, and why it can't kick off. */
+function preMatchView(session: LeagueSession, ctx: PreMatch, setup: TacticsSetup): TacticsView {
+  const named = new Set([...setup.slots, ...setup.bench]);
+  const view = tacticsView(
     ctx.club,
-    setupOf(input),
+    setup,
     ctx.available,
-    ctx.byPid,
+    ctx.everyone,
     ctx.fixture.date,
     true,
     session.cache.getAll("playerStats").filter((r) => r.season === ctx.fixture.season),
-    ctx.unavailable,
+    ctx.unavailable.filter((p) => !named.has(p.pid)),
   );
+  return { ...view, cantStart: kickOffProblems(setup, ctx) };
 }
 
-/** Before kick-off: the user's line-up for this match only; the match restarts from kick-off. */
+const userSide = (live: Running) =>
+  live.row.side === 0 ? live.state.input.home : live.state.input.away;
+
+export function getLiveLineup(session: LeagueSession): TacticsView {
+  const live = load(session);
+  const ctx = preMatchContext(session, live.row.fid, live.row.side);
+  return preMatchView(session, ctx, live.row.draft ?? setupOf(userSide(live)));
+}
+
+/**
+ * Before kick-off: the user's line-up for this match only. One that can start the match
+ * restarts it from kick-off; one that can't is kept as the draft. Players who can't play
+ * may stay where he has them, but can't be brought in.
+ */
 export function setLiveLineup(
   session: LeagueSession,
   setup: TacticsSetup,
@@ -306,34 +345,32 @@ export function setLiveLineup(
     if (kickedOff(live.state)) {
       throw new GameError("The match has kicked off: make changes at a pause.");
     }
-    const ctx = lineupContext(session, live);
-    const ids = new Set(ctx.byPid.keys());
+    const ctx = preMatchContext(session, live.row.fid, live.row.side);
+    const shown = live.row.draft ?? setupOf(userSide(live));
+    const kept = [...shown.slots, ...shown.bench].filter(
+      (pid): pid is number => pid !== null && ctx.everyone.has(pid),
+    );
+    const allowed = new Set([...ctx.byPid.keys(), ...kept]);
     let next: TacticsSetup;
     if (mode === "saved") {
-      const ai = ctx.aiPick(ctx.club.tactics.formation);
-      next = setupOf(userTeamInput(ctx.club, ctx.world.players, ctx.fixture, ai));
+      next = currentSetup(ctx.club, ctx.world.players, ctx.fixture.date);
     } else if (mode === "auto") {
       next = { ...setupOf(ctx.aiPick(setup.formation)), sliders: { ...setup.sliders } };
     } else {
-      const clean = cleanSetup({ ...setup, slots: [...setup.slots] }, ids);
-      next = mode === "reslot" ? reslot(clean, setup.formation, ctx.byPid) : clean;
+      const clean = cleanSetup({ ...setup, slots: [...setup.slots] }, allowed);
+      next = mode === "reslot" ? reslot(clean, setup.formation, ctx.everyone) : clean;
     }
-    checkSetup(next, ids);
-    const ai = ctx.aiPick(next.formation);
-    const user = inputFromSetup(ctx.club, next, ctx.available, ctx.fixture.date, ai.lineup, []);
-    restart(live, user);
+    checkSetup(next, new Set(ctx.everyone.keys()));
+    if (kickOffProblems(next, ctx).length === 0) {
+      const ai = ctx.aiPick(next.formation);
+      restart(live, userInput(ctx, next, ai));
+      live.row.draft = null;
+    } else {
+      live.row.draft = next;
+    }
     save(session, live);
     await session.cache.flush();
-    return tacticsView(
-      ctx.club,
-      setupOf(user),
-      ctx.available,
-      ctx.byPid,
-      ctx.fixture.date,
-      true,
-      session.cache.getAll("playerStats").filter((r) => r.season === ctx.fixture.season),
-      ctx.unavailable,
-    );
+    return preMatchView(session, ctx, live.row.draft ?? setupOf(userSide(live)));
   });
 }
 
@@ -379,7 +416,11 @@ export function watchNextMatch(
         const ai = squadPlay(season, world.clubs, world.players, userCid).prepare(fixture);
         const side: TeamSide = fixture.homeCid === userCid ? 0 : 1;
         const mine = side === 0 ? ai.home : ai.away;
-        const user = controls === "ai" ? mine : userTeamInput(club, world.players, fixture, mine);
+        // His saved tactics as they are (T, 2026-10-25): a draft if they can't start it.
+        const ctx = preMatchContext(session, fixture.fid, side);
+        const saved = currentSetup(club, world.players, fixture.date);
+        const draft = controls === "user" && kickOffProblems(saved, ctx).length > 0 ? saved : null;
+        const user = controls === "ai" ? mine : userInput(ctx, saved, mine);
         const home = side === 0 ? user : ai.home;
         const away = side === 0 ? ai.away : user;
         const sliders = (team: EngineTeamInput, other: EngineTeamInput, isHome: boolean) =>
@@ -396,7 +437,7 @@ export function watchNextMatch(
           feed: true,
         });
         const started: Running = {
-          row: { fid: fixture.fid, date: fixture.date, side },
+          row: { fid: fixture.fid, date: fixture.date, side, draft },
           state,
           savedClock: 0,
         };
@@ -465,6 +506,13 @@ export function stepLive(
   return queued(session, async () => {
     const live = load(session);
     const { state } = live;
+    if (live.row.draft && !kickedOff(state)) {
+      const ctx = preMatchContext(session, live.row.fid, live.row.side);
+      const problems = kickOffProblems(live.row.draft, ctx).join(" ");
+      throw new GameError(
+        `Your line-up can't start the match. ${problems} Change it, or press Auto.`,
+      );
+    }
     const target = Math.max(1, Math.floor(possessions));
     let pause: LivePause | null = null;
     if (!autoPause) stepMatch(state, target);
