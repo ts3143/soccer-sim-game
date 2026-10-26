@@ -2,6 +2,9 @@
  * The user's line-up (SPEC §8.3, §9, §11 Tactics): who can be picked, the saved line-up
  * cleaned of players who have left, the AI's pick ("Auto"), re-slotting the XI into a new
  * formation, checking a setup, and the team ratings it gives at today's condition.
+ *
+ * The user's club always has a saved line-up (T, 2026-10-25): the AI's first pick when he
+ * takes the club, then only what he saves. Injured and suspended players stay in it.
  */
 import type { TacticsSetup } from "../../common/api";
 import { competitionsConfig } from "../../common/config/competitions";
@@ -16,7 +19,6 @@ import { enginePlayer } from "../engine/prepare";
 import type { TeamRatings } from "../engine/teamRatings";
 import { currentCondition, pickMatchday } from "../season/squads";
 import { effectiveDials } from "./standing";
-import { isSuspended } from "../season/discipline";
 import { GameError } from "../../common/errors";
 
 /** Players the club can pick: its seniors (loanees in included) and academy players of 16+. */
@@ -57,15 +59,20 @@ export function cleanSetup(setup: TacticsSetup, pickable: ReadonlySet<number>): 
   return { formation: setup.formation, sliders: { ...setup.sliders }, slots, bench };
 }
 
-/** The club's line-up as saved (cleaned), or the AI's pick when none is saved. */
+/** The club with the AI's pick for today saved as its line-up (a club the user takes). */
+export function withAutoLineup(club: Club, players: readonly Player[], date: string): Club {
+  const { formation, sliders, slots, bench } = autoSetup(club, players, date);
+  return { ...club, tactics: { formation, sliders, lineup: { slots, bench } } };
+}
+
+/**
+ * The club's line-up as saved, without players who have left (injured and suspended ones
+ * stay), or the AI's pick when none is saved.
+ */
 export function currentSetup(club: Club, players: readonly Player[], date: string): TacticsSetup {
   const saved = club.tactics.lineup;
   if (!saved) return autoSetup(club, players, date);
-  const pickable = new Set(
-    selectable(players, club.cid, date)
-      .filter((p) => !isSuspended(p))
-      .map((p) => p.pid),
-  );
+  const pickable = new Set(selectable(players, club.cid, date).map((p) => p.pid));
   return cleanSetup(
     {
       formation: club.tactics.formation,
@@ -111,7 +118,7 @@ export function checkSetup(setup: TacticsSetup, pickable: ReadonlySet<number>): 
   const named = [...setup.slots.filter((pid): pid is number => pid !== null), ...setup.bench];
   if (new Set(named).size !== named.length) throw new GameError("A player is picked twice");
   if (named.some((pid) => !pickable.has(pid))) {
-    throw new GameError("Only eligible, unsuspended players from your club can be picked");
+    throw new GameError("Only players from your club who can play can be picked");
   }
   for (const value of Object.values(setup.sliders)) {
     if (!Number.isInteger(value) || value < -2 || value > 2) {

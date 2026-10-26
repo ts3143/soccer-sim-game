@@ -254,12 +254,17 @@ function lineupContext(session: LeagueSession, live: Running) {
   if (!fixture || !club) throw new Error("The live match's fixture or club is missing");
   const available = availableFor(club, world.players, fixture);
   const ids = new Set(available.map((p) => p.pid));
-  /** The AI's pick for the user's club in this match, in `formation`. */
+  /**
+   * The AI's pick for the user's club in this match, in `formation`: from his saved
+   * line-up as in a simulated match, or from scratch in another formation.
+   */
   const aiPick = (formation: string) => {
     const clubs = world.clubs.map((c) =>
-      c.cid === club.cid ? { ...c, tactics: { ...c.tactics, formation } } : c,
+      c.cid === club.cid && formation !== c.tactics.formation
+        ? { ...c, tactics: { formation, sliders: c.tactics.sliders } }
+        : c,
     );
-    const both = squadPlay(season, clubs, world.players).prepare(fixture);
+    const both = squadPlay(season, clubs, world.players, club.cid).prepare(fixture);
     return live.row.side === 0 ? both.home : both.away;
   };
   return {
@@ -371,7 +376,7 @@ export function watchNextMatch(
         const club = world.clubs.find((c) => c.cid === userCid);
         if (!club) throw new Error("The save has no user club");
         const setup = fixtureSetup(season, fixture);
-        const ai = squadPlay(season, world.clubs, world.players).prepare(fixture);
+        const ai = squadPlay(season, world.clubs, world.players, userCid).prepare(fixture);
         const side: TeamSide = fixture.homeCid === userCid ? 0 : 1;
         const mine = side === 0 ? ai.home : ai.away;
         const user = controls === "ai" ? mine : userTeamInput(club, world.players, fixture, mine);

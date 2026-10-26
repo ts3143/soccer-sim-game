@@ -26,7 +26,7 @@ export function Tactics({ params }: { params: string[] }) {
           save={(setup) => toWorker("saveTactics", shell.lid, setup)}
           note={
             data.editable
-              ? "Your formation is used in every match. The line-up and sliders apply to the matches you watch; in simulated matches the AI picks them. Drag a player onto another place to swap them, or click one and then the other."
+              ? "Your tactics: only you change them. Matches you watch start from them. In simulated matches the AI starts from them too, resting tired players and replacing injured or suspended ones for that match only, and sets the sliders. Drag a player onto another place to swap them, or click one and then the other."
               : "The AI's pick for an ordinary match today."
           }
           autoTitle="The AI's pick for an ordinary match today"

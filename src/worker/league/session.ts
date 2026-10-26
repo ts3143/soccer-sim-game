@@ -11,6 +11,7 @@ import { listLeagues, registerLeague, unregisterLeague } from "../db/globalDb";
 import { deleteLeagueDb, openLeagueDb, writeWorld } from "../db/leagueDb";
 import type { LeagueDBSchema } from "../db/schema";
 import { generateWorld } from "../generate/world";
+import { withAutoLineup } from "../club/tactics";
 import { GameError, LEAGUE_CLOSED } from "../../common/errors";
 import { ensureSeason, whenIdle } from "./game";
 
@@ -78,12 +79,20 @@ export async function createLeague(input: NewLeagueInput): Promise<LeagueSummary
   if (input.name.trim().length > 60) throw new GameError("A league name has 1 to 60 characters.");
   const name = input.name.trim() || `League ${(await listLeagues()).length + 1}`;
   const createdAt = new Date().toISOString();
-  const world = generateWorld({
+  const generated = generateWorld({
     seed: input.seed.trim() || newSeed(),
     name,
     userCid: input.userCid,
     createdAt,
   });
+  // The user's tactic starts as the AI's pick; from then on only he changes it.
+  const { date } = generated.meta.game;
+  const world = {
+    ...generated,
+    clubs: generated.clubs.map((c) =>
+      c.cid === input.userCid ? withAutoLineup(c, generated.players, date) : c,
+    ),
+  };
 
   const league = await registerLeague({
     name,

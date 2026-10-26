@@ -137,14 +137,15 @@ export interface SavedLineup {
 
 /**
  * A club's saved tactics. The formation is the club's own in every match. AI clubs'
- * sliders and line-ups are picked by the AI before each match; the user's sliders and
- * line-up apply to the matches he watches (simulated matches: the AI picks them for his
- * club too, within his formation).
+ * sliders and line-ups are picked by the AI before each match. The user's are his alone
+ * (T, 2026-10-25): watched matches start from them; in simulated matches the AI starts
+ * from his line-up (rotation, injuries and suspensions for that match only) and picks
+ * the sliders.
  */
 export interface Tactics {
   formation: string;
   sliders: SliderSettings;
-  /** User's club only, once he saves one on the Tactics page. Absent = the AI's pick. */
+  /** User's club only: the AI's pick when he takes the club, then what he saves. */
   lineup?: SavedLineup;
 }
 

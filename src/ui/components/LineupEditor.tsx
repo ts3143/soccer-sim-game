@@ -72,7 +72,7 @@ export interface SaveText {
 
 const TACTICS_SAVE: SaveText = {
   label: () => "Save",
-  done: "Saved. It applies to the matches you watch.",
+  done: "Saved. Every match starts from it, watched or simulated.",
   pending: "Unsaved changes",
   testId: "save-tactics",
 };

@@ -1,7 +1,9 @@
 import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
 import type { Club, MatchRecord, Player, PlayerStatsRow } from "../../common/schema";
+import { autoSetup } from "../club/tactics";
 import { localBirthplace } from "../generate/birthplace";
+import { generateWorld } from "../generate/world";
 import { openLeagueDb } from "./leagueDb";
 import { LEAGUE_DB_VERSION } from "./schema";
 
@@ -171,6 +173,41 @@ describe("league DB upgrades", () => {
       injuriesSince: "2028-02-03",
     });
     v6.close();
+  });
+
+  it("saves the AI's pick as the user's tactics in an older save without any", async () => {
+    const world = generateWorld({
+      seed: "upgrade-v7",
+      name: "t",
+      userCid: 3,
+      createdAt: "2026-07-01T00:00:00.000Z",
+    });
+    const v6 = await openLeagueDb(9006, 6);
+    await v6.put("meta", { ...world.meta.game, date: "2026-09-12" }, "game");
+    for (const club of world.clubs) await v6.put("clubs", club);
+    for (const p of world.players) await v6.put("players", p);
+    v6.close();
+    const v7 = await openLeagueDb(9006);
+    const club = (await v7.get("clubs", 3)) as Club;
+    expect(club.tactics.lineup).toEqual({
+      slots: autoSetup(world.clubs[3] as Club, world.players, "2026-09-12").slots,
+      bench: autoSetup(world.clubs[3] as Club, world.players, "2026-09-12").bench,
+    });
+    expect((await v7.get("clubs", 4))?.tactics.lineup).toBeUndefined();
+    v7.close();
+
+    // One he saved himself is kept.
+    const mine = { slots: club.tactics.lineup?.slots.slice().reverse() ?? [], bench: [] };
+    const old = await openLeagueDb(9007, 6);
+    await old.put("meta", world.meta.game, "game");
+    await old.put("clubs", {
+      ...(world.clubs[3] as Club),
+      tactics: { ...club.tactics, lineup: mine },
+    });
+    old.close();
+    const kept = await openLeagueDb(9007);
+    expect((await kept.get("clubs", 3))?.tactics.lineup).toEqual(mine);
+    kept.close();
   });
 
   it("creates a new save at the current version with nothing to convert", async () => {

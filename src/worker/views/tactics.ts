@@ -3,7 +3,8 @@ import { ratingChanges } from "../../common/ratingChanges";
 /**
  * The Tactics page (M6, SPEC §11): a club's line-up by slot, the bench and everyone else
  * who can play, with slot OVRs, condition and the live team ratings. The user edits and
- * saves his; other clubs show the AI's pick for an ordinary match today.
+ * saves his (injured and suspended players included: it's his plan, not one match's);
+ * other clubs show the AI's pick for an ordinary match today.
  */
 import type { TacticsMode, TacticsPlayerView, TacticsSetup, TacticsView } from "../../common/api";
 import { formationById, formationsConfig, slotLabel } from "../../common/config/formations";
@@ -19,7 +20,6 @@ import {
   selectable,
   setupRatings,
 } from "../club/tactics";
-import { isSuspended } from "../season/discipline";
 import { slotOvr } from "../core/ovr";
 import type { TeamRatings } from "../engine/teamRatings";
 import { queued } from "../league/game";
@@ -46,6 +46,9 @@ export function ratingRows(ratings: TeamRatings): TacticsView["ratings"] {
     value: Math.round(ratings[key as keyof TeamRatings] * 10) / 10,
   }));
 }
+
+const banned = (matches: number) =>
+  `suspended for the next ${matches === 1 ? "match" : `${matches} matches`}`;
 
 /** Below this condition a starter's injury risk rises sharply (SPEC §8.4). */
 const RISKY_CONDITION = 75;
@@ -132,6 +135,7 @@ export function tacticsView(
     if (!p) continue;
     if (p.injury)
       warnings.push(`${p.name} (${s.label}) is injured until ${formatDay(p.injury.until)}.`);
+    else if (p.suspension > 0) warnings.push(`${p.name} (${s.label}) is ${banned(p.suspension)}.`);
     else if (p.condition < RISKY_CONDITION) {
       warnings.push(`${p.name} (${s.label}) is at ${p.condition}% condition: a high injury risk.`);
     }
@@ -142,6 +146,10 @@ export function tacticsView(
   const injuredSubs = bench.filter((p) => p.injury).length;
   if (injuredSubs > 0) {
     warnings.push(`${injuredSubs} injured player${injuredSubs === 1 ? "" : "s"} on the bench.`);
+  }
+  const bannedSubs = bench.filter((p) => !p.injury && p.suspension > 0).length;
+  if (bannedSubs > 0) {
+    warnings.push(`${bannedSubs} suspended player${bannedSubs === 1 ? "" : "s"} on the bench.`);
   }
 
   const ratings = setupRatings(club, setup, byPid, date);
@@ -187,7 +195,7 @@ export async function previewTactics(
 ): Promise<TacticsView> {
   const session = await openLeague(lid);
   const { game, club, players, pickable, byPid } = context(session, null);
-  const ids = new Set([...byPid.values()].filter((p) => !isSuspended(p)).map((p) => p.pid));
+  const ids = new Set(byPid.keys());
   let next: TacticsSetup;
   if (mode === "saved") {
     next = currentSetup(club, players, game.date);
@@ -218,10 +226,7 @@ export async function saveTactics(lid: number, setup: TacticsSetup): Promise<Tac
   const session = await openLeague(lid);
   await queued(session, async () => {
     const { club, byPid } = context(session, null);
-    checkSetup(
-      setup,
-      new Set([...byPid.values()].filter((p) => !isSuspended(p)).map((p) => p.pid)),
-    );
+    checkSetup(setup, new Set(byPid.keys()));
     session.cache.put("clubs", {
       ...club,
       tactics: {

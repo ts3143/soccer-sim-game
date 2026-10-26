@@ -135,8 +135,8 @@ check(
     (await reserves.count()) > 0,
 );
 check(
-  "it says no line-up is saved yet, and Save is off",
-  (await page.getByText("No line-up saved yet").count()) === 1 &&
+  "the AI's pick is already saved as his tactics, and Save is off",
+  (await page.getByText("No line-up saved yet").count()) === 0 &&
     (await page.locator('[data-testid="save-tactics"]').isDisabled()),
 );
 check("the seven team ratings are shown", Object.keys(await ratings()).length === 7);

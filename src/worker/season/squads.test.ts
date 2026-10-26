@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { RATING_INDEX } from "../../common/config/ratings";
 import type { PlayerMatchStats } from "../../common/match";
-import type { Club, Fixture, Player } from "../../common/schema";
+import { ageOn } from "../../common/dates";
+import type { Club, Fixture, Player, SavedLineup } from "../../common/schema";
 import { generateWorld } from "../generate/world";
 import { createSeason } from "./season";
 import {
@@ -11,6 +12,7 @@ import {
   matchImportance,
   pickMatchday,
   resetForPreseason,
+  squadPlay,
   trainingInjuries,
 } from "./squads";
 
@@ -189,6 +191,100 @@ describe("matchday squad", () => {
       const p = squad.find((x) => x.pid === pid) as Player;
       expect(Number(DATE.slice(0, 4)) - Number(p.birthDate.slice(0, 4))).toBeGreaterThanOrEqual(16);
     }
+  });
+});
+
+describe("the user's matchday squad in a simulated match (T, 2026-10-25)", () => {
+  const base = { date: DATE, importance: 1, nextImportance: 0 };
+  /** His tactics: the AI's XI with its weakest fit senior up front, a bench of the rest. */
+  const tactics = (squad: Player[]): SavedLineup => {
+    const ai = pickMatchday(club, squad, base);
+    const used = new Set([...ai.lineup, ...ai.bench]);
+    const spare = squad
+      .filter((p) => p.status === "club" && p.position !== "GK" && !used.has(p.pid))
+      .sort((a, b) => a.ovr - b.ovr || a.pid - b.pid);
+    const weakest = spare[0] as Player;
+    const slots = ai.lineup.map((pid, i) => (i === ai.lineup.length - 1 ? weakest.pid : pid));
+    const striker = ai.lineup.at(-1) as number;
+    return { slots, bench: [striker, ...ai.bench.slice(0, 8).reverse()] };
+  };
+
+  it("starts his XI and bench as saved when they're fresh, weaker picks too", () => {
+    const squad = squadOf(club.cid);
+    const saved = tactics(squad);
+    const pick = pickMatchday(club, squad, { ...base, preferred: saved });
+    expect(pick.lineup).toEqual(saved.slots);
+    expect(pick.bench).toEqual(saved.bench);
+    expect(pick.aiInGame).toBe(true);
+  });
+
+  it("replaces an injured or suspended starter for that match only", () => {
+    const squad = squadOf(club.cid);
+    const saved = tactics(squad);
+    const hurt = squad.find((p) => p.pid === saved.slots[3]) as Player;
+    const banned = squad.find((p) => p.pid === saved.slots[6]) as Player;
+    hurt.injury = { type: "Knock", until: "2026-09-20" };
+    banned.suspension = { remaining: 1, date: "2026-09-05" };
+    const before = structuredClone(saved);
+    const pick = pickMatchday(club, squad, { ...base, preferred: saved });
+    expect([...pick.lineup, ...pick.bench]).not.toContain(hurt.pid);
+    expect([...pick.lineup, ...pick.bench]).not.toContain(banned.pid);
+    const kept = pick.lineup.filter((pid, i) => pid === saved.slots[i]);
+    expect(kept).toHaveLength(9);
+    expect(saved).toEqual(before); // his tactics stay as they were
+  });
+
+  it("rests his tired regulars more in small games, as for AI clubs", () => {
+    const squad = squadOf(club.cid);
+    const saved = tactics(squad);
+    const regulars = new Set(saved.slots);
+    for (const p of squad) if (regulars.has(p.pid)) tired(p, 84, DATE);
+    const count = (importance: number) =>
+      pickMatchday(club, squad, {
+        date: DATE,
+        importance,
+        nextImportance: 0,
+        preferred: saved,
+      }).lineup.filter((pid) => regulars.has(pid)).length;
+    const cup = count(0.65);
+    const league = count(1);
+    const final = count(1.5);
+    expect(cup).toBeLessThan(final);
+    expect(cup).toBeLessThanOrEqual(league);
+    expect(league).toBeLessThanOrEqual(final);
+  });
+
+  it("plays an academy player he picked", () => {
+    const squad = squadOf(club.cid);
+    const youngster = squad.find(
+      (p) => p.status === "academy" && ageOn(p.birthDate, DATE) >= 16,
+    ) as Player;
+    const saved = tactics(squad);
+    saved.bench[8] = youngster.pid;
+    expect(pickMatchday(club, squad, base).bench).not.toContain(youngster.pid);
+    expect(pickMatchday(club, squad, { ...base, preferred: saved }).bench).toContain(youngster.pid);
+  });
+
+  it("is used for the user's club only", () => {
+    const state = createSeason({
+      season: 2026,
+      seed: "squads-test",
+      clubs: world.clubs,
+      lastFinish: new Map(),
+      firstFid: 1,
+    });
+    const fixture = state.fixtures.find((f) => f.homeCid === club.cid) as Fixture;
+    const players = structuredClone(world.players);
+    const saved = tactics(players.filter((p) => p.cid === club.cid));
+    const clubs = world.clubs.map((c) =>
+      c.cid === club.cid ? { ...c, tactics: { ...c.tactics, lineup: saved } } : c,
+    );
+    expect(squadPlay(state, clubs, players, club.cid).prepare(fixture).home.lineup).toEqual(
+      saved.slots,
+    );
+    expect(squadPlay(state, clubs, players, null).prepare(fixture).home.lineup).not.toEqual(
+      saved.slots,
+    );
   });
 });
 

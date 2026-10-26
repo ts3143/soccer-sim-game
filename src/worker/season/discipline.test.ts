@@ -72,7 +72,7 @@ describe("domestic suspensions", () => {
       applyDiscipline([p], { ...fixture, date }, empty);
     expect(isSuspended(p)).toBe(false);
   });
-  it("excludes suspended players from AI squads and saved lineups", () => {
+  it("excludes suspended players from matchday squads, but not from saved lineups", () => {
     const club = structuredClone(world.clubs[0]!);
     const players = structuredClone(world.players.filter((p) => p.cid === club.cid));
     const p = players.find((p) => p.status === "club")!;
@@ -83,9 +83,12 @@ describe("domestic suspensions", () => {
       nextImportance: 0,
     });
     expect([...pick.lineup, ...pick.bench]).not.toContain(p.pid);
-    club.tactics.lineup = { slots: [p.pid], bench: [] };
-    expect(currentSetup(club, players, fixture.date).slots).not.toContain(p.pid);
-    // Still visible in Tactics reserves so the UI can explain why he cannot play.
+    // The user's tactics keep him (T, 2026-10-25); a simulated match leaves him out.
+    club.tactics.lineup = { slots: [p.pid, ...pick.lineup.slice(1)], bench: [] };
+    expect(currentSetup(club, players, fixture.date).slots).toContain(p.pid);
+    const ctx = { date: fixture.date, importance: 1, nextImportance: 0 };
+    const simulated = pickMatchday(club, players, { ...ctx, preferred: club.tactics.lineup });
+    expect([...simulated.lineup, ...simulated.bench]).not.toContain(p.pid);
     expect(selectable(players, club.cid, fixture.date).some((x) => x.pid === p.pid)).toBe(true);
   });
   it("applies discipline through the shared sim/live finish path and marks absent players dirty", () => {
@@ -98,7 +101,7 @@ describe("domestic suspensions", () => {
       firstFid: 1,
     });
     const f = state.fixtures[0]!;
-    const runner = squadPlay(state, world.clubs, players);
+    const runner = squadPlay(state, world.clubs, players, null);
     const p = players.find((p) => p.cid === f.homeCid && p.status === "club")!;
     p.suspension = { remaining: 2, date: "2026-07-01" };
     const { home, away } = runner.prepare(f);

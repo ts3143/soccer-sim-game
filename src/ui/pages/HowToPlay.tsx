@@ -48,8 +48,9 @@ function Guide() {
             <b>Proceed to promotion and relegation</b>, then <b>Advance to preseason</b>.
           </li>
           <li>
-            Matches you don&apos;t watch are simulated. In those, the AI picks your line-up and
-            makes your substitutions, as it does for every club.
+            Matches you don&apos;t watch are simulated. In those, the AI starts from your saved
+            tactics: it rests tired players and replaces injured or suspended ones for that match
+            only, sets the sliders and makes your substitutions, as it does for every club.
           </li>
           <li>
             The <b>Inbox</b>, on the Dashboard, collects the board&apos;s messages, bids for your
@@ -74,7 +75,8 @@ function Guide() {
             <b>Tactics</b> holds your formation, who plays where, and three sliders: mentality,
             pressing and directness. The pitch and table show the same line-up: drag between slots,
             or select a player and then a destination to swap. Player profiles also map OVR at every
-            position. Your lineup and sliders apply to the matches you watch.
+            position. These are your tactics: only you change them. Every match starts from them,
+            watched or simulated.
           </li>
           <li>
             Players tire. Condition drops with every match and recovers with rest; below about 75%

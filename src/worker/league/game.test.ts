@@ -2,6 +2,7 @@ import { IDBFactory } from "fake-indexeddb";
 import "fake-indexeddb/auto";
 import { beforeAll, describe, expect, it } from "vitest";
 import type {
+  Club,
   ClubSeason,
   Fixture,
   GameMeta,
@@ -45,6 +46,7 @@ async function savedSeason(lid: number, season: number) {
 }
 
 let straight: Awaited<ReturnType<typeof savedSeason>>;
+let tacticsAtStart: Club["tactics"] | undefined;
 
 describe("the season loop in a save", () => {
   it("sets up a new league's first season in preseason", SLOW, async () => {
@@ -63,6 +65,10 @@ describe("the season loop in a save", () => {
     // League fixtures plus the first round of both cups.
     expect(session.cache.getAll("fixtures")).toHaveLength(380 + 552 + 306 + 12 + 2);
     expect(state.nextUserFixture?.date).toBe("2026-08-15");
+    // The user's tactics: the AI's pick, saved (T, 2026-10-25).
+    tacticsAtStart = session.cache.get("clubs", 0)?.tactics;
+    expect(tacticsAtStart?.lineup?.slots.every((pid) => pid !== null)).toBe(true);
+    expect(tacticsAtStart?.lineup?.bench).toHaveLength(9);
   });
 
   it("plays to the end of the season in one go and saves every result", SLOW, async () => {
@@ -70,6 +76,8 @@ describe("the season loop in a save", () => {
     const report = await play(session, "untilEndOfSeason");
     expect(report.phase).toBe("endOfSeason");
     expect(gameState(session).options).toEqual(["proceedToPromotionRelegation"]);
+    // A season of simulated matches leaves the user's tactics as they were.
+    expect(session.cache.get("clubs", 0)?.tactics).toEqual(tacticsAtStart);
     straight = await savedSeason(1, 2026);
     expect(straight.fixtures.every((f) => f.result !== null)).toBe(true);
     expect(straight.matches).toBe(straight.fixtures.length);
@@ -332,6 +340,10 @@ describe("the season loop in a save", () => {
       expect(after.fired).toBeNull();
       expect(after.options).toContain("untilNextMatch");
       expect((session.cache.get("meta", "game") as GameMeta).userCid).toBe(offer);
+      // His tactics at the new club start as the AI's pick.
+      const lineup = session.cache.get("clubs", offer)?.tactics.lineup;
+      expect(lineup?.slots.every((pid) => pid !== null)).toBe(true);
+      expect(lineup?.bench.length).toBeGreaterThan(0);
       const subjects = session.cache.getAll("inbox").map((m) => m.subject);
       expect(subjects).toContain("You have been sacked");
       expect(subjects.some((x) => x.startsWith("Welcome to"))).toBe(true);

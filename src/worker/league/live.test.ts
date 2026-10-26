@@ -401,7 +401,9 @@ describe("watching a match live", () => {
       const world = loopWorld(session, game.season);
       const fixture = season.fixtures.find((f) => f.homeCid === 0 || f.awayCid === 0);
       if (!fixture) throw new Error("no fixture");
-      const { home, away } = squadPlay(season, world.clubs, world.players).prepare(fixture);
+      const { home, away } = squadPlay(season, world.clubs, world.players, game.userCid).prepare(
+        fixture,
+      );
       const setup = fixtureSetup(season, fixture);
       let reasons: string[] = [];
       for (let i = 0; i < 60 && !reasons.includes("extraTimeBreak"); i++) {
