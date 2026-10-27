@@ -208,6 +208,11 @@ export interface Club {
    */
   ffp?: { warned: boolean; bannedUntil: string | null };
   /**
+   * A relegated club's grace under the soft cap (SPEC §17.7): it keeps `leagueId`'s cap
+   * through season `through`. Absent where there is no cap or no grace.
+   */
+  capGrace?: { leagueId: string; through: number } | null;
+  /**
    * The user's one budget control (SPEC §6.3): the share of the FFP headroom kept for
    * wages, the rest backing transfer fees. Absent: half each.
    */

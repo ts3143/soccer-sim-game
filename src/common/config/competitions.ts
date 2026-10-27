@@ -175,6 +175,14 @@ export interface SoftCapConfig {
   tierShare: Record<string, number>;
   /** Opening payrolls as a share of the club's cap. */
   openingPayroll: { min: number; max: number };
+  /** The wage of a free agent a club over the cap may still sign, euros a year. */
+  minimumWage: number;
+  /** Tax per euro of payroll above the cap at season end. */
+  luxuryTaxRate: number;
+  /** Over the cap, a trade may bring back at most this times the wages sent out. */
+  tradeMatching: number;
+  /** Seasons a relegated club keeps its old tier's cap. */
+  graceSeasons: number;
 }
 
 export interface CompetitionsConfig {
@@ -489,6 +497,10 @@ export function parseCompetitions(json: CompetitionsFile, file: string): Competi
           cap: json.softCap.cap,
           tierShare: json.softCap.tierShare,
           openingPayroll: json.softCap.openingPayroll,
+          minimumWage: json.softCap.minimumWage,
+          luxuryTaxRate: json.softCap.luxuryTaxRate,
+          tradeMatching: json.softCap.tradeMatching,
+          graceSeasons: json.softCap.graceSeasons,
         }
       : null,
     draft: json.draft ? parseDraft(json.draft, leagues, file) : null,

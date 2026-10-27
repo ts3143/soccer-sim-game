@@ -1817,6 +1817,12 @@ Plan (4 chunks): 1 one play-off format in config for every play-off, Classic's r
 - **Acceptance (MILESTONES SL2):** a 20-season headless run with 2 up and 2 down between every pair of tiers each season and nobody out of Blue (the report's gate); ENG2's play-offs give identical results to before (chunk 1: fingerprints, 20 seasons of `calibrate --world` print main's numbers).
 - **Checks:** lint; 377 unit tests (new: the free-agency top-up, the injured filling a team, the tier measures); `pnpm build`; `pnpm generate --check` for both worlds; `pnpm calibrate --check`; `pnpm calibrate --world --check` (main's numbers); `pnpm calibrate --world superLeague --check`; all 18 browser checks (416 passes).
 
+### SL3: Soft cap and finances (from 2026-10-27)
+Plan (3 chunks): 1 the cap's rules as tested functions, and the money proposal for T; 2 the rules in the season: the luxury tax and its sharing at season end, the grace season at relegation, FFP off, play-off prize money, no Youth dial spending; 3 over-cap rules for the AI's signings, opening payrolls on the approved cap, the harness reporting cap violations and tax.
+
+#### Chunk 1: the cap's rules (2026-10-27)
+- **Built** (`finance/softCap.ts`): `payroll` (wages under contract plus those still owed to released players until their old contracts end; no amortisation), `clubCap` (the tier's cap, or for a relegated club its old tier's through its grace: `Club.capGrace`, `relegationGrace`), `canSignFreeAgent` (over the cap only at the minimum wage), `tradeFits` (over the cap, back at most 125% of the wages sent out), `luxuryTax` (1.5 × the payroll above the cap) and `shareTax` (equal shares among the tier's clubs under the cap, whole euros). Config `softCap` gains `minimumWage`, `luxuryTaxRate`, `tradeMatching`, `graceSeasons`. Not yet applied by the season (chunk 2).
+
 ## Open issues
 - The UI bundle is past Vite's 500 KB chunk warning since SL1 (crests inlined): load crests as files, or split the bundle, if it matters.
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).
