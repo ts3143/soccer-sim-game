@@ -31,7 +31,7 @@ import type { MatchResult } from "../../common/match";
 import type { GameState, PlayOption, PlayReport } from "../../common/api";
 import { updateLeagueSummary } from "../db/globalDb";
 import { applyCapGrace } from "../finance/softCap";
-import { runDraft } from "../season/draft";
+import { makePicks, nextPick, setDraftOrder } from "../season/draft";
 import { seasonDate } from "../schedule/calendar";
 import {
   endOfSeasonTurnover,
@@ -39,6 +39,7 @@ import {
   type NewTransaction,
   seasonAwards,
   summerTransition,
+  type TurnoverLog,
 } from "../season/offseason";
 import { closeSeasonBooks, openSeasonBooks, settleMonths } from "../finance/finance";
 import { BOARD, jobOffers, preseasonBoard } from "../club/board";
@@ -133,6 +134,14 @@ export function savePicks(session: LeagueSession, world: LoopWorld): void {
   for (const p of picks) session.cache.put("draftPicks", p);
 }
 
+/** Saves what a draft step did: new and changed players, the picks, its transactions. */
+export function saveDraftLog(session: LeagueSession, world: LoopWorld, log: TurnoverLog): void {
+  for (const p of log.added) session.cache.put("players", p);
+  for (const p of world.players) if (log.changed.has(p.pid)) session.cache.put("players", p);
+  savePicks(session, world);
+  saveTransactions(session, log.transactions);
+}
+
 export function saveTransactions(session: LeagueSession, rows: readonly NewTransaction[]): void {
   const ids = { ...meta<IdCounters>(session, "ids") };
   for (const row of rows) session.cache.put("transactions", { xid: ids.xid++, ...row });
@@ -221,7 +230,12 @@ export function gameState(session: LeagueSession): GameState {
   } else if (game.phase === "endOfSeason" && !stored.movesApplied) {
     options.push("proceedToPromotionRelegation");
   } else if (game.phase === "endOfSeason" || offseasonPhase(game.phase)) {
-    options.push(nextOffseasonStage(session.config, game.phase)?.option ?? "advanceToPreseason");
+    const drafting = game.phase === "draft" ? draftOptions(session, game) : [];
+    options.push(
+      ...(drafting.length > 0
+        ? drafting
+        : [nextOffseasonStage(session.config, game.phase)?.option ?? "advanceToPreseason"]),
+    );
   } else {
     options.push("untilNextMatch");
     if (next) options.push("watchNextMatch");
@@ -492,6 +506,29 @@ function offseasonStages(config: WorldConfig): OffseasonStage[] {
   ];
 }
 
+/**
+ * The Play options while the draft is on (SPEC §17.5; none once it's over): "Until your
+ * pick" while the user's club has a pick to come and isn't on the clock, and "To the end
+ * of the draft", the AI picking for him too.
+ */
+function draftOptions(session: LeagueSession, game: GameMeta): PlayOption[] {
+  const picks = session.cache.getAll("draftPicks");
+  const next = nextPick(picks, game.season);
+  if (!next) return [];
+  const userLater =
+    next.cid !== game.userCid &&
+    picks.some((p) => p.season === game.season && p.pick !== undefined && p.cid === game.userCid);
+  return userLater ? ["untilYourPick", "untilEndOfDraft"] : ["untilEndOfDraft"];
+}
+
+/** Makes the draft's picks, the AI choosing, to the user's turn or the draft's end. */
+function draftPlay(session: LeagueSession, untilUser: boolean): PlayReport {
+  const game = meta<GameMeta>(session, "game");
+  const world = loopWorld(session, game.season);
+  saveDraftLog(session, world, makePicks(world, game.season, game.date, untilUser));
+  return { from: game.date, to: game.date, matchesPlayed: 0, events: [], phase: game.phase };
+}
+
 /** The stage after `phase` (from the end of the season), or null when preseason is next. */
 function nextOffseasonStage(config: WorldConfig, phase: Phase): OffseasonStage | null {
   const stages = offseasonStages(config);
@@ -500,9 +537,10 @@ function nextOffseasonStage(config: WorldConfig, phase: Phase): OffseasonStage |
 }
 
 /**
- * Moves to the next off-season stage. The draft is held on reaching it (its AI core: the
- * AI picks for every club, the user's too, for now); the lottery stage and the re-signing
- * period only set the date and phase for now.
+ * Moves to the next off-season stage. The lottery sets the draft's order (a save that
+ * reaches the draft without one gets it then); the draft's picks are made with the Play
+ * options of its phase (`draftOptions`). The re-signing period only sets the date and
+ * phase for now.
  */
 function toOffseasonStage(session: LeagueSession, option: PlayOption): PlayReport {
   const game = { ...meta<GameMeta>(session, "game") };
@@ -511,14 +549,13 @@ function toOffseasonStage(session: LeagueSession, option: PlayOption): PlayRepor
   const from = game.date;
   game.date = seasonDate(game.season, stage.date);
   game.phase = stage.phase;
-  if (stage.phase === "draft") {
+  const ordered = session.cache
+    .getAll("draftPicks")
+    .some((p) => p.season === game.season && p.pick !== undefined);
+  if (stage.phase === "draftLottery" || (stage.phase === "draft" && !ordered)) {
     const world = loopWorld(session, game.season);
     const outcome = seasonOutcome(loadSeason(session), session.config.competitions);
-    const drafted = runDraft(world, outcome, game.season, game.date);
-    for (const p of drafted.added) session.cache.put("players", p);
-    for (const p of world.players) if (drafted.changed.has(p.pid)) session.cache.put("players", p);
-    savePicks(session, world);
-    saveTransactions(session, drafted.transactions);
+    saveDraftLog(session, world, setDraftOrder(world, outcome, game.season, game.date));
   }
   session.cache.put("meta", game, "game");
   return { from, to: game.date, matchesPlayed: 0, events: [], phase: game.phase };
@@ -791,6 +828,10 @@ async function runPlay(session: LeagueSession, option: PlayOption): Promise<Play
     case "untilDraft":
     case "untilResigning":
       report = toOffseasonStage(session, option);
+      break;
+    case "untilYourPick":
+    case "untilEndOfDraft":
+      report = draftPlay(session, option === "untilYourPick");
       break;
     case "advanceToPreseason":
       report = await advanceToPreseason(session);

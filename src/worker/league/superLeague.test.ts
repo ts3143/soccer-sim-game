@@ -1,8 +1,11 @@
 import { IDBFactory } from "fake-indexeddb";
 import "fake-indexeddb/auto";
 import { beforeAll, describe, expect, it } from "vitest";
+import type { DraftProspectView, PlayOption } from "../../common/api";
 import type { GameMeta } from "../../common/schema";
 import { playoffId } from "../season/season";
+import { draftView } from "../views/draft";
+import { draftProspect } from "./draft";
 import { gameState, play } from "./game";
 import { createLeague, openLeague } from "./session";
 
@@ -53,18 +56,43 @@ describe("a Super League year in a save", () => {
   });
 
   it(
-    "then the draft lottery, the draft (held) and the re-signing period, to preseason",
+    "then the lottery, the draft pick by pick (the user's own pick too), re-signing, preseason",
     SLOW,
     async () => {
       const session = await openLeague(1);
       const steps: [string, string, string][] = [];
-      for (;;) {
-        const [option] = gameState(session).options;
-        if (!option) break;
+      const go = async (option: PlayOption) => {
+        expect(gameState(session).options).toContain(option);
         const report = await play(session, option);
         steps.push([option, report.to, report.phase]);
-        if (option === "advanceToPreseason") break;
+      };
+      await go("untilDraftLottery");
+      // The lottery set the order: 96 picks numbered, two of them Lyon's, one a round.
+      let board = draftView(session);
+      expect(board).toMatchObject({ season: 2026, status: "on", onTheClock: 1, yourTurn: false });
+      expect(board.slots.map((s) => s.pick)).toEqual(Array.from({ length: 96 }, (_, i) => i + 1));
+      const lyon = board.slots.filter((s) => s.club.cid === 39).map((s) => s.pick);
+      expect(lyon).toHaveLength(2);
+      expect(lyon[1]).toBe((lyon[0] ?? 0) + 48);
+      await go("untilDraft");
+      // AI clubs pick up to his turn; on the clock, he can only pick or let the AI finish.
+      if (lyon[0] !== 1) {
+        expect(gameState(session).options).toEqual(["untilYourPick", "untilEndOfDraft"]);
+        await play(session, "untilYourPick");
       }
+      board = draftView(session);
+      expect(board).toMatchObject({ yourTurn: true, onTheClock: lyon[0] });
+      expect(gameState(session).options).toEqual(["untilEndOfDraft"]);
+      const choice = board.prospects.at(-1) as DraftProspectView;
+      await draftProspect(session, choice.pid);
+      await expect(draftProspect(session, choice.pid)).rejects.toThrow("isn't your pick");
+      await play(session, "untilEndOfDraft");
+      board = draftView(session);
+      expect(board.status).toBe("over");
+      expect(board.slots.every((s) => s.player !== null)).toBe(true);
+      expect(board.slots.find((s) => s.pick === lyon[0])?.player?.pid).toBe(choice.pid);
+      await go("untilResigning");
+      await go("advanceToPreseason");
       expect(steps).toEqual([
         ["untilDraftLottery", "2027-06-05", "draftLottery"],
         ["untilDraft", "2027-06-15", "draft"],
@@ -73,7 +101,7 @@ describe("a Super League year in a save", () => {
       ]);
       expect((session.cache.get("meta", "game") as GameMeta).season).toBe(2027);
       expect(session.cache.getAll("players").some((p) => p.status === "academy")).toBe(false);
-      // The draft was held on reaching it: two rounds of 48, the user's club's picks too.
+      // Two rounds of 48, the user's club's two picks among them.
       await session.cache.flush();
       const saved = await session.db.getAllFromIndex("transactions", "season", 2026);
       const picks = saved.filter((t) => t.type === "draft");

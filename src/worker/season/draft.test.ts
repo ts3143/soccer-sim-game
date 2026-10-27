@@ -4,15 +4,20 @@ import { ageOn } from "../../common/dates";
 import { generateWorld } from "../generate/world";
 import { Random } from "../core/random";
 import {
+  availableProspects,
   draftClassTurnover,
   draftOrder,
+  draftPlayer,
   drawLottery,
   lotteryOddsNow,
+  makePicks,
   missingPicks,
+  nextPick,
   rookieWage,
   runDraft,
+  setDraftOrder,
 } from "./draft";
-import { type LoopWorld, startingReputation } from "./offseason";
+import { emptyLog, type LoopWorld, startingReputation } from "./offseason";
 import { fullStrengthPlay } from "./play";
 import { applyMoves, createSeason, playRest, seasonOutcome } from "./season";
 
@@ -142,8 +147,43 @@ describe("the draft", () => {
     expect(picks.every((p) => p.cid === p.originalCid)).toBe(true);
     // Only missing ones are made: a traded pick stays with its owner.
     const traded = picks.map((p) => (p.originalCid === 5 ? { ...p, cid: 6 } : p));
-    expect(missingPicks(draft, generated.clubs, traded, 2026)).toEqual([]);
-    expect(missingPicks(draft, generated.clubs, traded, 2027)).toHaveLength(96);
+    expect(missingPicks(draft, generated.clubs, traded, 2026, 2029)).toEqual([]);
+    expect(missingPicks(draft, generated.clubs, traded, 2027, 2030)).toHaveLength(96);
+  });
+
+  it("numbers the picks on the lottery's day, then picks to the user's turn", SLOW, () => {
+    const w = world(); // the user's club: 0
+    expect(setDraftOrder(w, outcome, 2026, "2027-06-05").added).toEqual([]);
+    const numbered = (w.draftPicks ?? []).filter((p) => p.season === 2026);
+    expect(numbered.map((p) => p.pick).sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual(
+      Array.from({ length: 96 }, (_, i) => i + 1),
+    );
+    const mine = numbered
+      .filter((p) => p.cid === 0)
+      .map((p) => p.pick ?? 0)
+      .sort((a, b) => a - b);
+    expect(mine).toHaveLength(2);
+    // The AI picks up to his turn, then stops.
+    makePicks(w, 2026, "2027-06-15", true);
+    const dp = nextPick(w.draftPicks ?? [], 2026);
+    expect(dp?.pick).toBe(mine[0]);
+    expect(w.players.filter((p) => p.draft?.season === 2026)).toHaveLength((mine[0] ?? 0) - 1);
+    // He picks the weakest prospect left (not the AI's choice); the AI finishes, his
+    // second pick too.
+    const left = availableProspects(w.players, 2026);
+    const weakest = left.reduce((a, b) => (b.ovr < a.ovr ? b : a));
+    if (dp) draftPlayer(w, dp, weakest, "2027-06-15", emptyLog());
+    expect(weakest.draft).toEqual({
+      season: 2026,
+      round: 1,
+      pick: mine[0],
+      cid: 0,
+      originalCid: 0,
+    });
+    makePicks(w, 2026, "2027-06-15", false);
+    expect(nextPick(w.draftPicks ?? [], 2026)).toBeNull();
+    expect(w.players.filter((p) => p.draft?.season === 2026)).toHaveLength(96);
+    expect(w.players.find((p) => p.draft?.pick === mine[1])?.cid).toBe(0);
   });
 
   it("gives a traded pick's owner the original club's slot, lottery included", SLOW, () => {

@@ -2,8 +2,9 @@
  * The draft (SPEC §17.5), its AI core: each June a class of prospects, the pick order from
  * the season's tables (the lottery first), and each slot's pick owner picking by value and
  * need, two rounds in the same order. Rookies sign rookie contracts; prospects nobody picks
- * become free agents. Picks are owned assets, made ahead and used up at the draft. The
- * user's own picks arrive later in SL4: until then the AI picks for the user too.
+ * become free agents. Picks are owned assets, made ahead, numbered by the lottery and used
+ * up at the draft. In a save the draft runs pick by pick: the user makes his own picks, or
+ * the AI makes them for him.
  */
 import type { DraftConfig } from "../../common/config/competitions";
 import type { WorldConfig } from "../../common/config/worlds";
@@ -97,19 +98,20 @@ export function rookieWage(draft: DraftConfig, pick: number): number {
 }
 
 /**
- * The picks missing for the drafts from `season`'s to `picksAhead` seasons after it: every
- * club's own, each round (a club's traded picks stay with their owner). Returns the new ones.
+ * The picks missing for the drafts of seasons `from` to `to`: every club's own, each round
+ * (a club's traded picks stay with their owner). Returns the new ones.
  */
 export function missingPicks(
   draft: DraftConfig,
   clubs: readonly Pick<Club, "cid">[],
   picks: readonly DraftPick[],
-  season: number,
+  from: number,
+  to: number,
 ): DraftPick[] {
   const key = (s: number, round: number, cid: number) => `${s}/${round}/${cid}`;
   const have = new Set(picks.map((p) => key(p.season, p.round, p.originalCid)));
   const added: DraftPick[] = [];
-  for (let s = season; s <= season + draft.picksAhead; s++) {
+  for (let s = from; s <= to; s++) {
     for (let round = 1; round <= draft.rounds; round++) {
       for (const { cid } of clubs) {
         if (!have.has(key(s, round, cid))) added.push({ season: s, round, originalCid: cid, cid });
@@ -195,13 +197,12 @@ export function draftClass(setup: ClassSetup, season: number, date: string): Pla
 }
 
 /**
- * Holds the draft of `season` (the season just played) on `date`: in `draftOrder`, each
- * slot's pick owner (the slot's club unless it traded the pick) picks the prospect it
- * values most, for each round; the season's picks are then used up. The prospects not
- * picked stay prospects until 1 July (`draftClassTurnover`). A world without a class yet
- * (none so far) gets one here. Logs the picked players and a transaction per pick.
+ * Sets the order of `season`'s draft (the season just played) on `date`, the lottery's
+ * day: the lottery is drawn and each of the season's picks gets its overall number, every
+ * round in `draftOrder` (a club missing its pick gets it). A world without a class yet
+ * (none so far) gets one here.
  */
-export function runDraft(
+export function setDraftOrder(
   world: LoopWorld,
   outcome: SeasonOutcome,
   season: number,
@@ -210,72 +211,153 @@ export function runDraft(
   const log = emptyLog();
   const draft = world.config.competitions.draft;
   if (!draft) return log;
-  const tiers = new Map(world.config.competitions.leagues.map((l) => [l.id, l.tier]));
-  const lottery = Random.fromSeed(`${world.seed}/lottery/${season}`);
-  const order = draftOrder(draft, outcome, tiers, lottery);
-  let prospects = world.players.filter((p) => p.status === "prospect" && p.draftSeason === season);
-  if (prospects.length === 0) {
-    prospects = draftClass(world, season, date);
+  if (!world.players.some((p) => p.status === "prospect" && p.draftSeason === season)) {
+    const prospects = draftClass(world, season, date);
     world.players.push(...prospects);
     log.added.push(...prospects);
   }
-  const available = new Set(prospects);
-  const { potWeight, needBonus, areaTargets } = draft.aiPick;
+  const tiers = new Map(world.config.competitions.leagues.map((l) => [l.id, l.tier]));
+  const lottery = Random.fromSeed(`${world.seed}/lottery/${season}`);
+  const order = draftOrder(draft, outcome, tiers, lottery);
   const picks = world.draftPicks ?? [];
-  const owner = (round: number, slot: number) =>
-    picks.find((p) => p.season === season && p.round === round && p.originalCid === slot)?.cid ??
-    slot;
+  world.draftPicks = [...picks, ...missingPicks(draft, world.clubs, picks, season, season)];
+  const slots = new Map(
+    world.draftPicks
+      .filter((p) => p.season === season)
+      .map((p) => [`${p.round}/${p.originalCid}`, p]),
+  );
   let pick = 0;
   for (let round = 1; round <= draft.rounds; round++) {
-    for (const slot of order) {
+    for (const cid of order) {
       pick++;
-      const cid = owner(round, slot);
-      const club = world.clubs.find((c) => c.cid === cid);
-      if (!club || available.size === 0) continue;
-      const have = { gk: 0, def: 0, mid: 0, att: 0 };
-      for (const p of world.players) {
-        if (p.cid === cid && p.status === "club") have[AREA[p.position]]++;
-      }
-      let best: Player | null = null;
-      let bestValue = -Infinity;
-      for (const p of available) {
-        const area = AREA[p.position];
-        const value =
-          (1 - potWeight) * p.ovr +
-          potWeight * p.pot +
-          needBonus * Math.max(0, areaTargets[area] - have[area]);
-        if (value > bestValue) {
-          best = p;
-          bestValue = value;
-        }
-      }
-      if (!best) continue;
-      available.delete(best);
-      best.status = "club";
-      best.cid = cid;
-      best.freeAgentSince = null;
-      best.contract = {
-        wage: rookieWage(draft, pick),
-        expires: `${season + 1 + draft.rookieContract.years}-06-30`,
-      };
-      best.shirtNumber = freeShirtNumber(world, cid, 30);
-      best.draft = { season, round, pick, cid };
-      delete best.draftSeason;
-      log.changed.add(best.pid);
-      best.transfers.push({ date, season, fromCid: null, toCid: cid, fee: 0, type: "draft" });
-      log.transactions.push({
-        season,
-        date,
-        type: "draft",
-        pids: [best.pid],
-        cids: [cid],
-        names: [fullName(best), club.name],
-        fee: 0,
-      });
+      const slot = slots.get(`${round}/${cid}`);
+      if (slot) slot.pick = pick;
     }
   }
-  world.draftPicks = picks.filter((p) => p.season !== season);
   return log;
+}
+
+/** The next pick of `season`'s draft, or null when the draft is over (or not yet ordered). */
+export function nextPick(picks: readonly DraftPick[], season: number): DraftPick | null {
+  let next: DraftPick | null = null;
+  for (const p of picks) {
+    if (p.season === season && p.pick !== undefined && (next?.pick ?? Infinity) > p.pick) next = p;
+  }
+  return next;
+}
+
+/** The prospects still there to pick in `season`'s draft. */
+export const availableProspects = (players: readonly Player[], season: number): Player[] =>
+  players.filter((p) => p.status === "prospect" && p.draftSeason === season);
+
+/** The prospect the AI picks for `cid`: by OVR and POT, plus a bonus for its needs. */
+export function aiDraftChoice(
+  draft: DraftConfig,
+  players: readonly Player[],
+  cid: number,
+  available: readonly Player[],
+): Player | null {
+  const { potWeight, needBonus, areaTargets } = draft.aiPick;
+  const have = { gk: 0, def: 0, mid: 0, att: 0 };
+  for (const p of players) {
+    if (p.cid === cid && p.status === "club") have[AREA[p.position]]++;
+  }
+  let best: Player | null = null;
+  let bestValue = -Infinity;
+  for (const p of available) {
+    const area = AREA[p.position];
+    const value =
+      (1 - potWeight) * p.ovr +
+      potWeight * p.pot +
+      needBonus * Math.max(0, areaTargets[area] - have[area]);
+    if (value > bestValue) {
+      best = p;
+      bestValue = value;
+    }
+  }
+  return best;
+}
+
+/**
+ * Makes pick `dp` on `date`: its owner signs `player` on a rookie contract for the pick's
+ * number (none: the pick passes). The pick is used up either way.
+ */
+export function draftPlayer(
+  world: LoopWorld,
+  dp: DraftPick,
+  player: Player | null,
+  date: string,
+  log: TurnoverLog,
+): void {
+  const draft = world.config.competitions.draft;
+  world.draftPicks = (world.draftPicks ?? []).filter((p) => p !== dp);
+  const club = world.clubs.find((c) => c.cid === dp.cid);
+  if (!draft || !player || !club || dp.pick === undefined) return;
+  const { season, round, pick, cid } = dp;
+  player.status = "club";
+  player.cid = cid;
+  player.freeAgentSince = null;
+  player.contract = {
+    wage: rookieWage(draft, pick),
+    expires: `${season + 1 + draft.rookieContract.years}-06-30`,
+  };
+  player.shirtNumber = freeShirtNumber(world, cid, 30);
+  player.draft = { season, round, pick, cid, originalCid: dp.originalCid };
+  delete player.draftSeason;
+  log.changed.add(player.pid);
+  player.transfers.push({ date, season, fromCid: null, toCid: cid, fee: 0, type: "draft" });
+  log.transactions.push({
+    season,
+    date,
+    type: "draft",
+    pids: [player.pid],
+    cids: [cid],
+    names: [fullName(player), club.name],
+    fee: 0,
+  });
+}
+
+/**
+ * Makes `season`'s picks in order on `date`, the AI choosing, until the draft is over, or
+ * with `untilUser` until the user's club is on the clock (ZenGM's "Until your pick").
+ */
+export function makePicks(
+  world: LoopWorld,
+  season: number,
+  date: string,
+  untilUser: boolean,
+  log: TurnoverLog = emptyLog(),
+): TurnoverLog {
+  const draft = world.config.competitions.draft;
+  if (!draft) return log;
+  for (;;) {
+    const dp = nextPick(world.draftPicks ?? [], season);
+    if (!dp || (untilUser && dp.cid === world.userCid)) break;
+    const choice = aiDraftChoice(
+      draft,
+      world.players,
+      dp.cid,
+      availableProspects(world.players, season),
+    );
+    draftPlayer(world, dp, choice, date, log);
+  }
+  return log;
+}
+
+/**
+ * Holds all of `season`'s draft (the season just played) on `date`, the AI picking for
+ * every club: its order, then every pick, each by the slot's pick owner (the slot's club
+ * unless it traded the pick). The prospects not picked stay prospects until 1 July
+ * (`draftClassTurnover`). Logs the picked players and a transaction per pick.
+ */
+export function runDraft(
+  world: LoopWorld,
+  outcome: SeasonOutcome,
+  season: number,
+  date: string,
+): TurnoverLog {
+  const log = setDraftOrder(world, outcome, season, date);
+  return makePicks(world, season, date, false, log);
 }
 
 /**
@@ -298,6 +380,9 @@ export function draftClassTurnover(world: LoopWorld, season: number, date: strin
   world.players.push(...next);
   log.added.push(...next);
   const picks = world.draftPicks ?? [];
-  world.draftPicks = [...picks, ...missingPicks(draft, world.clubs, picks, season)];
+  world.draftPicks = [
+    ...picks,
+    ...missingPicks(draft, world.clubs, picks, season, season + draft.picksAhead),
+  ];
   return log;
 }

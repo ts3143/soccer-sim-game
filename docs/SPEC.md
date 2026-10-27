@@ -515,9 +515,9 @@ A second world, picked at New game, inspired by the European Super League projec
 - **Picks 45–48:** the 4 promoted clubs, by the same rule.
 - **Picks are owned assets** and can be traded up to 3 seasons ahead (config): each club holds picks for the coming draft and the three after it, as ZenGM (a new world starts with them; the picks of the draft three seasons on are made on 1 July; the draft uses its picks up). A traded pick takes the slot of the club that originally owned it, lottery included. No pick protections.
 - **Rookie contracts:** 3 years, wage by pick number (config table), signable over the cap. Drafted players count toward the squad limit at once.
-- **Playing the draft:** Play menu "Until your pick" and "To the end of the draft", the second auto-picking for the user, as ZenGM. AI clubs pick by value with some weight on positional need.
+- **Playing the draft:** the lottery's day (Play "Until the draft lottery") draws the lottery and numbers every pick. From the draft's day, Play menu "Until your pick" (AI clubs pick until the user's club is on the clock) and "To the end of the draft", the second auto-picking for the user, as ZenGM. On the clock, the user picks a prospect (the Draft page, SL7) or plays to the end. The re-signing period follows once every pick is made. AI clubs pick by value with some weight on positional need.
 - **Standings** show a lottery-odds column: each club's current chance at pick 1 if the season ended today, blank outside the pool.
-- `[DEFAULT]` The player profile records where he was drafted (season, round, pick, club).
+- `[DEFAULT]` The player profile records where he was drafted (season, round, pick, club, and the club whose slot it was).
 
 ### 17.6 Player movement
 - **No transfer market and no loans.** Players move by trades, the draft and free agency.

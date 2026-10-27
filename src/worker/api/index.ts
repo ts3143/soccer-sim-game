@@ -38,6 +38,8 @@ import { fairTicketPrice, getAcademy, getClubFinances, getJobOffers } from "../v
 import { decideAcademyPlayer, setBudgetDials, setTicketPrice } from "../league/club";
 import { getTactics, previewTactics, saveTactics } from "../views/tactics";
 import { getCups, getSchedule, getStandings } from "../views/competitions";
+import { draftView } from "../views/draft";
+import { draftProspect } from "../league/draft";
 import { getDashboard, markAllInboxRead } from "../views/dashboard";
 import {
   getFinances,
@@ -247,6 +249,15 @@ export function createHandlers(
           ? watchNextMatch(session, "user", () => announce(session))
           : play(session, option, () => announce(session)),
       );
+    },
+    async getDraft(lid) {
+      return draftView(await openLeague(lid));
+    },
+    async draftProspect(lid, pid) {
+      return change(lid, async (session) => {
+        await draftProspect(session, pid);
+        return draftView(session);
+      });
     },
     async getLiveMatch(lid, from) {
       return getLive(await openLeague(lid), from);

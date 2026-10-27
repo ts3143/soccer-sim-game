@@ -57,6 +57,8 @@ export type PlayOption =
   | "proceedToPromotionRelegation"
   | "untilDraftLottery"
   | "untilDraft"
+  | "untilYourPick"
+  | "untilEndOfDraft"
   | "untilResigning"
   | "advanceToPreseason";
 
@@ -1175,6 +1177,43 @@ export interface OfferView {
   incoming: boolean;
 }
 
+/** A draft prospect, as the draft shows him. */
+export interface DraftProspectView {
+  pid: number;
+  name: string;
+  position: string;
+  age: number;
+  ovr: number;
+  pot: number;
+  nationality: string;
+}
+
+/** One slot of the draft: its owner (and the club whose slot it was, if traded). */
+export interface DraftSlotView {
+  pick: number;
+  round: number;
+  club: TeamRef;
+  from: TeamRef | null;
+  /** Who was picked; null while the pick is to come. */
+  player: DraftProspectView | null;
+}
+
+/**
+ * This season's draft (SPEC §17.5): before the lottery its class only; then its order,
+ * the picks made and to come, and who is on the clock.
+ */
+export interface DraftView {
+  season: number;
+  status: "notOrdered" | "on" | "over";
+  userCid: number;
+  /** The pick being made, and whether it's the user's club's. */
+  onTheClock: number | null;
+  yourTurn: boolean;
+  slots: DraftSlotView[];
+  /** The prospects still there, the best (OVR) first. */
+  prospects: DraftProspectView[];
+}
+
 export interface WorkerApi {
   getStatus(): WorkerStatus;
   listLeagues(): LeagueSummary[];
@@ -1261,6 +1300,9 @@ export interface WorkerApi {
   getSchedule(lid: number, week: string | null): ScheduleView;
   markAllInboxRead(lid: number): void;
   playGame(lid: number, option: PlayOption): PlayReport;
+  getDraft(lid: number): DraftView;
+  /** The user's club picks `pid` when it's on the clock in the draft. */
+  draftProspect(lid: number, pid: number): DraftView;
   acceptJobOffer(lid: number, cid: number): GameState;
   markInboxRead(lid: number, mid: number): void;
   getContractTalks(lid: number, pid: number): ContractTalks;

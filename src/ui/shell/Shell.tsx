@@ -31,6 +31,8 @@ export const PLAY_LABELS: Record<PlayOption, string> = {
   proceedToPromotionRelegation: "Proceed to promotion and relegation",
   untilDraftLottery: "Until the draft lottery",
   untilDraft: "Until the draft",
+  untilYourPick: "Until your pick",
+  untilEndOfDraft: "To the end of the draft",
   untilResigning: "Until the re-signing period",
   advanceToPreseason: "Advance to preseason",
 };

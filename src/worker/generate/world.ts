@@ -309,7 +309,9 @@ export function generateWorld(options: WorldOptions): World {
     clubs,
     clubSeasons,
     players,
-    draftPicks: competitions.draft ? missingPicks(competitions.draft, clubs, [], season) : [],
+    draftPicks: competitions.draft
+      ? missingPicks(competitions.draft, clubs, [], season, season + competitions.draft.picksAhead)
+      : [],
     xiStrength,
   };
 }

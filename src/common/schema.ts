@@ -405,8 +405,11 @@ export interface Player {
   listed?: { asking: number; date: string };
   /** A prospect's class: the season whose draft he is in (SPEC §17.5). */
   draftSeason?: number;
-  /** Where he was drafted (SPEC §17.5): the season of the draft, round, overall pick, club. */
-  draft?: { season: number; round: number; pick: number; cid: number };
+  /**
+   * Where he was drafted (SPEC §17.5): the season of the draft, round, overall pick, the
+   * club that picked him and the club whose slot it was (absent in older saves).
+   */
+  draft?: { season: number; round: number; pick: number; cid: number; originalCid?: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -536,6 +539,8 @@ export interface DraftPick {
   originalCid: number;
   /** Its owner now. */
   cid: number;
+  /** Its overall number in the draft, once the lottery has set the order. */
+  pick?: number;
 }
 
 export interface TransactionRow {
