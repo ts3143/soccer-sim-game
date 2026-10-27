@@ -24,9 +24,10 @@ describe("a Super League year in a save", () => {
     const session = await openLeague(league.lid);
     const before = new Map(session.cache.getAll("clubs").map((c) => [c.cid, c.leagueId]));
     await play(session, "untilEndOfSeason");
-    // The draft class has been there all season, and didn't develop (the 1 January update).
+    // Three draft classes have been there all season; prospects grow only in the summer
+    // update, not on 1 January (T, 2026-10-27).
     const prospects = session.cache.getAll("players").filter((p) => p.status === "prospect");
-    expect(prospects).toHaveLength(110);
+    expect(prospects).toHaveLength(330);
     expect(prospects.every((p) => p.ratingsHistory.length === 1)).toBe(true);
     expect(gameState(session)).toMatchObject({
       phase: "endOfSeason",
@@ -79,6 +80,12 @@ describe("a Super League year in a save", () => {
       expect(picks).toHaveLength(96);
       const rookies = session.cache.getAll("players").filter((p) => p.draft?.season === 2026);
       expect(rookies.filter((p) => p.cid === 39)).toHaveLength(2);
+      // Preseason 2027: the waiting classes had their summer update; the new one arrived.
+      const waiting = session.cache.getAll("players").filter((p) => p.status === "prospect");
+      const of = (s: number) => waiting.filter((p) => p.draftSeason === s);
+      expect([of(2027).length, of(2028).length, of(2029).length]).toEqual([110, 110, 110]);
+      expect(of(2027).every((p) => p.ratingsHistory.length === 2)).toBe(true);
+      expect(of(2029).every((p) => p.ratingsHistory.length === 1)).toBe(true);
     },
   );
 });

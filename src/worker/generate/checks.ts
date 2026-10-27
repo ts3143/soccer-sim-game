@@ -139,10 +139,10 @@ export function evaluateWorld(
     ...(competitions.draft
       ? [
           {
-            name: `a draft class of ${competitions.draft.classSize} prospects`,
+            name: `${competitions.draft.classesAhead + 1} draft classes of ${competitions.draft.classSize} prospects`,
             pass:
               world.players.filter((p) => p.status === "prospect").length ===
-              competitions.draft.classSize,
+              (competitions.draft.classesAhead + 1) * competitions.draft.classSize,
             detail: `${world.players.filter((p) => p.status === "prospect").length}`,
           },
         ]

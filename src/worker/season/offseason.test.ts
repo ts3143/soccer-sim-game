@@ -214,13 +214,15 @@ describe("preseason", () => {
       seed: SEED,
       nextPid: () => pid++,
     };
-    const before = loop.players.filter((p) => p.status === "prospect");
+    const lastJune = loop.players.filter((p) => p.draftSeason === 2026);
     const log = preseasonTurnover(loop, 2027, "2027-07-01");
     expect(loop.players.some((p) => p.status === "academy")).toBe(false);
-    // Instead of youths, the next draft's class; last year's undrafted are free agents.
+    // Instead of youths, the class two drafts on; last June's undrafted are free agents.
     expect(log.added).toHaveLength(110);
-    expect(log.added.every((p) => p.status === "prospect" && p.cid === null)).toBe(true);
-    expect(before.every((p) => p.status !== "prospect")).toBe(true);
+    expect(log.added.every((p) => p.status === "prospect" && p.draftSeason === 2029)).toBe(true);
+    // Free agents now; the same summer's free agency may already have signed some.
+    expect(lastJune.every((p) => p.status === "freeAgent" || p.status === "club")).toBe(true);
+    expect(lastJune.some((p) => p.status === "freeAgent")).toBe(true);
   });
 
   it("tops AI squads up to 22 from free agents where players move by trades", () => {

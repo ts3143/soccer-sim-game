@@ -260,8 +260,8 @@ export function developmentUpdate(
     return v;
   };
   for (const p of world.players) {
-    // Prospects don't develop before the draft (SPEC §17.5).
-    if (p.status === "retired" || p.status === "prospect") continue;
+    // Prospects develop each summer while they wait for their draft (T, 2026-10-27).
+    if (p.status === "retired" || (p.status === "prospect" && !summer)) continue;
     const ctx = p.cid === null ? undefined : contexts.get(p.cid);
     const club = ctx?.club;
     const tally = p.devTally ?? { minutes: 0, appearances: 0, ratingTotal: 0, seasonMinutes: 0 };

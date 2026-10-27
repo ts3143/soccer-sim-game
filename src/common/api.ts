@@ -93,6 +93,11 @@ export interface StandingsRow extends TableRowView {
   /** "W-D-L" at home and away. */
   home: string | null;
   away: string | null;
+  /**
+   * In a world with a draft, the live table's chance at the first pick (%) if the season
+   * ended today (SPEC §17.5); null outside the lottery pool; absent otherwise.
+   */
+  lotteryOdds?: number | null;
 }
 
 export interface StandingsView {

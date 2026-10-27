@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 import { worlds } from "../../common/config/worlds";
 import { ageOn } from "../../common/dates";
 import { generateWorld } from "../generate/world";
-import { draftOrder, rookieWage, runDraft } from "./draft";
+import { Random } from "../core/random";
+import {
+  draftClassTurnover,
+  draftOrder,
+  drawLottery,
+  lotteryOddsNow,
+  rookieWage,
+  runDraft,
+} from "./draft";
 import { type LoopWorld, startingReputation } from "./offseason";
 import { fullStrengthPlay } from "./play";
 import { applyMoves, createSeason, playRest, seasonOutcome } from "./season";
@@ -78,6 +86,53 @@ describe("the draft", () => {
     expect(middle.at(-1)).toBe(at("STAR", 1));
   });
 
+  it("draws the lottery to the config's odds over many draws", () => {
+    const odds = draft.lotteryPool.map((s) => s.odds);
+    const rng = Random.fromSeed("lottery-test");
+    const firsts = odds.map(() => 0);
+    const N = 50_000;
+    for (let i = 0; i < N; i++) {
+      const order = drawLottery(odds, draft.lotteryPicks, rng);
+      expect(new Set(order).size).toBe(8);
+      // Picks 5–8: the clubs not drawn, in odds order.
+      const rest = order.slice(draft.lotteryPicks);
+      expect(rest).toEqual([...rest].sort((a, b) => a - b));
+      firsts[order[0] as number] = (firsts[order[0] as number] ?? 0) + 1;
+    }
+    const total = odds.reduce((a, b) => a + b, 0);
+    odds.forEach((o, i) => {
+      expect(Math.abs((firsts[i] ?? 0) / N - o / total)).toBeLessThan(0.01);
+    });
+  });
+
+  it("draws the pool's first picks in a draft and shows today's odds", SLOW, () => {
+    const order = draftOrder(draft, outcome, tiers, Random.fromSeed("order-test"));
+    const pool = draftOrder(draft, outcome, tiers).slice(0, 8);
+    expect(new Set(order.slice(0, 8))).toEqual(new Set(pool));
+    expect(order.slice(8)).toEqual(draftOrder(draft, outcome, tiers).slice(8));
+    const tables = Object.fromEntries(
+      Object.entries(outcome.tables).map(([id, rows]) => [id, rows.map((r) => r.cid)]),
+    );
+    const odds = lotteryOddsNow(draft, tables);
+    expect(odds.size).toBe(8);
+    expect(odds.get(at("BLUE", 16))).toBe(20);
+    expect(odds.get(at("STAR", 15))).toBe(7);
+    expect(odds.get(at("BLUE", 12))).toBeUndefined();
+  });
+
+  it("on 1 July frees last June's undrafted and brings the class two seasons on", SLOW, () => {
+    const w = world();
+    runDraft(w, outcome, 2026, "2027-06-15");
+    const log = draftClassTurnover(w, 2027, "2027-07-01");
+    expect(log.added).toHaveLength(110);
+    expect(log.added.every((p) => p.draftSeason === 2029 && p.status === "prospect")).toBe(true);
+    expect(w.players.filter((p) => p.draftSeason === 2026)).toEqual([]);
+    expect(log.changed.size).toBe(14);
+    for (const s of [2027, 2028, 2029]) {
+      expect(w.players.filter((p) => p.draftSeason === s)).toHaveLength(110);
+    }
+  });
+
   it("pays rookies by pick, interpolating the config's points", () => {
     expect(rookieWage(draft, 1)).toBe(2_500_000);
     expect(rookieWage(draft, 48)).toBe(800_000);
@@ -95,10 +150,16 @@ describe("the draft", () => {
     expect(rookies).toHaveLength(96);
     expect(rookies.every((p) => p.status === "club")).toBe(true);
     for (const club of w.clubs) expect(rookies.filter((p) => p.cid === club.cid)).toHaveLength(2);
-    expect(w.players.filter((p) => p.status === "prospect")).toHaveLength(14);
+    expect(w.players.filter((p) => p.draftSeason === 2026)).toHaveLength(14);
+    // The next two seasons' classes wait for their drafts.
+    expect(w.players.filter((p) => p.draftSeason === 2027)).toHaveLength(110);
+    expect(w.players.filter((p) => p.draftSeason === 2028)).toHaveLength(110);
     expect(rookies.every((p) => p.contract?.expires === "2030-06-30")).toBe(true);
     const first = rookies.find((p) => p.draft?.pick === 1);
-    expect(first?.draft).toEqual({ season: 2026, round: 1, pick: 1, cid: at("BLUE", 16) });
+    // Pick 1 went to a club of the lottery pool.
+    const pool = draftOrder(draft, outcome, tiers).slice(0, 8);
+    expect(first?.draft).toMatchObject({ season: 2026, round: 1, pick: 1 });
+    expect(pool).toContain(first?.draft?.cid);
     expect(first?.contract?.wage).toBe(2_500_000);
     expect(log.transactions.filter((t) => t.type === "draft")).toHaveLength(96);
     const ages = rookies.map((p) => ageOn(p.birthDate, "2027-06-15"));

@@ -91,6 +91,19 @@ export function Standings({ params }: { params: string[] }) {
                 align: "end",
               },
               { key: "pts", label: "Pts", title: "Points", value: (r) => r.points, align: "end" },
+              ...(view.rows.some((r) => r.lotteryOdds !== undefined)
+                ? [
+                    {
+                      key: "lottery",
+                      label: "Lottery",
+                      title: "Chance at the first draft pick if the season ended today",
+                      value: (r: StandingsRow) => r.lotteryOdds ?? -1,
+                      render: (r: StandingsRow) =>
+                        r.lotteryOdds != null ? `${r.lotteryOdds}%` : "",
+                      align: "end" as const,
+                    },
+                  ]
+                : []),
               ...(live
                 ? [
                     {

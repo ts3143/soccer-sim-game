@@ -146,6 +146,10 @@ export interface RosterRules {
 export interface DraftConfig {
   rounds: number;
   classSize: number;
+  /** A class appears on 1 July this many seasons before its draft (so 1 + this are visible). */
+  classesAhead: number;
+  /** Picks drawn by lottery from the pool; the rest of the pool follows in odds order. */
+  lotteryPicks: number;
   /** Prospects' ages at the draft. */
   ages: { min: number; max: number };
   /** Target OVR: mean + perYear × (age − ages.min) + noise (sd), clamped to [min, max]. */
@@ -157,9 +161,11 @@ export interface DraftConfig {
     max: number;
     /** Extra ceiling per standard deviation above the mean, as for academy players. */
     talentHeadroom: number;
+    /** Expected OVR growth a summer: a class generated ahead starts lower by this a summer. */
+    growthPerYear: number;
   };
-  /** The lottery pool's table places, best odds first. */
-  lotteryPool: { league: string; position: number }[];
+  /** The lottery pool's table places, best odds first, with each one's chance at pick 1 (%). */
+  lotteryPool: { league: string; position: number; odds: number }[];
   /** Rookie contracts: years, and wage by pick ([pick, euros] points, interpolated). */
   rookieContract: { years: number; wageByPick: [number, number][] };
   /**
@@ -405,6 +411,8 @@ function parseDraft(
   return {
     rounds: json.rounds,
     classSize: json.classSize,
+    classesAhead: json.classesAhead,
+    lotteryPicks: json.lotteryPicks,
     ages: json.ages,
     prospectQuality: json.prospectQuality,
     lotteryPool: json.lotteryPool,

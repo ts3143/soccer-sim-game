@@ -508,8 +508,8 @@ A second world, picked at New game, inspired by the European Super League projec
 
 ### 17.5 Draft
 - **Two rounds** (config), mid-June, 48 picks a round. Draft prospects are aged 17–19.
-- `[DEFAULT]` **The class:** about 110 prospects (config), generated on 1 July for the next June's draft and viewable all season. Prospects don't develop before the draft. Undrafted prospects join free agency on 1 July.
-- **Lottery pool of 8:** the 4 relegated clubs and the bottom 4 of Blue. Odds come from a config table: the worst Blue clubs get the best odds, relegated clubs mid odds. The lottery draws picks 1–4 (config); the other 4 clubs of the pool follow the odds order.
+- **The classes** (T, 2026-10-27): about 110 prospects each (config). **Three classes are always visible:** each appears on 1 July two seasons before its draft (a new world starts with three). Prospects develop each summer while they wait (no minutes, so at a benched player's rate); a class is generated weaker by the growth to come, so it reaches the intended level at its draft. Undrafted prospects join free agency on 1 July.
+- **Lottery pool of 8:** the 4 relegated clubs and the bottom 4 of Blue. Odds come from a config table: the worst Blue clubs get the best odds, relegated clubs mid odds. The lottery draws picks 1–4 (config); the other 4 clubs of the pool follow the odds order. **Odds** (chance at pick 1; T, 2026-10-27): Blue 16th 20%, 15th 17%, 14th 15%, 13th 13%; Gold's relegated 11% and 9%; Star's relegated 8% and 7%. So Blue's last club gets a top-4 pick 69% of the time (average pick 3.2), Star's 15th 33% (average 6.3).
 - **Picks 9–44:** reverse combined standings: by the tier played this season, then by table points (Star by its table, not the play-off result), with the table tie-breakers.
 - **Picks 45–48:** the 4 promoted clubs, by the same rule.
 - **Picks are owned assets** and can be traded up to 3 seasons ahead (config). A traded pick takes the slot of the club that originally owned it, lottery included. No pick protections.

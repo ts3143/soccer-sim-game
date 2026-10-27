@@ -155,7 +155,7 @@ All in SPEC §17 and design doc #79–#83.
 **Super League defaults** (marked `[DEFAULT]` in SPEC §17; build them unless T changes them):
 1. Existing Classic saves keep their old club names; only new saves get T's names.
 2. With fewer than 16 fit players the bench is shorter; if fewer than 11 can play, the shortest injuries fill in (never suspended players).
-3. The draft class is generated on 1 July, viewable all season; prospects don't develop before the draft.
+3. ~~The draft class is generated on 1 July, viewable all season; prospects don't develop before the draft.~~ Replaced by T (2026-10-27): three classes visible, each from 1 July two seasons before its draft; prospects develop each summer (SPEC §17.5).
 4. The luxury tax is shared equally among that tier's clubs under the cap (ZenGM).
 5. Play-off prize money per round in config.
 6. The player profile records where he was drafted.

@@ -113,20 +113,22 @@
     "_rulesNote": "Over the cap a club may re-sign its own players, sign its draft picks, sign free agents only at minimumWage, and trade if the wages it takes back are at most tradeMatching x those it sends out. Luxury tax: luxuryTaxRate x the payroll above the cap at season end, shared equally among the tier's clubs under the cap. A relegated club keeps its old tier's cap for graceSeasons. AI re-signings price wages and budget as if the club's revenue were its cap / aiWageRatio, the wage ratio the cap was set for (T, 2026-10-27), so payrolls stay near the cap."
   },
   "draft": {
-    "_note": "The draft (SPEC §17.5). SL2 builds its AI core: no lottery draw yet (the pool picks in odds order) and the AI makes the user's picks too, until SL4. Order, the same each round: the lottery pool, best odds first (the 4 worst Blue clubs, then the 4 relegated); then the other clubs in reverse combined standings (Blue, Gold, Star, each from the bottom of its table); the 4 promoted clubs last, by the same rule. Prospect quality: mean + perYear x (age - youngest) + noise, clamped. AI picks: OVR and POT (potWeight on POT), plus needBonus per player the club is short of areaTargets in the prospect's area. Rookie wages by pick, interpolated. First values, tuned in SL4 and SL6.",
+    "_note": "The draft (SPEC §17.5). Three classes are visible (T, 2026-10-27): each appears on 1 July classesAhead seasons before its draft and develops each summer (no minutes); it is generated weaker by growthPerYear a summer still to come, so it reaches the target at the draft. The lottery (odds: chance at pick 1, %, T 2026-10-27) draws lotteryPicks picks; the rest of the pool follows in odds order. Order, the same each round: the lottery pool (the 4 worst Blue clubs, then the 4 relegated); then the other clubs in reverse combined standings (Blue, Gold, Star, each from the bottom of its table); the 4 promoted clubs last, by the same rule. Prospect quality: mean + perYear x (age - youngest) + noise, clamped. AI picks: OVR and POT (potWeight on POT), plus needBonus per player the club is short of areaTargets in the prospect's area. Rookie wages by pick, interpolated. First values, tuned in SL4 and SL6.",
     "rounds": 2,
     "classSize": 110,
+    "classesAhead": 2,
     "ages": { "min": 17, "max": 19 },
-    "prospectQuality": { "mean": 50, "perYear": 3, "sd": 6, "min": 38, "max": 66, "talentHeadroom": 2 },
+    "prospectQuality": { "mean": 50, "perYear": 3, "sd": 6, "min": 38, "max": 66, "talentHeadroom": 2, "growthPerYear": 1 },
+    "lotteryPicks": 4,
     "lotteryPool": [
-      { "league": "BLUE", "position": 16 },
-      { "league": "BLUE", "position": 15 },
-      { "league": "BLUE", "position": 14 },
-      { "league": "BLUE", "position": 13 },
-      { "league": "GOLD", "position": 16 },
-      { "league": "GOLD", "position": 15 },
-      { "league": "STAR", "position": 16 },
-      { "league": "STAR", "position": 15 }
+      { "league": "BLUE", "position": 16, "odds": 20 },
+      { "league": "BLUE", "position": 15, "odds": 17 },
+      { "league": "BLUE", "position": 14, "odds": 15 },
+      { "league": "BLUE", "position": 13, "odds": 13 },
+      { "league": "GOLD", "position": 16, "odds": 11 },
+      { "league": "GOLD", "position": 15, "odds": 9 },
+      { "league": "STAR", "position": 16, "odds": 8 },
+      { "league": "STAR", "position": 15, "odds": 7 }
     ],
     "rookieContract": { "years": 3, "wageByPick": [[1, 2500000], [48, 800000], [96, 400000]] },
     "aiPick": {

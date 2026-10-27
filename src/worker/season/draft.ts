@@ -29,20 +29,45 @@ import type { SeasonOutcome } from "./season";
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 
 /**
- * One round's pick order (every round alike), first pick first: the lottery pool in odds
- * order; the other clubs in reverse combined standings (the lowest tier first, each from
- * the bottom of its table); the promoted clubs last, by the same rule.
+ * The lottery: `picks` draws, each weighted by the odds of the clubs not yet drawn; the
+ * rest follow in odds order. `odds` are best first; returns their indices in pick order.
+ */
+export function drawLottery(odds: readonly number[], picks: number, rng: Random): number[] {
+  const left = odds.map((_, i) => i);
+  const order: number[] = [];
+  for (let k = 0; k < picks && left.length > 0; k++) {
+    const i = rng.weighted(left, (j) => odds[j] ?? 0);
+    order.push(i);
+    left.splice(left.indexOf(i), 1);
+  }
+  return [...order, ...left];
+}
+
+/**
+ * One round's pick order (every round alike), first pick first: the lottery pool (drawn
+ * with `rng`, or in odds order without one); the other clubs in reverse combined
+ * standings (the lowest tier first, each from the bottom of its table); the promoted clubs
+ * last, by the same rule.
  */
 export function draftOrder(
   draft: DraftConfig,
   outcome: SeasonOutcome,
   tiers: ReadonlyMap<string, number>,
+  rng: Random | null = null,
 ): number[] {
-  const pool = draft.lotteryPool.map((slot) => {
+  const slots = draft.lotteryPool.map((slot) => {
     const cid = outcome.tables[slot.league]?.[slot.position - 1]?.cid;
     if (cid === undefined) throw new Error(`No ${slot.league} ${slot.position} for the draft`);
     return cid;
   });
+  const drawn = rng
+    ? drawLottery(
+        draft.lotteryPool.map((s) => s.odds),
+        draft.lotteryPicks,
+        rng,
+      )
+    : slots.map((_, i) => i);
+  const pool = drawn.map((i) => slots[i] as number);
   const inPool = new Set(pool);
   const promoted = new Set(outcome.moves.filter((m) => m.reason !== "relegated").map((m) => m.cid));
   const rows = Object.entries(outcome.tables).flatMap(([league, table]) =>
@@ -79,8 +104,25 @@ export interface ClassSetup {
 }
 
 /**
- * The class of `season`'s draft (held the next June), generated on `date` (1 July): aged
- * per the config at the draft, prospects until then, viewable all season (SPEC §17.5).
+ * Each club's chance at pick 1 (%) if the season ended with these tables (the Standings'
+ * lottery column, SPEC §17.5): the pool's places and their odds; no entry outside the pool.
+ */
+export function lotteryOddsNow(
+  draft: DraftConfig,
+  tables: Readonly<Record<string, readonly number[]>>,
+): Map<number, number> {
+  const odds = new Map<number, number>();
+  for (const slot of draft.lotteryPool) {
+    const cid = tables[slot.league]?.[slot.position - 1];
+    if (cid !== undefined) odds.set(cid, slot.odds);
+  }
+  return odds;
+}
+
+/**
+ * The class of `season`'s draft (held the next June), generated on `date` (1 July of a
+ * season up to `classesAhead` before): aged per the config at the draft, prospects until
+ * then (SPEC §17.5). Generated weaker by the growth expected in the summers to come.
  */
 export function draftClass(setup: ClassSetup, season: number, date: string): Player[] {
   const draft = setup.config.competitions.draft;
@@ -89,6 +131,7 @@ export function draftClass(setup: ClassSetup, season: number, date: string): Pla
   const rng = Random.fromSeed(`${setup.seed}/draft/${season}`);
   const q = draft.prospectQuality;
   const mix = worldMix(setup.config);
+  const summersLeft = season - Number(date.slice(0, 4));
   return Array.from({ length: draft.classSize }, () => {
     const position = rng.weighted(ACADEMY_POSITIONS, ([, w]) => w)[0];
     const side: Side = ratingsConfig.sidedPositions.includes(position)
@@ -96,11 +139,9 @@ export function draftClass(setup: ClassSetup, season: number, date: string): Pla
       : "C";
     const age = rng.int(draft.ages.min, draft.ages.max);
     const talent = rng.normal(0, 1);
-    const quality = clamp(
-      q.mean + q.perYear * (age - draft.ages.min) + talent * q.sd,
-      q.min,
-      q.max,
-    );
+    const quality =
+      clamp(q.mean + q.perYear * (age - draft.ages.min) + talent * q.sd, q.min, q.max) -
+      q.growthPerYear * summersLeft;
     const player = generatePlayer(
       rng,
       {
@@ -120,6 +161,7 @@ export function draftClass(setup: ClassSetup, season: number, date: string): Pla
     // Born for his age at the draft; his ratings are today's.
     const first = player.ratingsHistory[0];
     if (first) first.date = date;
+    player.draftSeason = season;
     player.hidden.ceiling = capCeiling(
       player.hidden.ceiling + talent * q.talentHeadroom,
       player.ovr,
@@ -145,8 +187,9 @@ export function runDraft(
   const draft = world.config.competitions.draft;
   if (!draft) return log;
   const tiers = new Map(world.config.competitions.leagues.map((l) => [l.id, l.tier]));
-  const order = draftOrder(draft, outcome, tiers);
-  let prospects = world.players.filter((p) => p.status === "prospect");
+  const lottery = Random.fromSeed(`${world.seed}/lottery/${season}`);
+  const order = draftOrder(draft, outcome, tiers, lottery);
+  let prospects = world.players.filter((p) => p.status === "prospect" && p.draftSeason === season);
   if (prospects.length === 0) {
     prospects = draftClass(world, season, date);
     world.players.push(...prospects);
@@ -188,6 +231,7 @@ export function runDraft(
       };
       best.shirtNumber = freeShirtNumber(world, cid, 30);
       best.draft = { season, round, pick, cid };
+      delete best.draftSeason;
       log.changed.add(best.pid);
       best.transfers.push({ date, season, fromCid: null, toCid: cid, fee: 0, type: "draft" });
       log.transactions.push({
@@ -205,18 +249,21 @@ export function runDraft(
 }
 
 /**
- * 1 July in a world with a draft: the prospects nobody picked join free agency, and the
- * class of this season's draft (next June) is generated.
+ * 1 July in a world with a draft: the prospects nobody picked in June join free agency, and
+ * the class of the draft `classesAhead` seasons on arrives (three visible, T 2026-10-27).
  */
 export function draftClassTurnover(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
+  const draft = world.config.competitions.draft;
+  if (!draft) return log;
   for (const p of world.players) {
-    if (p.status !== "prospect") continue;
+    if (p.status !== "prospect" || (p.draftSeason ?? season) >= season) continue;
     p.status = "freeAgent";
     p.freeAgentSince = date;
+    delete p.draftSeason;
     log.changed.add(p.pid);
   }
-  const next = draftClass(world, season, date);
+  const next = draftClass(world, season + draft.classesAhead, date);
   world.players.push(...next);
   log.added.push(...next);
   return log;

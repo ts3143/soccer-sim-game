@@ -230,10 +230,12 @@ export function generateWorld(options: WorldOptions): World {
   });
 
   players.push(...generateFreeAgents(root.fork("freeAgents"), season, seasonStart, nextPid, mix));
-  // A world with a draft starts with the class of its first draft (SPEC §17.5).
-  players.push(
-    ...draftClass({ config: options.config, seed: options.seed, nextPid }, season, seasonStart),
-  );
+  // A world with a draft starts with its first drafts' classes (SPEC §17.5: three visible).
+  const ahead = competitions.draft?.classesAhead ?? -1;
+  const classSetup = { config: options.config, seed: options.seed, nextPid };
+  for (let s = season; s <= season + ahead; s++) {
+    players.push(...draftClass(classSetup, s, seasonStart));
+  }
   // Academies release their 18-year-olds into free agency; a world without them doesn't.
   if (academies) {
     players.push(

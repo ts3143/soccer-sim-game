@@ -28,6 +28,7 @@ import {
   teamRef,
 } from "./common";
 import { GameError } from "../../common/errors";
+import { lotteryOddsNow } from "../season/draft";
 
 const ZONE_LABELS: Record<Exclude<TableZone, null>, string> = {
   champions: "Champions",
@@ -73,11 +74,20 @@ export async function getStandings(
   if (s === game.season) {
     const fixtures = seasonFixtures(session, s);
     const own = fixtures.filter((f) => f.competition === id);
-    rows = (leagueTables(session, fixtures).find((t) => t.id === id)?.rows ?? []).map((r) => ({
+    const tables = leagueTables(session, fixtures);
+    const draft = session.config.competitions.draft;
+    const odds = draft
+      ? lotteryOddsNow(
+          draft,
+          Object.fromEntries(tables.map((t) => [t.id, t.rows.map((r) => r.cid)])),
+        )
+      : null;
+    rows = (tables.find((t) => t.id === id)?.rows ?? []).map((r) => ({
       ...r,
       form: formOf(own, r.cid),
       home: record(own, r.cid, true),
       away: record(own, r.cid, false),
+      ...(odds ? { lotteryOdds: odds.get(r.cid) ?? null } : {}),
     }));
   } else {
     const finished = cache
