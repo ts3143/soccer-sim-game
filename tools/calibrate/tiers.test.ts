@@ -1,7 +1,31 @@
 import { describe, expect, it } from "vitest";
 import { worlds } from "../../src/common/config/worlds";
 import type { ClubMove } from "../../src/worker/season/season";
-import { mobility, moveProblems, rise, type TierRun, type TierSeason, yoYo } from "./tiers";
+import {
+  lastShape,
+  mobility,
+  moveProblems,
+  playerCountDrift,
+  rise,
+  shapeDrift,
+  type TierRun,
+  type TierSeason,
+  yoYo,
+} from "./tiers";
+import type { SquadShape } from "./world";
+
+const shape: SquadShape = {
+  min: 22,
+  max: 24,
+  seniorMeanOvr: 62,
+  elite75Share: 0.1,
+  meanAge: 26,
+  under23Share: 0.25,
+  age30plusShare: 0.2,
+  ovrAge21to23: 60,
+  ovrAge24to26: 63,
+  ovrAge27to29: 64,
+};
 
 /** A season of a toy world: three leagues of four, club IDs top first. */
 const season = (
@@ -12,7 +36,7 @@ const season = (
 ): TierSeason => ({
   tables: { STAR: star, GOLD: gold, BLUE: blue },
   moves,
-  seniors: { min: 22, max: 24 },
+  seniors: shape,
   freeAgents: 100,
   cap: { over: 0, taxPaid: 0, afterGrace: 0 },
 });
@@ -21,6 +45,7 @@ const run = (...seasons: TierSeason[]): TierRun => ({
   seasons,
   activeAtStart: 0,
   activeAfter: [],
+  retirements: [],
   seconds: 0,
 });
 const up = (cid: number, from: string, to: string): ClubMove => ({
@@ -102,5 +127,24 @@ describe("tier measures", () => {
     expect(moveProblems(run(ok), config)).toEqual([]);
     const missing = season(ids(0), ids(16), ids(32), right.slice(1));
     expect(moveProblems(run(missing), config)).toEqual(["toy season 1: 1 down from STAR"]);
+  });
+
+  it("measures the player count against the start and the squads' drift over the run", () => {
+    const aged = (meanAge: number, seniorMeanOvr: number): TierSeason => ({
+      ...season([1], [2], [3]),
+      seniors: { ...shape, meanAge, seniorMeanOvr },
+    });
+    const runs = [
+      { ...run(aged(26, 62), aged(26.5, 61)), activeAtStart: 1000, activeAfter: [1040, 950] },
+      { ...run(aged(26, 62), aged(27.5, 64)), activeAtStart: 1000, activeAfter: [980, 1010] },
+    ];
+    // The worst season against its world's start: 950 of 1,000.
+    expect(playerCountDrift(runs)).toBeCloseTo(0.05);
+    // Averaged over the worlds: last season 27.0 and 62.5, season 1 26.0 and 62.0.
+    expect(shapeDrift(runs, "meanAge")).toBeCloseTo(1);
+    expect(shapeDrift(runs, "seniorMeanOvr")).toBeCloseTo(0.5);
+    expect(lastShape(runs, "meanAge")).toBeCloseTo(27);
+    // From season 2 (the last): no drift.
+    expect(shapeDrift(runs, "meanAge", 2)).toBe(0);
   });
 });

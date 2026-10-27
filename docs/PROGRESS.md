@@ -1882,6 +1882,22 @@ Plan (about 6 chunks): 1 T's board rule, and prospects visible all season; 2 the
 - **Not yet in the UI** (SL7): the Free Agents page and the contract modal still show Classic's squad and budget lines. The Super League can't be picked at New game until SL7.
 - **Checks:** lint; 401 unit tests (new: the roster deadline and market days, signings up to the summer target and then into gaps, AI squads trimmed to 25 keeping two keepers; in a save: free agency closed after the deadline, the user's Play stopping on the eve of the first match over 25, and going on once he releases); `pnpm build`; `pnpm generate --check` for both worlds; `pnpm calibrate --check`; `pnpm calibrate --world --check` (main's numbers); `pnpm calibrate --world superLeague --check` (acceptance passes; the rise 9.1 seasons, 42% of club-seasons over the cap, €16.0bn tax, 110 over after grace); all 18 browser checks, covering 5a and 5b (416 passes).
 
+#### Chunk 6: the 20-season acceptance (2026-10-27)
+- **Built:** the tier report (`pnpm calibrate --world superLeague`) gates the world's health as MILESTONES SL4 asks, with Classic's checks: active players after every season within ±10% of the start; senior mean OVR (±1.5) and the 75+ share (±1.5 pts), last season against season 1; peak age (27–29 rated at least as 21–26, less 1) and retirement ages (most at 33–37, keepers later). The squads are measured at each season's first league match (`squadShape`): in the summer they're still forming, as free agency runs to the deadline. Drifts are gated from 10 seasons, as Classic's.
+- **The age shape (a default for T):** seniors' mean age (±1 year) and the under-23 and 30+ shares (±5 pts), last season against **season 10**, not season 1 (`fromSeason`, calibration_targets.json). Against season 1 it fails: a closed world of draftees, 96 a year at 17–19 (two rounds, T's minimum), settles younger than the generated start, then holds:
+
+  | Seniors at the first match | Season 1 | Season 10 | Season 20 |
+  | --- | --- | --- | --- |
+  | Super League, under 23 (3 worlds) | 27% | 39% | 38% |
+  | Super League, mean age | 26.4 | 25.3 | 25.3 |
+  | Classic, under 23 (1 world, information) | 24% | 47% | 44% |
+  | Classic, mean age | 26.8 | 24.7 | 24.8 |
+
+  Classic's academies make its seniors younger still, so the shift isn't the draft's alone. Raising the AI's free-agency squad target to 24 or 25 moved the Super League's under-23s by only 2–3 pts and cost OVR; the lever would be the AI keeping fewer draftees (releasing weak second-rounders for older free agents, as ZenGM's AI cuts), an AI change for T to choose. The report prints the change from season 1 as information.
+- **Results** (3 worlds × 20 seasons): every gate passes. Active players at worst 6.0% off the start; mean OVR −0.3, 75+ +1.1 pts; from season 10 mean age +0.1, under-23s −1.6 pts, 30+ −1.7 pts; peak age 68.1 v 68.1; retirements 93% at 33–37, keepers 36.5 v 34.8. Free agents 90–280.
+- **Checks:** lint; 402 unit tests (new: the player count against the start, the squads' drift from season 1 and from a later season); `pnpm build`; `pnpm calibrate --check`; `pnpm calibrate --world --check` (main's numbers); `pnpm calibrate --world superLeague --check` (all gates pass). Only the harness, its targets and docs changed: no browser checks needed.
+- **SL4 is complete.** For T: the cap's core allowance (chunk 5a, 10%), free agency's first values (chunk 5b) and the age shape's gate from season 10 (this chunk) are defaults to confirm.
+
 ## Open issues
 - The UI bundle is past Vite's 500 KB chunk warning since SL1 (crests inlined): load crests as files, or split the bundle, if it matters.
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).

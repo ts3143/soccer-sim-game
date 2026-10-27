@@ -53,8 +53,22 @@ export interface SeasonReport {
   players: Player[];
   /** The season's close on 30 June: FFP, and under a soft cap the luxury tax. */
   close: SeasonClose;
-  /** Seniors per club after the season's first league matchday: fewest and most. */
-  squadsAtFirstMatch: { min: number; max: number };
+  /** Seniors at clubs on the season's first league matchday: squad sizes, the world's shape. */
+  squadsAtFirstMatch: SquadShape;
+}
+
+/** Seniors at clubs on a day: squad sizes (fewest, most) and their OVRs and ages. */
+export interface SquadShape {
+  min: number;
+  max: number;
+  seniorMeanOvr: number;
+  elite75Share: number;
+  meanAge: number;
+  under23Share: number;
+  age30plusShare: number;
+  ovrAge21to23: number;
+  ovrAge24to26: number;
+  ovrAge27to29: number;
 }
 
 /** A whole run: per-season numbers plus the long-run checks. Plain data (sent as JSON). */
@@ -82,6 +96,32 @@ export interface WorldRun {
 }
 
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+
+export function squadShape(
+  clubs: readonly Club[],
+  players: readonly Player[],
+  date: string,
+): SquadShape {
+  const seniors = players.filter((p) => p.status === "club");
+  const sizes = clubs.map((c) => seniors.filter((p) => p.cid === c.cid).length);
+  const aged = seniors.map((p) => ({ ovr: p.ovr, age: exactAge(p.birthDate, date) }));
+  const share = (keep: (p: { ovr: number; age: number }) => boolean) =>
+    aged.filter(keep).length / Math.max(1, aged.length);
+  const bandMean = (lo: number, hi: number) =>
+    mean(aged.filter((p) => p.age >= lo && p.age < hi).map((p) => p.ovr));
+  return {
+    min: Math.min(...sizes),
+    max: Math.max(...sizes),
+    seniorMeanOvr: mean(aged.map((p) => p.ovr)),
+    elite75Share: share((p) => p.ovr >= 75),
+    meanAge: mean(aged.map((p) => p.age)),
+    under23Share: share((p) => p.age < 23),
+    age30plusShare: share((p) => p.age >= 30),
+    ovrAge21to23: bandMean(21, 24),
+    ovrAge24to26: bandMean(24, 27),
+    ovrAge27to29: bandMean(27, 30),
+  };
+}
 
 /** Seasons whose young seniors' displayed POT is recorded for the POT check. */
 const POT_SNAPSHOT_SEASONS = 5;
@@ -159,16 +199,12 @@ export function simulateWorld(
     let injuredSamples = 0;
     let injuredTotal = 0;
     const firstMatch = firstLeagueDay(competitions, state.fixtures);
-    const squadsAtFirstMatch = { min: 0, max: 0 };
+    const squadsAtFirstMatch = squadShape(clubs, [], seasonStart);
     const days = runDays(loop, state, seasonStart, {
       limit: null,
       onDay: (date) => {
-        if (date === firstMatch) {
-          const sizes = clubs.map(
-            (c) => players.filter((p) => p.cid === c.cid && p.status === "club").length,
-          );
-          Object.assign(squadsAtFirstMatch, { min: Math.min(...sizes), max: Math.max(...sizes) });
-        }
+        if (date === firstMatch)
+          Object.assign(squadsAtFirstMatch, squadShape(clubs, players, date));
         for (const club of clubs) {
           injuredTotal += players.filter(
             (p) => p.cid === club.cid && p.status === "club" && isInjured(p, date),

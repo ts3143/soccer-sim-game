@@ -17,6 +17,7 @@ const out: TierRun = {
   seasons: records,
   activeAtStart: run.activeAtStart,
   activeAfter: run.activeAfter,
+  retirements: run.retirements,
   seconds: run.seconds,
 };
 process.stdout.write(JSON.stringify(out));

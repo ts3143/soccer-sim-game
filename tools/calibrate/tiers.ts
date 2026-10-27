@@ -1,19 +1,20 @@
 /**
  * Tier mobility for a world of tiers (the Super League, SPEC §17.9): per season what the
- * harness records (final tables, moves, squad sizes), and the measures over a run: the
- * acceptance (exactly the configured places up and down every season, nobody out of the
- * lowest tier), yo-yo clubs, the rise from the bottom tier to the top, tier mobility.
+ * harness records (final tables, moves, squads at the first match), and the measures over
+ * a run: the acceptance (exactly the configured places up and down every season, nobody
+ * out of the lowest tier), yo-yo clubs, the rise from the bottom tier to the top, tier
+ * mobility, and the world's health (player count, the squads' shape) as Classic's.
  */
 import type { CompetitionsConfig } from "../../src/common/config/competitions";
 import type { ClubMove } from "../../src/worker/season/season";
-import type { SeasonReport } from "./world";
+import type { SeasonReport, SquadShape } from "./world";
 
 export interface TierSeason {
   /** Each league's final table, club IDs top first. */
   tables: Record<string, number[]>;
   moves: ClubMove[];
-  /** Seniors per club after the season's first league matchday: fewest and most. */
-  seniors: { min: number; max: number };
+  /** Seniors at clubs on the season's first league matchday: squad sizes, OVRs, ages. */
+  seniors: SquadShape;
   freeAgents: number;
   /**
    * At the season's end (30 June): clubs over their cap (paying luxury tax), the tax they
@@ -28,6 +29,8 @@ export interface TierRun {
   seasons: TierSeason[];
   activeAtStart: number;
   activeAfter: number[];
+  /** Retirements of players 30+: age and whether a goalkeeper. */
+  retirements: { age: number; gk: boolean }[];
   seconds: number;
 }
 
@@ -157,3 +160,23 @@ export function mobility(
   }
   return { movesPerClubSeason: moves / Math.max(1, clubSeasons), topClubs, openingStill };
 }
+
+/** The largest change in active players after any season against the start, over the runs. */
+export const playerCountDrift = (runs: readonly TierRun[]): number =>
+  Math.max(0, ...runs.flatMap((r) => r.activeAfter.map((n) => Math.abs(n / r.activeAtStart - 1))));
+
+/** A squad-shape measure in one season of each run, averaged over the runs. */
+const shapeAt = (
+  runs: readonly TierRun[],
+  key: keyof SquadShape,
+  season: (r: TierRun) => TierSeason | undefined,
+): number =>
+  runs.reduce((a, r) => a + (season(r)?.seniors[key] ?? 0), 0) / Math.max(1, runs.length);
+
+/** A squad-shape measure in the last season, averaged over the runs. */
+export const lastShape = (runs: readonly TierRun[], key: keyof SquadShape): number =>
+  shapeAt(runs, key, (r) => r.seasons.at(-1));
+
+/** A squad-shape measure's drift: the last season's value less season `from`'s (from 1). */
+export const shapeDrift = (runs: readonly TierRun[], key: keyof SquadShape, from = 1): number =>
+  lastShape(runs, key) - shapeAt(runs, key, (r) => r.seasons[from - 1]);
