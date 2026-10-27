@@ -1,6 +1,6 @@
 {
   "_note": "Super League world (SPEC §17.2; T, 2026-10-27). Three tiers of 16, each a double round robin; 2 up and 2 down between tiers; nobody drops out of Blue. Every number is config. Dates are templates for season Y/Y+1, placed on the match slots as in Classic. No cups and no transfer windows: players move by trades, the draft and free agency (SL4-SL5 add their dates).",
-  "_financeNote": "As Classic's (competitions_mvp.json). TV money scales by tier (SPEC §17.7); these pools are first values, set properly with the soft cap in SL3.",
+  "_financeNote": "As Classic's (competitions_mvp.json). TV money scales by tier (SPEC §17.7; T, 2026-10-27): about EUR 200m, 119m and 81m a club, flatter than the tiers' revenue so relegation doesn't crush a club. Play-off prize money: per round won (the last is the final) and for the beaten finalist.",
   "_boardNote": "As Classic's. Targets judge the final table position: until the play-offs run (SL2), Star's 'Win the title' means finishing first in the table.",
   "_playoffNote": "A play-off, round by round (as Classic's): the table positions joining each round (entrants) or its fixed ties, how the round's clubs meet (reseed: best-placed against worst-placed; bracket: the previous round's ties in twos), its legs (two-legged: the better-placed club hosts the second leg) and whether it is at a neutral venue. allSingleLeg makes every round single-leg. Knockout rules as SPEC §8.6. Dates: the rounds take the slots after the last league round, midweek first, then alternating; the final is on the weekend nearest finalNear.",
   "seasonStart": "2026-07-01",
@@ -25,12 +25,13 @@
         ],
         "allSingleLeg": false,
         "finalNear": "05-29",
+        "prizeMoney": { "roundWon": [5000000, 10000000, 20000000], "runnerUp": 10000000 },
         "_note": "The title play-off (SPEC §17.2): the champion is its winner; the table winner is recorded but isn't a title."
       },
       "relegation": { "places": 2, "to": "GOLD" },
       "styleModifiers": { "chanceQuality": 1.0, "foulRate": 1.0, "directness": 0.0 },
       "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
-      "finance": { "broadcastPool": 3600000000, "equalShare": 0.75, "ticketPriceBase": 32, "attendanceBase": 0.92 },
+      "finance": { "broadcastPool": 3200000000, "equalShare": 0.75, "ticketPriceBase": 32, "attendanceBase": 0.92 },
       "board": [
         { "id": "title", "label": "Win the title", "position": 1, "strongest": 2 },
         { "id": "topEight", "label": "Reach the top eight", "position": 8, "strongest": 6 },
@@ -54,12 +55,13 @@
           { "name": "Final", "legs": 1, "neutral": true, "pairing": "reseed" }
         ],
         "allSingleLeg": false,
-        "finalNear": "05-16"
+        "finalNear": "05-16",
+        "prizeMoney": { "roundWon": [2000000, 4000000], "runnerUp": 2000000 }
       },
       "relegation": { "places": 2, "to": "BLUE" },
       "styleModifiers": { "chanceQuality": 1.0, "foulRate": 1.0, "directness": 0.0 },
       "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
-      "finance": { "broadcastPool": 1600000000, "equalShare": 0.75, "ticketPriceBase": 26, "attendanceBase": 0.88 },
+      "finance": { "broadcastPool": 1900000000, "equalShare": 0.75, "ticketPriceBase": 26, "attendanceBase": 0.88 },
       "board": [
         { "id": "promotion", "label": "Win promotion", "position": 1, "strongest": 2 },
         { "id": "playoffs", "label": "Reach the play-offs", "position": 5, "strongest": 4 },
@@ -83,13 +85,14 @@
           { "name": "Final", "legs": 1, "neutral": true, "pairing": "reseed" }
         ],
         "allSingleLeg": false,
-        "finalNear": "05-16"
+        "finalNear": "05-16",
+        "prizeMoney": { "roundWon": [2000000, 4000000], "runnerUp": 2000000 }
       },
       "relegation": null,
       "_relegationNote": "Nobody drops out of Blue (SPEC §17.2).",
       "styleModifiers": { "chanceQuality": 1.0, "foulRate": 1.0, "directness": 0.0 },
       "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
-      "finance": { "broadcastPool": 1000000000, "equalShare": 0.75, "ticketPriceBase": 22, "attendanceBase": 0.85 },
+      "finance": { "broadcastPool": 1300000000, "equalShare": 0.75, "ticketPriceBase": 22, "attendanceBase": 0.85 },
       "board": [
         { "id": "promotion", "label": "Win promotion", "position": 1, "strongest": 2 },
         { "id": "playoffs", "label": "Reach the play-offs", "position": 5, "strongest": 4 },
@@ -98,8 +101,8 @@
     }
   ],
   "softCap": {
-    "_note": "The tiered soft cap (SPEC §17.7): Star's cap; Gold's is 80% of it, Blue's 65%. Opening payrolls are 85-100% of the club's cap. The cap figure is a placeholder until SL3 sets the money: about 70% of the lowest revenue in each tier.",
-    "cap": 150000000,
+    "_note": "The tiered soft cap (SPEC §17.7; figures T, 2026-10-27): Star's cap; Gold's is 80% of it, Blue's 65%, so Blue's median club spends about half its revenue on wages, as Classic's target. Opening payrolls are 85-100% of the club's cap.",
+    "cap": 180000000,
     "tierShare": { "STAR": 1.0, "GOLD": 0.8, "BLUE": 0.65 },
     "openingPayroll": { "min": 0.85, "max": 1.0 },
     "minimumWage": 300000,

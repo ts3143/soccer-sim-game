@@ -80,6 +80,7 @@ describe("worlds", () => {
         { name: "Final", legs: 1, neutral: true, entrants: [], pairing: "bracket" },
       ],
       finalNear: "05-29",
+      prizeMoney: { roundWon: [5_000_000, 10_000_000, 20_000_000], runnerUp: 10_000_000 },
     });
     for (const tier of [gold, blue]) {
       expect(tier?.promotion).toMatchObject({ automatic: 1, promotedPlaces: 1 });
@@ -97,6 +98,7 @@ describe("worlds", () => {
           { name: "Final", legs: 1, neutral: true, entrants: [], pairing: "reseed" },
         ],
         finalNear: "05-16",
+        prizeMoney: { roundWon: [2_000_000, 4_000_000], runnerUp: 2_000_000 },
       });
     }
   });
@@ -111,6 +113,7 @@ describe("worlds", () => {
         { name: "Final", legs: 1, neutral: true, entrants: [], pairing: "reseed" },
       ],
       finalNear: "05-24",
+      prizeMoney: null,
     });
   });
 

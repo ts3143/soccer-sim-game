@@ -540,7 +540,8 @@ A second world, picked at New game, inspired by the European Super League projec
 
 ### 17.7 Money: the soft cap
 - **Payroll** = wages of the players under contract plus the wages still owed to released players. There are no transfer fees, so nothing is amortised.
-- **The cap by tier:** Star 100%, Gold 80%, Blue 65% of a base cap in euros (config, set in SL3).
+- **The cap by tier:** Star 100%, Gold 80%, Blue 65% of a base cap in euros (config): **€180m** (T, 2026-10-27), so €180m / €144m / €117m. The tiers' shares make Blue the limit: its median club spends about half its revenue on wages, Classic's target.
+- **Figures (T, 2026-10-27; config):** minimum wage €300k; luxury tax 1.5×; trade matching 125%; one grace season. TV pools €3.2bn / €1.9bn / €1.3bn (about €200m / €119m / €81m a club: flatter than the tiers' revenue, so relegation doesn't crush a club). Play-off prize money per round won: Star €5m / €10m / €20m (final), Gold and Blue €2m / €4m; the beaten finalist half the final's.
 - **Over the cap,** a club may still:
   - re-sign its own players;
   - sign its draft picks;
@@ -550,7 +551,7 @@ A second world, picked at New game, inspired by the European Super League projec
   - `[DEFAULT]` The tax is shared equally among that tier's clubs under the cap, as ZenGM does.
 - **Grace season:** a relegated club keeps its old tier's cap for one season. After that, AI clubs over the cap shed salary by trades; the user decides for himself.
 - **FFP is off** in this world. Revenue, costs, cash, the budget dials (without Youth academy), the ticket price and the board all work as in Classic.
-- **Revenue:** TV money by tier (a pool per tier in config, equal share plus merit, as §6.2), with matchday and commercial income as Classic. `[DEFAULT]` Play-off prize money per round is in config.
+- **Revenue:** TV money by tier (a pool per tier in config, equal share plus merit, as §6.2), with matchday and commercial income as Classic. Play-off prize money per round is in config (figures above).
 - **Opening payrolls** are generated at about 85–100% of the tier's cap.
 
 ### 17.8 UI differences

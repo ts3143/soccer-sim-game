@@ -72,6 +72,8 @@ export interface PlayoffFormat {
   rounds: PlayoffRound[];
   /** MM-DD template: the final is on the weekend nearest it. */
   finalNear: string;
+  /** Euros per round won (the last is the final) and for the beaten finalist; null: none. */
+  prizeMoney: { roundWon: number[]; runnerUp: number } | null;
 }
 
 export interface PlayoffRound {
@@ -272,6 +274,7 @@ interface PlayoffFile {
   }[];
   allSingleLeg: boolean;
   finalNear: string;
+  prizeMoney?: { roundWon: number[]; runnerUp: number };
 }
 
 /** A competitions config file's JSON (data/config/), as parseCompetitions reads it. */
@@ -362,7 +365,16 @@ function parsePlayoff(where: string, file: PlayoffFile, clubs: number): PlayoffF
   const positions = rounds.flatMap((r) => r.entrants).sort((a, b) => a - b);
   if (new Set(positions).size !== positions.length) fail("a position joins twice");
   if (positions.some((p) => p < 1 || p > clubs)) fail("play-off positions must be table positions");
-  return { decides: file.decides, positions, rounds, finalNear: file.finalNear };
+  if (file.prizeMoney && file.prizeMoney.roundWon.length !== rounds.length) {
+    fail("needs one prize per round");
+  }
+  return {
+    decides: file.decides,
+    positions,
+    rounds,
+    finalNear: file.finalNear,
+    prizeMoney: file.prizeMoney ?? null,
+  };
 }
 
 /** Reads the draft and checks its pool's places and its wage table. */

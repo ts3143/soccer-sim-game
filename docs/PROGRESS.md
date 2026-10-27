@@ -1822,6 +1822,7 @@ Plan (3 chunks): 1 the cap's rules as tested functions, and the money proposal f
 
 #### Chunk 1: the cap's rules (2026-10-27)
 - **Built** (`finance/softCap.ts`): `payroll` (wages under contract plus those still owed to released players until their old contracts end; no amortisation), `clubCap` (the tier's cap, or for a relegated club its old tier's through its grace: `Club.capGrace`, `relegationGrace`), `canSignFreeAgent` (over the cap only at the minimum wage), `tradeFits` (over the cap, back at most 125% of the wages sent out), `luxuryTax` (1.5 × the payroll above the cap) and `shareTax` (equal shares among the tier's clubs under the cap, whole euros). Config `softCap` gains `minimumWage`, `luxuryTaxRate`, `tradeMatching`, `graceSeasons`. Not yet applied by the season (chunk 2).
+- **Money approved by T (2026-10-27):** base cap €180m (caps €180m / €144m / €117m: Blue's median club at a 50% wage ratio, Gold's 44%, Star's 26%; the poorest Blue and Gold clubs, about €140–170m revenue, at ~77% until promoted); TV pools €3.2bn / €1.9bn / €1.3bn (flatter than before: €200m / €119m / €81m a club); minimum wage €300k; play-off prize money (Star €5m / €10m / €20m per round won, Gold and Blue €2m / €4m, the beaten finalist half the final's; `PlayoffFormat.prizeMoney`, none in Classic); tax 1.5×, matching 125%, one grace season. SPEC §17.7.
 
 ## Open issues
 - The UI bundle is past Vite's 500 KB chunk warning since SL1 (crests inlined): load crests as files, or split the bundle, if it matters.
