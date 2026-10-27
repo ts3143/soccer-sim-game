@@ -25,7 +25,7 @@ import {
   updatePot,
 } from "./offseason";
 import { seasonDate } from "../schedule/calendar";
-import type { SeasonOutcome } from "./season";
+import type { ClubMove, SeasonOutcome } from "./season";
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 
@@ -52,7 +52,10 @@ export function drawLottery(odds: readonly number[], picks: number, rng: Random)
  */
 export function draftOrder(
   draft: DraftConfig,
-  outcome: SeasonOutcome,
+  outcome: {
+    tables: Readonly<Record<string, readonly { cid: number; position: number }[]>>;
+    moves: readonly ClubMove[];
+  },
   tiers: ReadonlyMap<string, number>,
   rng: Random | null = null,
 ): number[] {

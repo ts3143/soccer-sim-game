@@ -166,6 +166,33 @@ export interface FreeAgencyConfig {
   deadlineAfterRoundShare: number;
 }
 
+/** A club's trade outlook (SPEC §17.6): contending clubs want OVR now, rebuilding ones POT. */
+export type TradeState = "contending" | "rebuilding";
+type ByState = Record<TradeState, number>;
+
+/** AI trade valuation (SPEC §17.6; the Super League's). See `_note` in its config. */
+export interface TradesConfig {
+  /** Board targets (ids) whose clubs contend; the others rebuild. */
+  contendingTargets: string[];
+  value: {
+    perOvr: number;
+    /** POT counts fully up to this age and not from `youthNoneFrom`. */
+    youthFullUntil: number;
+    youthNoneFrom: number;
+    potShare: ByState;
+    declineFrom: ByState;
+    declinePerYear: ByState;
+    /** × while his contract ends this 30 June. */
+    finalYear: ByState;
+    contract: { weight: number; years: number; min: number; max: number };
+  };
+  /** Squad places by value, [up to place, weight]. */
+  squadWeights: [number, number][];
+  /** Value points per cap's worth of yearly wages saved. */
+  salary: { underCap: number; overCap: number; rebuilding: number };
+  picks: { weight: ByState; yearDiscount: number };
+}
+
 /** The draft (SPEC §17.5; the Super League's). See `_note` in its config. */
 export interface DraftConfig {
   rounds: number;
@@ -248,6 +275,8 @@ export interface CompetitionsConfig {
   softCap: SoftCapConfig | null;
   /** null: no draft (Classic, whose clubs have academies). */
   draft: DraftConfig | null;
+  /** null: no trades (Classic, whose players move by transfers). */
+  trades: TradesConfig | null;
 }
 
 /** A league's payroll cap in euros, or null in a world without one. */
@@ -360,6 +389,7 @@ export interface CompetitionsFile {
   renewals: { endOfSeasonResignPhase: boolean; expiryWarningMonths: number };
   softCap?: SoftCapConfig;
   freeAgency?: FreeAgencyConfig;
+  trades?: Omit<TradesConfig, "squadWeights"> & { squadWeights: number[][] };
   draft?: Omit<DraftConfig, "rookieContract"> & {
     rookieContract: { years: number; wageByPick: number[][] };
   };
@@ -577,6 +607,17 @@ export function parseCompetitions(json: CompetitionsFile, file: string): Competi
         }
       : null,
     draft: json.draft ? parseDraft(json.draft, leagues, file) : null,
+    trades: json.trades
+      ? {
+          ...json.trades,
+          squadWeights: json.trades.squadWeights.map(([upTo, weight]) => {
+            if (upTo === undefined || weight === undefined) {
+              throw new Error(`${file}: trades.squadWeights needs [place, weight] pairs`);
+            }
+            return [upTo, weight];
+          }),
+        }
+      : null,
   };
 }
 
