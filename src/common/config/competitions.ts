@@ -4,7 +4,6 @@
  * later means adding config entries, not code. Each world has its own (worlds.ts); the
  * worker reads the save's through its session, never a global.
  */
-import type raw from "../../../data/config/competitions_mvp.json";
 
 export interface StyleModifiers {
   chanceQuality: number;
@@ -48,7 +47,14 @@ export interface LeagueConfig {
     promotedPlaces: number;
     /** MM-DD template: the play-off final is on the weekend nearest it. */
     playoffFinalNear: string;
+    /**
+     * The play-offs' structured format when the file gives one (the Super League's);
+     * null for Classic's six-club format, which the season code knows (SPEC §2.2).
+     */
+    playoffFormat: PlayoffFormat | null;
   } | null;
+  /** A play-off for the title among the top of the table (the Super League's Star tier). */
+  titlePlayoff: PlayoffFormat | null;
   relegation: { places: number; to: string } | null;
   styleModifiers: StyleModifiers;
   /** Table order after points; each league sets its own (T, 2026-10-14). */
@@ -57,6 +63,18 @@ export interface LeagueConfig {
   finance: LeagueFinance;
   /** Board targets, best first (SPEC §6.5; see `_boardNote` in the config). */
   board: BoardTarget[];
+}
+
+/** A knockout play-off among table positions (SPEC §17.2). Used by the season from SL2. */
+export interface PlayoffFormat {
+  /** Table positions taking part, best first. */
+  positions: number[];
+  /** The first round's ties as [home seed, away seed]; later rounds pair winners in order. */
+  firstRound: [number, number][];
+  /** Each round, first to final: two-legged rounds have the higher seed host the second leg. */
+  rounds: { id: string; legs: 1 | 2; neutral: boolean }[];
+  /** MM-DD template: the final is on the weekend nearest it. */
+  finalNear: string;
 }
 
 export interface BoardTarget {
@@ -171,7 +189,89 @@ function checkCupBracket(cup: CupConfig, leagues: readonly LeagueConfig[], file:
 }
 
 /** A competitions config file's JSON (data/config/), as imported. */
-export type CompetitionsFile = typeof raw;
+/** A play-off format as a competitions file gives it. */
+interface PlayoffFile {
+  positions: number[];
+  firstRound?: number[][];
+  rounds?: { id: string; legs: number; neutral: boolean }[];
+  allSingleLeg?: boolean;
+  schedule: { finalNear: string };
+}
+
+const titlePlayoff = (where: string, file: PlayoffFile, clubs: number): PlayoffFormat => {
+  const format = parsePlayoff(`${where} title play-off`, file, clubs);
+  if (!format) throw new Error(`${where}: a title play-off needs its first round and rounds`);
+  return format;
+};
+
+/** A competitions config file's JSON (data/config/), as parseCompetitions reads it. */
+export interface CompetitionsFile {
+  seasonStart: string;
+  countries: { id: string; name: string; winterBreak: { from: string; to: string } | null }[];
+  leagues: {
+    id: string;
+    country: string;
+    tier: number;
+    name: string;
+    clubs: number;
+    rounds: number;
+    firstMatch: string;
+    lastMatch: string;
+    promotion: { automatic: number; playoff: PlayoffFile & { promotedPlaces: number } } | null;
+    titlePlayoff?: PlayoffFile;
+    relegation: { places: number; to: string } | null;
+    styleModifiers: StyleModifiers;
+    tieBreakers: string[];
+    finance: LeagueFinance;
+    board: BoardTarget[];
+  }[];
+  cups: {
+    id: string;
+    country: string;
+    name: string;
+    entrants: string[];
+    rounds: string[];
+    finalDate: string;
+    entry?: Record<string, string>;
+    preliminary?: { clubs: number } | null;
+    prizeMoney: { roundWon: number[]; runnerUp: number };
+  }[];
+  windows: { id: string; opens: string; closes: string; deadlineDay: string }[];
+  keyDates: Record<string, string>;
+  rosterRules: RosterRules;
+  renewals: { endOfSeasonResignPhase: boolean; expiryWarningMonths: number };
+}
+
+/**
+ * Reads a structured play-off format (null when the file gives none) and checks it: the
+ * first round pairs every position once, each round halves the field down to one final,
+ * legs are 1 or 2. `allSingleLeg` makes every round single-leg.
+ */
+function parsePlayoff(where: string, file: PlayoffFile, clubs: number): PlayoffFormat | null {
+  if (!file.firstRound || !file.rounds) return null;
+  const firstRound = file.firstRound.map((tie) => {
+    if (tie.length !== 2) throw new Error(`${where}: a tie needs two seeds`);
+    return [tie[0], tie[1]] as [number, number];
+  });
+  const seeds = firstRound.flat().sort((a, b) => a - b);
+  const positions = [...file.positions].sort((a, b) => a - b);
+  if (seeds.join() !== positions.join()) {
+    throw new Error(`${where}: the first round must pair every play-off position once`);
+  }
+  if (positions.some((p) => p < 1 || p > clubs)) {
+    throw new Error(`${where}: play-off positions must be table positions`);
+  }
+  if (2 ** file.rounds.length !== positions.length) {
+    throw new Error(
+      `${where}: ${positions.length} clubs need ${Math.log2(positions.length)} rounds`,
+    );
+  }
+  const rounds = file.rounds.map((r) => {
+    if (r.legs !== 1 && r.legs !== 2) throw new Error(`${where}: ${r.id} has ${r.legs} legs`);
+    return { id: r.id, legs: file.allSingleLeg ? 1 : r.legs, neutral: r.neutral } as const;
+  });
+  return { positions: file.positions, firstRound, rounds, finalNear: file.schedule.finalNear };
+}
 
 /** Reads and checks a competitions config file; `file` names it in errors. */
 export function parseCompetitions(json: CompetitionsFile, file: string): CompetitionsConfig {
@@ -191,8 +291,10 @@ export function parseCompetitions(json: CompetitionsFile, file: string): Competi
           playoffPositions: l.promotion.playoff.positions,
           promotedPlaces: l.promotion.playoff.promotedPlaces,
           playoffFinalNear: l.promotion.playoff.schedule.finalNear,
+          playoffFormat: parsePlayoff(`${file}: ${l.id} play-offs`, l.promotion.playoff, l.clubs),
         }
       : null,
+    titlePlayoff: l.titlePlayoff ? titlePlayoff(`${file}: ${l.id}`, l.titlePlayoff, l.clubs) : null,
     relegation: l.relegation,
     styleModifiers: l.styleModifiers,
     tieBreakers: parseTieBreakers(l.id, l.tieBreakers),

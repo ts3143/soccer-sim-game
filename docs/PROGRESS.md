@@ -1768,8 +1768,14 @@ Plan (about 5 chunks): 1 club values for T's approval; 2 the clubs file, crests 
 
 #### Chunk 3: nationalities (2026-10-27)
 - **Built:** `data/names/UKR.json` (Wikidata, as the others: 200 given names, 400 family names, 40 birthplaces; `build-names.ts` knows Ukraine and reads country mixes too). A club's nationality mix is its league's if the league has one (Classic's three), else its country's (`countryMix` in nationalities.json, for the Super League's tiers; `clubMix`). Free agents and second nationalities draw from the world's mixes added together (`worldMix`: each league's mix in league order, or its clubs' country mixes), passed down through generation (`PlayerSpec.secondMix`). Classic's is its three league mixes in the same order as before: the fingerprints are unchanged.
-- **Waiting for T:** the 13 country mixes (England and Germany reuse Classic's top-flight mixes, Monaco France's).
+- **Country mixes** (T approved, 2026-10-27): 13 in `countryMix`. England and Germany are Classic's ENG1 and GER1 mixes, Monaco France's. Only nationalities with a names file, plus Ukraine; more (Greece, Albania, Georgia, Romania, Mali, Algeria…) can be fetched later.
+
+#### Chunk 4: the Super League's competitions; the world registered (2026-10-27)
+- **Built:** `data/config/competitions_super_league.json`: tiers STAR, GOLD, BLUE of 16, 30 rounds (15 Aug to 25 Apr), 2 down from Star and Gold, Gold and Blue promoting their winner plus a play-off among 2nd–5th; Star's title play-off among the top 8. No cups, no transfer windows. The play-offs are structured config (`PlayoffFormat`: positions, first-round ties, legs and venue per round, `allSingleLeg`), parsed and checked (every position paired once, rounds halve to one final, 1 or 2 legs); the season runs them from SL2. Classic's six-club play-off keeps the format the season code knows (`playoffFormat: null`). `parseCompetitions` now reads an explicit `CompetitionsFile` type that both files must match. `worlds.superLeague`: the clubs, these competitions and the switches (trades, draft, soft cap, no loans, a re-signing period).
+- **First values, to tune later:** TV pools €3.6bn / €1.6bn / €1.0bn (about €225m / €100m / €63m a club, 75% equal), ticket prices and attendance by tier (SL3 sets the money with the soft cap); neutral match-style modifiers (calibrated in SL6). Board targets as SPEC §17.2; they judge the final table, so until SL2 Star's "Win the title" means finishing first.
+- **Bundle:** the UI bundle grew to 524 KB (the 34 new crests, inlined), past Vite's 500 KB warning; the worker's to 633 KB (the Super League's data). Both build; see Open issues.
 
 ## Open issues
+- The UI bundle is past Vite's 500 KB chunk warning since SL1 (crests inlined): load crests as files, or split the bundle, if it matters.
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).
 - For T: the academy incentive (academy players of 16+ play without counting toward the 25), and whether to add "tired" and "open bid" tags.

@@ -10,6 +10,18 @@ describe("nationality mixes", () => {
     expect(() => clubMix("NOPE", "XXX")).toThrow(/No nationality mix/);
   });
 
+  it("gives each Super League club its country's mix (Monaco France's)", () => {
+    const { countryMix } = nationalitiesConfig;
+    for (const c of worlds.superLeague.clubs) {
+      expect(clubMix(c.league, c.country)).toBe(countryMix[c.country]);
+    }
+    expect(countryMix.MCO).toEqual(countryMix.FRA);
+    expect(countryMix.ENG).toEqual(nationalitiesConfig.leagueMix.ENG1);
+    const mix = worldMix(worlds.superLeague);
+    const spanish = worlds.superLeague.clubs.filter((c) => c.country === "ESP").length;
+    expect(mix.ESP).toBeGreaterThan(spanish * (countryMix.ESP?.ESP ?? 0));
+  });
+
   it("adds a world's league mixes in league order: Classic's as before", () => {
     const expected: Record<string, number> = {};
     for (const id of ["ENG1", "ENG2", "GER1"]) {

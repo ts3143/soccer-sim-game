@@ -21,12 +21,9 @@ export interface NationalitiesConfig {
   preferredFoot: { rightShare: number; leftShareBySlotSide: Record<Side, number> };
 }
 
-// The country mixes may be absent from the file.
-const file = raw as typeof raw & { countryMix?: Record<string, Record<string, number>> };
-
 export const nationalitiesConfig: NationalitiesConfig = {
   leagueMix: raw.leagueMix,
-  countryMix: file.countryMix ?? {},
+  countryMix: raw.countryMix,
   youthIntake: {
     homeShareSmallClub: raw.youthIntake.homeShareSmallClub,
     homeShareBigClub: raw.youthIntake.homeShareBigClub,

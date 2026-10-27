@@ -1,0 +1,131 @@
+{
+  "_note": "Super League world (SPEC §17.2; T, 2026-10-27). Three tiers of 16, each a double round robin; 2 up and 2 down between tiers; nobody drops out of Blue. Every number is config. Dates are templates for season Y/Y+1, placed on the match slots as in Classic. No cups and no transfer windows: players move by trades, the draft and free agency (SL4-SL5 add their dates).",
+  "_financeNote": "As Classic's (competitions_mvp.json). TV money scales by tier (SPEC §17.7); these pools are first values, set properly with the soft cap in SL3.",
+  "_boardNote": "As Classic's. Targets judge the final table position: until the play-offs run (SL2), Star's 'Win the title' means finishing first in the table.",
+  "_playoffNote": "A play-off format: the table positions in it; the first round's ties as [home seed, away seed] pairs, later rounds pairing winners in bracket order; per round the legs (two-legged: the higher seed hosts the second leg) and whether it is at a neutral venue. allSingleLeg makes every round single-leg. Knockout rules as SPEC §8.6. Used by the season from SL2.",
+  "seasonStart": "2026-07-01",
+  "countries": [{ "id": "EUR", "name": "Europe", "winterBreak": null }],
+  "leagues": [
+    {
+      "id": "STAR",
+      "country": "EUR",
+      "tier": 1,
+      "name": "Star",
+      "clubs": 16,
+      "rounds": 30,
+      "firstMatch": "08-15",
+      "lastMatch": "04-25",
+      "promotion": null,
+      "titlePlayoff": {
+        "positions": [1, 2, 3, 4, 5, 6, 7, 8],
+        "firstRound": [[1, 8], [4, 5], [2, 7], [3, 6]],
+        "rounds": [
+          { "id": "quarterFinals", "legs": 2, "neutral": false },
+          { "id": "semiFinals", "legs": 2, "neutral": false },
+          { "id": "final", "legs": 1, "neutral": true }
+        ],
+        "allSingleLeg": false,
+        "schedule": { "finalNear": "05-29" },
+        "_note": "The champion is the play-off winner; the table winner is recorded but isn't a title (SPEC §17.2)."
+      },
+      "relegation": { "places": 2, "to": "GOLD" },
+      "styleModifiers": { "chanceQuality": 1.0, "foulRate": 1.0, "directness": 0.0 },
+      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
+      "finance": { "broadcastPool": 3600000000, "equalShare": 0.75, "ticketPriceBase": 32, "attendanceBase": 0.92 },
+      "board": [
+        { "id": "title", "label": "Win the title", "position": 1, "strongest": 4 },
+        { "id": "topEight", "label": "Reach the top eight", "position": 8, "strongest": 6 },
+        { "id": "survival", "label": "Avoid relegation", "position": 14, "strongest": 6 }
+      ]
+    },
+    {
+      "id": "GOLD",
+      "country": "EUR",
+      "tier": 2,
+      "name": "Gold",
+      "clubs": 16,
+      "rounds": 30,
+      "firstMatch": "08-15",
+      "lastMatch": "04-25",
+      "promotion": {
+        "automatic": 1,
+        "playoff": {
+          "positions": [2, 3, 4, 5],
+          "firstRound": [[2, 5], [3, 4]],
+          "rounds": [
+            { "id": "semiFinals", "legs": 1, "neutral": false },
+            { "id": "final", "legs": 1, "neutral": true }
+          ],
+          "allSingleLeg": false,
+          "schedule": { "finalNear": "05-16" },
+          "promotedPlaces": 1
+        }
+      },
+      "relegation": { "places": 2, "to": "BLUE" },
+      "styleModifiers": { "chanceQuality": 1.0, "foulRate": 1.0, "directness": 0.0 },
+      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
+      "finance": { "broadcastPool": 1600000000, "equalShare": 0.75, "ticketPriceBase": 26, "attendanceBase": 0.88 },
+      "board": [
+        { "id": "promotion", "label": "Win promotion", "position": 1, "strongest": 3 },
+        { "id": "playoffs", "label": "Reach the play-offs", "position": 5, "strongest": 5 },
+        { "id": "midTable", "label": "Finish in mid-table", "position": 10, "strongest": 8 }
+      ]
+    },
+    {
+      "id": "BLUE",
+      "country": "EUR",
+      "tier": 3,
+      "name": "Blue",
+      "clubs": 16,
+      "rounds": 30,
+      "firstMatch": "08-15",
+      "lastMatch": "04-25",
+      "promotion": {
+        "automatic": 1,
+        "playoff": {
+          "positions": [2, 3, 4, 5],
+          "firstRound": [[2, 5], [3, 4]],
+          "rounds": [
+            { "id": "semiFinals", "legs": 1, "neutral": false },
+            { "id": "final", "legs": 1, "neutral": true }
+          ],
+          "allSingleLeg": false,
+          "schedule": { "finalNear": "05-16" },
+          "promotedPlaces": 1
+        }
+      },
+      "relegation": null,
+      "_relegationNote": "Nobody drops out of Blue (SPEC §17.2).",
+      "styleModifiers": { "chanceQuality": 1.0, "foulRate": 1.0, "directness": 0.0 },
+      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
+      "finance": { "broadcastPool": 1000000000, "equalShare": 0.75, "ticketPriceBase": 22, "attendanceBase": 0.85 },
+      "board": [
+        { "id": "promotion", "label": "Win promotion", "position": 1, "strongest": 3 },
+        { "id": "playoffs", "label": "Reach the play-offs", "position": 5, "strongest": 5 },
+        { "id": "midTable", "label": "Finish in mid-table", "position": 10, "strongest": 8 }
+      ]
+    }
+  ],
+  "cups": [],
+  "windows": [],
+  "renewals": {
+    "_note": "One re-signing period from the draft to 30 June (SPEC §17.6, SL5); no renewals during the season.",
+    "endOfSeasonResignPhase": true,
+    "expiryWarningMonths": 6
+  },
+  "keyDates": {
+    "summerDevelopmentUpdate": "07-01",
+    "winterDevelopmentUpdate": "01-01",
+    "contractsExpire": "06-30",
+    "endOfSeasonProcessing": "06-01"
+  },
+  "rosterRules": {
+    "maxSenior": 25,
+    "startingSeniors": { "min": 22, "max": 24 },
+    "academyMaxAge": 18,
+    "mustPromoteLoanOrReleaseBy": 19,
+    "academyMatchdayMinAge": 16,
+    "minSeniorForMatch": 16,
+    "_note": "No academies in this world (SPEC §17.4): the academy fields are unused. The 25 counts from the first league match (SL5)."
+  }
+}

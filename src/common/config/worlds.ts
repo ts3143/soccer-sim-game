@@ -5,14 +5,16 @@
  * combination of switches plus data. A save records its world's id and reads the world
  * from the bundled files, so config tuning reaches existing saves.
  *
- * Only Classic so far; the Super League world arrives with its data (MILESTONES SL1).
+ * Classic, and the Super League (SPEC §17; built over MILESTONES SL1–SL8).
  */
 import classicClubs from "../../../data/clubs_2026_27.json";
+import superLeagueClubs from "../../../data/clubs_super_league_2026_27.json";
 import classicCompetitions from "../../../data/config/competitions_mvp.json";
+import superLeagueCompetitions from "../../../data/config/competitions_super_league.json";
 import { type ClubDefinition, parseClubs } from "./clubs";
 import { type CompetitionsConfig, parseCompetitions } from "./competitions";
 
-export type WorldId = "classic";
+export type WorldId = "classic" | "superLeague";
 
 /** How a world works. Cups aren't a switch: they're in the competitions config. */
 export interface WorldSwitches {
@@ -49,6 +51,19 @@ export const worlds: Readonly<Record<WorldId, WorldConfig>> = {
       moneyRule: "ffp",
       loans: true,
       renewals: "windows",
+    },
+  },
+  superLeague: {
+    id: "superLeague",
+    name: "Super League",
+    clubs: parseClubs(superLeagueClubs),
+    competitions: parseCompetitions(superLeagueCompetitions, "competitions_super_league.json"),
+    switches: {
+      market: "trades",
+      youth: "draft",
+      moneyRule: "softCap",
+      loans: false,
+      renewals: "resigningPeriod",
     },
   },
 };
