@@ -59,28 +59,18 @@
       "lastMatch": "05-02",
       "promotion": {
         "automatic": 2,
-        "playoff": {
-          "positions": [
-            3,
-            4,
-            5,
-            6,
-            7,
-            8
-          ],
-          "eliminators": "single match: 5th hosts 8th, 6th hosts 7th; extra time and penalties if level",
-          "semis": "two-legged: 3rd vs lowest-seeded eliminator winner, 4th vs highest-seeded eliminator winner; higher seed hosts the second leg; extra time and penalties after the second leg",
-          "final": "single match at a neutral venue, extra time and penalties",
-          "schedule": {
-            "eliminators": "first midweek slot after the final league round",
-            "semiFirstLegs": "the following weekend slot",
-            "semiSecondLegs": "the midweek slot after that",
-            "finalNear": "05-24",
-            "_finalNote": "Final on the weekend slot nearest 05-24 (around 23-25 May)."
-          },
-          "promotedPlaces": 1,
-          "_source": "Mirrors the real 2026/27 EFL format (expanded from 4 to 6 clubs)."
-        }
+        "promotedPlaces": 1
+      },
+      "playoff": {
+        "decides": "promotion",
+        "rounds": [
+          { "name": "Eliminators", "legs": 1, "neutral": false, "entrants": [5, 6, 7, 8], "pairing": "reseed" },
+          { "name": "Semi-finals", "legs": 2, "neutral": false, "entrants": [3, 4], "pairing": "reseed" },
+          { "name": "Final", "legs": 1, "neutral": true, "pairing": "reseed" }
+        ],
+        "allSingleLeg": false,
+        "finalNear": "05-24",
+        "_note": "Mirrors the real 2026/27 EFL format (expanded from 4 to 6 clubs): single matches, 5th hosting 8th and 6th hosting 7th; two-legged semi-finals, 3rd against the lower-placed eliminator winner and 4th against the other, the better-placed club hosting the second leg; the final at a neutral venue. Extra time and penalties if level. Dates: the rounds take the slots after the last league round, midweek first, then alternating; the final is on the weekend slot nearest finalNear (around 23-25 May)."
       },
       "relegation": null,
       "_relegationNote": "Lowest simulated tier: no relegation in the MVP.",

@@ -205,11 +205,9 @@ function hasStakes(
   if (!league || !me) return false;
   // Boundaries between positions k and k+1 that change a club's season.
   const boundaries = [1];
-  if (league.promotion) {
-    boundaries.push(league.promotion.automatic);
-    const po = league.promotion.playoffPositions;
-    if (po.length) boundaries.push(po[po.length - 1] as number);
-  }
+  if (league.promotion) boundaries.push(league.promotion.automatic);
+  const po = league.playoff?.positions ?? [];
+  if (po.length) boundaries.push(po[po.length - 1] as number);
   if (league.relegation) boundaries.push(table.length - league.relegation.places);
   return boundaries.some((k) => {
     const above = table[k - 1];

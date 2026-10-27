@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { worlds } from "../../common/config/worlds";
 import type { Club, Fixture } from "../../common/schema";
 import { generateWorld } from "../generate/world";
-import { PLAYOFF_ROUNDS } from "../schedule/calendar";
 import { fullStrengthPlay } from "./play";
 import {
   applyMoves,
@@ -112,7 +111,7 @@ describe("a full season", () => {
     const table = outcome.tables.ENG2 ?? [];
     const at = (pos: number) => table[pos - 1]?.cid as number;
     const id = playoffId("ENG2");
-    const elim = byRound(state, id, PLAYOFF_ROUNDS.eliminators);
+    const elim = byRound(state, id, "Eliminators");
     expect(elim.map((f) => [f.homeCid, f.awayCid])).toEqual([
       [at(5), at(8)],
       [at(6), at(7)],
@@ -120,7 +119,7 @@ describe("a full season", () => {
     const winners = elim.map((f) => f.result?.winnerCid as number);
     const pos = (cid: number) => table.findIndex((r) => r.cid === cid) + 1;
     const [best, worst] = [...winners].sort((a, b) => pos(a) - pos(b));
-    const semis = byRound(state, id, PLAYOFF_ROUNDS.semis);
+    const semis = byRound(state, id, "Semi-finals");
     const leg2 = semis.filter((f) => f.leg === 2);
     // Higher seed hosts the second leg: 3rd v lowest-seeded winner, 4th v highest-seeded.
     expect(leg2.map((f) => [f.homeCid, f.awayCid])).toEqual([
@@ -132,7 +131,7 @@ describe("a full season", () => {
       leg2.map((f) => [f.homeCid, f.awayCid]),
     );
     expect(leg1.every((f) => f.result?.winnerCid === null)).toBe(true);
-    const [final] = byRound(state, id, PLAYOFF_ROUNDS.final);
+    const [final] = byRound(state, id, "Final");
     expect(final?.neutral).toBe(true);
     expect(new Set([final?.homeCid, final?.awayCid])).toEqual(
       new Set(leg2.map((f) => f.result?.winnerCid)),
@@ -192,5 +191,100 @@ describe("a full season", () => {
     playRest(resumed, play, competitions);
     expect(resumed.fixtures).toEqual(state.fixtures);
     expect(seasonOutcome(resumed, competitions)).toEqual(outcome);
+  });
+});
+
+describe("the Super League's play-offs (general play-off format)", () => {
+  const config = worlds.superLeague.competitions;
+  const sl = generateWorld({
+    config: worlds.superLeague,
+    seed: "season-test",
+    name: "t",
+    userCid: 0,
+    createdAt: "2026-07-01T00:00:00.000Z",
+  });
+  const slState = createSeason({
+    config,
+    season: 2026,
+    seed: "season-test",
+    clubs: sl.clubs,
+    lastFinish: new Map(),
+    firstFid: 1,
+  });
+  playRest(slState, fullStrengthPlay(sl.clubs, sl.players), config);
+  const slOutcome = seasonOutcome(slState, config);
+  const atIn = (league: string) => (pos: number) =>
+    slOutcome.tables[league]?.[pos - 1]?.cid as number;
+  const pairs = (fixtures: readonly Fixture[]) => fixtures.map((f) => [f.homeCid, f.awayCid]);
+
+  it("plays Star's top 8 in its fixed bracket, two-legged, to a neutral final", SLOW, () => {
+    const at = atIn("STAR");
+    const id = playoffId("STAR");
+    const quarters = byRound(slState, id, "Quarter-finals");
+    // The better-placed club hosts the second leg.
+    expect(pairs(quarters.filter((f) => f.leg === 2))).toEqual([
+      [at(1), at(8)],
+      [at(4), at(5)],
+      [at(2), at(7)],
+      [at(3), at(6)],
+    ]);
+    const won = quarters.filter((f) => f.leg === 2).map((f) => f.result?.winnerCid as number);
+    const pos = (cid: number) => (slOutcome.tables.STAR ?? []).findIndex((r) => r.cid === cid);
+    const better = (a: number, b: number) => (pos(a) < pos(b) ? [a, b] : [b, a]);
+    const semis = byRound(slState, id, "Semi-finals");
+    expect(pairs(semis.filter((f) => f.leg === 2))).toEqual([
+      better(won[0] as number, won[1] as number),
+      better(won[2] as number, won[3] as number),
+    ]);
+    const [final] = byRound(slState, id, "Final");
+    expect(final?.neutral).toBe(true);
+    expect(final?.leg).toBeNull();
+    expect(slOutcome.playoffWinners.STAR).toEqual([final?.result?.winnerCid]);
+    // A title play-off moves nobody.
+    expect(slOutcome.moves.filter((m) => m.from === "STAR").map((m) => m.reason)).toEqual([
+      "relegated",
+      "relegated",
+    ]);
+  });
+
+  it("plays Gold's and Blue's 2nd-5th in single-leg semi-finals and a neutral final", SLOW, () => {
+    for (const league of ["GOLD", "BLUE"]) {
+      const at = atIn(league);
+      const semis = byRound(slState, playoffId(league), "Semi-finals");
+      expect(pairs(semis)).toEqual([
+        [at(2), at(5)],
+        [at(3), at(4)],
+      ]);
+      expect(semis.every((f) => f.leg === null && !f.neutral)).toBe(true);
+      const [final] = byRound(slState, playoffId(league), "Final");
+      expect(final?.neutral).toBe(true);
+      const up = slOutcome.moves.filter((m) => m.from === league && m.reason !== "relegated");
+      expect(up.map((m) => [m.cid, m.reason])).toEqual([
+        [at(1), "promoted"],
+        [final?.result?.winnerCid, "playoffs"],
+      ]);
+    }
+    expect(slOutcome.moves.filter((m) => m.from === "BLUE" && m.reason === "relegated")).toEqual(
+      [],
+    );
+  });
+
+  it("schedules the play-offs after the league, midweek first, finals near their dates", () => {
+    const { leagues, playoffs } = slState.calendar;
+    for (const id of ["STAR", "GOLD", "BLUE"]) {
+      const last = leagues[id]?.at(-1)?.date ?? "";
+      const dates = playoffs[id] ?? [];
+      expect(dates[0]?.slot).toBe("midweek");
+      expect(dates.every((d) => d.date > last)).toBe(true);
+    }
+    expect(playoffs.STAR?.map((d) => [d.round, d.leg])).toEqual([
+      ["Quarter-finals", 1],
+      ["Quarter-finals", 2],
+      ["Semi-finals", 1],
+      ["Semi-finals", 2],
+      ["Final", null],
+    ]);
+    expect(playoffs.STAR?.at(-1)?.date).toBe("2027-05-29");
+    expect(playoffs.GOLD?.at(-1)?.date).toBe("2027-05-15");
   });
 });

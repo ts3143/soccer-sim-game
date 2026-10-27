@@ -19,7 +19,12 @@
  *    play-off date that falls on one of the league's cup dates moves to the next slot.
  */
 import { addDays } from "../../common/dates";
-import type { CompetitionsConfig, CupConfig, LeagueConfig } from "../../common/config/competitions";
+import type {
+  CompetitionsConfig,
+  CupConfig,
+  LeagueConfig,
+  PlayoffRound,
+} from "../../common/config/competitions";
 import type { Fixture } from "../../common/schema";
 
 export type Slot = Fixture["slot"];
@@ -45,12 +50,6 @@ export interface RoundDate {
 }
 
 /** Play-off round names (fixtures use these, plus `leg` for the two-legged semi-finals). */
-export const PLAYOFF_ROUNDS = {
-  eliminators: "Eliminators",
-  semis: "Semi-finals",
-  final: "Final",
-} as const;
-
 export interface SeasonCalendar {
   season: number;
   /** Per league ID: one date per round, in round order (dates strictly increasing). */
@@ -195,26 +194,29 @@ function playoffRounds(
   lastRound: string,
   cups: Record<string, RoundDate[]>,
 ): RoundDate[] {
-  const promotion = league.promotion;
-  if (!promotion || promotion.playoffPositions.length === 0) return [];
+  const playoff = league.playoff;
+  if (!playoff) return [];
   const taken = new Set(
     config.cups
       .filter((c) => c.entrants.includes(league.id))
       .flatMap((c) => (cups[c.id] ?? []).map((r) => r.date)),
   );
+  // Every match before the final on the next slot, midweek first, then alternating.
   const rounds: RoundDate[] = [];
   let previous = lastRound;
-  const add = (round: string, slot: Slot, leg: 1 | 2 | null) => {
-    previous = nextSlotAfter(previous, slot, taken);
-    rounds.push({ round, date: previous, slot, leg });
-  };
-  if (promotion.playoffPositions.length === 6) add(PLAYOFF_ROUNDS.eliminators, "midweek", null);
-  add(PLAYOFF_ROUNDS.semis, rounds.length ? "weekend" : "midweek", 1);
-  add(PLAYOFF_ROUNDS.semis, rounds.at(-1)?.slot === "weekend" ? "midweek" : "weekend", 2);
-  const near = nearestSlot(seasonDate(season, promotion.playoffFinalNear), "weekend");
-  const final =
+  let slot: Slot = "midweek";
+  for (const round of playoff.rounds.slice(0, -1)) {
+    for (const leg of round.legs === 2 ? ([1, 2] as const) : [null]) {
+      previous = nextSlotAfter(previous, slot, taken);
+      rounds.push({ round: round.name, date: previous, slot, leg });
+      slot = slot === "midweek" ? "weekend" : "midweek";
+    }
+  }
+  const final = playoff.rounds.at(-1) as PlayoffRound;
+  const near = nearestSlot(seasonDate(season, playoff.finalNear), "weekend");
+  const date =
     near > previous && !taken.has(near) ? near : nextSlotAfter(previous, "weekend", taken);
-  rounds.push({ round: PLAYOFF_ROUNDS.final, date: final, slot: "weekend", leg: null });
+  rounds.push({ round: final.name, date, slot: "weekend", leg: null });
   return rounds;
 }
 

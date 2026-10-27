@@ -42,19 +42,11 @@ export interface LeagueConfig {
     /** League the promoted clubs go up to (the one relegating into this league). */
     to: string;
     automatic: number;
-    /** Table positions in the play-offs, best first (e.g. 3–8). */
-    playoffPositions: number[];
+    /** Clubs promoted through the play-off: its winner. */
     promotedPlaces: number;
-    /** MM-DD template: the play-off final is on the weekend nearest it. */
-    playoffFinalNear: string;
-    /**
-     * The play-offs' structured format when the file gives one (the Super League's);
-     * null for Classic's six-club format, which the season code knows (SPEC §2.2).
-     */
-    playoffFormat: PlayoffFormat | null;
   } | null;
-  /** A play-off for the title among the top of the table (the Super League's Star tier). */
-  titlePlayoff: PlayoffFormat | null;
+  /** The play-off after the league season, for promotion or for the title. */
+  playoff: PlayoffFormat | null;
   relegation: { places: number; to: string } | null;
   styleModifiers: StyleModifiers;
   /** Table order after points; each league sets its own (T, 2026-10-14). */
@@ -65,16 +57,36 @@ export interface LeagueConfig {
   board: BoardTarget[];
 }
 
-/** A knockout play-off among table positions (SPEC §17.2). Used by the season from SL2. */
+/**
+ * A knockout play-off among table positions (SPEC §2.2, §17.2), round by round. A round's
+ * clubs are those joining it (`entrants`) and the previous round's winners; they meet as
+ * the round pairs them. A single match is hosted by the better-placed club (or played at a
+ * neutral venue); in a two-legged tie the better-placed club hosts the second leg.
+ */
 export interface PlayoffFormat {
+  /** What the winner gets: promotion, or the title (SPEC §17.2: Star's champion). */
+  decides: "promotion" | "title";
   /** Table positions taking part, best first. */
   positions: number[];
-  /** The first round's ties as [home seed, away seed]; later rounds pair winners in order. */
-  firstRound: [number, number][];
-  /** Each round, first to final: two-legged rounds have the higher seed host the second leg. */
-  rounds: { id: string; legs: 1 | 2; neutral: boolean }[];
+  /** First to final. */
+  rounds: PlayoffRound[];
   /** MM-DD template: the final is on the weekend nearest it. */
   finalNear: string;
+}
+
+export interface PlayoffRound {
+  /** Shown, and stored on the round's fixtures (unique within the play-off). */
+  name: string;
+  legs: 1 | 2;
+  neutral: boolean;
+  /** Table positions joining in this round (the others joined earlier). */
+  entrants: number[];
+  /**
+   * How the round's clubs meet. `reseed`: best-placed against worst-placed, second against
+   * second-worst, and so on. `bracket`: the previous round's ties in twos, in order. `ties`:
+   * fixed ties as [table position, table position] (a first round only).
+   */
+  pairing: "reseed" | "bracket" | { ties: [number, number][] };
 }
 
 export interface BoardTarget {
@@ -206,21 +218,20 @@ function checkCupBracket(cup: CupConfig, leagues: readonly LeagueConfig[], file:
   if (alive !== 1) throw new Error(`${file}: ${cup.id} ends with ${alive} clubs, not one winner`);
 }
 
-/** A competitions config file's JSON (data/config/), as imported. */
-/** A play-off format as a competitions file gives it. */
+/** A play-off as a competitions file gives it (see PlayoffFormat). */
 interface PlayoffFile {
-  positions: number[];
-  firstRound?: number[][];
-  rounds?: { id: string; legs: number; neutral: boolean }[];
-  allSingleLeg?: boolean;
-  schedule: { finalNear: string };
+  decides: string;
+  rounds: {
+    name: string;
+    legs: number;
+    neutral: boolean;
+    entrants?: number[];
+    pairing?: string;
+    ties?: number[][];
+  }[];
+  allSingleLeg: boolean;
+  finalNear: string;
 }
-
-const titlePlayoff = (where: string, file: PlayoffFile, clubs: number): PlayoffFormat => {
-  const format = parsePlayoff(`${where} title play-off`, file, clubs);
-  if (!format) throw new Error(`${where}: a title play-off needs its first round and rounds`);
-  return format;
-};
 
 /** A competitions config file's JSON (data/config/), as parseCompetitions reads it. */
 export interface CompetitionsFile {
@@ -235,8 +246,8 @@ export interface CompetitionsFile {
     rounds: number;
     firstMatch: string;
     lastMatch: string;
-    promotion: { automatic: number; playoff: PlayoffFile & { promotedPlaces: number } } | null;
-    titlePlayoff?: PlayoffFile;
+    promotion: { automatic: number; promotedPlaces: number } | null;
+    playoff?: PlayoffFile | null;
     relegation: { places: number; to: string } | null;
     styleModifiers: StyleModifiers;
     tieBreakers: string[];
@@ -262,34 +273,52 @@ export interface CompetitionsFile {
 }
 
 /**
- * Reads a structured play-off format (null when the file gives none) and checks it: the
- * first round pairs every position once, each round halves the field down to one final,
- * legs are 1 or 2. `allSingleLeg` makes every round single-leg.
+ * Reads a play-off and checks it: every position joins once and is a table position, each
+ * round has an even number of clubs and the final two, legs are 1 or 2 (the final 1), round
+ * names are unique, fixed ties only in the first round, `bracket` only after a round of
+ * ties with nobody joining. `allSingleLeg` makes every round single-leg.
  */
-function parsePlayoff(where: string, file: PlayoffFile, clubs: number): PlayoffFormat | null {
-  if (!file.firstRound || !file.rounds) return null;
-  const firstRound = file.firstRound.map((tie) => {
-    if (tie.length !== 2) throw new Error(`${where}: a tie needs two seeds`);
-    return [tie[0], tie[1]] as [number, number];
+function parsePlayoff(where: string, file: PlayoffFile, clubs: number): PlayoffFormat {
+  if (file.decides !== "promotion" && file.decides !== "title") {
+    throw new Error(`${where}: a play-off decides promotion or the title`);
+  }
+  const fail = (why: string) => {
+    throw new Error(`${where}: ${why}`);
+  };
+  let alive = 0;
+  const rounds = file.rounds.map((r, i): PlayoffRound => {
+    if (r.legs !== 1 && r.legs !== 2) fail(`${r.name} has ${r.legs} legs`);
+    const ties = r.ties?.map((t): [number, number] => {
+      if (t.length !== 2) fail(`a tie in ${r.name} needs two positions`);
+      return [t[0] as number, t[1] as number];
+    });
+    if (ties && i > 0) fail(`fixed ties only in the first round, not ${r.name}`);
+    const entrants = ties ? ties.flat() : (r.entrants ?? []);
+    const pairing = ties ? { ties } : r.pairing;
+    if (pairing !== "reseed" && pairing !== "bracket" && !ties) {
+      fail(`${r.name} pairs by reseed, bracket or fixed ties`);
+    }
+    if (pairing === "bracket" && (i === 0 || entrants.length > 0)) {
+      fail(`${r.name} can only pair the previous round's ties, with nobody joining`);
+    }
+    alive += entrants.length;
+    if (alive % 2 !== 0 || alive < 2) fail(`${r.name} has ${alive} clubs`);
+    alive /= 2;
+    return {
+      name: r.name,
+      legs: file.allSingleLeg ? 1 : (r.legs as 1 | 2),
+      neutral: r.neutral,
+      entrants,
+      pairing: pairing as PlayoffRound["pairing"],
+    };
   });
-  const seeds = firstRound.flat().sort((a, b) => a - b);
-  const positions = [...file.positions].sort((a, b) => a - b);
-  if (seeds.join() !== positions.join()) {
-    throw new Error(`${where}: the first round must pair every play-off position once`);
-  }
-  if (positions.some((p) => p < 1 || p > clubs)) {
-    throw new Error(`${where}: play-off positions must be table positions`);
-  }
-  if (2 ** file.rounds.length !== positions.length) {
-    throw new Error(
-      `${where}: ${positions.length} clubs need ${Math.log2(positions.length)} rounds`,
-    );
-  }
-  const rounds = file.rounds.map((r) => {
-    if (r.legs !== 1 && r.legs !== 2) throw new Error(`${where}: ${r.id} has ${r.legs} legs`);
-    return { id: r.id, legs: file.allSingleLeg ? 1 : r.legs, neutral: r.neutral } as const;
-  });
-  return { positions: file.positions, firstRound, rounds, finalNear: file.schedule.finalNear };
+  if (alive !== 1) fail(`ends with ${alive} winners, not one`);
+  if (rounds.at(-1)?.legs !== 1) fail("the final is a single match");
+  if (new Set(rounds.map((r) => r.name)).size !== rounds.length) fail("round names repeat");
+  const positions = rounds.flatMap((r) => r.entrants).sort((a, b) => a - b);
+  if (new Set(positions).size !== positions.length) fail("a position joins twice");
+  if (positions.some((p) => p < 1 || p > clubs)) fail("play-off positions must be table positions");
+  return { decides: file.decides, positions, rounds, finalNear: file.finalNear };
 }
 
 /** Reads and checks a competitions config file; `file` names it in errors. */
@@ -307,13 +336,10 @@ export function parseCompetitions(json: CompetitionsFile, file: string): Competi
       ? {
           to: json.leagues.find((x) => x.relegation?.to === l.id)?.id ?? "",
           automatic: l.promotion.automatic,
-          playoffPositions: l.promotion.playoff.positions,
-          promotedPlaces: l.promotion.playoff.promotedPlaces,
-          playoffFinalNear: l.promotion.playoff.schedule.finalNear,
-          playoffFormat: parsePlayoff(`${file}: ${l.id} play-offs`, l.promotion.playoff, l.clubs),
+          promotedPlaces: l.promotion.promotedPlaces,
         }
       : null,
-    titlePlayoff: l.titlePlayoff ? titlePlayoff(`${file}: ${l.id}`, l.titlePlayoff, l.clubs) : null,
+    playoff: l.playoff ? parsePlayoff(`${file}: ${l.id} play-off`, l.playoff, l.clubs) : null,
     relegation: l.relegation,
     styleModifiers: l.styleModifiers,
     tieBreakers: parseTieBreakers(l.id, l.tieBreakers),
@@ -339,9 +365,14 @@ export function parseCompetitions(json: CompetitionsFile, file: string): Competi
     }
   }
   for (const league of leagues) {
-    const positions = league.promotion?.playoffPositions ?? [];
-    if (league.promotion && ![0, 4, 6].includes(positions.length)) {
-      throw new Error(`${file}: ${league.id} play-offs need 4 or 6 clubs`);
+    const promotes = (league.promotion?.promotedPlaces ?? 0) > 0;
+    if (promotes !== (league.playoff?.decides === "promotion")) {
+      throw new Error(
+        `${file}: ${league.id} promotes through a play-off exactly when it has a promotion play-off`,
+      );
+    }
+    if (promotes && league.promotion?.promotedPlaces !== 1) {
+      throw new Error(`${file}: ${league.id}'s play-off promotes its one winner`);
     }
     if (league.promotion && !league.promotion.to) {
       throw new Error(`${file}: ${league.id} promotes but no league relegates into it`);

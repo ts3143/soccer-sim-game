@@ -10,7 +10,6 @@
  * as a save, src/worker/season). `--quiet` prints only the numbers.
  */
 import type { Fixture } from "../src/common/schema";
-import { PLAYOFF_ROUNDS } from "../src/worker/schedule/calendar";
 import type { TableRow } from "../src/worker/schedule/standings";
 import { playoffId } from "../src/worker/season/season";
 import { simulateWorld } from "./calibrate/world";
@@ -76,7 +75,7 @@ const run = simulateWorld(config, SEED, SEASONS, ({ index, state, outcome, metri
 
   for (const league of config.competitions.leagues) {
     const rows = outcome.tables[league.id] ?? [];
-    const po = league.promotion?.playoffPositions ?? [];
+    const po = league.playoff?.positions ?? [];
     const zones = (pos: number) =>
       pos === 1
         ? league.promotion
@@ -120,7 +119,8 @@ const run = simulateWorld(config, SEED, SEASONS, ({ index, state, outcome, metri
     log(`  Winner: ${name.get(outcome.cupWinners[cup.id] ?? -1)}`);
   }
 
-  for (const league of config.competitions.leagues.filter((l) => l.promotion)) {
+  for (const league of config.competitions.leagues) {
+    if (!league.playoff) continue;
     const id = playoffId(league.id);
     const table = outcome.tables[league.id] ?? [];
     const pos = (cid: number) => table.find((r) => r.cid === cid)?.position;
@@ -132,10 +132,10 @@ const run = simulateWorld(config, SEED, SEASONS, ({ index, state, outcome, metri
         `  ${round.padEnd(20)} ${day(f.date).padEnd(7)} ${seeded(f.homeCid)} ${score(f)} ${seeded(f.awayCid)}${f.neutral ? " (neutral)" : ""}`,
       );
     }
-    const final = state.fixtures.find(
-      (f) => f.competition === id && f.round === PLAYOFF_ROUNDS.final,
-    );
-    log(`  Promoted through the play-offs: ${name.get(final?.result?.winnerCid ?? -1)}`);
+    const last = league.playoff.rounds.at(-1)?.name;
+    const final = state.fixtures.find((f) => f.competition === id && f.round === last);
+    const won = league.playoff.decides === "title" ? "Champions" : "Promoted through the play-offs";
+    log(`  ${won}: ${name.get(final?.result?.winnerCid ?? -1)}`);
   }
 
   log("\nUp and down");

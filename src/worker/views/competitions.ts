@@ -16,7 +16,6 @@ import type { CompetitionsConfig } from "../../common/config/competitions";
 import { addDays } from "../../common/dates";
 import type { Club, Fixture, GameMeta } from "../../common/schema";
 import { openLeague } from "../league/session";
-import { PLAYOFF_ROUNDS } from "../schedule/calendar";
 import { playoffId } from "../season/season";
 import {
   formOf,
@@ -47,7 +46,7 @@ function zoneOf(
   if (!league) return null;
   if (position === 1) return "champions";
   if (league.promotion && position <= league.promotion.automatic) return "promoted";
-  if (league.promotion?.playoffPositions.includes(position)) return "playoffs";
+  if (league.playoff?.positions.includes(position)) return "playoffs";
   if (league.relegation && position > clubs - league.relegation.places) return "relegated";
   return null;
 }
@@ -141,17 +140,17 @@ export async function getStandings(
 function knockouts(config: CompetitionsConfig): { id: string; name: string; rounds: string[] }[] {
   return [
     ...config.cups.map((c) => ({ id: c.id, name: c.name, rounds: c.rounds })),
-    ...config.leagues
-      .filter((l) => l.promotion && l.promotion.playoffPositions.length > 0)
-      .map((l) => ({
-        id: playoffId(l.id),
-        name: `${l.name} play-offs`,
-        rounds: [
-          ...(l.promotion?.playoffPositions.length === 6 ? [PLAYOFF_ROUNDS.eliminators] : []),
-          PLAYOFF_ROUNDS.semis,
-          PLAYOFF_ROUNDS.final,
-        ],
-      })),
+    ...config.leagues.flatMap((l) =>
+      l.playoff
+        ? [
+            {
+              id: playoffId(l.id),
+              name: `${l.name} play-offs`,
+              rounds: l.playoff.rounds.map((r) => r.name),
+            },
+          ]
+        : [],
+    ),
   ];
 }
 

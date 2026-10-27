@@ -55,54 +55,83 @@ describe("worlds", () => {
       expect({ ...c, league: "" }).toEqual({ ...classic.get(c.code), league: "" });
   });
 
-  it("gives the Super League its play-off formats", () => {
+  it("gives the Super League its play-offs: Star's for the title, Gold's and Blue's for promotion", () => {
     const [star, gold, blue] = worldById("superLeague").competitions.leagues;
     expect(star?.promotion).toBeNull();
-    expect(star?.titlePlayoff).toEqual({
+    expect(star?.playoff).toEqual({
+      decides: "title",
       positions: [1, 2, 3, 4, 5, 6, 7, 8],
-      firstRound: [
-        [1, 8],
-        [4, 5],
-        [2, 7],
-        [3, 6],
-      ],
       rounds: [
-        { id: "quarterFinals", legs: 2, neutral: false },
-        { id: "semiFinals", legs: 2, neutral: false },
-        { id: "final", legs: 1, neutral: true },
+        {
+          name: "Quarter-finals",
+          legs: 2,
+          neutral: false,
+          entrants: [1, 8, 4, 5, 2, 7, 3, 6],
+          pairing: {
+            ties: [
+              [1, 8],
+              [4, 5],
+              [2, 7],
+              [3, 6],
+            ],
+          },
+        },
+        { name: "Semi-finals", legs: 2, neutral: false, entrants: [], pairing: "bracket" },
+        { name: "Final", legs: 1, neutral: true, entrants: [], pairing: "bracket" },
       ],
       finalNear: "05-29",
     });
     for (const tier of [gold, blue]) {
       expect(tier?.promotion).toMatchObject({ automatic: 1, promotedPlaces: 1 });
-      expect(tier?.promotion?.playoffFormat).toEqual({
+      expect(tier?.playoff).toEqual({
+        decides: "promotion",
         positions: [2, 3, 4, 5],
-        firstRound: [
-          [2, 5],
-          [3, 4],
-        ],
         rounds: [
-          { id: "semiFinals", legs: 1, neutral: false },
-          { id: "final", legs: 1, neutral: true },
+          {
+            name: "Semi-finals",
+            legs: 1,
+            neutral: false,
+            entrants: [2, 3, 4, 5],
+            pairing: "reseed",
+          },
+          { name: "Final", legs: 1, neutral: true, entrants: [], pairing: "reseed" },
         ],
         finalNear: "05-16",
       });
     }
-    // Classic's play-offs keep the format the season code knows.
-    expect(worlds.classic.competitions.leagues[1]?.promotion?.playoffFormat).toBeNull();
   });
 
-  it("makes every play-off round single-leg with allSingleLeg, and checks the bracket", () => {
-    type Star = { titlePlayoff: { allSingleLeg: boolean; firstRound: number[][] } };
+  it("writes Classic's six-club play-off in the same format", () => {
+    expect(worlds.classic.competitions.leagues[1]?.playoff).toEqual({
+      decides: "promotion",
+      positions: [3, 4, 5, 6, 7, 8],
+      rounds: [
+        { name: "Eliminators", legs: 1, neutral: false, entrants: [5, 6, 7, 8], pairing: "reseed" },
+        { name: "Semi-finals", legs: 2, neutral: false, entrants: [3, 4], pairing: "reseed" },
+        { name: "Final", legs: 1, neutral: true, entrants: [], pairing: "reseed" },
+      ],
+      finalNear: "05-24",
+    });
+  });
+
+  it("makes every play-off round single-leg with allSingleLeg, and checks the rounds", () => {
+    type Playoff = { allSingleLeg: boolean; rounds: { ties?: number[][]; legs: number }[] };
+    const playoffOf = (file: typeof superLeagueFile) =>
+      (file.leagues[0] as unknown as { playoff: Playoff }).playoff;
     const single = structuredClone(superLeagueFile);
-    (single.leagues[0] as unknown as Star).titlePlayoff.allSingleLeg = true;
-    const parsed = parseCompetitions(single, "single.json").leagues[0]?.titlePlayoff;
+    playoffOf(single).allSingleLeg = true;
+    const parsed = parseCompetitions(single, "single.json").leagues[0]?.playoff;
     expect(parsed?.rounds.map((r) => r.legs)).toEqual([1, 1, 1]);
 
     const broken = structuredClone(superLeagueFile);
-    (broken.leagues[0] as unknown as Star).titlePlayoff.firstRound[0] = [1, 9];
+    (playoffOf(broken).rounds[0] as { ties: number[][] }).ties[0] = [1, 17];
     expect(() => parseCompetitions(broken, "broken.json")).toThrow(
-      /^broken\.json: STAR title play-off: the first round must pair every play-off position once/,
+      /^broken\.json: STAR play-off: play-off positions must be table positions/,
+    );
+    const twoLegFinal = structuredClone(superLeagueFile);
+    (playoffOf(twoLegFinal).rounds[2] as { legs: number }).legs = 2;
+    expect(() => parseCompetitions(twoLegFinal, "final.json")).toThrow(
+      /the final is a single match/,
     );
   });
 

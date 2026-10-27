@@ -134,7 +134,7 @@ export function leagueTables(
         drawSeed: `${game.seed}/table/${league.id}/${game.season}`,
       },
     );
-    const po = league.promotion?.playoffPositions ?? [];
+    const po = league.playoff?.positions ?? [];
     const zone = (pos: number): TableZone =>
       pos === 1
         ? "champions"
