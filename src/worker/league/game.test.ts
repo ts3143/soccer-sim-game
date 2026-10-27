@@ -10,6 +10,7 @@ import type {
   SeasonMeta,
 } from "../../common/schema";
 import { listLeagues } from "../db/globalDb";
+import { fingerprints } from "../fingerprint";
 import { operatingRevenue } from "../finance/finance";
 import { openLeagueDb } from "../db/leagueDb";
 import { getPlayer } from "../views/players";
@@ -254,6 +255,39 @@ describe("the season loop in a save", () => {
     session = await openLeague(1);
     expect(gameState(session).season).toBe(2027);
     expect(session.cache.getAll("fixtures").every((f) => f.season === 2027)).toBe(true);
+  });
+
+  // Recorded from main (50616fc) before the Super League work: a Classic save's first
+  // season and summer stay exactly this (MILESTONES SL0), every store and meta row (less
+  // the creation time). Re-record only for a change T approved.
+  it("leaves exactly the recorded Classic save", SLOW, async () => {
+    const { db } = await openLeague(1);
+    const parts: Record<string, unknown> = {};
+    for (const store of Array.from(db.objectStoreNames)) {
+      if (store !== "meta") parts[store] = await db.getAll(store);
+    }
+    for (const key of await db.getAllKeys("meta")) {
+      const row: unknown = await db.get("meta", key);
+      parts[`meta.${String(key)}`] = key === "game" ? { ...(row as GameMeta), createdAt: "" } : row;
+    }
+    expect(await fingerprints(parts)).toEqual({
+      awards: "47f1efe88efba86c",
+      clubSeasons: "6aeb9d73f22032da",
+      clubs: "2af99ef805da44be",
+      competitions: "9c7053789f091c56",
+      fixtures: "bc36a8610645a8ba",
+      inbox: "fac183c7acfaef80",
+      matches: "9ac0b3aab2246683",
+      offers: "4f53cda18c2baa0c",
+      playerStats: "98f2a2af1e532930",
+      players: "ee42b5d7bfb43cde",
+      transactions: "08ee379892a4f115",
+      "meta.game": "2ea05655402d73d9",
+      "meta.ids": "0b726e34894ca837",
+      "meta.rng": "845fe46aa046db2e",
+      "meta.season": "bb031135b2bbf32b",
+      "meta.world": "19d35b19bfc2fa66",
+    });
   });
 
   it("keeps match records two seasons, and the user's club's forever", SLOW, async () => {

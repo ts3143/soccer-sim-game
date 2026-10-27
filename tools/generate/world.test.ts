@@ -3,6 +3,7 @@ import { clubDefinitions } from "../../src/common/config/clubs";
 import { generateWorld } from "../../src/worker/generate/world";
 import { realClubNamesToCheck } from "../real-club-names";
 import { evaluateWorld } from "../../src/worker/generate/checks";
+import { fingerprints } from "../../src/worker/fingerprint";
 
 const options = {
   seed: "world-test",
@@ -57,5 +58,18 @@ describe("generateWorld", () => {
     expect(
       world.players.every((p) => p.contract === null || Number.isInteger(p.contract.wage)),
     ).toBe(true);
+  });
+
+  // Recorded from main (50616fc) before the Super League work: a new Classic world stays
+  // exactly this (MILESTONES SL0). Re-record only for a change T approved.
+  it("generates exactly the recorded Classic world", async () => {
+    expect(await fingerprints({ ...world })).toEqual({
+      meta: "572fff5668d82e7e",
+      competitions: "7c8eb2984df9ee1d",
+      clubs: "1b849c65c61e6cdc",
+      clubSeasons: "6858b15c259cd513",
+      players: "60eeb9aef2dd9623",
+      xiStrength: "7dbc52133ca8565b",
+    });
   });
 });

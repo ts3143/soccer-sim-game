@@ -30,19 +30,30 @@ export interface ClubDefinition {
   crest: { shape: string; motif: string; initials: string };
 }
 
-export const clubDefinitions: readonly ClubDefinition[] = raw.clubs.map((c) => ({
-  code: c.id,
-  league: c.league,
-  name: c.name,
-  short: c.short,
-  abbr: c.abbr,
-  city: c.city,
-  country: c.country,
-  capacity: c.capacity,
-  colors: { primary: c.colors.primary, secondary: c.colors.secondary, tertiary: c.colors.tertiary },
-  market: c.market,
-  reputation: c.reputation,
-  revenue: Math.round(c.revenue_m * 1_000_000),
-  strength: c.strength,
-  crest: { shape: c.crest.shape, motif: c.crest.motif, initials: c.crest.initials },
-}));
+/** A clubs file's JSON (data/), as imported. */
+export type ClubsFile = typeof raw;
+
+/** Reads a clubs file, field by field (never `based_on`). */
+export const parseClubs = (json: ClubsFile): ClubDefinition[] =>
+  json.clubs.map((c) => ({
+    code: c.id,
+    league: c.league,
+    name: c.name,
+    short: c.short,
+    abbr: c.abbr,
+    city: c.city,
+    country: c.country,
+    capacity: c.capacity,
+    colors: {
+      primary: c.colors.primary,
+      secondary: c.colors.secondary,
+      tertiary: c.colors.tertiary,
+    },
+    market: c.market,
+    reputation: c.reputation,
+    revenue: Math.round(c.revenue_m * 1_000_000),
+    strength: c.strength,
+    crest: { shape: c.crest.shape, motif: c.crest.motif, initials: c.crest.initials },
+  }));
+
+export const clubDefinitions: readonly ClubDefinition[] = parseClubs(raw);

@@ -158,20 +158,22 @@ export function cupEntryCounts(cup: CupConfig, leagues: readonly LeagueConfig[])
 }
 
 /** Throws unless the cup's rounds halve down to exactly one final (byes allowed). */
-function checkCupBracket(cup: CupConfig, leagues: readonly LeagueConfig[]): void {
+function checkCupBracket(cup: CupConfig, leagues: readonly LeagueConfig[], file: string): void {
   const entering = cupEntryCounts(cup, leagues);
   let alive = 0;
   cup.rounds.forEach((_, round) => {
     alive += entering[round] ?? 0;
-    if (alive < 2)
-      throw new Error(`competitions_mvp.json: ${cup.id} round ${round + 1} has ${alive} clubs`);
+    if (alive < 2) throw new Error(`${file}: ${cup.id} round ${round + 1} has ${alive} clubs`);
     alive = Math.ceil(alive / 2);
   });
-  if (alive !== 1)
-    throw new Error(`competitions_mvp.json: ${cup.id} ends with ${alive} clubs, not one winner`);
+  if (alive !== 1) throw new Error(`${file}: ${cup.id} ends with ${alive} clubs, not one winner`);
 }
 
-function parse(json: typeof raw): CompetitionsConfig {
+/** A competitions config file's JSON (data/config/), as imported. */
+export type CompetitionsFile = typeof raw;
+
+/** Reads and checks a competitions config file; `file` names it in errors. */
+export function parseCompetitions(json: CompetitionsFile, file: string): CompetitionsConfig {
   const leagues = json.leagues.map((l): LeagueConfig => ({
     id: l.id,
     country: l.country,
@@ -199,37 +201,35 @@ function parse(json: typeof raw): CompetitionsConfig {
   for (const league of leagues) {
     const covered = league.board.reduce((n, t) => n + t.strongest, 0);
     if (covered !== league.clubs) {
-      throw new Error(`competitions_mvp.json: ${league.id} board targets cover ${covered} clubs`);
+      throw new Error(`${file}: ${league.id} board targets cover ${covered} clubs`);
     }
   }
   for (const league of leagues) {
     const relegation = league.relegation;
     if (!relegation) continue;
     const below = leagues.find((l) => l.id === relegation.to);
-    if (!below) throw new Error(`competitions_mvp.json: ${league.id} relegates to unknown league`);
+    if (!below) throw new Error(`${file}: ${league.id} relegates to unknown league`);
     const up = below.promotion ? below.promotion.automatic + below.promotion.promotedPlaces : 0;
     if (up !== relegation.places) {
       throw new Error(
-        `competitions_mvp.json: ${league.id} relegates ${relegation.places} but ${below.id} promotes ${up}`,
+        `${file}: ${league.id} relegates ${relegation.places} but ${below.id} promotes ${up}`,
       );
     }
   }
   for (const league of leagues) {
     const positions = league.promotion?.playoffPositions ?? [];
     if (league.promotion && ![0, 4, 6].includes(positions.length)) {
-      throw new Error(`competitions_mvp.json: ${league.id} play-offs need 4 or 6 clubs`);
+      throw new Error(`${file}: ${league.id} play-offs need 4 or 6 clubs`);
     }
     if (league.promotion && !league.promotion.to) {
-      throw new Error(
-        `competitions_mvp.json: ${league.id} promotes but no league relegates into it`,
-      );
+      throw new Error(`${file}: ${league.id} promotes but no league relegates into it`);
     }
   }
   const cups = json.cups.map((c): CupConfig => {
     const entryRound: Record<string, number> = {};
     for (const [leagueId, text] of Object.entries<string>(c.entry ?? {})) {
       const round = /^round (\d+)/i.exec(text)?.[1];
-      if (!round) throw new Error(`competitions_mvp.json: ${c.id} entry "${text}" names no round`);
+      if (!round) throw new Error(`${file}: ${c.id} entry "${text}" names no round`);
       entryRound[leagueId] = Number(round) - 1;
     }
     return {
@@ -245,9 +245,9 @@ function parse(json: typeof raw): CompetitionsConfig {
     };
   });
   for (const cup of cups) {
-    checkCupBracket(cup, leagues);
+    checkCupBracket(cup, leagues, file);
     if (cup.prizeMoney.roundWon.length !== cup.rounds.length) {
-      throw new Error(`competitions_mvp.json: ${cup.id} needs one prize per round`);
+      throw new Error(`${file}: ${cup.id} needs one prize per round`);
     }
   }
   return {
@@ -263,7 +263,10 @@ function parse(json: typeof raw): CompetitionsConfig {
   };
 }
 
-export const competitionsConfig: CompetitionsConfig = parse(raw);
+export const competitionsConfig: CompetitionsConfig = parseCompetitions(
+  raw,
+  "competitions_mvp.json",
+);
 
 export function leagueById(id: string): LeagueConfig {
   const league = competitionsConfig.leagues.find((l) => l.id === id);
