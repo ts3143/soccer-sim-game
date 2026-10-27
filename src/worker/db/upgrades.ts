@@ -1,5 +1,6 @@
 import type { IDBPTransaction, StoreNames } from "idb";
 import type { Position } from "../../common/config/ratings";
+import { worlds } from "../../common/config/worlds";
 import type { PlayerMatchStats } from "../../common/match";
 import { COEFFICIENTS } from "../engine/coefficients";
 import {
@@ -162,7 +163,8 @@ export async function upgradeToV7(tx: UpgradeTransaction): Promise<void> {
   const players = await tx.objectStore("players").index("cid").getAll(game.userCid);
   let next: typeof club;
   try {
-    next = withAutoLineup(club, players, game.date);
+    // Saves from before v7 are all Classic (SPEC §17.1).
+    next = withAutoLineup(club, players, game.date, worlds.classic.competitions);
   } catch {
     return;
   }

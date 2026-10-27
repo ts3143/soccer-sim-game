@@ -13,8 +13,9 @@
  */
 import { isSenior } from "../../common/status";
 import { addDays, exactAge } from "../../common/dates";
-import { clubDefinitions } from "../../common/config/clubs";
-import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
+import type { ClubDefinition } from "../../common/config/clubs";
+import type { CompetitionsConfig } from "../../common/config/competitions";
+import type { WorldConfig } from "../../common/config/worlds";
 import { formationById } from "../../common/config/formations";
 import type { Position } from "../../common/config/ratings";
 import type {
@@ -97,6 +98,8 @@ const AREA: Record<Position, "gk" | "def" | "mid" | "att"> = {
 }; // prettier-ignore
 
 export interface LoopWorld {
+  /** The save's world (SPEC §17.1): its clubs file, competitions and switches. */
+  config: WorldConfig;
   clubs: Club[];
   players: Player[];
   /** Club reputation (0–100) for the season being set up. */
@@ -521,7 +524,7 @@ function releaseFromAcademy(
 export function academyDecisions(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
   const a = TURNOVER.academy;
-  const maxSenior = competitionsConfig.rosterRules.maxSenior;
+  const maxSenior = world.config.competitions.rosterRules.maxSenior;
   for (const ctx of clubContexts(world).values()) {
     const candidates = [...ctx.academy].sort(
       (x, y) => y.pot - x.pot || y.ovr - x.ovr || x.pid - y.pid,
@@ -553,10 +556,9 @@ export function promoteAcademyPlayer(
   const p = world.players.find((x) => x.pid === pid);
   const ctx = p?.cid == null ? undefined : clubContexts(world).get(p.cid);
   if (!p || !ctx || p.status !== "academy") throw new GameError("He isn't in an academy");
-  if (ctx.seniors.length >= competitionsConfig.rosterRules.maxSenior) {
-    throw new GameError(
-      `Your squad is full (${competitionsConfig.rosterRules.maxSenior} seniors): make room first`,
-    );
+  const maxSenior = world.config.competitions.rosterRules.maxSenior;
+  if (ctx.seniors.length >= maxSenior) {
+    throw new GameError(`Your squad is full (${maxSenior} seniors): make room first`);
   }
   const log = emptyLog();
   promote(p, ctx, season, date, log);
@@ -718,7 +720,7 @@ export function seasonAwards(
   clubs: readonly Club[],
   players: readonly Player[],
   lines: readonly SeasonLine[],
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): NewAward[] {
   const season = state.season;
   const clubName = new Map(clubs.map((c) => [c.cid, c.name]));
@@ -778,6 +780,6 @@ export function seasonAwards(
 }
 
 /** Clubs' reputation for the next season (unchanged until M4's board and finances). */
-export function startingReputation(): Map<number, number> {
-  return new Map(clubDefinitions.map((def, cid) => [cid, def.reputation]));
+export function startingReputation(clubs: readonly ClubDefinition[]): Map<number, number> {
+  return new Map(clubs.map((def, cid) => [cid, def.reputation]));
 }

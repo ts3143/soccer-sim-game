@@ -66,7 +66,7 @@ export async function getFreeAgents(lid: number): Promise<FreeAgentsView> {
     wageRoom: budgets.wageRoom,
     seniors: seniorsOf(world.players, user.cid).length,
     maxSeniors: TRANSFERS.maxSeniors,
-    windowOpen: openWindow(game.date, game.season) !== null,
+    windowOpen: openWindow(game.date, game.season, session.config.competitions) !== null,
     banned: transferBanned(user, game.date) ? (user.ffp?.bannedUntil ?? null) : null,
     fired: Boolean(game.fired),
   };
@@ -97,7 +97,7 @@ export async function getTransferMarket(lid: number): Promise<TransferMarketView
   });
   return {
     date: game.date,
-    window: openWindow(game.date, game.season),
+    window: openWindow(game.date, game.season, session.config.competitions),
     budget: {
       transfer: budgets.transfer,
       wageRoom: budgets.wageRoom,

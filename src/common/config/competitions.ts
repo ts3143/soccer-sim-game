@@ -268,8 +268,8 @@ export const competitionsConfig: CompetitionsConfig = parseCompetitions(
   "competitions_mvp.json",
 );
 
-export function leagueById(id: string): LeagueConfig {
-  const league = competitionsConfig.leagues.find((l) => l.id === id);
+export function leagueById(config: CompetitionsConfig, id: string): LeagueConfig {
+  const league = config.leagues.find((l) => l.id === id);
   if (!league) throw new Error(`Unknown league ${id}`);
   return league;
 }

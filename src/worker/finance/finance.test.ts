@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { competitionsConfig, leagueById } from "../../common/config/competitions";
+import { worlds } from "../../common/config/worlds";
+import { leagueById } from "../../common/config/competitions";
 import type { Club, ClubSeason, Fixture } from "../../common/schema";
 import { generateWorld } from "../generate/world";
 import { createSeason } from "../season/season";
@@ -17,20 +18,23 @@ import {
   totalOf,
 } from "./finance";
 
+const competitions = worlds.classic.competitions;
+
 const SLOW = { timeout: 120_000 };
 const world = generateWorld({
+  config: worlds.classic,
   seed: "finance-test",
   name: "t",
   userCid: 0,
   createdAt: "2026-07-01T00:00:00.000Z",
 });
-const ENG1 = leagueById("ENG1");
+const ENG1 = leagueById(competitions, "ENG1");
 
 describe("revenue formulas", () => {
   it("prices tickets by reputation and league", () => {
     expect(ticketPrice(90, ENG1)).toBeGreaterThan(ticketPrice(60, ENG1));
     expect(ticketPrice(50, ENG1)).toBe(ENG1.finance.ticketPriceBase);
-    expect(ticketPrice(50, leagueById("ENG2"))).toBeLessThan(ticketPrice(50, ENG1));
+    expect(ticketPrice(50, leagueById(competitions, "ENG2"))).toBeLessThan(ticketPrice(50, ENG1));
   });
 
   it("fills more seats with hype, never more than capacity", () => {
@@ -61,7 +65,7 @@ describe("TV merit and prize money", () => {
   it("splits the merit pool by final position, last place one share", () => {
     const b = books();
     const order = b.clubs.filter((c) => c.leagueId === "ENG1").map((c) => c.cid);
-    meritIncome(b, "ENG1", order);
+    meritIncome(b, "ENG1", order, competitions);
     const paid = order.map((cid) => b.clubSeasons.get(cid)?.revenue.merit ?? 0);
     const pool = ENG1.finance.broadcastPool * (1 - ENG1.finance.equalShare);
     expect(paid.reduce((a, x) => a + x, 0)).toBeCloseTo(pool, -2);
@@ -70,7 +74,7 @@ describe("TV merit and prize money", () => {
 
   it("pays the cup winner each round and the beaten finalist", () => {
     const b = books();
-    const cup = competitionsConfig.cups[0];
+    const cup = competitions.cups[0];
     if (!cup) throw new Error("no cup");
     const tie = (round: string, leg: Fixture["leg"], winnerCid: number): Fixture => ({
       fid: 1,
@@ -85,9 +89,9 @@ describe("TV merit and prize money", () => {
       leg,
       result: { homeGoals: 1, awayGoals: 0, extraTime: false, penalties: null, winnerCid },
     });
-    prizeIncome(b, tie(cup.rounds[0] as string, 1, 0)); // a first leg pays nothing
+    prizeIncome(b, tie(cup.rounds[0] as string, 1, 0), competitions); // a first leg pays nothing
     expect(b.clubSeasons.get(0)?.revenue.prize).toBeUndefined();
-    prizeIncome(b, tie(cup.rounds.at(-1) as string, null, 0));
+    prizeIncome(b, tie(cup.rounds.at(-1) as string, null, 0), competitions);
     expect(b.clubSeasons.get(0)?.revenue.prize).toBe(cup.prizeMoney.roundWon.at(-1));
     expect(b.clubSeasons.get(1)?.revenue.prize).toBe(cup.prizeMoney.runnerUp);
   });
@@ -122,15 +126,17 @@ describe("a season's money", () => {
   );
   let pid = 99_999;
   const loop: LoopWorld = {
+    config: worlds.classic,
     clubs,
     players: structuredClone(world.players),
-    reputation: startingReputation(),
+    reputation: startingReputation(worlds.classic.clubs),
     clubSeasons: rows,
     userCid: 0,
     seed: "finance-test",
     nextPid: () => pid++,
   };
   const state = createSeason({
+    config: competitions,
     season: 2026,
     seed: "finance-test",
     clubs,
@@ -139,10 +145,10 @@ describe("a season's money", () => {
   });
   runDays(loop, state, "2026-07-01", { limit: null });
   const lastDay = state.fixtures.reduce((d, f) => (f.date > d ? f.date : d), "2026-07-01");
-  closeSeasonBooks(loop, 2026, lastDay, 0);
+  closeSeasonBooks(loop, 2026, lastDay, 0, competitions);
 
   it("lands each league's season-1 revenue near the clubs' anchors", SLOW, () => {
-    for (const league of competitionsConfig.leagues) {
+    for (const league of competitions.leagues) {
       const own = clubs.filter((c) => c.leagueId === league.id);
       const errors = own.map(
         (c) => operatingRevenue(rows.get(c.cid)?.revenue ?? {}) / c.revenueAnchor - 1,
@@ -156,7 +162,7 @@ describe("a season's money", () => {
   it("pays the TV equal share in ten instalments and every club's books balance", SLOW, () => {
     for (const club of clubs) {
       const row = rows.get(club.cid) as ClubSeason;
-      const league = leagueById(row.leagueId);
+      const league = leagueById(competitions, row.leagueId);
       const equal = (league.finance.broadcastPool * league.finance.equalShare) / league.clubs;
       expect(row.revenue.broadcast).toBeCloseTo(equal, -2);
       expect(row.revenue.matchday ?? 0).toBeGreaterThan(0);
@@ -169,7 +175,7 @@ describe("a season's money", () => {
   });
 
   it("opens next season's books on last season's revenue", SLOW, () => {
-    const next = openSeasonBooks(clubs, rows, 2027, 0);
+    const next = openSeasonBooks(clubs, rows, 2027, 0, competitions);
     const club = clubs[0] as Club;
     expect(next.get(club.cid)?.budgetBase).toBe(
       operatingRevenue(rows.get(club.cid)?.revenue ?? {}),

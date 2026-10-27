@@ -4,7 +4,8 @@
  * league with that league's style. Squads are each club's best XI and bench, at full
  * condition (no rotation or fatigue between matches until M3).
  */
-import { competitionsConfig, type StyleModifiers } from "../../src/common/config/competitions";
+import type { StyleModifiers } from "../../src/common/config/competitions";
+import { worlds } from "../../src/common/config/worlds";
 import type { Club, Player } from "../../src/common/schema";
 import { Random } from "../../src/worker/core/random";
 import { aiSliders, teamProfile } from "../../src/worker/engine/aiTactics";
@@ -39,7 +40,7 @@ export class League {
     }
     for (const club of world.clubs)
       this.inputs.set(club.cid, teamInput(club, squads.get(club.cid) ?? []));
-    for (const l of competitionsConfig.leagues) {
+    for (const l of worlds.classic.competitions.leagues) {
       this.clubsByLeague.set(
         l.id,
         world.clubs.filter((c) => c.leagueId === l.id),
@@ -86,7 +87,7 @@ export class League {
   /** N matches between random pairs of clubs from the same league, styles neutral. */
   neutralSample(n: number, seed: string, c: Coefficients = COEFFICIENTS): SimulatedMatch[] {
     const fixtures = Random.fromSeed(`${seed}/fixtures`);
-    const weights = competitionsConfig.leagues.map((l) => ({
+    const weights = worlds.classic.competitions.leagues.map((l) => ({
       id: l.id,
       w: l.clubs * (l.clubs - 1),
     }));
@@ -109,7 +110,7 @@ export class League {
     seed: string,
     c: Coefficients = COEFFICIENTS,
   ): SimulatedMatch[][] {
-    const config = competitionsConfig.leagues.find((l) => l.id === league);
+    const config = worlds.classic.competitions.leagues.find((l) => l.id === league);
     if (!config) throw new Error(`Unknown league ${league}`);
     const clubs = this.clubsByLeague.get(league) ?? [];
     return Array.from({ length: seasons }, (_, s) => {

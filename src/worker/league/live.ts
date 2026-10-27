@@ -22,6 +22,7 @@ import type {
   TacticsSetup,
   TacticsView,
 } from "../../common/api";
+import type { CompetitionsConfig } from "../../common/config/competitions";
 import { formationById, formationsConfig, slotLabel } from "../../common/config/formations";
 import type { Club, Fixture, GameMeta, Player } from "../../common/schema";
 import { effectiveDials } from "../club/standing";
@@ -135,9 +136,14 @@ export function forgetRunningMatch(session: LeagueSession): void {
 }
 
 /** Who can play for the user's club in this match: fit, pickable, not on loan from the opponent. */
-function availableFor(club: Club, players: readonly Player[], fixture: Fixture): Player[] {
+function availableFor(
+  club: Club,
+  players: readonly Player[],
+  fixture: Fixture,
+  config: CompetitionsConfig,
+): Player[] {
   const opponent = fixture.homeCid === club.cid ? fixture.awayCid : fixture.homeCid;
-  return selectable(players, club.cid, fixture.date).filter(
+  return selectable(players, club.cid, fixture.date, config).filter(
     (p) => !isInjured(p, fixture.date) && !isSuspended(p) && p.loan?.parentCid !== opponent,
   );
 }
@@ -275,7 +281,8 @@ function preMatchContext(session: LeagueSession, fid: number, side: TeamSide) {
   const fixture = season.fixtures.find((f) => f.fid === fid);
   const club = world.clubs.find((c) => c.cid === game.userCid);
   if (!fixture || !club) throw new Error("The live match's fixture or club is missing");
-  const available = availableFor(club, world.players, fixture);
+  const competitions = world.config.competitions;
+  const available = availableFor(club, world.players, fixture, competitions);
   const ids = new Set(available.map((p) => p.pid));
   /**
    * The AI's pick for the user's club in this match, in `formation`: from his saved
@@ -287,10 +294,10 @@ function preMatchContext(session: LeagueSession, fid: number, side: TeamSide) {
         ? { ...c, tactics: { formation, sliders: c.tactics.sliders } }
         : c,
     );
-    const both = squadPlay(season, clubs, world.players, club.cid).prepare(fixture);
+    const both = squadPlay(season, clubs, world.players, club.cid, competitions).prepare(fixture);
     return side === 0 ? both.home : both.away;
   };
-  const everyone = selectable(world.players, club.cid, fixture.date);
+  const everyone = selectable(world.players, club.cid, fixture.date, competitions);
   return {
     fixture,
     club,
@@ -353,7 +360,12 @@ export function setLiveLineup(
     const allowed = new Set([...ctx.byPid.keys(), ...kept]);
     let next: TacticsSetup;
     if (mode === "saved") {
-      next = currentSetup(ctx.club, ctx.world.players, ctx.fixture.date);
+      next = currentSetup(
+        ctx.club,
+        ctx.world.players,
+        ctx.fixture.date,
+        ctx.world.config.competitions,
+      );
     } else if (mode === "auto") {
       next = { ...setupOf(ctx.aiPick(setup.formation)), sliders: { ...setup.sliders } };
     } else {
@@ -412,13 +424,16 @@ export function watchNextMatch(
         const world = loopWorld(session, game.season);
         const club = world.clubs.find((c) => c.cid === userCid);
         if (!club) throw new Error("The save has no user club");
-        const setup = fixtureSetup(season, fixture);
-        const ai = squadPlay(season, world.clubs, world.players, userCid).prepare(fixture);
+        const competitions = world.config.competitions;
+        const setup = fixtureSetup(season, fixture, competitions);
+        const ai = squadPlay(season, world.clubs, world.players, userCid, competitions).prepare(
+          fixture,
+        );
         const side: TeamSide = fixture.homeCid === userCid ? 0 : 1;
         const mine = side === 0 ? ai.home : ai.away;
         // His saved tactics as they are (T, 2026-10-25): a draft if they can't start it.
         const ctx = preMatchContext(session, fixture.fid, side);
-        const saved = currentSetup(club, world.players, fixture.date);
+        const saved = currentSetup(club, world.players, fixture.date, competitions);
         const draft = controls === "user" && kickOffProblems(saved, ctx).length > 0 ? saved : null;
         const user = controls === "ai" ? mine : userInput(ctx, saved, mine);
         const home = side === 0 ? user : ai.home;

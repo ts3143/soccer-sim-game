@@ -4,12 +4,13 @@
  * Per league: first and last round, midweek rounds, weekends left free, play-off dates.
  * Per cup: the date of each round. To play a season, use `pnpm season`.
  */
-import { competitionsConfig } from "../src/common/config/competitions";
+import { worlds } from "../src/common/config/worlds";
 import { seasonCalendar } from "../src/worker/schedule/calendar";
 
+const config = worlds.classic;
 const args = process.argv.slice(2);
 const i = args.indexOf("--season");
-const SEASON = i >= 0 ? Number(args[i + 1]) : competitionsConfig.firstSeason;
+const SEASON = i >= 0 ? Number(args[i + 1]) : config.competitions.firstSeason;
 
 export const day = (iso: string) =>
   new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", {
@@ -20,12 +21,14 @@ export const day = (iso: string) =>
   });
 const list = (dates: string[]) => (dates.length ? dates.map(day).join(", ") : "none");
 
-const cal = seasonCalendar(SEASON);
+const cal = seasonCalendar(SEASON, config.competitions);
 console.log(`Season ${SEASON}/${String((SEASON + 1) % 100).padStart(2, "0")} calendar\n`);
-for (const league of competitionsConfig.leagues) {
+for (const league of config.competitions.leagues) {
   const rounds = cal.leagues[league.id] ?? [];
   const midweek = rounds.filter((r) => r.slot === "midweek").map((r) => r.date);
-  const breakDates = competitionsConfig.countries.find((c) => c.id === league.country)?.winterBreak;
+  const breakDates = config.competitions.countries.find(
+    (c) => c.id === league.country,
+  )?.winterBreak;
   console.log(
     `${league.id} ${league.name}: ${rounds.length} rounds, ${day(rounds[0]?.date ?? "")} – ${day(rounds.at(-1)?.date ?? "")}`,
   );
@@ -39,7 +42,7 @@ for (const league of competitionsConfig.leagues) {
   }
 }
 console.log("");
-for (const cup of competitionsConfig.cups) {
+for (const cup of config.competitions.cups) {
   console.log(`${cup.id} ${cup.name}:`);
   for (const r of cal.cups[cup.id] ?? []) console.log(`  ${r.round.padEnd(26)} ${day(r.date)}`);
 }

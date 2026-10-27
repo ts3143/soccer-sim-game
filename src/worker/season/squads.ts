@@ -19,7 +19,7 @@
 import { applyDiscipline, isSuspended } from "./discipline";
 import { isSenior } from "../../common/status";
 import { addDays, ageOn, exactAge } from "../../common/dates";
-import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
+import type { CompetitionsConfig } from "../../common/config/competitions";
 import { formationById } from "../../common/config/formations";
 import { RATING_INDEX, type Position } from "../../common/config/ratings";
 import type { MatchResult, PlayerMatchStats } from "../../common/match";
@@ -226,7 +226,7 @@ export function matchImportance(
   fixture: Fixture,
   cid: number,
   tables: Tables,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
   c: SquadCoefficients = SQUAD_COEFFICIENTS,
 ): number {
   const imp = c.importance;
@@ -277,7 +277,7 @@ export function pickMatchday(
   club: Club,
   squad: readonly Player[],
   ctx: MatchdayContext,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
   c: SquadCoefficients = SQUAD_COEFFICIENTS,
 ): EngineTeamInput {
   const s = c.selection;
@@ -402,7 +402,7 @@ export function squadPlay(
   players: readonly Player[],
   /** The user's club: the AI starts from his saved line-up (null: every club is the AI's). */
   userCid: number | null,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
   c: SquadCoefficients = SQUAD_COEFFICIENTS,
 ): SquadPlay {
   const clubById = new Map(clubs.map((club) => [club.cid, club]));

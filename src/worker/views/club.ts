@@ -97,7 +97,7 @@ export async function getClubFinances(lid: number): Promise<ClubFinancesView> {
   const club = world.clubs.find((c) => c.cid === game.userCid);
   const row = world.clubSeasons.get(game.userCid);
   if (!club || !row) throw new Error("The save has no user club");
-  const league = leagueById(row.leagueId);
+  const league = leagueById(session.config.competitions, row.leagueId);
   const budgets = clubBudgets(world, club);
   const rows = session.cache
     .getAll("clubSeasons")
@@ -192,7 +192,8 @@ export async function getJobOffers(lid: number): Promise<FiredView | null> {
   const tables = leagueTables(session, seasonFixtures(session, game.season));
   const positionOf = (cid: number) =>
     tables.flatMap((t) => t.rows).find((r) => r.cid === cid)?.position ?? null;
-  const leagueName = (id: string) => leagueById(id).name;
+  const leagueOf = (id: string) => leagueById(session.config.competitions, id);
+  const leagueName = (id: string) => leagueOf(id).name;
   const old = clubs.get(game.userCid);
   const row = world.clubSeasons.get(game.userCid);
   if (!old || !row) throw new Error("The save has no user club");
@@ -220,7 +221,7 @@ export async function getJobOffers(lid: number): Promise<FiredView | null> {
           strength: Math.round(clubStrength(world.players, cid, game.date) * 10) / 10,
           position: positionOf(cid),
           expectation:
-            leagueById(club.leagueId).board.find((t) => t.id === season?.boardExpectation)?.label ??
+            leagueOf(club.leagueId).board.find((t) => t.id === season?.boardExpectation)?.label ??
             null,
         },
       ];

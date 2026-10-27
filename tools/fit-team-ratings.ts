@@ -8,6 +8,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { formationById } from "../src/common/config/formations";
+import { worlds } from "../src/common/config/worlds";
 import { RATING_INDEX } from "../src/common/config/ratings";
 import type { Player } from "../src/common/schema";
 import { bestXi } from "../src/worker/core/lineup";
@@ -21,6 +22,7 @@ const samples: { ovr: number; raw: Record<Key, number> }[] = [];
 
 for (const seed of SEEDS) {
   const world = generateWorld({
+    config: worlds.classic,
     seed,
     name: "fit",
     userCid: 0,

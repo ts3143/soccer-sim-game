@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { competitionsConfig } from "../../common/config/competitions";
+import { worlds } from "../../common/config/worlds";
 import type { Club, Fixture } from "../../common/schema";
 import { generateWorld } from "../generate/world";
 import { PLAYOFF_ROUNDS } from "../schedule/calendar";
@@ -17,8 +17,11 @@ import {
   type SeasonState,
 } from "./season";
 
+const competitions = worlds.classic.competitions;
+
 const SLOW = { timeout: 120_000 };
 const world = generateWorld({
+  config: worlds.classic,
   seed: "season-test",
   name: "t",
   userCid: 0,
@@ -26,7 +29,14 @@ const world = generateWorld({
 });
 const play = fullStrengthPlay(world.clubs, world.players);
 const start = (clubs: readonly Club[] = world.clubs, season = 2026, lastFinish = new Map()) =>
-  createSeason({ season, seed: "season-test", clubs, lastFinish, firstFid: 1 });
+  createSeason({
+    config: competitions,
+    season,
+    seed: "season-test",
+    clubs,
+    lastFinish,
+    firstFid: 1,
+  });
 
 const leagueOf = new Map(world.clubs.map((c) => [c.cid, c.leagueId]));
 const byRound = (state: SeasonState, competition: string, round: string) =>
@@ -35,8 +45,8 @@ const clubsIn = (fixtures: readonly Fixture[]) => fixtures.flatMap((f) => [f.hom
 
 // One full season, shared by the tests below.
 const state = start();
-playRest(state, play);
-const outcome = seasonOutcome(state);
+playRest(state, play, competitions);
+const outcome = seasonOutcome(state, competitions);
 
 describe("a full season", () => {
   it("plays every fixture, with no club playing twice on a date", SLOW, () => {
@@ -50,13 +60,13 @@ describe("a full season", () => {
         seen.add(key);
       }
     }
-    const leagueIds = new Set(competitionsConfig.leagues.map((l) => l.id));
+    const leagueIds = new Set(competitions.leagues.map((l) => l.id));
     const league = state.fixtures.filter((f) => leagueIds.has(f.competition));
     expect(league).toHaveLength(380 + 552 + 306);
   });
 
   it("runs the English cup: ENG2 in round 1, ENG1 joins in round 2, a neutral final", () => {
-    const [r1, r2, r3, qf, sf, final] = competitionsConfig.cups[0]?.rounds ?? [];
+    const [r1, r2, r3, qf, sf, final] = competitions.cups[0]?.rounds ?? [];
     const round1 = byRound(state, "ENGCUP", r1 as string);
     expect(round1).toHaveLength(12);
     expect(clubsIn(round1).every((c) => leagueOf.get(c) === "ENG2")).toBe(true);
@@ -85,7 +95,7 @@ describe("a full season", () => {
   });
 
   it("puts the 4 lowest-strength GER1 clubs in the German cup's preliminary round in season 1", () => {
-    const rounds = competitionsConfig.cups[1]?.rounds ?? [];
+    const rounds = competitions.cups[1]?.rounds ?? [];
     const prelim = byRound(state, "GERCUP", rounds[0] as string);
     const weakest = world.clubs
       .filter((c) => c.leagueId === "GER1")
@@ -176,11 +186,11 @@ describe("a full season", () => {
     const again = start();
     // Stop after the turn of the year, save as plain data, restore and finish.
     while ((nextMatchDate(again) ?? "9999") < "2027-01-01") {
-      playDate(again, nextMatchDate(again) as string, play);
+      playDate(again, nextMatchDate(again) as string, play, competitions);
     }
     const resumed = JSON.parse(JSON.stringify(again)) as SeasonState;
-    playRest(resumed, play);
+    playRest(resumed, play, competitions);
     expect(resumed.fixtures).toEqual(state.fixtures);
-    expect(seasonOutcome(resumed)).toEqual(outcome);
+    expect(seasonOutcome(resumed, competitions)).toEqual(outcome);
   });
 });

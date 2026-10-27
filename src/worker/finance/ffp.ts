@@ -9,7 +9,7 @@
  * summer. A season within the ratio clears the warning. Negative cash separately freezes
  * transfer fees (src/worker/market/transfers.ts, clubBudgets).
  */
-import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
+import type { CompetitionsConfig } from "../../common/config/competitions";
 import type { Club, ClubSeason, InboxMessage } from "../../common/schema";
 import { seasonDate } from "../schedule/calendar";
 import { type FinanceWorld, operatingRevenue } from "./finance";
@@ -47,7 +47,7 @@ export function ffpCheck(
   world: FinanceWorld,
   season: number,
   userCid: number,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): FfpResult {
   const out: FfpResult = { changed: new Set(), messages: [], breaches: [], bans: [] };
   const summer = config.windows.find((w) => w.id === "summer");

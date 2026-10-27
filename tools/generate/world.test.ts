@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { worlds } from "../../src/common/config/worlds";
 import { clubDefinitions } from "../../src/common/config/clubs";
 import { generateWorld } from "../../src/worker/generate/world";
 import { realClubNamesToCheck } from "../real-club-names";
@@ -6,6 +7,7 @@ import { evaluateWorld } from "../../src/worker/generate/checks";
 import { fingerprints } from "../../src/worker/fingerprint";
 
 const options = {
+  config: worlds.classic,
   seed: "world-test",
   name: "Test",
   userCid: 3,

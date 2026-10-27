@@ -21,11 +21,7 @@
 import { contractClub } from "../../common/status";
 import { ffpCheck, type FfpResult } from "./ffp";
 import { addDays } from "../../common/dates";
-import {
-  competitionsConfig,
-  type CompetitionsConfig,
-  type LeagueConfig,
-} from "../../common/config/competitions";
+import type { CompetitionsConfig, LeagueConfig } from "../../common/config/competitions";
 import type { BudgetDials, Club, ClubSeason, Fixture, Player } from "../../common/schema";
 import { startingConfidence } from "../club/board";
 import { aiDials, setEffectiveDials } from "../club/standing";
@@ -103,7 +99,7 @@ export function expectedTvAndGates(
   club: Pick<Club, "capacity" | "market" | "leagueId">,
   reputation: number,
   hype: number,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): number {
   const league = leagueOf(club.leagueId, config);
   const tv = league.finance.broadcastPool / league.clubs;
@@ -211,7 +207,7 @@ export function settleMonths(
   world: FinanceWorld,
   from: string,
   to: string,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): Set<number> {
   const changed = new Set<number>();
   const ends = monthEnds(from, to);
@@ -285,7 +281,7 @@ export function settleMonths(
 export function matchdayIncome(
   world: FinanceWorld,
   fixture: Fixture,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): void {
   if (fixture.neutral) return;
   const home = books(world, fixture.homeCid);
@@ -314,7 +310,7 @@ export function matchdayIncome(
 export function prizeIncome(
   world: FinanceWorld,
   fixture: Fixture,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): void {
   const cup = config.cups.find((c) => c.id === fixture.competition);
   const winner = fixture.result?.winnerCid;
@@ -333,7 +329,7 @@ export function meritIncome(
   world: FinanceWorld,
   leagueId: string,
   finalOrder: readonly number[],
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): void {
   const league = config.leagues.find((l) => l.id === leagueId);
   if (!league) return;
@@ -359,7 +355,7 @@ export function closeSeasonBooks(
   season: number,
   from: string,
   userCid: number,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): FfpResult {
   const changed = settleMonths(world, from, `${season + 1}-06-30`, config);
   for (const club of world.clubs) {
@@ -381,7 +377,7 @@ export function openSeasonBooks(
   last: ReadonlyMap<number, ClubSeason>,
   season: number,
   userCid: number,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): Map<number, ClubSeason> {
   const out = new Map<number, ClubSeason>();
   for (const club of clubs) {

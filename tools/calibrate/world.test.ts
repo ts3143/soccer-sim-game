@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { worlds } from "../../src/common/config/worlds";
 import { fingerprint, fingerprints } from "../../src/worker/fingerprint";
 import { simulateWorld, type WorldRun } from "./world";
 
@@ -8,10 +9,15 @@ const perSeason: Promise<Record<string, string>>[] = [];
 describe("season-loop harness", () => {
   it("plays a world for two seasons and measures every M3 target", { timeout: 120_000 }, () => {
     const seasons: number[] = [];
-    run = simulateWorld("harness-smoke", 2, ({ index, state, outcome, days, clubs, players }) => {
-      seasons.push(index);
-      perSeason.push(fingerprints({ state, outcome, days, clubs, players }));
-    });
+    run = simulateWorld(
+      worlds.classic,
+      "harness-smoke",
+      2,
+      ({ index, state, outcome, days, clubs, players }) => {
+        seasons.push(index);
+        perSeason.push(fingerprints({ state, outcome, days, clubs, players }));
+      },
+    );
     expect(seasons).toEqual([0, 1]);
     expect(run.seasons).toHaveLength(2);
     expect(run.championsENG1).toHaveLength(2);

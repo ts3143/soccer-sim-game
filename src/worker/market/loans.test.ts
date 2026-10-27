@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { worlds } from "../../common/config/worlds";
 import type { Club, Player } from "../../common/schema";
 import { developHalfSeason } from "../core/development";
 import { Random } from "../core/random";
@@ -10,8 +11,11 @@ import { marketDay, marketDays } from "./aiMarket";
 import { lendable, LOANS, loanEnd, returnLoans, startLoan } from "./loans";
 import { seniorsOf, squadCost } from "./transfers";
 
+const competitions = worlds.classic.competitions;
+
 const SEED = "loan-test";
 const generated = generateWorld({
+  config: worlds.classic,
   seed: SEED,
   name: "t",
   userCid: 0,
@@ -21,9 +25,10 @@ function freshWorld(): LoopWorld {
   const players = structuredClone(generated.players);
   let pid = Math.max(...players.map((p) => p.pid)) + 1;
   return {
+    config: worlds.classic,
     clubs: structuredClone(generated.clubs),
     players,
-    reputation: startingReputation(),
+    reputation: startingReputation(worlds.classic.clubs),
     clubSeasons: new Map(structuredClone(generated.clubSeasons).map((r) => [r.cid, r])),
     userCid: 0,
     seed: SEED,
@@ -103,6 +108,7 @@ describe("loans", () => {
       season: 2026,
     });
     const state = createSeason({
+      config: competitions,
       season: 2026,
       seed: SEED,
       clubs: w.clubs,

@@ -1,9 +1,10 @@
 /**
  * M1 acceptance checks on a generated world: used by `pnpm generate --check`, the tests
  * and the inspector page. Thresholds that turn the spec's wording into numbers ("few
- * 75+, many 50–65") are judgment calls, documented in PROGRESS.md.
+ * 75+, many 50–65") are judgment calls, documented in PROGRESS.md. They are Classic's
+ * numbers (the Super League gets its own in SL1).
  */
-import { clubDefinitions } from "../../common/config/clubs";
+import { worlds } from "../../common/config/worlds";
 import type { Club, ClubSeason, Player } from "../../common/schema";
 import { STARTING_SQUAD_COST } from "./contracts";
 import { FREE_AGENT_POOL_SIZE, RELEASED_YOUTH_COUNT } from "./freeAgents";
@@ -73,7 +74,7 @@ export function evaluateWorld(world: WorldLike, context: CheckContext = {}): Che
   const checks: Check[] = [
     {
       name: "62 clubs",
-      pass: world.clubs.length === clubDefinitions.length && clubDefinitions.length === 62,
+      pass: world.clubs.length === worlds.classic.clubs.length && world.clubs.length === 62,
       detail: `${world.clubs.length}`,
     },
     {

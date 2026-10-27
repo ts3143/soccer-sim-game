@@ -9,12 +9,11 @@
  * played by a `PlayFixture` function the caller supplies, so lineups, rotation and
  * fatigue can change without touching this module.
  */
-import {
-  competitionsConfig,
-  type CompetitionsConfig,
-  type CupConfig,
-  type LeagueConfig,
-  type StyleModifiers,
+import type {
+  CompetitionsConfig,
+  CupConfig,
+  LeagueConfig,
+  StyleModifiers,
 } from "../../common/config/competitions";
 import type { Club, Fixture, SeasonMeta } from "../../common/schema";
 import { Random } from "../core/random";
@@ -44,7 +43,7 @@ export interface SeasonSetup {
   lastFinish: ReadonlyMap<number, LastFinish>;
   /** First fixture ID to use. */
   firstFid: number;
-  config?: CompetitionsConfig;
+  config: CompetitionsConfig;
 }
 
 export interface SeasonState {
@@ -80,7 +79,7 @@ export function restoreSeason(
   seed: string,
   fixtures: Fixture[],
   nextFid: number,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): SeasonState {
   return {
     season: meta.season,
@@ -177,7 +176,7 @@ function drawCupRound(state: SeasonState, cup: CupConfig, round: number, partici
 
 /** Starts a season: the calendar, all league fixtures, and the first round of every cup. */
 export function createSeason(setup: SeasonSetup): SeasonState {
-  const config = setup.config ?? competitionsConfig;
+  const config = setup.config;
   const state: SeasonState = {
     season: setup.season,
     seed: setup.seed,
@@ -226,7 +225,7 @@ function fixturesOf(state: SeasonState, competition: string, round?: string): Fi
 const winnersOf = (fixtures: readonly Fixture[]): number[] =>
   fixtures.filter((f) => f.leg !== 1).map((f) => f.result?.winnerCid as number);
 
-export function leagueTableOf(state: SeasonState, leagueId: string, config = competitionsConfig) {
+export function leagueTableOf(state: SeasonState, leagueId: string, config: CompetitionsConfig) {
   const league = leagueOf(config, leagueId);
   if (!league) throw new Error(`Unknown league ${leagueId}`);
   return leagueTable(state.leagueClubs[leagueId] ?? [], fixturesOf(state, leagueId), {
@@ -249,7 +248,11 @@ function progressCup(state: SeasonState, cup: CupConfig): boolean {
   return true;
 }
 
-function progressPlayoffs(state: SeasonState, league: LeagueConfig): boolean {
+function progressPlayoffs(
+  state: SeasonState,
+  league: LeagueConfig,
+  config: CompetitionsConfig,
+): boolean {
   const positions = league.promotion?.playoffPositions ?? [];
   const dates = state.calendar.playoffs[league.id];
   if (positions.length === 0 || !dates) return false;
@@ -275,7 +278,7 @@ function progressPlayoffs(state: SeasonState, league: LeagueConfig): boolean {
     });
   };
   // Seed = final league position (lower is better).
-  const table = () => leagueTableOf(state, league.id);
+  const table = () => leagueTableOf(state, league.id, config);
   const seedOf = (cid: number) => table().find((r) => r.cid === cid)?.position ?? 99;
   const semis = (pairs: [number, number][]) => {
     // Higher seed hosts the second leg.
@@ -325,12 +328,13 @@ function progressPlayoffs(state: SeasonState, league: LeagueConfig): boolean {
 }
 
 /** Creates any fixtures that became due (next cup rounds, play-off stages). */
-export function progress(state: SeasonState, config: CompetitionsConfig = competitionsConfig) {
+export function progress(state: SeasonState, config: CompetitionsConfig) {
   let changed = true;
   while (changed) {
     changed = false;
     for (const cup of config.cups) changed = progressCup(state, cup) || changed;
-    for (const league of config.leagues) changed = progressPlayoffs(state, league) || changed;
+    for (const league of config.leagues)
+      changed = progressPlayoffs(state, league, config) || changed;
   }
 }
 
@@ -363,7 +367,7 @@ export function knockoutRules(state: SeasonState, fixture: Fixture): KnockoutRul
 export function fixtureStyle(
   state: SeasonState,
   fixture: Fixture,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): StyleModifiers {
   const leagueId =
     leagueOf(config, fixture.competition)?.id ??
@@ -399,7 +403,7 @@ export function playDate(
   state: SeasonState,
   date: string,
   play: PlayFixture,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): Fixture[] {
   const today = state.fixtures.filter((f) => f.date === date && !f.result);
   for (const fixture of today) {
@@ -414,7 +418,7 @@ export function playDate(
 export function fixtureSetup(
   state: SeasonState,
   fixture: Fixture,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): FixtureSetup {
   return {
     seed: `${state.seed}/match:${fixture.fid}`,
@@ -425,7 +429,7 @@ export function fixtureSetup(
 }
 
 /** Plays the rest of the season. */
-export function playRest(state: SeasonState, play: PlayFixture, config = competitionsConfig) {
+export function playRest(state: SeasonState, play: PlayFixture, config: CompetitionsConfig) {
   for (let date = nextMatchDate(state); date !== null; date = nextMatchDate(state)) {
     playDate(state, date, play, config);
   }
@@ -447,10 +451,7 @@ export interface SeasonOutcome {
 }
 
 /** The season's results once every match is played (throws before that). */
-export function seasonOutcome(
-  state: SeasonState,
-  config: CompetitionsConfig = competitionsConfig,
-): SeasonOutcome {
+export function seasonOutcome(state: SeasonState, config: CompetitionsConfig): SeasonOutcome {
   if (nextMatchDate(state) !== null) throw new Error("The season still has matches to play");
   const tables: Record<string, TableRow[]> = {};
   const champions: Record<string, number> = {};

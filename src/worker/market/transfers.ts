@@ -18,6 +18,7 @@
  */
 import { contractClub, isSenior, wageShareFor } from "../../common/status";
 import { exactAge } from "../../common/dates";
+import type { WorldConfig } from "../../common/config/worlds";
 import type { Club, ClubSeason, InboxMessage, Player, TransactionRow } from "../../common/schema";
 import { targetPosition } from "../club/board";
 import { clubStrength } from "../club/standing";
@@ -69,6 +70,7 @@ export type Strategy = "contending" | "developing" | "selling";
 export type BidOutcome = "accepted" | "countered" | "rejected";
 
 export interface TransferWorld extends ContractWorld {
+  config: WorldConfig;
   clubSeasons: ReadonlyMap<number, ClubSeason>;
 }
 
@@ -123,7 +125,9 @@ export function clubStrategy(world: TransferWorld, club: Club): Strategy {
   // Negative cash, a squad cost over the FFP ratio, or an FFP warning: the club sells.
   if (club.cash < 0 || over || club.ffp?.warned) return "selling";
   const row = world.clubSeasons.get(club.cid);
-  const target = row ? targetPosition(row.leagueId, row.boardExpectation) : 99;
+  const target = row
+    ? targetPosition(row.leagueId, row.boardExpectation, world.config.competitions)
+    : 99;
   return target <= TRANSFERS.strategy.contendingFrom ? "contending" : "developing";
 }
 

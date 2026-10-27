@@ -8,7 +8,7 @@
  * Team OVR fit and the match-rating centring values. With --check, exits 1 on a failure.
  */
 import { readFileSync } from "node:fs";
-import { competitionsConfig } from "../../src/common/config/competitions";
+import { worlds } from "../../src/common/config/worlds";
 import { COEFFICIENTS } from "../../src/worker/engine/coefficients";
 import { generateWorld } from "../../src/worker/generate/world";
 import { fitTeamOvr, RATING_KEYS, ratingCentring } from "./fit";
@@ -62,6 +62,7 @@ const leagues = Array.from(
   (_, w) =>
     new League(
       generateWorld({
+        config: worlds.classic,
         seed: `${SEED}-w${w}`,
         name: "calibrate",
         userCid: 0,
@@ -100,7 +101,7 @@ for (const [name, spec] of Object.entries(targets.perMatch)) {
 // 2. Leagues: style-scaled checks and season numbers
 
 const seasonsByLeague = new Map<string, SeasonMetrics>();
-for (const config of competitionsConfig.leagues) {
+for (const config of worlds.classic.competitions.leagues) {
   const seasons = leagues.flatMap((league, w) =>
     league.seasons(config.id, SEASONS, `${SEED}-w${w}`),
   );

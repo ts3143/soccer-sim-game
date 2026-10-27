@@ -15,9 +15,8 @@
  *   club keeps the dials the user set.
  */
 import { isSenior } from "../../common/status";
-import { clubDefinitions } from "../../common/config/clubs";
-import type { CompetitionsConfig } from "../../common/config/competitions";
-import { competitionsConfig } from "../../common/config/competitions";
+import type { ClubDefinition } from "../../common/config/clubs";
+import type { WorldConfig } from "../../common/config/worlds";
 import type { BudgetDials, Club, ClubSeason, Fixture, Player } from "../../common/schema";
 import { isInjured } from "../season/squads";
 
@@ -100,15 +99,15 @@ export function seasonEndStanding(
   rows: ReadonlyMap<number, ClubSeason>,
   finish: ReadonlyMap<number, number>,
   trophies: ReadonlySet<number>,
-  config: CompetitionsConfig = competitionsConfig,
+  config: WorldConfig,
 ): void {
   const rep = STANDING.reputation;
   for (const club of clubs) {
     const row = rows.get(club.cid);
-    const league = config.leagues.find((l) => l.id === row?.leagueId);
+    const league = config.competitions.leagues.find((l) => l.id === row?.leagueId);
     const pos = finish.get(club.cid);
     if (row && league && pos !== undefined) {
-      const level = reputationLadder(league.id)[pos - 1] ?? 50;
+      const level = reputationLadder(config.clubs, league.id)[pos - 1] ?? 50;
       const bonus = trophies.has(club.cid) ? rep.trophy : 0;
       row.reputation = Math.round(
         clamp(row.reputation + rep.rate * (level - row.reputation) + bonus, 1, 100),
@@ -127,15 +126,17 @@ export function seasonEndStanding(
  * first (finishing 5th is worth the 5th-highest starting reputation), so the spread
  * stays as the club data has it while clubs move up and down it.
  */
-const ladders = new Map<string, number[]>();
-function reputationLadder(leagueId: string): number[] {
-  let ladder = ladders.get(leagueId);
+const ladders = new WeakMap<readonly ClubDefinition[], Map<string, number[]>>();
+function reputationLadder(clubs: readonly ClubDefinition[], leagueId: string): number[] {
+  const byLeague = ladders.get(clubs) ?? new Map<string, number[]>();
+  ladders.set(clubs, byLeague);
+  let ladder = byLeague.get(leagueId);
   if (!ladder) {
-    ladder = clubDefinitions
+    ladder = clubs
       .filter((d) => d.league === leagueId)
       .map((d) => d.reputation)
       .sort((a, b) => b - a);
-    ladders.set(leagueId, ladder);
+    byLeague.set(leagueId, ladder);
   }
   return ladder;
 }

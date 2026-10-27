@@ -58,8 +58,16 @@ function context(session: LeagueSession, cid: number | null) {
   const club = session.cache.get("clubs", cid ?? game.userCid);
   if (!club) throw new GameError(`There's no club ${cid ?? game.userCid} in this league.`);
   const players = session.cache.getAll("players");
-  const pickable = selectable(players, club.cid, game.date);
-  return { game, club, players, pickable, byPid: new Map(pickable.map((p) => [p.pid, p])) };
+  const config = session.config.competitions;
+  const pickable = selectable(players, club.cid, game.date, config);
+  return {
+    game,
+    club,
+    players,
+    pickable,
+    byPid: new Map(pickable.map((p) => [p.pid, p])),
+    config,
+  };
 }
 
 export function tacticsView(
@@ -174,9 +182,11 @@ export function tacticsView(
 
 export async function getTactics(lid: number, cid: number | null): Promise<TacticsView> {
   const session = await openLeague(lid);
-  const { game, club, players, pickable, byPid } = context(session, cid);
+  const { game, club, players, pickable, byPid, config } = context(session, cid);
   const user = club.cid === game.userCid;
-  const setup = user ? currentSetup(club, players, game.date) : autoSetup(club, players, game.date);
+  const setup = user
+    ? currentSetup(club, players, game.date, config)
+    : autoSetup(club, players, game.date, config);
   return tacticsView(
     club,
     setup,
@@ -194,16 +204,17 @@ export async function previewTactics(
   mode: TacticsMode,
 ): Promise<TacticsView> {
   const session = await openLeague(lid);
-  const { game, club, players, pickable, byPid } = context(session, null);
+  const { game, club, players, pickable, byPid, config } = context(session, null);
   const ids = new Set(byPid.keys());
   let next: TacticsSetup;
   if (mode === "saved") {
-    next = currentSetup(club, players, game.date);
+    next = currentSetup(club, players, game.date, config);
   } else if (mode === "auto") {
     const pick = autoSetup(
       { ...club, tactics: { ...club.tactics, formation: setup.formation } },
       players,
       game.date,
+      config,
     );
     next = { ...pick, sliders: setup.sliders };
   } else {

@@ -4,7 +4,7 @@
  * plus 4–6 academy players.
  */
 import type { ClubDefinition } from "../../common/config/clubs";
-import { competitionsConfig } from "../../common/config/competitions";
+import type { RosterRules } from "../../common/config/competitions";
 import type { Formation } from "../../common/config/formations";
 import { nationalitiesConfig } from "../../common/config/nationalities";
 import { ratingsConfig, type Position, type Side } from "../../common/config/ratings";
@@ -177,6 +177,7 @@ export interface SquadOptions {
   season: number;
   seasonStart: string;
   nextPid: () => number;
+  rules: RosterRules;
 }
 
 export interface GeneratedSquad {
@@ -186,8 +187,7 @@ export interface GeneratedSquad {
 }
 
 export function generateSquad(rng: Random, options: SquadOptions): GeneratedSquad {
-  const { club, cid, formation, season, seasonStart } = options;
-  const rules = competitionsConfig.rosterRules;
+  const { club, cid, formation, season, seasonStart, rules } = options;
   const seniorCount = rng.int(rules.startingSeniors.min, rules.startingSeniors.max);
   const leagueMix = nationalitiesConfig.leagueMix[club.league];
   if (!leagueMix) throw new Error(`No nationality mix for league ${club.league}`);

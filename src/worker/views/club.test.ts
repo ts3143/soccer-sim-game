@@ -1,3 +1,4 @@
+import { worlds } from "../../common/config/worlds";
 import { IDBFactory } from "fake-indexeddb";
 import "fake-indexeddb/auto";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -11,6 +12,8 @@ import { setWageShare } from "../league/market";
 import { createLeague, openLeague } from "../league/session";
 import { academyDecisions, academyReminder } from "../season/offseason";
 import { getAcademy, getClubFinances, getJobOffers } from "./club";
+
+const competitions = worlds.classic.competitions;
 
 beforeAll(() => {
   globalThis.indexedDB = new IDBFactory();
@@ -83,7 +86,7 @@ describe("the user's academy", () => {
 describe("the user's finances", () => {
   it("sells fewer tickets the dearer they are", () => {
     const club = { capacity: 40_000, market: 60, facilitiesLevel: 50 };
-    const league = leagueById("ENG2");
+    const league = leagueById(competitions, "ENG2");
     const at = (ratio: number) => attendance(club, 50, league, 50, 1, ratio);
     expect(at(1)).toBe(attendance(club, 50, league, 50));
     expect(at(1.5)).toBeLessThan(at(1));

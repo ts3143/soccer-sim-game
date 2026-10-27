@@ -1,3 +1,4 @@
+import { worlds } from "../../common/config/worlds";
 import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
 import type { Club, MatchRecord, Player, PlayerStatsRow } from "../../common/schema";
@@ -6,6 +7,8 @@ import { localBirthplace } from "../generate/birthplace";
 import { generateWorld } from "../generate/world";
 import { openLeagueDb } from "./leagueDb";
 import { LEAGUE_DB_VERSION } from "./schema";
+
+const competitions = worlds.classic.competitions;
 
 const oldPlayer = (pid: number, position: string, rating: number, goalsConceded = 0) => ({
   pid,
@@ -177,6 +180,7 @@ describe("league DB upgrades", () => {
 
   it("saves the AI's pick as the user's tactics in an older save without any", async () => {
     const world = generateWorld({
+      config: worlds.classic,
       seed: "upgrade-v7",
       name: "t",
       userCid: 3,
@@ -190,8 +194,8 @@ describe("league DB upgrades", () => {
     const v7 = await openLeagueDb(9006);
     const club = (await v7.get("clubs", 3)) as Club;
     expect(club.tactics.lineup).toEqual({
-      slots: autoSetup(world.clubs[3] as Club, world.players, "2026-09-12").slots,
-      bench: autoSetup(world.clubs[3] as Club, world.players, "2026-09-12").bench,
+      slots: autoSetup(world.clubs[3] as Club, world.players, "2026-09-12", competitions).slots,
+      bench: autoSetup(world.clubs[3] as Club, world.players, "2026-09-12", competitions).bench,
     });
     expect((await v7.get("clubs", 4))?.tactics.lineup).toBeUndefined();
     v7.close();

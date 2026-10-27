@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { worlds } from "../../common/config/worlds";
 import { ageOn as wholeYears, exactAge } from "../../common/dates";
-import { competitionsConfig } from "../../common/config/competitions";
 import type { Player } from "../../common/schema";
 import { generateWorld } from "../generate/world";
 import {
@@ -17,9 +17,12 @@ import {
 import { runDays } from "./runner";
 import { applyMoves, createSeason, seasonOutcome } from "./season";
 
+const competitions = worlds.classic.competitions;
+
 const SLOW = { timeout: 120_000 };
 const SEED = "offseason-test";
 const generated = generateWorld({
+  config: worlds.classic,
   seed: SEED,
   name: "t",
   userCid: 0,
@@ -30,9 +33,10 @@ function freshWorld(): LoopWorld {
   const players = structuredClone(generated.players);
   let pid = Math.max(...players.map((p) => p.pid)) + 1;
   return {
+    config: worlds.classic,
     clubs: structuredClone(generated.clubs),
     players,
-    reputation: startingReputation(),
+    reputation: startingReputation(worlds.classic.clubs),
     clubSeasons: new Map(structuredClone(generated.clubSeasons).map((r) => [r.cid, r])),
     userCid: 0,
     seed: SEED,
@@ -58,6 +62,7 @@ function copyOf(w: LoopWorld): LoopWorld {
 const world = freshWorld();
 const before = new Map(world.players.map((p) => [p.pid, structuredClone(p)]));
 const state = createSeason({
+  config: competitions,
   season: 2026,
   seed: SEED,
   clubs: world.clubs,
@@ -65,7 +70,7 @@ const state = createSeason({
   firstFid: 1,
 });
 const days = runDays(world, state, "2026-07-01", { limit: null });
-const outcome = seasonOutcome(state);
+const outcome = seasonOutcome(state, competitions);
 const ageOn = (p: Player, date: string) => exactAge(p.birthDate, date);
 
 describe("development during the season", () => {
@@ -151,8 +156,8 @@ describe("the end of the season", () => {
       }
     }
     lines.push(...totals.values());
-    const awards = seasonAwards(state, outcome, world.clubs, world.players, lines);
-    for (const league of competitionsConfig.leagues) {
+    const awards = seasonAwards(state, outcome, world.clubs, world.players, lines, competitions);
+    for (const league of competitions.leagues) {
       const of = (type: string) =>
         awards.filter((a) => a.competition === league.id && a.type === type);
       expect(of("champions")).toHaveLength(1);

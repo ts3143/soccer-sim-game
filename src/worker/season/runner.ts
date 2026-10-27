@@ -12,7 +12,7 @@
  * matches, `resume` plays them with the watched result and finishes the day.
  */
 import type { SeasonEvent } from "../../common/api";
-import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
+import type { CompetitionsConfig } from "../../common/config/competitions";
 import type { MatchResult } from "../../common/match";
 import { addDays } from "../../common/dates";
 import type { ClubSeason, Fixture, InboxMessage, TransactionRow } from "../../common/schema";
@@ -35,7 +35,7 @@ import {
 import { squadPlay } from "./squads";
 
 /** Dated events of a season (SPEC §3.1) besides matches: windows and the winter update. */
-export function seasonEvents(season: number, config = competitionsConfig): SeasonEvent[] {
+export function seasonEvents(season: number, config: CompetitionsConfig): SeasonEvent[] {
   const events: SeasonEvent[] = [];
   for (const w of config.windows) {
     events.push({ date: seasonDate(season, w.opens), kind: "windowOpens", window: w.id });
@@ -112,7 +112,6 @@ export interface DaysOptions {
    * simulated) and everything after them, without its events, market or training again.
    */
   resume?: { date: string; results: ReadonlyMap<number, MatchResult> };
-  config?: CompetitionsConfig;
 }
 
 /** Processes days after `from` until the limit, the stop condition or the season's end. */
@@ -122,7 +121,7 @@ export function runDays(
   from: string,
   options: DaysOptions,
 ): DaysResult {
-  const config = options.config ?? competitionsConfig;
+  const config = world.config.competitions;
   const squads = squadPlay(state, world.clubs, world.players, world.userCid, config);
   const events = seasonEvents(state.season, config);
   const out: DaysResult = {
@@ -291,7 +290,7 @@ export function runDays(
       ...Object.values(outcome.cupWinners),
       ...Object.values(outcome.playoffWinners).flat(),
     ]);
-    seasonEndStanding(world.clubs, world.clubSeasons, finish, trophies, config);
+    seasonEndStanding(world.clubs, world.clubSeasons, finish, trophies, world.config);
     state.meritPaid = true;
   }
   if (!out.ended && options.limit !== null && options.limit > out.date) {

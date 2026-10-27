@@ -82,7 +82,7 @@ function employed(session: LeagueSession): GameMeta {
 /** Fails unless the user can act in the market now (a window is open and he has a job). */
 function marketOpen(session: LeagueSession) {
   const game = employed(session);
-  const window = openWindow(game.date, game.season);
+  const window = openWindow(game.date, game.season, session.config.competitions);
   if (!window) throw new GameError("The transfer window is closed.");
   return { game, window };
 }
@@ -144,7 +144,7 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
       mood?.value ?? 0,
       kind === "renewal" && left === 1,
     ).map((a) => ({ ...a, expires: contractEnd(game.season, a.years, game.date) })),
-    windowOpen: openWindow(game.date, game.season) !== null,
+    windowOpen: openWindow(game.date, game.season, session.config.competitions) !== null,
     userPlayer: kind === "renewal",
     feeAgreed: kind === "transfer" ? (agreedOffer(session, user.cid, pid)?.fee ?? null) : null,
     squad: { seniors: seniorsOf(world.players, user.cid).length, max: TRANSFERS.maxSeniors },

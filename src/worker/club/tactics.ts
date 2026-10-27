@@ -7,7 +7,7 @@
  * takes the club, then only what he saves. Injured and suspended players stay in it.
  */
 import type { TacticsSetup } from "../../common/api";
-import { competitionsConfig } from "../../common/config/competitions";
+import type { CompetitionsConfig } from "../../common/config/competitions";
 import { formationById, formationsConfig } from "../../common/config/formations";
 import { ageOn } from "../../common/dates";
 import type { Club, Player } from "../../common/schema";
@@ -22,8 +22,13 @@ import { effectiveDials } from "./standing";
 import { GameError } from "../../common/errors";
 
 /** Players the club can pick: its seniors (loanees in included) and academy players of 16+. */
-export function selectable(players: readonly Player[], cid: number, date: string): Player[] {
-  const minAge = competitionsConfig.rosterRules.academyMatchdayMinAge;
+export function selectable(
+  players: readonly Player[],
+  cid: number,
+  date: string,
+  config: CompetitionsConfig,
+): Player[] {
+  const minAge = config.rosterRules.academyMatchdayMinAge;
   return players.filter(
     (p) =>
       p.cid === cid &&
@@ -32,9 +37,14 @@ export function selectable(players: readonly Player[], cid: number, date: string
 }
 
 /** The AI's pick for an ordinary match today: the same choice it makes for simulated matches. */
-export function autoSetup(club: Club, players: readonly Player[], date: string): TacticsSetup {
+export function autoSetup(
+  club: Club,
+  players: readonly Player[],
+  date: string,
+  config: CompetitionsConfig,
+): TacticsSetup {
   const squad = players.filter((p) => p.cid === club.cid);
-  const pick = pickMatchday(club, squad, { date, importance: 1, nextImportance: 0 });
+  const pick = pickMatchday(club, squad, { date, importance: 1, nextImportance: 0 }, config);
   return {
     formation: pick.formation,
     sliders: { ...club.tactics.sliders },
@@ -60,8 +70,13 @@ export function cleanSetup(setup: TacticsSetup, pickable: ReadonlySet<number>): 
 }
 
 /** The club with the AI's pick for today saved as its line-up (a club the user takes). */
-export function withAutoLineup(club: Club, players: readonly Player[], date: string): Club {
-  const { formation, sliders, slots, bench } = autoSetup(club, players, date);
+export function withAutoLineup(
+  club: Club,
+  players: readonly Player[],
+  date: string,
+  config: CompetitionsConfig,
+): Club {
+  const { formation, sliders, slots, bench } = autoSetup(club, players, date, config);
   return { ...club, tactics: { formation, sliders, lineup: { slots, bench } } };
 }
 
@@ -69,10 +84,15 @@ export function withAutoLineup(club: Club, players: readonly Player[], date: str
  * The club's line-up as saved, without players who have left (injured and suspended ones
  * stay), or the AI's pick when none is saved.
  */
-export function currentSetup(club: Club, players: readonly Player[], date: string): TacticsSetup {
+export function currentSetup(
+  club: Club,
+  players: readonly Player[],
+  date: string,
+  config: CompetitionsConfig,
+): TacticsSetup {
   const saved = club.tactics.lineup;
-  if (!saved) return autoSetup(club, players, date);
-  const pickable = new Set(selectable(players, club.cid, date).map((p) => p.pid));
+  if (!saved) return autoSetup(club, players, date, config);
+  const pickable = new Set(selectable(players, club.cid, date, config).map((p) => p.pid));
   return cleanSetup(
     {
       formation: club.tactics.formation,

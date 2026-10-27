@@ -19,12 +19,7 @@
  *    play-off date that falls on one of the league's cup dates moves to the next slot.
  */
 import { addDays } from "../../common/dates";
-import {
-  competitionsConfig,
-  type CompetitionsConfig,
-  type CupConfig,
-  type LeagueConfig,
-} from "../../common/config/competitions";
+import type { CompetitionsConfig, CupConfig, LeagueConfig } from "../../common/config/competitions";
 import type { Fixture } from "../../common/schema";
 
 export type Slot = Fixture["slot"];
@@ -102,7 +97,7 @@ export function inWinterBreak(
   iso: string,
   country: string,
   season: number,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): boolean {
   const breakDates = config.countries.find((c) => c.id === country)?.winterBreak;
   if (!breakDates) return false;
@@ -224,10 +219,7 @@ function playoffRounds(
 }
 
 /** The full match calendar of `season` (the year it starts: 2026 = 2026/27). */
-export function seasonCalendar(
-  season: number,
-  config: CompetitionsConfig = competitionsConfig,
-): SeasonCalendar {
+export function seasonCalendar(season: number, config: CompetitionsConfig): SeasonCalendar {
   const cups: Record<string, RoundDate[]> = {};
   for (const cup of config.cups) cups[cup.id] = cupRounds(cup, season, config);
   const leagues: Record<string, RoundDate[]> = {};

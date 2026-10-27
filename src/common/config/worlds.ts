@@ -26,7 +26,7 @@ export interface WorldSwitches {
   renewals: "windows" | "resigningPeriod";
 }
 
-export interface WorldDefinition {
+export interface WorldConfig {
   id: WorldId;
   /** As offered at New game. */
   name: string;
@@ -35,7 +35,7 @@ export interface WorldDefinition {
   switches: WorldSwitches;
 }
 
-export const worlds: Readonly<Record<WorldId, WorldDefinition>> = {
+export const worlds: Readonly<Record<WorldId, WorldConfig>> = {
   classic: {
     id: "classic",
     name: "Classic",
@@ -53,7 +53,7 @@ export const worlds: Readonly<Record<WorldId, WorldDefinition>> = {
 
 const isWorldId = (id: string): id is WorldId => Object.hasOwn(worlds, id);
 
-export function worldById(id: string): WorldDefinition {
+export function worldById(id: string): WorldConfig {
   if (!isWorldId(id)) throw new Error(`Unknown world ${id}`);
   return worlds[id];
 }

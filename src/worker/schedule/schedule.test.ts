@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { competitionsConfig, parseTieBreakers } from "../../common/config/competitions";
+import { worlds } from "../../common/config/worlds";
+import { parseTieBreakers } from "../../common/config/competitions";
 import type { Fixture } from "../../common/schema";
 import { Random } from "../core/random";
 import {
@@ -14,9 +15,11 @@ import {
 import { doubleRoundRobin, leagueFixtures } from "./fixtures";
 import { leagueTable } from "./standings";
 
+const competitions = worlds.classic.competitions;
+
 const weekday = (iso: string) => new Date(`${iso}T00:00:00Z`).getUTCDay();
 const SEASONS = Array.from({ length: 20 }, (_, i) => 2026 + i);
-const DEFAULT_TIE_BREAKERS = competitionsConfig.leagues[0]?.tieBreakers ?? [];
+const DEFAULT_TIE_BREAKERS = competitions.leagues[0]?.tieBreakers ?? [];
 
 describe("slot helpers", () => {
   it("maps MM-DD templates into the season (July–June)", () => {
@@ -45,8 +48,8 @@ describe("slot helpers", () => {
 describe("season calendar (20 seasons)", () => {
   for (const season of SEASONS) {
     it(`${season}/${String((season + 1) % 100).padStart(2, "0")} follows every calendar rule`, () => {
-      const cal = seasonCalendar(season);
-      for (const league of competitionsConfig.leagues) {
+      const cal = seasonCalendar(season, competitions);
+      for (const league of competitions.leagues) {
         const rounds = cal.leagues[league.id] ?? [];
         expect(rounds).toHaveLength(league.rounds);
         const first = nearestSlot(seasonDate(season, league.firstMatch), "weekend");
@@ -55,7 +58,7 @@ describe("season calendar (20 seasons)", () => {
           expect(r.round).toBe(String(i + 1));
           expect(weekday(r.date)).toBe(SLOT_WEEKDAY[r.slot]);
           expect(r.date >= first && r.date <= last).toBe(true);
-          expect(inWinterBreak(r.date, league.country, season)).toBe(false);
+          expect(inWinterBreak(r.date, league.country, season, competitions)).toBe(false);
           expect(NO_MATCH_DAYS).not.toContain(r.date.slice(5));
           if (i > 0) expect(r.date > (rounds[i - 1]?.date ?? "")).toBe(true);
         });
@@ -64,7 +67,7 @@ describe("season calendar (20 seasons)", () => {
         if (rounds.some((r) => r.slot === "midweek"))
           expect(cal.spareWeekends[league.id]).toEqual([]);
       }
-      for (const league of competitionsConfig.leagues.filter((l) => l.promotion)) {
+      for (const league of competitions.leagues.filter((l) => l.promotion)) {
         // Play-offs: after the last league round, in order, never on one of its cup dates,
         // the final on the weekend nearest 24 May.
         const po = cal.playoffs[league.id] ?? [];
@@ -77,7 +80,7 @@ describe("season calendar (20 seasons)", () => {
         expect(po.map((r) => r.slot)).toEqual(["midweek", "weekend", "midweek", "weekend"]);
         let previous = cal.leagues[league.id]?.at(-1)?.date ?? "";
         const cupDates = new Set(
-          competitionsConfig.cups
+          competitions.cups
             .filter((c) => c.entrants.includes(league.id))
             .flatMap((c) => (cal.cups[c.id] ?? []).map((r) => r.date)),
         );
@@ -90,14 +93,14 @@ describe("season calendar (20 seasons)", () => {
         const finalDay = po.at(-1)?.date.slice(5) ?? "";
         expect(finalDay >= "05-21" && finalDay <= "05-27").toBe(true);
       }
-      for (const cup of competitionsConfig.cups) {
+      for (const cup of competitions.cups) {
         const rounds = cal.cups[cup.id] ?? [];
         expect(rounds.map((r) => r.round)).toEqual(cup.rounds);
         const final = rounds[rounds.length - 1];
         expect(final?.slot).toBe("weekend");
         rounds.forEach((r, i) => {
           expect(weekday(r.date)).toBe(SLOT_WEEKDAY[r.slot]);
-          expect(inWinterBreak(r.date, cup.country, season)).toBe(false);
+          expect(inWinterBreak(r.date, cup.country, season, competitions)).toBe(false);
           expect(NO_MATCH_DAYS).not.toContain(r.date.slice(5));
           if (i > 0) expect(r.date > (rounds[i - 1]?.date ?? "")).toBe(true);
         });
@@ -111,7 +114,7 @@ describe("season calendar (20 seasons)", () => {
   }
 
   it("2026/27: ENG2 plays 7 midweek rounds; GER1 finishes the week before the cup final", () => {
-    const cal = seasonCalendar(2026);
+    const cal = seasonCalendar(2026, competitions);
     const eng2 = cal.leagues.ENG2 ?? [];
     expect(eng2.filter((r) => r.slot === "midweek")).toHaveLength(7);
     expect(cal.leagues.ENG1?.every((r) => r.slot === "weekend")).toBe(true);
@@ -150,7 +153,7 @@ describe("league fixtures", () => {
   }
 
   it("dates fixtures from the calendar and shuffles clubs per season", () => {
-    const cal = seasonCalendar(2026);
+    const cal = seasonCalendar(2026, competitions);
     const cids = Array.from({ length: 20 }, (_, i) => 100 + i);
     let fid = 1;
     const make = (seed: string) =>
@@ -259,7 +262,7 @@ describe("league table and tie-breakers", () => {
   });
 
   it("validates each league's tie-breaker list", () => {
-    expect(competitionsConfig.leagues.every((l) => l.tieBreakers[0] === "points")).toBe(true);
+    expect(competitions.leagues.every((l) => l.tieBreakers[0] === "points")).toBe(true);
     expect(() => parseTieBreakers("X", ["points", "awayGoals"])).toThrow(/unknown/);
     expect(() => parseTieBreakers("X", ["points", "draw", "goalsFor"])).toThrow(/last/);
     expect(() => parseTieBreakers("X", ["points", "goalsFor", "goalsFor"])).toThrow(/twice/);

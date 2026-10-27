@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { worlds } from "../../common/config/worlds";
 import type { Club, ClubSeason, Player } from "../../common/schema";
 import { operatingRevenue } from "../finance/finance";
 import { generateWorld } from "../generate/world";
@@ -15,6 +16,7 @@ import {
 } from "./transfers";
 
 const generated = generateWorld({
+  config: worlds.classic,
   seed: "transfer-test",
   name: "t",
   userCid: 0,
@@ -23,6 +25,7 @@ const generated = generateWorld({
 const JULY = "2026-07-01";
 const JANUARY = "2027-01-02";
 const freshWorld = (): TransferWorld => ({
+  config: worlds.classic,
   clubs: structuredClone(generated.clubs),
   players: structuredClone(generated.players),
   clubSeasons: new Map(structuredClone(generated.clubSeasons).map((r) => [r.cid, r])),

@@ -4,7 +4,7 @@
  * Used by `pnpm calibrate --world` (several worlds in parallel) and `pnpm season`.
  */
 import { exactAge } from "../../src/common/dates";
-import { competitionsConfig } from "../../src/common/config/competitions";
+import type { WorldConfig } from "../../src/common/config/worlds";
 import type { Club, ClubSeason, Player } from "../../src/common/schema";
 import {
   closeSeasonBooks,
@@ -78,12 +78,15 @@ const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.le
 const POT_SNAPSHOT_SEASONS = 5;
 
 export function simulateWorld(
+  config: WorldConfig,
   seed: string,
   seasons: number,
   onSeason?: (report: SeasonReport) => void,
 ): WorldRun {
   const started = performance.now();
+  const competitions = config.competitions;
   const generated = generateWorld({
+    config,
     seed,
     name: "calibration",
     userCid: 0,
@@ -93,9 +96,10 @@ export function simulateWorld(
   const players: Player[] = generated.players;
   let nextPid = Math.max(...players.map((p) => p.pid)) + 1;
   const loop: LoopWorld = {
+    config,
     clubs,
     players,
-    reputation: startingReputation(),
+    reputation: startingReputation(config.clubs),
     clubSeasons: new Map(generated.clubSeasons.map((r) => [r.cid, r])),
     // No user in the harness: the AI runs every club (dials included).
     userCid: -1,
@@ -124,10 +128,10 @@ export function simulateWorld(
   let firstFid = 1;
 
   for (let s = 0; s < seasons; s++) {
-    const season = competitionsConfig.firstSeason + s;
+    const season = competitions.firstSeason + s;
     const seasonStart = `${season}-07-01`;
-    const state = createSeason({ season, seed, clubs, lastFinish, firstFid });
-    preseasonBoard(loop, season, seasonStart);
+    const state = createSeason({ season, seed, clubs, lastFinish, firstFid, config: competitions });
+    preseasonBoard(loop, season, seasonStart, competitions);
     const start = new Map(
       players
         .filter((p) => p.status !== "retired")
@@ -155,7 +159,7 @@ export function simulateWorld(
         }
       },
     });
-    const outcome = seasonOutcome(state);
+    const outcome = seasonOutcome(state, competitions);
     firstFid = state.nextFid;
 
     // Minutes per club per player, the minutes each club had to give, league scorers.
@@ -258,7 +262,7 @@ export function simulateWorld(
     // Club standing and the board (information): would-be sackings, targets met, reputation.
     const seasonRows = [...loop.clubSeasons.values()];
     const met = seasonRows.filter((r) => {
-      const target = targetPosition(r.leagueId, r.boardExpectation);
+      const target = targetPosition(r.leagueId, r.boardExpectation, competitions);
       return r.finish !== null && r.finish <= target;
     }).length;
     const leagueRep = (id: string) =>
@@ -280,7 +284,7 @@ export function simulateWorld(
 
     // Money: month-ends to 30 June and the season's cash snapshot, before anyone moves on.
     const lastDay = state.fixtures.reduce((d, f) => (f.date > d ? f.date : d), seasonStart);
-    const ffp = closeSeasonBooks(loop, season, lastDay, -1);
+    const ffp = closeSeasonBooks(loop, season, lastDay, -1, competitions);
     const rows = [...loop.clubSeasons.values()];
     const revenueOf = (r: ClubSeason) => operatingRevenue(r.revenue);
     const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0;
@@ -301,7 +305,7 @@ export function simulateWorld(
       revenueSharePrize: mix(["prize"]),
     });
     if (s === 0) {
-      for (const league of competitionsConfig.leagues) {
+      for (const league of competitions.leagues) {
         const own = rows.filter((r) => r.leagueId === league.id);
         const errors = own.map((r) => {
           const club = clubs.find((c) => c.cid === r.cid) as Club;
@@ -333,7 +337,7 @@ export function simulateWorld(
       seniorsPerClub: players.filter((p) => p.status === "club").length / clubs.length,
       freeAgentPool: players.filter((p) => p.status === "freeAgent").length,
     });
-    loop.clubSeasons = openSeasonBooks(clubs, loop.clubSeasons, season + 1, -1);
+    loop.clubSeasons = openSeasonBooks(clubs, loop.clubSeasons, season + 1, -1, competitions);
     for (const [cid, row] of loop.clubSeasons) loop.reputation.set(cid, row.reputation);
     const changes = [...start].flatMap(([pid, before]) => {
       const p = players.find((x) => x.pid === pid);
@@ -376,7 +380,7 @@ export function simulateWorld(
       benched18to21OvrGainPerYear: mean(young.filter((c) => c.share < 0.15).map((c) => c.delta)),
       age33plusOvrLossPerYear: -mean(changes.filter((c) => c.age >= 33).map((c) => c.delta)),
       wonderkidsPerLeaguePerSeason:
-        intake.filter((p) => p.pot >= 75).length / competitionsConfig.leagues.length,
+        intake.filter((p) => p.pot >= 75).length / competitions.leagues.length,
       youthIntake: intake.length,
     });
     run.seasons.push(metrics);
@@ -393,7 +397,7 @@ export function simulateWorld(
     run.potChecked++;
     if (peak > snap.pot) run.potExceeded++;
   }
-  run.exploits = exploitChecks(loop, `${competitionsConfig.firstSeason + seasons}-07-01`);
+  run.exploits = exploitChecks(loop, `${competitions.firstSeason + seasons}-07-01`);
   run.seconds = (performance.now() - started) / 1000;
   return run;
 }
@@ -422,7 +426,7 @@ function exploitChecks(world: LoopWorld, date: string): ExploitResult {
     weakLoanWins: 0,
   };
   const snap = marketSnapshot(world, date);
-  for (const league of competitionsConfig.leagues) {
+  for (const league of world.config.competitions.leagues) {
     const own = world.players
       .filter(
         (p) =>

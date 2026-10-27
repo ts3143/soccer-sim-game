@@ -3,7 +3,7 @@
  * experienced and below the level of a typical second-tier starter, plus the young
  * players academies released this summer (the pool's settled shape, T 2026-10-15).
  */
-import { competitionsConfig } from "../../common/config/competitions";
+import type { LeagueConfig } from "../../common/config/competitions";
 import { ratingsConfig, type Position, type Side } from "../../common/config/ratings";
 import type { Player } from "../../common/schema";
 import type { Random } from "../core/random";
@@ -59,9 +59,10 @@ export function generateReleasedYouth(
   season: number,
   seasonStart: string,
   nextPid: () => number,
+  leagues: readonly LeagueConfig[],
 ): Player[] {
   return Array.from({ length: RELEASED_YOUTH_COUNT }, () => {
-    const league = rng.choice(competitionsConfig.leagues);
+    const league = rng.choice(leagues);
     const player = generateAcademyPlayer(
       rng,
       {

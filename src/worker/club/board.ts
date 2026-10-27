@@ -15,7 +15,6 @@
  *   reputation (the MVP has no managers at other clubs: these are fictional vacancies).
  */
 import type { CompetitionsConfig } from "../../common/config/competitions";
-import { competitionsConfig } from "../../common/config/competitions";
 import type { Club, ClubSeason, Player } from "../../common/schema";
 import { Random } from "../core/random";
 import type { TableRow } from "../schedule/standings";
@@ -46,7 +45,7 @@ export interface BoardTargetSet {
 export function boardTargets(
   leagueId: string,
   strengths: readonly { cid: number; strength: number }[],
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): BoardTargetSet[] {
   const league = config.leagues.find((l) => l.id === leagueId);
   if (!league) return [];
@@ -70,7 +69,7 @@ export function boardTargets(
 export function targetPosition(
   leagueId: string,
   target: string | null,
-  config = competitionsConfig,
+  config: CompetitionsConfig,
 ) {
   const league = config.leagues.find((l) => l.id === leagueId);
   return league?.board.find((t) => t.id === target)?.position ?? league?.clubs ?? 20;
@@ -87,7 +86,7 @@ export function liveConfidence(
   row: ClubSeason,
   club: Club,
   table: readonly TableRow[],
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): number {
   const me = table.find((r) => r.cid === club.cid);
   const target = targetPosition(row.leagueId, row.boardExpectation, config);
@@ -105,7 +104,7 @@ export function updateConfidence(
   club: Club,
   table: readonly TableRow[],
   progress: number,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): number {
   const start = row.boardStart ?? BOARD.fresh;
   const p = Math.min(1, Math.max(0, progress));
@@ -153,7 +152,7 @@ export function preseasonBoard(
   },
   season: number,
   date: string,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): {
   date: string;
   season: number;
