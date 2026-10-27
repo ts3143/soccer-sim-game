@@ -67,8 +67,16 @@ export function History() {
                     {s.leagues.map((l) => (
                       <tr key={l.id}>
                         <td className="text-nowrap">{l.name}</td>
-                        <td className="fw-semibold">
-                          {l.champion ? <TeamLink team={l.champion} /> : "—"}
+                        <td>
+                          <span className="fw-semibold">
+                            {l.champion ? <TeamLink team={l.champion} /> : "—"}
+                          </span>
+                          {l.tableWinner && (
+                            <span className="text-body-secondary" data-testid="table-winner">
+                              {" "}
+                              (top of the table: {l.tableWinner.name})
+                            </span>
+                          )}
                         </td>
                         <td>
                           {teams(l.promoted)}

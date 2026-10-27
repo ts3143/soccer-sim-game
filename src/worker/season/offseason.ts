@@ -715,7 +715,8 @@ const AWARD_MIN_SHARE = { playerOfTheYear: 0.5, teamOfTheSeason: 0.4 };
 /**
  * Season awards and honours: per league champions, Player of the Year, Golden Boot, Top
  * assists (T, 2026-10-25), Team of the Season, promotions and relegations; per cup the
- * winner; play-off winners.
+ * winner; promotion play-off winners; where a play-off decides the title, the table
+ * winner (recorded, not a title: SPEC §17.2).
  */
 export function seasonAwards(
   state: SeasonState,
@@ -775,8 +776,16 @@ export function seasonAwards(
   for (const move of outcome.moves) {
     clubAward(move.from, move.reason === "relegated" ? "relegated" : "promoted", move.cid);
   }
+  // A title play-off's winner is the champion (above), not a play-off winner too.
+  const titlePlayoffs = new Set(
+    config.leagues.filter((l) => l.playoff?.decides === "title").map((l) => l.id),
+  );
   for (const [leagueId, winners] of Object.entries(outcome.playoffWinners)) {
+    if (titlePlayoffs.has(leagueId)) continue;
     for (const cid of winners) clubAward(playoffId(leagueId), "playoffWinner", cid);
+  }
+  for (const [leagueId, cid] of Object.entries(outcome.tableWinners ?? {})) {
+    clubAward(leagueId, "tableWinner", cid);
   }
   for (const [cupId, cid] of Object.entries(outcome.cupWinners)) clubAward(cupId, "cupWinner", cid);
   return awards;

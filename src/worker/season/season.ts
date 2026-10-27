@@ -428,7 +428,13 @@ export interface ClubMove {
 
 export interface SeasonOutcome {
   tables: Record<string, TableRow[]>;
+  /** Each league's champion: its table winner, or where a play-off decides the title its winner. */
   champions: Record<string, number>;
+  /**
+   * Where a play-off decides the title (the Super League's Star, SPEC §17.2): the table
+   * winner, recorded but not a title. Absent in a world without such a play-off.
+   */
+  tableWinners?: Record<string, number>;
   cupWinners: Record<string, number>;
   playoffWinners: Record<string, number[]>;
   moves: ClubMove[];
@@ -441,6 +447,7 @@ export function seasonOutcome(state: SeasonState, config: CompetitionsConfig): S
   const champions: Record<string, number> = {};
   const cupWinners: Record<string, number> = {};
   const playoffWinners: Record<string, number[]> = {};
+  const tableWinners: Record<string, number> = {};
   const moves: ClubMove[] = [];
   for (const league of config.leagues) {
     const table = leagueTableOf(state, league.id, config);
@@ -471,13 +478,18 @@ export function seasonOutcome(state: SeasonState, config: CompetitionsConfig): S
           moves.push({ cid, from: league.id, to: league.promotion.to, reason: "playoffs" });
         }
       }
+      if (playoff.decides === "title" && winners[0] !== undefined) {
+        tableWinners[league.id] = champions[league.id] as number;
+        champions[league.id] = winners[0];
+      }
     }
   }
   for (const cup of config.cups) {
     const final = fixturesOf(state, cup.id, cup.rounds[cup.rounds.length - 1]);
     cupWinners[cup.id] = winnersOf(final)[0] as number;
   }
-  return { tables, champions, cupWinners, playoffWinners, moves };
+  const titles = Object.keys(tableWinners).length > 0 ? { tableWinners } : {};
+  return { tables, champions, ...titles, cupWinners, playoffWinners, moves };
 }
 
 /** Last-season finishes for the next season's setup (cup preliminary rounds). */

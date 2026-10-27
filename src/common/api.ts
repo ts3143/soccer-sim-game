@@ -813,6 +813,8 @@ export interface HistoryView {
       id: string;
       name: string;
       champion: TeamRef | null;
+      /** Where a play-off decides the title: the club that topped the table (not a title). */
+      tableWinner: TeamRef | null;
       promoted: TeamRef[];
       playoffWinner: TeamRef | null;
       relegated: TeamRef[];

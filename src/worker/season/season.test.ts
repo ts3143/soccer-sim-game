@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { worlds } from "../../common/config/worlds";
 import type { Club, Fixture } from "../../common/schema";
+import type { LeagueConfig } from "../../common/config/competitions";
 import { generateWorld } from "../generate/world";
+import { tableZone } from "../views/common";
+import { seasonAwards } from "./offseason";
 import { fullStrengthPlay } from "./play";
 import {
   applyMoves,
@@ -267,6 +270,42 @@ describe("the Super League's play-offs (general play-off format)", () => {
     expect(slOutcome.moves.filter((m) => m.from === "BLUE" && m.reason === "relegated")).toEqual(
       [],
     );
+  });
+
+  it("makes Star's play-off winner the champion and records its table winner", SLOW, () => {
+    const [final] = byRound(slState, playoffId("STAR"), "Final");
+    expect(slOutcome.champions.STAR).toBe(final?.result?.winnerCid);
+    expect(slOutcome.tableWinners).toEqual({ STAR: atIn("STAR")(1) });
+    // Gold and Blue: the table winner is the champion, as in Classic's leagues.
+    expect(slOutcome.champions.GOLD).toBe(atIn("GOLD")(1));
+    expect(outcome.tableWinners).toBeUndefined();
+
+    const awards = seasonAwards(slState, slOutcome, sl.clubs, sl.players, [], config);
+    const club = (type: string, competition: string) =>
+      awards.filter((a) => a.type === type && a.competition === competition).map((a) => a.cid);
+    expect(club("champions", "STAR")).toEqual([final?.result?.winnerCid]);
+    expect(club("tableWinner", "STAR")).toEqual([atIn("STAR")(1)]);
+    expect(club("playoffWinner", playoffId("STAR"))).toEqual([]);
+    expect(club("playoffWinner", playoffId("GOLD"))).toEqual(slOutcome.playoffWinners.GOLD);
+    expect(club("tableWinner", "GOLD")).toEqual([]);
+  });
+
+  it("shows Star's first place as a play-off place, not the title", () => {
+    const [star, gold] = config.leagues;
+    expect([1, 8, 9, 15].map((p) => tableZone(star as LeagueConfig, p, 16))).toEqual([
+      "playoffs",
+      "playoffs",
+      null,
+      "relegated",
+    ]);
+    expect([1, 2, 5, 6].map((p) => tableZone(gold as LeagueConfig, p, 16))).toEqual([
+      "champions",
+      "playoffs",
+      "playoffs",
+      null,
+    ]);
+    const eng1 = competitions.leagues[0] as LeagueConfig;
+    expect(tableZone(eng1, 1, 20)).toBe("champions");
   });
 
   it("schedules the play-offs after the league, midweek first, finals near their dates", () => {

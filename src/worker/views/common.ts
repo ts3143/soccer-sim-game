@@ -10,7 +10,7 @@ import type {
   TableZone,
   TeamRef,
 } from "../../common/api";
-import type { CompetitionsConfig } from "../../common/config/competitions";
+import type { CompetitionsConfig, LeagueConfig } from "../../common/config/competitions";
 import type {
   AwardRow,
   Club,
@@ -116,6 +116,18 @@ export const formOf = (fixtures: readonly Fixture[], cid: number, n = 5): FormRe
     .slice(-n)
     .map((f) => resultFor(f, cid) as FormResult);
 
+/**
+ * A table position's zone under its league's rules. Where a play-off decides the title
+ * (the Super League's Star), first place is a play-off place, not the title.
+ */
+export function tableZone(league: LeagueConfig, position: number, clubs: number): TableZone {
+  if (position === 1 && league.playoff?.decides !== "title") return "champions";
+  if (league.promotion && position <= league.promotion.automatic) return "promoted";
+  if (league.playoff?.positions.includes(position)) return "playoffs";
+  if (league.relegation && position > clubs - league.relegation.places) return "relegated";
+  return null;
+}
+
 /** Every league's table this season, with promotion, play-off and relegation zones. */
 export function leagueTables(
   session: LeagueSession,
@@ -134,17 +146,7 @@ export function leagueTables(
         drawSeed: `${game.seed}/table/${league.id}/${game.season}`,
       },
     );
-    const po = league.playoff?.positions ?? [];
-    const zone = (pos: number): TableZone =>
-      pos === 1
-        ? "champions"
-        : league.promotion && pos <= league.promotion.automatic
-          ? "promoted"
-          : po.includes(pos)
-            ? "playoffs"
-            : league.relegation && pos > rows.length - league.relegation.places
-              ? "relegated"
-              : null;
+    const zone = (pos: number) => tableZone(league, pos, rows.length);
     return {
       id: league.id,
       name: league.name,

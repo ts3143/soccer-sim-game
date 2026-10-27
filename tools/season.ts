@@ -77,7 +77,7 @@ const run = simulateWorld(config, SEED, SEASONS, ({ index, state, outcome, metri
     const rows = outcome.tables[league.id] ?? [];
     const po = league.playoff?.positions ?? [];
     const zones = (pos: number) =>
-      pos === 1
+      pos === 1 && league.playoff?.decides !== "title"
         ? league.promotion
           ? "champions, promoted"
           : "champions"

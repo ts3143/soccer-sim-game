@@ -62,6 +62,7 @@ export async function getHistory(lid: number): Promise<HistoryView> {
         id: league.id,
         name: league.name,
         champion: ref(find("champions", league.id)),
+        tableWinner: ref(find("tableWinner", league.id)),
         promoted: own
           .filter((a) => a.type === "promoted" && a.competition === league.id)
           .map((a) => teamRef(clubs.get(a.cid ?? -1))),
@@ -107,6 +108,8 @@ export async function getTeamHistory(lid: number, cid: number): Promise<TeamHist
         return `${cupName(a.competition)} winners`;
       case "playoffWinner":
         return `${leagueName(a.competition.replace(/-PO$/, ""))} play-off winners`;
+      case "tableWinner":
+        return `Top of the ${leagueName(a.competition)} table`;
       case "promoted":
         return `Promoted from the ${leagueName(a.competition)}`;
       case "relegated":

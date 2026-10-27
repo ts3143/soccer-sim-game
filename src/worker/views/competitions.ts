@@ -24,6 +24,7 @@ import {
   resultFor,
   seasonFixtures,
   seasonRows,
+  tableZone,
   teamRef,
 } from "./common";
 import { GameError } from "../../common/errors";
@@ -43,12 +44,7 @@ function zoneOf(
   clubs: number,
 ): TableZone {
   const league = config.leagues.find((l) => l.id === leagueId);
-  if (!league) return null;
-  if (position === 1) return "champions";
-  if (league.promotion && position <= league.promotion.automatic) return "promoted";
-  if (league.playoff?.positions.includes(position)) return "playoffs";
-  if (league.relegation && position > clubs - league.relegation.places) return "relegated";
-  return null;
+  return league ? tableZone(league, position, clubs) : null;
 }
 
 const record = (fixtures: readonly Fixture[], cid: number, home: boolean): string => {
@@ -114,6 +110,8 @@ export async function getStandings(
         .map((a) => clubs.get(a.cid ?? -1)?.name ?? a.name);
     const champion = names("champions");
     if (champion.length) notes.push(`Champions: ${champion.join(", ")}`);
+    const top = names("tableWinner");
+    if (top.length) notes.push(`Top of the table: ${top.join(", ")}`);
     const promoted = names("promoted");
     if (promoted.length) notes.push(`Promoted: ${promoted.join(", ")}`);
     const playoff = names("playoffWinner", playoffId(id));
