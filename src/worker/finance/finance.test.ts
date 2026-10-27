@@ -59,7 +59,7 @@ describe("TV merit and prize money", () => {
   const books = () => {
     const clubs = structuredClone(world.clubs);
     const rows = new Map(structuredClone(world.clubSeasons).map((r) => [r.cid, r]));
-    return { clubs, players: [], clubSeasons: rows };
+    return { config: worlds.classic, clubs, players: [], clubSeasons: rows };
   };
 
   it("splits the merit pool by final position, last place one share", () => {

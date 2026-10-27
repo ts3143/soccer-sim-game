@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { worlds } from "../../common/config/worlds";
-import type { Club, Player } from "../../common/schema";
+import type { Club, Fixture, Player } from "../../common/schema";
+import { generateWorld } from "../generate/world";
+import { playoffId } from "../season/season";
+import { closeSeasonBooks, type FinanceWorld, prizeIncome, settleMonths } from "./finance";
 import {
+  applyCapGrace,
   canSignFreeAgent,
   clubCap,
   luxuryTax,
@@ -65,5 +69,85 @@ describe("the soft cap", () => {
     expect(tradeFits(softCap, STAR + 1, STAR, 4_000_000, 5_000_001)).toBe(false);
     // A trade that leaves the club under the cap always fits.
     expect(tradeFits(softCap, STAR - 20_000_000, STAR, 1_000_000, 10_000_000)).toBe(true);
+  });
+
+  describe("in the season", () => {
+    const sl = generateWorld({
+      config: worlds.superLeague,
+      seed: "soft-cap-test",
+      name: "t",
+      userCid: 0,
+      createdAt: "2026-07-01T00:00:00.000Z",
+    });
+    const fresh = (): FinanceWorld & { clubs: Club[]; players: Player[] } => ({
+      config: worlds.superLeague,
+      clubs: structuredClone(sl.clubs),
+      players: structuredClone(sl.players),
+      clubSeasons: new Map(structuredClone(sl.clubSeasons).map((r) => [r.cid, r])),
+    });
+
+    it("taxes a club over its cap at season end, shares it in its tier, runs no FFP", () => {
+      const w = fresh();
+      // Club 0 (Star) €10m over the cap; everyone else as generated (85–100% of the cap).
+      const star = w.players.filter((p) => p.cid === 0 && p.status === "club");
+      const over = STAR + 10_000_000 - payroll(w.clubs[0] as Club, w.players, "2027-06-30");
+      (star[0] as Player).contract = {
+        wage: ((star[0] as Player).contract?.wage ?? 0) + over,
+        expires: "2029-06-30",
+      };
+      const control = fresh();
+      closeSeasonBooks(control, 2026, "2027-06-29", -1, config);
+      const close = closeSeasonBooks(w, 2026, "2027-06-29", -1, config);
+      expect(close.tax.paid).toEqual(new Map([[0, 15_000_000]]));
+      const shares = [...close.tax.shared.values()];
+      expect(shares.reduce((a, b) => a + b, 0)).toBe(15_000_000);
+      const starClubs = new Set(w.clubs.filter((c) => c.leagueId === "STAR").map((c) => c.cid));
+      expect([...close.tax.shared.keys()].every((cid) => starClubs.has(cid))).toBe(true);
+      expect(w.clubSeasons.get(0)?.expenses.luxuryTax).toBe(15_000_000);
+      const receiver = [...close.tax.shared.keys()][0] as number;
+      expect(w.clubSeasons.get(receiver)?.revenue.taxShare).toBe(close.tax.shared.get(receiver));
+      // The tax (and June's share of the higher wage) comes out of its cash.
+      expect((control.clubs[0]?.cash ?? 0) - (w.clubs[0]?.cash ?? 0)).toBeGreaterThan(15_000_000);
+      // FFP is off: no breaches, no bans.
+      expect([close.breaches, close.bans]).toEqual([[], []]);
+    });
+
+    it("pays no Youth dial where clubs have no academies", () => {
+      const w = fresh();
+      settleMonths(w, "2026-07-01", "2026-09-30", config);
+      const row = w.clubSeasons.get(0);
+      expect(row?.expenses.youth ?? 0).toBe(0);
+      expect(row?.expenses.coaching ?? 0).toBeGreaterThan(0);
+    });
+
+    it("pays play-off prize money per round won and to the beaten finalist", () => {
+      const w = fresh();
+      const final = {
+        competition: playoffId("STAR"),
+        round: "Final",
+        leg: null,
+        homeCid: 0,
+        awayCid: 1,
+        result: { winnerCid: 1 },
+      } as unknown as Fixture;
+      prizeIncome(w, final, config);
+      expect(w.clubSeasons.get(1)?.revenue.prize).toBe(20_000_000);
+      expect(w.clubSeasons.get(0)?.revenue.prize).toBe(10_000_000);
+    });
+
+    it("gives relegated clubs their grace, and nobody else", () => {
+      const clubs = structuredClone(sl.clubs);
+      applyCapGrace(
+        clubs,
+        [
+          { cid: 14, from: "STAR", to: "GOLD", reason: "relegated" },
+          { cid: 16, from: "GOLD", to: "STAR", reason: "promoted" },
+        ],
+        config,
+        2026,
+      );
+      expect(clubs[14]?.capGrace).toEqual({ leagueId: "STAR", through: 2027 });
+      expect(clubs[16]?.capGrace).toBeUndefined();
+    });
   });
 });

@@ -30,6 +30,7 @@ import {
 import type { MatchResult } from "../../common/match";
 import type { GameState, PlayOption, PlayReport } from "../../common/api";
 import { updateLeagueSummary } from "../db/globalDb";
+import { applyCapGrace } from "../finance/softCap";
 import { runDraft } from "../season/draft";
 import { seasonDate } from "../schedule/calendar";
 import {
@@ -525,6 +526,7 @@ function proceedToPromotionRelegation(session: LeagueSession): PlayReport {
   saveBooks(session, books);
   const clubs = session.cache.getAll("clubs").map((c) => ({ ...c }));
   applyMoves(clubs, outcome.moves);
+  applyCapGrace(clubs, outcome.moves, session.config.competitions, game.season);
   for (const club of clubs) session.cache.put("clubs", club);
   // Retirements and departures (SPEC §5.5).
   const world = loopWorld(session, game.season);

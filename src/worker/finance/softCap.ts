@@ -11,6 +11,7 @@ import {
 } from "../../common/config/competitions";
 import type { Club, Player } from "../../common/schema";
 import { contractClub } from "../../common/status";
+import type { ClubMove } from "../season/season";
 import { owedWages } from "./finance";
 
 /**
@@ -51,6 +52,23 @@ export function relegationGrace(
   season: number,
 ): NonNullable<Club["capGrace"]> {
   return { leagueId: from, through: season + softCap.graceSeasons };
+}
+
+/** Relegated clubs keep their old tier's cap for their grace (a world with a cap only). */
+export function applyCapGrace(
+  clubs: Club[],
+  moves: readonly ClubMove[],
+  config: CompetitionsConfig,
+  season: number,
+): void {
+  const softCap = config.softCap;
+  if (!softCap) return;
+  for (const move of moves) {
+    const club = clubs.find((c) => c.cid === move.cid);
+    if (club && move.reason === "relegated") {
+      club.capGrace = relegationGrace(softCap, move.from, season);
+    }
+  }
 }
 
 /** Over the cap, a free agent can still be signed at the minimum wage. */

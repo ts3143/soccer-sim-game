@@ -31,6 +31,7 @@ import {
 } from "../../src/worker/season/season";
 import { isInjured } from "../../src/worker/season/squads";
 import { runDraft } from "../../src/worker/season/draft";
+import { applyCapGrace } from "../../src/worker/finance/softCap";
 import { seasonDate } from "../../src/worker/schedule/calendar";
 import { developHalfSeason } from "../../src/worker/core/development";
 import { Random } from "../../src/worker/core/random";
@@ -318,6 +319,7 @@ export function simulateWorld(
     }
 
     applyMoves(clubs, outcome.moves);
+    applyCapGrace(clubs, outcome.moves, competitions, season);
     const intakeFrom = nextPid;
     // The draft in mid-June, where the world has one (the Super League, SPEC §17.5).
     if (competitions.draft) {
