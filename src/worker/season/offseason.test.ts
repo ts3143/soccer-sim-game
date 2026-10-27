@@ -11,6 +11,7 @@ import {
   seasonAwards,
   type SeasonLine,
   startingReputation,
+  freeAgencyTopUp,
   preseasonTurnover,
   promoteToSquadSize,
   youthIntake,
@@ -216,6 +217,48 @@ describe("preseason", () => {
     const log = preseasonTurnover(loop, 2027, "2027-07-01");
     expect(log.added).toEqual([]);
     expect(loop.players.some((p) => p.status === "academy")).toBe(false);
+  });
+
+  it("tops AI squads up to 22 from free agents where players move by trades", () => {
+    const sl = generateWorld({
+      config: worlds.superLeague,
+      seed: SEED,
+      name: "t",
+      userCid: 0,
+      createdAt: "2026-07-01T00:00:00.000Z",
+    });
+    let pid = Math.max(...sl.players.map((p) => p.pid)) + 1;
+    const loop: LoopWorld = {
+      config: worlds.superLeague,
+      clubs: sl.clubs,
+      players: sl.players,
+      reputation: startingReputation(worlds.superLeague.clubs),
+      clubSeasons: new Map(sl.clubSeasons.map((r) => [r.cid, r])),
+      userCid: 0,
+      seed: SEED,
+      nextPid: () => pid++,
+    };
+    const seniors = (cid: number) =>
+      loop.players.filter((p) => p.cid === cid && p.status === "club");
+    // Clubs 0 (the user's) and 1 lose players to 18.
+    for (const cid of [0, 1]) {
+      for (const p of seniors(cid).slice(18)) {
+        p.status = "freeAgent";
+        p.cid = null;
+        p.contract = null;
+      }
+    }
+    const log = freeAgencyTopUp(loop, 2026, "2026-07-01");
+    expect(seniors(1)).toHaveLength(22);
+    expect(seniors(0)).toHaveLength(18); // the user signs his own
+    const signed = log.transactions.filter((t) => t.cids[0] === 1);
+    expect(signed).toHaveLength(4);
+    expect(signed.every((t) => t.type === "freeAgent")).toBe(true);
+    for (const pid of signed.map((t) => t.pids[0])) {
+      const p = loop.players.find((x) => x.pid === pid);
+      expect(p?.contract?.expires).toMatch(/^202[78]-06-30$/);
+      expect(p?.contract?.wage).toBeGreaterThan(0);
+    }
   });
 
   it("brings 3–6 youths aged 15–16 into every academy", () => {

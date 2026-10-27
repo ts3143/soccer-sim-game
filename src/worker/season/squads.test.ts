@@ -147,6 +147,27 @@ describe("matchday squad", () => {
   const startersFrom = (squad: Player[], ctx: typeof base) =>
     pickMatchday(club, squad, ctx, competitions).lineup;
 
+  it("fills a team with the injured back soonest when fewer than 11 can play", () => {
+    // 13 seniors, no academy: 4 injured (back in 3, 10, 30 and 60 days), 1 suspended, so 8
+    // can play and 3 must come from the injured.
+    const squad = squadOf(club.cid)
+      .filter((p) => p.status === "club")
+      .slice(0, 13)
+      .map((p) => ({ ...p, injury: null, suspension: undefined }));
+    const [a, b, c, d, banned] = squad as [Player, Player, Player, Player, Player];
+    a.injury = { type: "Knock", until: "2026-09-15" };
+    b.injury = { type: "Strain", until: "2026-09-22" };
+    c.injury = { type: "Tear", until: "2026-10-12" };
+    d.injury = { type: "Break", until: "2026-11-11" };
+    banned.suspension = { remaining: 1, date: DATE };
+    const pick = pickMatchday(club, squad, base, competitions);
+    const named = [...pick.lineup, ...pick.bench];
+    expect(pick.lineup).toHaveLength(11);
+    expect(named).toEqual(expect.arrayContaining([a.pid, b.pid, c.pid]));
+    expect(named).not.toContain(d.pid);
+    expect(named).not.toContain(banned.pid);
+  });
+
   it("picks 11 fit players and 9 substitutes with today's condition", () => {
     const squad = squadOf(club.cid);
     const injured = squad.find((p) => p.status === "club") as Player;

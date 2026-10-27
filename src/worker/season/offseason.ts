@@ -649,6 +649,63 @@ export function promoteToSquadSize(world: LoopWorld, season: number, date: strin
 }
 
 /**
+ * Free agency from 1 July where players move by trades (SPEC §17.6): there are no windows,
+ * so AI clubs short of the squad size sign free agents, the club with the fewest seniors
+ * first, one at a time: the best by OVR, plus the draft's need bonus for an area the club
+ * is short in. Wages on the club's scale, 2 years (1 from 30). Its AI core until SL5, which
+ * adds the user's signings, the cap and the roster deadline.
+ */
+export function freeAgencyTopUp(world: LoopWorld, season: number, date: string): TurnoverLog {
+  const log = emptyLog();
+  const contexts = [...clubContexts(world).values()].filter((c) => c.club.cid !== world.userCid);
+  const pool = world.players.filter((p) => p.status === "freeAgent");
+  const pick = world.config.competitions.draft?.aiPick;
+  for (;;) {
+    const ctx = contexts
+      .filter((c) => c.seniors.length < TURNOVER.topUpTo)
+      .sort((a, b) => a.seniors.length - b.seniors.length || a.club.cid - b.club.cid)[0];
+    if (!ctx || pool.length === 0) break;
+    const have = { gk: 0, def: 0, mid: 0, att: 0 };
+    for (const p of ctx.seniors) have[AREA[p.position]]++;
+    const value = (p: Player) => {
+      const area = AREA[p.position];
+      return p.ovr + (pick ? pick.needBonus * Math.max(0, pick.areaTargets[area] - have[area]) : 0);
+    };
+    const best = pool.reduce((a, b) => (value(b) > value(a) ? b : a));
+    pool.splice(pool.indexOf(best), 1);
+    const age = exactAge(best.birthDate, date);
+    best.status = "club";
+    best.cid = ctx.club.cid;
+    best.freeAgentSince = null;
+    best.contract = {
+      wage: wageFor(ctx, best.ovr, age, date),
+      expires: `${season + (age >= 30 ? 1 : 2)}-06-30`,
+    };
+    best.shirtNumber = freeShirtNumber(world, ctx.club.cid, 30);
+    best.transfers.push({
+      date,
+      season,
+      fromCid: null,
+      toCid: ctx.club.cid,
+      fee: 0,
+      type: "freeAgent",
+    });
+    ctx.seniors.push(best);
+    log.changed.add(best.pid);
+    log.transactions.push({
+      season,
+      date,
+      type: "freeAgent",
+      pids: [best.pid],
+      cids: [ctx.club.cid],
+      names: [fullName(best), ctx.club.name],
+      fee: 0,
+    });
+  }
+  return log;
+}
+
+/**
  * Every preseason step in order: loans returning, expiring contracts, free agents moving on, youth intake,
  * academy decisions, the AI's summer renewals, then AI academy promotions up to squad size.
  */
@@ -662,6 +719,8 @@ export function preseasonTurnover(world: LoopWorld, season: number, date: string
     freeAgentDepartures,
     ...(academies ? [youthIntake, academyDecisions] : []),
     (w, s, d) => aiRenewals(w, s, d, "summer"),
+    // Where players move by trades, free agency tops squads up from 1 July (SPEC §17.6).
+    ...(world.config.switches.market === "trades" ? [freeAgencyTopUp] : []),
     promoteToSquadSize,
   ];
   for (const step of steps) {

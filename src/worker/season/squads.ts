@@ -297,6 +297,16 @@ export function pickMatchday(
     pool = [...pool, ...academy.slice(0, Math.max(0, MATCHDAY_SQUAD - pool.length))];
   }
   const formation = formationById(club.tactics.formation);
+  // Still fewer than a team (no academy to fill in: SPEC §17.4): the injured seniors back
+  // soonest play; suspended players never do.
+  if (pool.length < formation.slots.length) {
+    const hurt = squad
+      .filter((p) => isSenior(p) && !isSuspended(p) && isInjured(p, ctx.date))
+      .sort(
+        (a, b) => ((a.injury?.until ?? "") < (b.injury?.until ?? "") ? -1 : 1) || a.pid - b.pid,
+      );
+    pool = [...pool, ...hurt.slice(0, formation.slots.length - pool.length)];
+  }
   const condition = new Map(pool.map((p) => [p.pid, currentCondition(p, ctx.date, medical, c)]));
 
   // Regular starters: the best XI at full condition, or the user's. Each of his counts
