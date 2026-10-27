@@ -140,6 +140,30 @@ export interface RosterRules {
   mustPromoteLoanOrReleaseBy: number;
   academyMatchdayMinAge: number;
   minSeniorForMatch: number;
+  /**
+   * The `maxSenior` limit counts from the season's first league match only (SPEC §17.4):
+   * in the off-season a club may hold more; AI clubs trim before that match, the user
+   * can't play it while over. Absent: always (Classic).
+   */
+  maxSeniorFromFirstMatch?: boolean;
+}
+
+/** Free agency in a world without transfer windows (SPEC §17.6). See its config `_note`. */
+export interface FreeAgencyConfig {
+  /** AI market days for free agents: every this many days from 1 July. */
+  everyDays: number;
+  /** Until this MM-DD, AI clubs sign up to `squadTarget` seniors... */
+  busyUntil: string;
+  squadTarget: number;
+  /** ...after it only to fill a gap: clubs below this many seniors, up to it. */
+  gapBelow: number;
+  /** Signings per club per market day. */
+  perDay: number;
+  /**
+   * The roster deadline: after the league round at this share of the regular season (the
+   * round rounded up), no signings until 1 July.
+   */
+  deadlineAfterRoundShare: number;
 }
 
 /** The draft (SPEC §17.5; the Super League's). See `_note` in its config. */
@@ -217,6 +241,8 @@ export interface CompetitionsConfig {
   windows: { id: string; opens: string; closes: string; deadlineDay: string }[];
   keyDates: Record<string, string>;
   rosterRules: RosterRules;
+  /** Free agency without windows (the Super League's); null where windows rule (Classic). */
+  freeAgency: FreeAgencyConfig | null;
   renewals: { endOfSeasonResignPhase: boolean; expiryWarningMonths: number };
   /** null: no cap (Classic, whose money rule is FFP). */
   softCap: SoftCapConfig | null;
@@ -333,6 +359,7 @@ export interface CompetitionsFile {
   rosterRules: RosterRules;
   renewals: { endOfSeasonResignPhase: boolean; expiryWarningMonths: number };
   softCap?: SoftCapConfig;
+  freeAgency?: FreeAgencyConfig;
   draft?: Omit<DraftConfig, "rookieContract"> & {
     rookieContract: { years: number; wageByPick: number[][] };
   };
@@ -534,6 +561,7 @@ export function parseCompetitions(json: CompetitionsFile, file: string): Competi
     windows: json.windows,
     keyDates: json.keyDates,
     rosterRules: json.rosterRules,
+    freeAgency: json.freeAgency ?? null,
     renewals: json.renewals,
     softCap: json.softCap
       ? {

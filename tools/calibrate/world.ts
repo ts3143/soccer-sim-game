@@ -31,6 +31,7 @@ import {
   type SeasonState,
 } from "../../src/worker/season/season";
 import { isInjured } from "../../src/worker/season/squads";
+import { firstLeagueDay } from "../../src/worker/season/freeAgency";
 import { runDraft } from "../../src/worker/season/draft";
 import { applyCapGrace } from "../../src/worker/finance/softCap";
 import { seasonDate } from "../../src/worker/schedule/calendar";
@@ -52,6 +53,8 @@ export interface SeasonReport {
   players: Player[];
   /** The season's close on 30 June: FFP, and under a soft cap the luxury tax. */
   close: SeasonClose;
+  /** Seniors per club after the season's first league matchday: fewest and most. */
+  squadsAtFirstMatch: { min: number; max: number };
 }
 
 /** A whole run: per-season numbers plus the long-run checks. Plain data (sent as JSON). */
@@ -155,9 +158,17 @@ export function simulateWorld(
 
     let injuredSamples = 0;
     let injuredTotal = 0;
+    const firstMatch = firstLeagueDay(competitions, state.fixtures);
+    const squadsAtFirstMatch = { min: 0, max: 0 };
     const days = runDays(loop, state, seasonStart, {
       limit: null,
       onDay: (date) => {
+        if (date === firstMatch) {
+          const sizes = clubs.map(
+            (c) => players.filter((p) => p.cid === c.cid && p.status === "club").length,
+          );
+          Object.assign(squadsAtFirstMatch, { min: Math.min(...sizes), max: Math.max(...sizes) });
+        }
         for (const club of clubs) {
           injuredTotal += players.filter(
             (p) => p.cid === club.cid && p.status === "club" && isInjured(p, date),
@@ -397,7 +408,17 @@ export function simulateWorld(
     });
     run.seasons.push(metrics);
     run.activeAfter.push(active());
-    onSeason?.({ index: s, state, outcome, days, metrics, clubs, players, close: ffp });
+    onSeason?.({
+      index: s,
+      state,
+      outcome,
+      days,
+      metrics,
+      clubs,
+      players,
+      close: ffp,
+      squadsAtFirstMatch,
+    });
     lastFinish = finishesOf(outcome);
   }
 

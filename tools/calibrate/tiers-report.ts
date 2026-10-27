@@ -127,7 +127,7 @@ console.log("\nPlayer pool");
 for (const run of runs) {
   const seniors = run.seasons.map((s) => s.seniors);
   console.log(
-    `  ${run.seed}: active players ${run.activeAtStart} -> ${run.activeAfter.at(-1)}; seniors per club ${Math.min(...seniors.map((s) => s.min))}-${Math.max(...seniors.map((s) => s.max))}; free agents ${Math.min(...run.seasons.map((s) => s.freeAgents))}-${Math.max(...run.seasons.map((s) => s.freeAgents))}`,
+    `  ${run.seed}: active players ${run.activeAtStart} -> ${run.activeAfter.at(-1)}; seniors per club at the first match ${Math.min(...seniors.map((s) => s.min))}-${Math.max(...seniors.map((s) => s.max))}; free agents ${Math.min(...run.seasons.map((s) => s.freeAgents))}-${Math.max(...run.seasons.map((s) => s.freeAgents))}`,
   );
 }
 const caps = runs.flatMap((run) => run.seasons.map((s) => s.cap));

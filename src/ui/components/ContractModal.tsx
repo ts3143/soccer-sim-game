@@ -101,7 +101,7 @@ export function ContractModal({ pid, onClose }: { pid: number; onClose: () => vo
               : null;
   // A full squad can still agree a fee (a sale may follow), but can't sign him yet.
   const full =
-    t !== null && t.kind !== "renewal" && t.squad.seniors >= t.squad.max
+    t !== null && t.kind !== "renewal" && t.squad.enforced && t.squad.seniors >= t.squad.max
       ? `Your squad is full (${t.squad.max} seniors): sell, loan or release a player before he can sign.`
       : null;
 

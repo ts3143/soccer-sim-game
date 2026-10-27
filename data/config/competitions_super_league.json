@@ -163,6 +163,16 @@
     "mustPromoteLoanOrReleaseBy": 19,
     "academyMatchdayMinAge": 16,
     "minSeniorForMatch": 16,
-    "_note": "No academies in this world (SPEC §17.4): the academy fields are unused. The 25 counts from the first league match (SL5)."
+    "maxSeniorFromFirstMatch": true,
+    "_note": "No academies in this world (SPEC §17.4): the academy fields are unused. The 25 counts from the season's first league match: in the off-season a club may hold more (the draft, free agency); AI clubs trim before that match, and the user can't play it while over."
+  },
+  "freeAgency": {
+    "_note": "Free agency (SPEC §17.6): open from 1 July to the roster deadline, after the league round at deadlineAfterRoundShare of the season (60%: round 18 of 30, early February; T 2026-10-27). AI clubs sign free agents on market days every everyDays days from 1 July (the user has the first go on 1 July): up to squadTarget seniors until busyUntil, after that only to fill a gap (below gapBelow seniors, up to it); perDay signings a club a market day. First values (SL4), tuned in SL6.",
+    "everyDays": 7,
+    "busyUntil": "08-31",
+    "squadTarget": 22,
+    "gapBelow": 18,
+    "perDay": 2,
+    "deadlineAfterRoundShare": 0.6
   }
 }

@@ -423,6 +423,45 @@ function wageFor(ctx: ClubContext, ovr: number, age: number, date: string): numb
   return roundWage(scale * weight(ovr, age));
 }
 
+/**
+ * Releases a club's player (SPEC §7.6, as ZenGM): he joins free agency at once, and the
+ * club keeps paying his wage until his contract would have ended, and amortising any fee
+ * left on the same schedule (`Club.released`). Returns the transaction.
+ */
+export function releaseToFreeAgency(
+  club: Club,
+  p: Player,
+  date: string,
+  season: number,
+): NewTransaction {
+  const name = fullName(p);
+  if (p.contract) {
+    const { wage, expires } = p.contract;
+    const fee = p.feeBalance && p.feeBalance.remaining > 0 ? { ...p.feeBalance } : undefined;
+    club.released = [
+      ...(club.released ?? []),
+      { pid: p.pid, name, wage, until: expires, ...(fee && { fee }) },
+    ];
+  }
+  p.feeBalance = null;
+  p.status = "freeAgent";
+  p.cid = null;
+  p.contract = null;
+  p.freeAgentSince = date;
+  p.shirtNumber = null;
+  delete p.listed;
+  p.transfers.push({ date, season, fromCid: club.cid, toCid: null, fee: 0, type: "release" });
+  return {
+    season,
+    date,
+    type: "release",
+    pids: [p.pid],
+    cids: [club.cid],
+    names: [name, club.name],
+    fee: 0,
+  };
+}
+
 export function freeShirtNumber(world: LoopWorld, cid: number, from: number): number {
   const taken = new Set(
     world.players.filter((p) => p.cid === cid && p.status !== "retired").map((p) => p.shirtNumber),
@@ -662,16 +701,24 @@ export function promoteToSquadSize(world: LoopWorld, season: number, date: strin
  * minimum wage. Its AI core until SL5, which adds the user's signings and the roster
  * deadline.
  */
-export function freeAgencyTopUp(world: LoopWorld, season: number, date: string): TurnoverLog {
+export function freeAgencyTopUp(
+  world: LoopWorld,
+  season: number,
+  date: string,
+  target: number = TURNOVER.topUpTo,
+  perClub = Infinity,
+): TurnoverLog {
   const log = emptyLog();
   const contexts = [...clubContexts(world).values()].filter((c) => c.club.cid !== world.userCid);
   const pool = world.players.filter((p) => p.status === "freeAgent");
   const pick = world.config.competitions.draft?.aiPick;
+  const signed = new Map<number, number>();
   for (;;) {
     const ctx = contexts
-      .filter((c) => c.seniors.length < TURNOVER.topUpTo)
+      .filter((c) => c.seniors.length < target && (signed.get(c.club.cid) ?? 0) < perClub)
       .sort((a, b) => a.seniors.length - b.seniors.length || a.club.cid - b.club.cid)[0];
     if (!ctx || pool.length === 0) break;
+    signed.set(ctx.club.cid, (signed.get(ctx.club.cid) ?? 0) + 1);
     const have = { gk: 0, def: 0, mid: 0, att: 0 };
     for (const p of ctx.seniors) have[AREA[p.position]]++;
     const value = (p: Player) => {
@@ -742,8 +789,11 @@ export function preseasonTurnover(world: LoopWorld, season: number, date: string
     // With a draft: last class's undrafted to free agency, this season's class (SPEC §17.5).
     ...(world.config.switches.youth === "draft" ? [draftClassTurnover] : []),
     ...(resigning ? [] : [(w: LoopWorld, s: number, d: string) => aiRenewals(w, s, d, "summer")]),
-    // Where players move by trades, free agency tops squads up from 1 July (SPEC §17.6).
-    ...(world.config.switches.market === "trades" ? [freeAgencyTopUp] : []),
+    // Where players move by trades without free agency days in config, free agency tops
+    // squads up on 1 July; with them, AI clubs sign on market days (season/freeAgency.ts).
+    ...(world.config.switches.market === "trades" && !world.config.competitions.freeAgency
+      ? [freeAgencyTopUp]
+      : []),
     promoteToSquadSize,
   ];
   for (const step of steps) {

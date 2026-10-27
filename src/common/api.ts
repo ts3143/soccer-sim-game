@@ -85,6 +85,11 @@ export interface GameState {
   fired: { date: string; offers: { cid: number; name: string; leagueId: string }[] } | null;
   /** Set while the user watches a match live (M6): play waits until it ends. */
   live: { fid: number } | null;
+  /**
+   * Why Play waits for the user, in plain words: his squad over the limit at the first
+   * league match (SPEC §17.4). Null otherwise.
+   */
+  blocked: string | null;
   /** The Play action under way (started in any tab), or null. */
   playing: PlayOption | null;
 }
@@ -1096,8 +1101,11 @@ export interface ContractTalks {
   userPlayer: boolean;
   /** Transfer: the fee his club accepted (null until a bid is accepted). */
   feeAgreed: number | null;
-  /** The user's seniors and the cap (SPEC §7.1): a full squad can't sign anyone. */
-  squad: { seniors: number; max: number };
+  /**
+   * The user's seniors and the cap (SPEC §7.1): a full squad can't sign anyone. `enforced`
+   * false: the limit doesn't count yet (the Super League's off-season, SPEC §17.4).
+   */
+  squad: { seniors: number; max: number; enforced: boolean };
   /**
    * The user's transfer budget and wage room (a year) now (SPEC §6.3), his squad cost as a
    * share of revenue against the FFP limit, and any FFP warning or ban (SPEC §6.4).

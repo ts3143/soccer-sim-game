@@ -71,6 +71,13 @@ export function applyCapGrace(
   }
 }
 
+/**
+ * The most a free agent's wage can be for the club to sign him (`canSignFreeAgent`): its
+ * room under the cap, or the minimum wage when that's more.
+ */
+export const freeAgentWageRoom = (softCap: SoftCapConfig, payrollNow: number, cap: number) =>
+  Math.max(cap - payrollNow, softCap.minimumWage);
+
 /** Over the cap, a free agent can still be signed at the minimum wage. */
 export function canSignFreeAgent(
   softCap: SoftCapConfig,

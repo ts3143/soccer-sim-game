@@ -504,7 +504,7 @@ A second world, picked at New game, inspired by the European Super League projec
 
 ### 17.4 Squads
 - **No academy:** no youth intake, no Youth academy page or dial, no academy players. Every player is a senior.
-- **Squad limit:** at most 25 players, counted from the first league match. In the off-season a club may hold more, so the draft and free agency work. While the user is over 25 at the first match, Play is blocked until he releases or trades; AI clubs trim themselves.
+- **Squad limit:** at most 25 players, counted from the first league match. In the off-season a club may hold more, so the draft and free agency work. While the user is over 25 at the first match, Play is blocked until he releases or trades: play stops on the eve of that match and a banner says how many to release. AI clubs trim themselves before it: they release their least valued players (OVR and POT, weighed as the draft does), keeping two keepers, and pay them to the end of their contracts as the user does.
 - `[DEFAULT]` **Short of players:** with fewer than 16 fit players the bench is simply shorter (there is no academy to fill it, and no emergency signings: T, 2026-10-27). If fewer than 11 can play, players with the shortest injuries fill in; suspended players never do.
 
 ### 17.5 Draft
@@ -536,7 +536,7 @@ A second world, picked at New game, inspired by the European Super League projec
 
 - **Re-signing period** (ZenGM): from the draft to 30 June, the one time contracts can be renewed. Only players in their final year qualify, and anyone not re-signed leaves on 1 July. There are no in-season renewals and no extensions for players with years left. AI clubs follow the same rule: they decide as the period closes (ZenGM), just before the contracts expire on 1 July. The user's inbox lists his final-year players as the period opens. During the season the Squad page shows whether each expiring player is willing to re-sign (from his mood, §4.6). Negotiation as §7.6.
 - **Trade restrictions:** after the season ends, final-year players can't be traded (their contracts are ending); drafted players can be traded at once.
-- **Free agency** opens 1 July with every player whose contract ended and the undrafted prospects. AI clubs sign most free agents on market days in July and August, and after that only to fill a gap, until the deadline. Asking prices drop the longer a player waits (§7.5).
+- **Free agency** opens 1 July with every player whose contract ended and the undrafted prospects. AI clubs sign most free agents on market days in July and August, and after that only to fill a gap, until the deadline. Asking prices drop the longer a player waits (§7.5). `[DEFAULT]` (SL4, config `freeAgency`): AI market days weekly from 8 July, so the user has the first go on 1 July; to 31 August AI clubs sign up to 22 seniors, after that only clubs below 18, up to 18; at most 2 a club a market day. The roster deadline is the day of the league's round 18 (60% of 30). Under the cap the user, like the AI, signs a free agent only within the cap or at the minimum wage.
 - **Releasing** (ZenGM, as §7.6): the player joins free agency, and his wages are paid until the contract ends and stay on the cap.
 
 ### 17.7 Money: the soft cap

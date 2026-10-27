@@ -309,6 +309,25 @@ function FiredBanner() {
   );
 }
 
+/** While Play waits for the user to trim his squad (SPEC §17.4): why, and his squad. */
+function BlockedBanner() {
+  const { shell } = useShell();
+  const blocked = shell.state.blocked;
+  const user = shell.clubs.find((c) => c.cid === shell.userCid);
+  if (!blocked || !user) return null;
+  return (
+    <div
+      className="alert alert-warning d-flex flex-wrap gap-2 align-items-center"
+      data-testid="blocked-banner"
+    >
+      {blocked}
+      <Link to={leaguePath(shell.lid, "squad", user.cid)} className="btn btn-sm btn-light">
+        Your squad
+      </Link>
+    </div>
+  );
+}
+
 /** When the board sacks the user, the "You're fired" screen comes up (once per sacking). */
 function FiredRedirect() {
   const { shell } = useShell();
@@ -434,6 +453,7 @@ export function Shell({ lid, children }: { lid: number; children: ReactNode }) {
         <main className="app-main px-3 px-lg-4 py-3">
           <FiredRedirect />
           <FiredBanner />
+          <BlockedBanner />
           <ErrorBoundary resetKey={path}>{children}</ErrorBoundary>
         </main>
       </div>

@@ -32,6 +32,7 @@ import type { GameState, PlayOption, PlayReport } from "../../common/api";
 import { updateLeagueSummary } from "../db/globalDb";
 import { applyCapGrace } from "../finance/softCap";
 import { makePicks, nextPick, setDraftOrder } from "../season/draft";
+import { firstLeagueDay } from "../season/freeAgency";
 import { resigningNotice } from "../market/renewals";
 import { seasonDate } from "../schedule/calendar";
 import {
@@ -225,9 +226,10 @@ export function gameState(session: LeagueSession): GameState {
         (f.homeCid === game.userCid || f.awayCid === game.userCid),
     )
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.fid - b.fid))[0];
-  if (game.fired || live !== null) {
+  const blocked = squadBlock(session, game);
+  if (game.fired || live !== null || blocked) {
     // Sacked: nothing to play until the user takes a job (acceptJobOffer). Watching: the
-    // live match comes first.
+    // live match comes first. Over the squad limit: he releases players first.
   } else if (game.phase === "endOfSeason" && !stored.movesApplied) {
     options.push("proceedToPromotionRelegation");
   } else if (game.phase === "endOfSeason" || offseasonPhase(game.phase)) {
@@ -252,6 +254,7 @@ export function gameState(session: LeagueSession): GameState {
     options,
     nextUserFixture: next ?? null,
     live: live === null ? null : { fid: live },
+    blocked,
     playing: running.get(session) ?? null,
     fired: game.fired
       ? {
@@ -388,8 +391,37 @@ function finishSeason(session: LeagueSession, state: SeasonState): void {
 }
 
 /**
+ * Where the squad limit counts from the first league match (SPEC §17.4): the last day the
+ * user can play to while his squad is over it (the day before that match), or null.
+ */
+function squadLimitStop(session: LeagueSession, game: GameMeta): string | null {
+  const competitions = session.config.competitions;
+  const { maxSenior, maxSeniorFromFirstMatch } = competitions.rosterRules;
+  if (!maxSeniorFromFirstMatch || game.phase !== "preseason") return null;
+  const seniors = session.cache
+    .getAll("players")
+    .filter((p) => p.cid === game.userCid && p.status === "club").length;
+  if (seniors <= maxSenior) return null;
+  const fixtures = session.cache.getAll("fixtures").filter((f) => f.season === game.season);
+  const first = firstLeagueDay(competitions, fixtures);
+  return first === null ? null : addDays(first, -1);
+}
+
+/** Why Play waits: the user's squad over the limit on the eve of the first league match. */
+function squadBlock(session: LeagueSession, game: GameMeta): string | null {
+  const stop = squadLimitStop(session, game);
+  if (stop === null || game.date < stop) return null;
+  const max = session.config.competitions.rosterRules.maxSenior;
+  const seniors = session.cache
+    .getAll("players")
+    .filter((p) => p.cid === game.userCid && p.status === "club").length;
+  return `Your squad has ${seniors} players, and ${max} is the most from the first league match: release ${seniors - max} to play on.`;
+}
+
+/**
  * Processes days after the game date (src/worker/season/runner.ts) until `stop` says
- * so, `limit` is reached or the season's matches are over, and saves the results.
+ * so, `limit` is reached or the season's matches are over, and saves the results. A user
+ * over the squad limit stops on the eve of the first league match (`squadLimitStop`).
  */
 export function processDays(
   session: LeagueSession,
@@ -402,7 +434,14 @@ export function processDays(
   const stored = meta<SeasonMeta>(session, "season");
   const world = loopWorld(session, game.season);
   const from = game.date;
-  const days = runDays(world, state, from, { limit, stop, stopWhenUserSacked: true, ...watch });
+  const eve = squadLimitStop(session, game);
+  const until = eve !== null && (limit === null || eve < limit) ? eve : limit;
+  const days = runDays(world, state, from, {
+    limit: until,
+    stop,
+    stopWhenUserSacked: true,
+    ...watch,
+  });
 
   saveBooks(session, world);
   for (const { fixture, result } of days.played) recordMatch(session, fixture, result);

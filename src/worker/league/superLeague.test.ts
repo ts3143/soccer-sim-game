@@ -2,12 +2,13 @@ import { IDBFactory } from "fake-indexeddb";
 import "fake-indexeddb/auto";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { DraftProspectView, PlayOption } from "../../common/api";
+import { addDays } from "../../common/dates";
 import type { GameMeta } from "../../common/schema";
 import { playoffId } from "../season/season";
 import { draftView } from "../views/draft";
 import { draftProspect } from "./draft";
 import { gameState, play } from "./game";
-import { contractTalks, renewContract } from "./market";
+import { contractTalks, releasePlayer, renewContract } from "./market";
 import { createLeague, openLeague } from "./session";
 
 beforeAll(() => {
@@ -103,6 +104,11 @@ describe("a Super League year in a save", () => {
         /only in the re-signing period/,
       );
       await go("untilResigning");
+      // Free agency is closed from the roster deadline to 1 July.
+      const freeAgent = session.cache.getAll("players").find((p) => p.status === "freeAgent");
+      expect(contractTalks(session, freeAgent?.pid ?? -1).closedReason).toMatch(
+        /Free agency is closed/,
+      );
       const notice = session.cache
         .getAll("inbox")
         .find((m) => m.subject.startsWith("The re-signing period"));
@@ -154,6 +160,58 @@ describe("a Super League year in a save", () => {
       expect(owned).toHaveLength(48 * 2 * 3);
       expect([...new Set(owned.map((p) => p.season))].sort()).toEqual([2027, 2028, 2029]);
       expect(await session.db.count("draftPicks")).toBe(48 * 2 * 3);
+    },
+  );
+
+  it(
+    "from 1 July: free agency; over 25, Play waits on the eve of the first match",
+    SLOW,
+    async () => {
+      const session = await openLeague(1);
+      const game = gameState(session);
+      expect([game.phase, game.date, game.blocked]).toEqual(["preseason", "2027-07-01", null]);
+      const pool = session.cache.getAll("players").filter((p) => p.status === "freeAgent");
+      expect(contractTalks(session, pool[0]?.pid ?? -1).closedReason).toBeNull();
+      // Lyon over the limit: free agents moved in (a shortcut for his signings).
+      const lyon = () =>
+        session.cache.getAll("players").filter((p) => p.cid === 39 && p.status === "club");
+      for (const p of pool.slice(0, Math.max(0, 27 - lyon().length))) {
+        session.cache.put("players", {
+          ...p,
+          status: "club",
+          cid: 39,
+          contract: { wage: 300_000, expires: "2028-06-30" },
+        });
+      }
+      const over = lyon().length - 25;
+      expect(over).toBeGreaterThanOrEqual(2);
+      const first = session.cache
+        .getAll("fixtures")
+        .filter((f) => f.season === 2027)
+        .map((f) => f.date)
+        .sort()[0] as string;
+      await play(session, "untilNextMatch");
+      let state = gameState(session);
+      expect(state.date).toBe(addDays(first, -1));
+      expect(state.options).toEqual([]);
+      expect(state.blocked).toMatch(new RegExp(`release ${over} to play on`));
+      // AI clubs signed free agents through the summer, the user first on 1 July.
+      const signings = session.cache.getAll("transactions").filter((t) => t.type === "freeAgent");
+      expect(signings.length).toBeGreaterThan(0);
+      expect(signings.every((t) => t.date > "2027-07-01")).toBe(true);
+      for (const p of lyon().slice(0, over)) await releasePlayer(session, p.pid);
+      state = gameState(session);
+      expect(state.blocked).toBeNull();
+      expect(state.options).toContain("untilNextMatch");
+      await play(session, "untilNextMatch");
+      // The first matchday: every club within 25, AI clubs having trimmed.
+      expect(gameState(session).phase).toBe("regularSeason");
+      for (const club of session.cache.getAll("clubs")) {
+        const n = session.cache
+          .getAll("players")
+          .filter((p) => p.cid === club.cid && p.status === "club").length;
+        expect(n).toBeLessThanOrEqual(25);
+      }
     },
   );
 });

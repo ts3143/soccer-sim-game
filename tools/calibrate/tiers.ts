@@ -12,7 +12,7 @@ export interface TierSeason {
   /** Each league's final table, club IDs top first. */
   tables: Record<string, number[]>;
   moves: ClubMove[];
-  /** Seniors per club after the summer: fewest and most. */
+  /** Seniors per club after the season's first league matchday: fewest and most. */
   seniors: { min: number; max: number };
   freeAgents: number;
   /**
@@ -32,16 +32,13 @@ export interface TierRun {
 }
 
 export function recordTierSeason(report: SeasonReport): TierSeason {
-  const { outcome, clubs, players, close } = report;
-  const seniors = clubs.map(
-    (c) => players.filter((p) => p.cid === c.cid && p.status === "club").length,
-  );
+  const { outcome, players, close } = report;
   return {
     tables: Object.fromEntries(
       Object.entries(outcome.tables).map(([id, rows]) => [id, rows.map((r) => r.cid)]),
     ),
     moves: outcome.moves,
-    seniors: { min: Math.min(...seniors), max: Math.max(...seniors) },
+    seniors: report.squadsAtFirstMatch,
     freeAgents: players.filter((p) => p.status === "freeAgent").length,
     cap: {
       over: close.tax.paid.size,
