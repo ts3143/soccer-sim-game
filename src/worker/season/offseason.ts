@@ -34,6 +34,7 @@ import { Random } from "../core/random";
 import { COEFFICIENTS } from "../engine/coefficients";
 import { ratingCentre } from "../engine/ratings";
 import { roundWage, WAGE_STEEPNESS, wageAgeFactor } from "../generate/contracts";
+import { canSignFreeAgent, clubCap, payroll } from "../finance/softCap";
 import { worldMix } from "../generate/identity";
 import { generateAcademyPlayer } from "../generate/youth";
 import { FREE_AGENT_CONTEXT } from "../generate/world";
@@ -652,8 +653,9 @@ export function promoteToSquadSize(world: LoopWorld, season: number, date: strin
  * Free agency from 1 July where players move by trades (SPEC §17.6): there are no windows,
  * so AI clubs short of the squad size sign free agents, the club with the fewest seniors
  * first, one at a time: the best by OVR, plus the draft's need bonus for an area the club
- * is short in. Wages on the club's scale, 2 years (1 from 30). Its AI core until SL5, which
- * adds the user's signings, the cap and the roster deadline.
+ * is short in. Wages on the club's scale, 2 years (1 from 30); a club over its cap pays the
+ * minimum wage. Its AI core until SL5, which adds the user's signings and the roster
+ * deadline.
  */
 export function freeAgencyTopUp(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
@@ -674,11 +676,19 @@ export function freeAgencyTopUp(world: LoopWorld, season: number, date: string):
     const best = pool.reduce((a, b) => (value(b) > value(a) ? b : a));
     pool.splice(pool.indexOf(best), 1);
     const age = exactAge(best.birthDate, date);
+    // Over its cap (SPEC §17.7), a club signs free agents only at the minimum wage.
+    const asked = wageFor(ctx, best.ovr, age, date);
+    const softCap = world.config.competitions.softCap;
+    const cap = clubCap(world.config.competitions, ctx.club, season);
+    const fits =
+      !softCap ||
+      cap === null ||
+      canSignFreeAgent(softCap, payroll(ctx.club, world.players, date), cap, asked);
     best.status = "club";
     best.cid = ctx.club.cid;
     best.freeAgentSince = null;
     best.contract = {
-      wage: wageFor(ctx, best.ovr, age, date),
+      wage: fits ? asked : (softCap?.minimumWage ?? asked),
       expires: `${season + (age >= 30 ? 1 : 2)}-06-30`,
     };
     best.shirtNumber = freeShirtNumber(world, ctx.club.cid, 30);

@@ -14,6 +14,7 @@ const season = (
   moves,
   seniors: { min: 22, max: 24 },
   freeAgents: 100,
+  cap: { over: 0, taxPaid: 0, afterGrace: 0 },
 });
 const run = (...seasons: TierSeason[]): TierRun => ({
   seed: "toy",

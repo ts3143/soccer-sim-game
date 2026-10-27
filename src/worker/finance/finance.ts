@@ -367,8 +367,11 @@ export function meritIncome(
  */
 /** The season's close: the FFP check's result, and the luxury tax paid and shared. */
 export interface SeasonClose extends FfpResult {
-  /** Per club: tax paid, and its share of its tier's tax (soft-cap worlds only). */
-  tax: { paid: Map<number, number>; shared: Map<number, number> };
+  /**
+   * Per club: tax paid, and its share of its tier's tax; and the relegated clubs still over
+   * their own cap the season after their grace (soft-cap worlds only).
+   */
+  tax: { paid: Map<number, number>; shared: Map<number, number>; afterGrace: number[] };
 }
 
 /**
@@ -385,7 +388,11 @@ export function closeSeasonBooks(
 ): SeasonClose {
   const end = `${season + 1}-06-30`;
   const changed = settleMonths(world, from, end, config);
-  const tax = { paid: new Map<number, number>(), shared: new Map<number, number>() };
+  const tax = {
+    paid: new Map<number, number>(),
+    shared: new Map<number, number>(),
+    afterGrace: [] as number[],
+  };
   if (world.config.switches.moneyRule === "softCap") luxuryTaxes(world, season, end, config, tax);
   for (const club of world.clubs) {
     const row = world.clubSeasons.get(club.cid);
@@ -423,6 +430,7 @@ function luxuryTaxes(
         debit(b, "luxuryTax", tax);
         out.paid.set(club.cid, tax);
         total += tax;
+        if (club.capGrace?.through === season - 1) out.afterGrace.push(club.cid);
       } else if (owed < cap) {
         under.push(club.cid);
       }

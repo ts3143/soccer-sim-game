@@ -541,6 +541,7 @@ A second world, picked at New game, inspired by the European Super League projec
 ### 17.7 Money: the soft cap
 - **Payroll** = wages of the players under contract plus the wages still owed to released players. There are no transfer fees, so nothing is amortised.
 - **The cap by tier:** Star 100%, Gold 80%, Blue 65% of a base cap in euros (config): **€180m** (T, 2026-10-27), so €180m / €144m / €117m. The tiers' shares make Blue the limit: its median club spends about half its revenue on wages, Classic's target.
+- **The AI under the cap (T, 2026-10-27):** its re-signings are priced as if the club's revenue were its cap ÷ 0.5 (config), and kept within the cap except for its core players; over the cap it signs free agents only at the minimum wage. Which core players it keeps, and shedding salary by trades, come with SL5.
 - **Figures (T, 2026-10-27; config):** minimum wage €300k; luxury tax 1.5×; trade matching 125%; one grace season. TV pools €3.2bn / €1.9bn / €1.3bn (about €200m / €119m / €81m a club: flatter than the tiers' revenue, so relegation doesn't crush a club). Play-off prize money per round won: Star €5m / €10m / €20m (final), Gold and Blue €2m / €4m; the beaten finalist half the final's.
 - **Over the cap,** a club may still:
   - re-sign its own players;

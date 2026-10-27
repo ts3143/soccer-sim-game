@@ -11,6 +11,8 @@ import { contractClub } from "../../common/status";
 import { exactAge } from "../../common/dates";
 import type { Club, ClubSeason, InboxMessage, Player, TransactionRow } from "../../common/schema";
 import { clubStrength } from "../club/standing";
+import type { WorldConfig } from "../../common/config/worlds";
+import { clubCap } from "../finance/softCap";
 import {
   contractAsks,
   contractEnd,
@@ -39,6 +41,8 @@ export const RENEWALS = {
 };
 
 export interface ContractWorld {
+  /** The save's world: under a soft cap the AI prices re-signings against the cap. */
+  config: WorldConfig;
   clubs: readonly Club[];
   players: Player[];
   clubSeasons: ReadonlyMap<number, ClubSeason>;
@@ -95,6 +99,25 @@ export function moodAtClub(
 /** The club's revenue scale for wages: its budget base (last season's revenue). */
 export const clubRevenue = (world: ContractWorld, club: Club): number =>
   world.clubSeasons.get(club.cid)?.budgetBase ?? club.revenueAnchor;
+
+/**
+ * What the AI prices its re-signings against, and the wage bill it keeps them within: its
+ * revenue and a share of it; or under a soft cap the revenue its cap was set for (cap ÷
+ * the config's wage ratio) and the cap itself, so payrolls stay near the cap whatever the
+ * club earns (SPEC §17.7; T, 2026-10-27). Core players are re-signed regardless.
+ */
+function wageScale(
+  world: ContractWorld,
+  club: Club,
+  season: number,
+): { revenue: number; budget: number } {
+  const competitions = world.config.competitions;
+  const cap = clubCap(competitions, club, season);
+  const softCap = competitions.softCap;
+  if (cap !== null && softCap) return { revenue: cap / softCap.aiWageRatio, budget: cap };
+  const revenue = clubRevenue(world, club);
+  return { revenue, budget: RENEWALS.wageBudget * revenue };
+}
 
 /** 1 July: contracts that ended on 30 June expire; the players become free agents. */
 export function expireContracts(world: ContractWorld, season: number, date: string): ContractLog {
@@ -161,7 +184,7 @@ export function aiRenewals(
     const rank = new Map(squad.map((p, i) => [p.pid, i]));
     const xi =
       squad.slice(0, 11).reduce((s, p) => s + p.ovr, 0) / Math.max(1, Math.min(11, squad.length));
-    const revenue = clubRevenue(world, club);
+    const { revenue, budget } = wageScale(world, club, season);
     let wageBill = squad.reduce((s, p) => s + (p.contract?.wage ?? 0), 0);
     for (const p of squad) {
       const left = yearsLeft(p, date);
@@ -185,7 +208,7 @@ export function aiRenewals(
       if (!ask || expires <= (p.contract?.expires ?? "")) continue;
       const raise = ask.wage - (p.contract?.wage ?? 0);
       const core = place < r.keepTopRegulars;
-      if (!core && raise > 0 && wageBill + raise > r.wageBudget * revenue) continue;
+      if (!core && raise > 0 && wageBill + raise > budget) continue;
       wageBill += raise;
       signContract(p, ask.wage, expires, date);
       log.changed.add(p.pid);

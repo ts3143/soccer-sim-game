@@ -185,6 +185,8 @@ export interface SoftCapConfig {
   tradeMatching: number;
   /** Seasons a relegated club keeps its old tier's cap. */
   graceSeasons: number;
+  /** AI re-signings price wages as if a club's revenue were its cap / this ratio. */
+  aiWageRatio: number;
 }
 
 export interface CompetitionsConfig {
@@ -513,6 +515,7 @@ export function parseCompetitions(json: CompetitionsFile, file: string): Competi
           luxuryTaxRate: json.softCap.luxuryTaxRate,
           tradeMatching: json.softCap.tradeMatching,
           graceSeasons: json.softCap.graceSeasons,
+          aiWageRatio: json.softCap.aiWageRatio,
         }
       : null,
     draft: json.draft ? parseDraft(json.draft, leagues, file) : null,

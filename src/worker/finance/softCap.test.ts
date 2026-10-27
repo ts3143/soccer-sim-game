@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { worlds } from "../../common/config/worlds";
+import { type WorldConfig, worlds } from "../../common/config/worlds";
 import type { Club, Fixture, Player } from "../../common/schema";
 import { generateWorld } from "../generate/world";
+import { aiRenewals } from "../market/renewals";
 import { playoffId } from "../season/season";
 import { closeSeasonBooks, type FinanceWorld, prizeIncome, settleMonths } from "./finance";
 import {
@@ -110,6 +111,48 @@ describe("the soft cap", () => {
       expect((control.clubs[0]?.cash ?? 0) - (w.clubs[0]?.cash ?? 0)).toBeGreaterThan(15_000_000);
       // FFP is off: no breaches, no bans.
       expect([close.breaches, close.bans]).toEqual([[], []]);
+    });
+
+    it("flags a relegated club still over its own cap the season after its grace", () => {
+      /** A Gold club with the given grace and a payroll €10m over Gold's cap (under Star's). */
+      const goldWorld = (through: number) => {
+        const w = fresh();
+        const club = w.clubs.find((c) => c.leagueId === "GOLD") as Club;
+        club.capGrace = { leagueId: "STAR", through };
+        const first = w.players.find((p) => p.cid === club.cid && p.status === "club") as Player;
+        const extra = GOLD + 10_000_000 - payroll(club, w.players, "2027-06-30");
+        first.contract = { wage: (first.contract?.wage ?? 0) + extra, expires: "2029-06-30" };
+        return { w, cid: club.cid };
+      };
+      // Grace over (through 2025): measured against Gold's cap at the 2026 close.
+      const after = goldWorld(2025);
+      const close = closeSeasonBooks(after.w, 2026, "2027-06-29", -1, config);
+      expect(close.tax.paid.get(after.cid)).toBe(15_000_000);
+      expect(close.tax.afterGrace).toEqual([after.cid]);
+      // Still in its grace (through 2026): Star's cap applies, so no tax.
+      const during = goldWorld(2026);
+      const graced = closeSeasonBooks(during.w, 2026, "2027-06-29", -1, config);
+      expect(graced.tax.paid.has(during.cid)).toBe(false);
+      expect(graced.tax.afterGrace).toEqual([]);
+    });
+
+    it("prices the AI's re-signings against the cap, not the club's revenue", () => {
+      // Madrid Blancos earns about 7x Star's cap: priced on revenue, it re-signs dearer.
+      const renewedWages = (config: WorldConfig) => {
+        const w = { ...fresh(), config, userCid: -1 };
+        const log = aiRenewals(w, 2026, "2026-07-01", "summer");
+        return log.transactions
+          .filter((t) => t.cids[0] === 0)
+          .map((t) => w.players.find((p) => p.pid === t.pids[0])?.contract?.wage ?? 0);
+      };
+      const capped = renewedWages(worlds.superLeague);
+      const uncapped = renewedWages({
+        ...worlds.superLeague,
+        competitions: { ...config, softCap: null },
+      });
+      expect(capped.length).toBeGreaterThan(0);
+      const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+      expect(sum(capped)).toBeLessThan(sum(uncapped));
     });
 
     it("pays no Youth dial where clubs have no academies", () => {

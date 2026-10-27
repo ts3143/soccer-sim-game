@@ -15,6 +15,11 @@ export interface TierSeason {
   /** Seniors per club after the summer: fewest and most. */
   seniors: { min: number; max: number };
   freeAgents: number;
+  /**
+   * At the season's end (30 June): clubs over their cap (paying luxury tax), the tax they
+   * paid in euros, and relegated clubs still over their own cap after their grace.
+   */
+  cap: { over: number; taxPaid: number; afterGrace: number };
 }
 
 /** One world's run (plain data: it crosses process boundaries as JSON). */
@@ -27,7 +32,7 @@ export interface TierRun {
 }
 
 export function recordTierSeason(report: SeasonReport): TierSeason {
-  const { outcome, clubs, players } = report;
+  const { outcome, clubs, players, close } = report;
   const seniors = clubs.map(
     (c) => players.filter((p) => p.cid === c.cid && p.status === "club").length,
   );
@@ -38,6 +43,11 @@ export function recordTierSeason(report: SeasonReport): TierSeason {
     moves: outcome.moves,
     seniors: { min: Math.min(...seniors), max: Math.max(...seniors) },
     freeAgents: players.filter((p) => p.status === "freeAgent").length,
+    cap: {
+      over: close.tax.paid.size,
+      taxPaid: [...close.tax.paid.values()].reduce((a, b) => a + b, 0),
+      afterGrace: close.tax.afterGrace.length,
+    },
   };
 }
 

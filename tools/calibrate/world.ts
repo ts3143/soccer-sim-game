@@ -10,6 +10,7 @@ import {
   closeSeasonBooks,
   openSeasonBooks,
   operatingRevenue,
+  type SeasonClose,
 } from "../../src/worker/finance/finance";
 import { preseasonBoard, targetPosition } from "../../src/worker/club/board";
 import { generateWorld } from "../../src/worker/generate/world";
@@ -49,6 +50,8 @@ export interface SeasonReport {
   clubs: Club[];
   /** Every player, as of 1 July after the season (development and turnover applied). */
   players: Player[];
+  /** The season's close on 30 June: FFP, and under a soft cap the luxury tax. */
+  close: SeasonClose;
 }
 
 /** A whole run: per-season numbers plus the long-run checks. Plain data (sent as JSON). */
@@ -393,7 +396,7 @@ export function simulateWorld(
     });
     run.seasons.push(metrics);
     run.activeAfter.push(active());
-    onSeason?.({ index: s, state, outcome, days, metrics, clubs, players });
+    onSeason?.({ index: s, state, outcome, days, metrics, clubs, players, close: ffp });
     lastFinish = finishesOf(outcome);
   }
 

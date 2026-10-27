@@ -5,7 +5,7 @@
  * (every season played, exactly the configured places up and down, nobody out of the
  * lowest tier: gated), yo-yo clubs, the rise from the bottom of the lowest tier to the top
  * of the highest (target in calibration_targets.json, gated from SL6), tier mobility and
- * the player pool. Cap violations arrive with the soft cap (SL3).
+ * the player pool, cap violations and the luxury tax.
  */
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -130,7 +130,19 @@ for (const run of runs) {
     `  ${run.seed}: active players ${run.activeAtStart} -> ${run.activeAfter.at(-1)}; seniors per club ${Math.min(...seniors.map((s) => s.min))}-${Math.max(...seniors.map((s) => s.max))}; free agents ${Math.min(...run.seasons.map((s) => s.freeAgents))}-${Math.max(...run.seasons.map((s) => s.freeAgents))}`,
   );
 }
-console.log("\nCap violations: with the soft cap (SL3).");
+const caps = runs.flatMap((run) => run.seasons.map((s) => s.cap));
+const clubSeasons = caps.length * world.clubs.length;
+const over = caps.reduce((a, c) => a + c.over, 0);
+console.log("\nCap violations (at season end, 30 June)");
+console.log(
+  `  club-seasons over the cap: ${over} of ${clubSeasons} (${pct(over / Math.max(1, clubSeasons))})`,
+);
+console.log(
+  `  luxury tax paid: EUR ${(caps.reduce((a, c) => a + c.taxPaid, 0) / 1e6).toFixed(1)}m in all, ${caps.filter((c) => c.taxPaid > 0).length} of ${caps.length} seasons with any`,
+);
+console.log(
+  `  relegated clubs still over their own cap after their grace: ${caps.reduce((a, c) => a + c.afterGrace, 0)}`,
+);
 console.log(`\nwall time ${((performance.now() - started) / 1000).toFixed(0)} s`);
 
 if (CHECK && problems.length > 0) {

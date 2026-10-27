@@ -27,6 +27,7 @@ const someone = (edit: Partial<Player> = {}): Player => ({
   ...edit,
 });
 const freshWorld = (): ContractWorld => ({
+  config: worlds.classic,
   clubs: structuredClone(generated.clubs),
   players: structuredClone(generated.players),
   clubSeasons: new Map(structuredClone(generated.clubSeasons).map((r) => [r.cid, r])),

@@ -261,6 +261,40 @@ describe("preseason", () => {
     }
   });
 
+  it("signs free agents only at the minimum wage for a club over its cap", () => {
+    const sl = generateWorld({
+      config: worlds.superLeague,
+      seed: SEED,
+      name: "t",
+      userCid: 0,
+      createdAt: "2026-07-01T00:00:00.000Z",
+    });
+    let pid = Math.max(...sl.players.map((p) => p.pid)) + 1;
+    const loop: LoopWorld = {
+      config: worlds.superLeague,
+      clubs: sl.clubs,
+      players: sl.players,
+      reputation: startingReputation(worlds.superLeague.clubs),
+      clubSeasons: new Map(sl.clubSeasons.map((r) => [r.cid, r])),
+      userCid: -1,
+      seed: SEED,
+      nextPid: () => pid++,
+    };
+    // Club 2 (Star) down to 18 seniors, but its best-paid keeps a €200m contract.
+    const own = loop.players.filter((p) => p.cid === 2 && p.status === "club");
+    for (const p of own.slice(18)) {
+      p.status = "freeAgent";
+      p.cid = null;
+      p.contract = null;
+    }
+    (own[0] as (typeof own)[0]).contract = { wage: 200_000_000, expires: "2029-06-30" };
+    const log = freeAgencyTopUp(loop, 2026, "2026-07-01");
+    const signed = log.transactions.filter((t) => t.cids[0] === 2).map((t) => t.pids[0]);
+    expect(signed).toHaveLength(4);
+    const wages = signed.map((id) => loop.players.find((p) => p.pid === id)?.contract?.wage);
+    expect(wages).toEqual([300_000, 300_000, 300_000, 300_000]);
+  });
+
   it("brings 3–6 youths aged 15–16 into every academy", () => {
     const log = youthIntake(pre, 2027, date);
     for (const club of pre.clubs) {

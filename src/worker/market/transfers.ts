@@ -18,7 +18,6 @@
  */
 import { contractClub, isSenior, wageShareFor } from "../../common/status";
 import { exactAge } from "../../common/dates";
-import type { WorldConfig } from "../../common/config/worlds";
 import type { Club, ClubSeason, InboxMessage, Player, TransactionRow } from "../../common/schema";
 import { targetPosition } from "../club/board";
 import { clubStrength } from "../club/standing";
@@ -70,7 +69,6 @@ export type Strategy = "contending" | "developing" | "selling";
 export type BidOutcome = "accepted" | "countered" | "rejected";
 
 export interface TransferWorld extends ContractWorld {
-  config: WorldConfig;
   clubSeasons: ReadonlyMap<number, ClubSeason>;
 }
 
