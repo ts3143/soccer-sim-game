@@ -1,7 +1,7 @@
 {
   "_note": "Super League world (SPEC §17.2; T, 2026-10-27). Three tiers of 16, each a double round robin; 2 up and 2 down between tiers; nobody drops out of Blue. Every number is config. Dates are templates for season Y/Y+1, placed on the match slots as in Classic. No cups and no transfer windows: players move by trades, the draft and free agency (SL4-SL5 add their dates).",
   "_financeNote": "As Classic's (competitions_mvp.json). TV money scales by tier (SPEC §17.7; T, 2026-10-27): about EUR 200m, 119m and 81m a club, flatter than the tiers' revenue so relegation doesn't crush a club. Play-off prize money: per round won (the last is the final) and for the beaten finalist.",
-  "_boardNote": "As Classic's. Targets judge the final table position: until the play-offs run (SL2), Star's 'Win the title' means finishing first in the table.",
+  "_boardNote": "As Classic's, with play-offs (T, 2026-10-27): a target with playoffRound is also met by reaching that round of the league's play-off, one with playoffWin by winning it. So Star's 'Compete for the title' is met by reaching the title play-off's semi-finals, and 'Win promotion' by finishing first or winning the promotion play-off. During the season the board reads the table (position).",
   "_playoffNote": "A play-off, round by round (as Classic's): the table positions joining each round (entrants) or its fixed ties, how the round's clubs meet (reseed: best-placed against worst-placed; bracket: the previous round's ties in twos), its legs (two-legged: the better-placed club hosts the second leg) and whether it is at a neutral venue. allSingleLeg makes every round single-leg. Knockout rules as SPEC §8.6. Dates: the rounds take the slots after the last league round, midweek first, then alternating; the final is on the weekend nearest finalNear.",
   "seasonStart": "2026-07-01",
   "countries": [{ "id": "EUR", "name": "Europe", "winterBreak": null }],
@@ -33,7 +33,7 @@
       "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
       "finance": { "broadcastPool": 3200000000, "equalShare": 0.75, "ticketPriceBase": 32, "attendanceBase": 0.92 },
       "board": [
-        { "id": "title", "label": "Win the title", "position": 1, "strongest": 2 },
+        { "id": "title", "label": "Compete for the title", "position": 4, "playoffRound": "Semi-finals", "strongest": 2 },
         { "id": "topEight", "label": "Reach the top eight", "position": 8, "strongest": 6 },
         { "id": "survival", "label": "Avoid relegation", "position": 14, "strongest": 8 }
       ]
@@ -63,7 +63,7 @@
       "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
       "finance": { "broadcastPool": 1900000000, "equalShare": 0.75, "ticketPriceBase": 26, "attendanceBase": 0.88 },
       "board": [
-        { "id": "promotion", "label": "Win promotion", "position": 1, "strongest": 2 },
+        { "id": "promotion", "label": "Win promotion", "position": 1, "playoffWin": true, "strongest": 2 },
         { "id": "playoffs", "label": "Reach the play-offs", "position": 5, "strongest": 4 },
         { "id": "midTable", "label": "Finish in mid-table", "position": 12, "strongest": 10 }
       ]
@@ -94,7 +94,7 @@
       "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
       "finance": { "broadcastPool": 1300000000, "equalShare": 0.75, "ticketPriceBase": 22, "attendanceBase": 0.85 },
       "board": [
-        { "id": "promotion", "label": "Win promotion", "position": 1, "strongest": 2 },
+        { "id": "promotion", "label": "Win promotion", "position": 1, "playoffWin": true, "strongest": 2 },
         { "id": "playoffs", "label": "Reach the play-offs", "position": 5, "strongest": 4 },
         { "id": "midTable", "label": "Finish in mid-table", "position": 12, "strongest": 10 }
       ]

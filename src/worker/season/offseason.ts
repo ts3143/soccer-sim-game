@@ -35,6 +35,7 @@ import { COEFFICIENTS } from "../engine/coefficients";
 import { ratingCentre } from "../engine/ratings";
 import { roundWage, WAGE_STEEPNESS, wageAgeFactor } from "../generate/contracts";
 import { canSignFreeAgent, clubCap, payroll } from "../finance/softCap";
+import { draftClassTurnover } from "./draft";
 import { worldMix } from "../generate/identity";
 import { generateAcademyPlayer } from "../generate/youth";
 import { FREE_AGENT_CONTEXT } from "../generate/world";
@@ -259,7 +260,8 @@ export function developmentUpdate(
     return v;
   };
   for (const p of world.players) {
-    if (p.status === "retired") continue;
+    // Prospects don't develop before the draft (SPEC §17.5).
+    if (p.status === "retired" || p.status === "prospect") continue;
     const ctx = p.cid === null ? undefined : contexts.get(p.cid);
     const club = ctx?.club;
     const tally = p.devTally ?? { minutes: 0, appearances: 0, ratingTotal: 0, seasonMinutes: 0 };
@@ -344,7 +346,7 @@ export function endOfSeasonTurnover(world: LoopWorld, season: number, date: stri
   const log = emptyLog();
   const r = TURNOVER.retirement;
   for (const p of world.players) {
-    if (p.status === "retired" || p.status === "academy") continue;
+    if (p.status === "retired" || p.status === "academy" || p.status === "prospect") continue;
     const age = exactAge(p.birthDate, date);
     const effectiveAge = p.position === "GK" ? age - r.gkShift : age;
     let chance = interpolate(r.byAge, effectiveAge);
@@ -728,6 +730,8 @@ export function preseasonTurnover(world: LoopWorld, season: number, date: string
     expireContracts,
     freeAgentDepartures,
     ...(academies ? [youthIntake, academyDecisions] : []),
+    // With a draft: last class's undrafted to free agency, this season's class (SPEC §17.5).
+    ...(world.config.switches.youth === "draft" ? [draftClassTurnover] : []),
     (w, s, d) => aiRenewals(w, s, d, "summer"),
     // Where players move by trades, free agency tops squads up from 1 July (SPEC §17.6).
     ...(world.config.switches.market === "trades" ? [freeAgencyTopUp] : []),

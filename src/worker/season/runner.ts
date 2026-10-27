@@ -22,7 +22,7 @@ import { aiRenewals, contractWarning } from "../market/renewals";
 import { seasonDate } from "../schedule/calendar";
 import { academyReminder, developmentUpdate, type LoopWorld } from "./offseason";
 import { matchdayIncome, meritIncome, prizeIncome, settleMonths } from "../finance/finance";
-import { boardSacks, updateConfidence } from "../club/board";
+import { boardSacks, metInPlayoff, targetPosition, updateConfidence } from "../club/board";
 import { seasonEndStanding, updateHype } from "../club/standing";
 import {
   leagueTableOf,
@@ -162,6 +162,18 @@ export function runDays(
   const afterMatchday = (day: string, seasonOver: boolean) => {
     for (const leagueId of Object.keys(state.leagueClubs)) {
       const table = leagueTableOf(state, leagueId, config);
+      // At the season's end, a club that met its target in the play-off counts as having
+      // finished where the target asked (the board judges the table otherwise).
+      const league = config.leagues.find((l) => l.id === leagueId);
+      const judged = (t: (typeof table)[0]) => {
+        const row = world.clubSeasons.get(t.cid);
+        if (!seasonOver || !league || !row) return table;
+        if (!metInPlayoff(league, row.boardExpectation, t.cid, state.fixtures)) return table;
+        const target = targetPosition(leagueId, row.boardExpectation, config);
+        return table.map((r) =>
+          r.cid === t.cid ? { ...r, position: Math.min(r.position, target) } : r,
+        );
+      };
       const games = 2 * ((state.leagueClubs[leagueId]?.length ?? 2) - 1);
       for (const t of table) {
         const row = world.clubSeasons.get(t.cid);
@@ -177,7 +189,7 @@ export function runDays(
           points: t.points,
           finish: seasonOver ? t.position : null,
         });
-        const confidence = updateConfidence(row, club, table, t.played / games, config);
+        const confidence = updateConfidence(row, club, judged(t), t.played / games, config);
         warn(row, day);
         if (!row.boardSacked && boardSacks(confidence, t.played / games, seasonOver)) {
           row.boardSacked = true;

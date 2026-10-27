@@ -24,6 +24,10 @@ describe("a Super League year in a save", () => {
     const session = await openLeague(league.lid);
     const before = new Map(session.cache.getAll("clubs").map((c) => [c.cid, c.leagueId]));
     await play(session, "untilEndOfSeason");
+    // The draft class has been there all season, and didn't develop (the 1 January update).
+    const prospects = session.cache.getAll("players").filter((p) => p.status === "prospect");
+    expect(prospects).toHaveLength(110);
+    expect(prospects.every((p) => p.ratingsHistory.length === 1)).toBe(true);
     expect(gameState(session)).toMatchObject({
       phase: "endOfSeason",
       options: ["proceedToPromotionRelegation"],

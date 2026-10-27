@@ -284,7 +284,8 @@ export interface ClubSeason {
 
 export type CurveType = "normal" | "early" | "late" | "ageless";
 export type MoodTrait = "fame" | "loyalty" | "money" | "winning";
-export type PlayerStatus = "club" | "academy" | "loan" | "freeAgent" | "retired";
+/** `prospect`: in the coming draft's class (SPEC §17.5): unattached, not yet a free agent. */
+export type PlayerStatus = "club" | "academy" | "loan" | "freeAgent" | "retired" | "prospect";
 export type Foot = "L" | "R";
 
 /** One development snapshot (generation, then every summer/winter update). */

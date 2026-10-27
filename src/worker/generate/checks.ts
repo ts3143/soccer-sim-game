@@ -136,6 +136,17 @@ export function evaluateWorld(
       pass: freeAgents.length === FREE_AGENT_POOL_SIZE + (academies ? RELEASED_YOUTH_COUNT : 0),
       detail: `${freeAgents.length}`,
     },
+    ...(competitions.draft
+      ? [
+          {
+            name: `a draft class of ${competitions.draft.classSize} prospects`,
+            pass:
+              world.players.filter((p) => p.status === "prospect").length ===
+              competitions.draft.classSize,
+            detail: `${world.players.filter((p) => p.status === "prospect").length}`,
+          },
+        ]
+      : []),
     {
       name: "every best XI within ±1 of strength",
       pass: worstDelta <= THRESHOLDS.strength,

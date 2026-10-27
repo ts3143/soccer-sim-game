@@ -86,26 +86,29 @@ describe("the draft", () => {
     expect(rookieWage(draft, 24)).toBeGreaterThan(800_000);
   });
 
-  it("gives every club two rookies on 3-year contracts; the rest become free agents", SLOW, () => {
+  it("picks from the class: two rookies a club on 3-year contracts, the rest wait", SLOW, () => {
     const w = world();
     const log = runDraft(w, outcome, 2026, "2027-06-15");
-    expect(log.added).toHaveLength(110);
-    const rookies = log.added.filter((p) => p.status === "club");
+    // The class has been there since 1 July (generated with the world).
+    expect(log.added).toEqual([]);
+    const rookies = w.players.filter((p) => log.changed.has(p.pid));
     expect(rookies).toHaveLength(96);
+    expect(rookies.every((p) => p.status === "club")).toBe(true);
     for (const club of w.clubs) expect(rookies.filter((p) => p.cid === club.cid)).toHaveLength(2);
-    expect(log.added.filter((p) => p.status === "freeAgent")).toHaveLength(14);
+    expect(w.players.filter((p) => p.status === "prospect")).toHaveLength(14);
     expect(rookies.every((p) => p.contract?.expires === "2030-06-30")).toBe(true);
     const first = rookies.find((p) => p.draft?.pick === 1);
     expect(first?.draft).toEqual({ season: 2026, round: 1, pick: 1, cid: at("BLUE", 16) });
     expect(first?.contract?.wage).toBe(2_500_000);
     expect(log.transactions.filter((t) => t.type === "draft")).toHaveLength(96);
-    const ages = log.added.map((p) => ageOn(p.birthDate, "2027-06-15"));
+    const ages = rookies.map((p) => ageOn(p.birthDate, "2027-06-15"));
     expect(Math.min(...ages)).toBeGreaterThanOrEqual(17);
     expect(Math.max(...ages)).toBeLessThanOrEqual(19);
     // The same season's draft is the same draft.
-    const again = runDraft(world(), outcome, 2026, "2027-06-15");
-    expect(again.added.map((p) => [p.pid, p.cid, p.draft?.pick])).toEqual(
-      log.added.map((p) => [p.pid, p.cid, p.draft?.pick]),
-    );
+    const w2 = world();
+    runDraft(w2, outcome, 2026, "2027-06-15");
+    const picks = (ws: typeof w) =>
+      ws.players.filter((p) => p.draft).map((p) => [p.pid, p.cid, p.draft?.pick]);
+    expect(picks(w2)).toEqual(picks(w));
   });
 });

@@ -16,6 +16,7 @@ import { commercialBase, expectedTvAndGates, ticketPrice } from "../finance/fina
 import { bornLocally } from "./birthplace";
 import { generateFreeAgents, generateReleasedYouth } from "./freeAgents";
 import { worldMix } from "./identity";
+import { draftClass } from "../season/draft";
 import { generateSquad } from "./squad";
 
 /** Bump when generation changes in a way that makes old saves inconsistent. */
@@ -229,6 +230,10 @@ export function generateWorld(options: WorldOptions): World {
   });
 
   players.push(...generateFreeAgents(root.fork("freeAgents"), season, seasonStart, nextPid, mix));
+  // A world with a draft starts with the class of its first draft (SPEC §17.5).
+  players.push(
+    ...draftClass({ config: options.config, seed: options.seed, nextPid }, season, seasonStart),
+  );
   // Academies release their 18-year-olds into free agency; a world without them doesn't.
   if (academies) {
     players.push(

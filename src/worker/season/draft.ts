@@ -6,6 +6,7 @@
  * picks in odds order and the AI picks for the user too.
  */
 import type { DraftConfig } from "../../common/config/competitions";
+import type { WorldConfig } from "../../common/config/worlds";
 import { ratingsConfig, type Side } from "../../common/config/ratings";
 import type { Player } from "../../common/schema";
 import { Random } from "../core/random";
@@ -22,6 +23,7 @@ import {
   type TurnoverLog,
   updatePot,
 } from "./offseason";
+import { seasonDate } from "../schedule/calendar";
 import type { SeasonOutcome } from "./season";
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
@@ -69,16 +71,24 @@ export function rookieWage(draft: DraftConfig, pick: number): number {
   return roundWage((points.at(-1) as [number, number])[1]);
 }
 
-/** The season's class of prospects, aged per the config, unattached until the draft. */
-export function draftClass(
-  world: LoopWorld,
-  draft: DraftConfig,
-  season: number,
-  date: string,
-): Player[] {
-  const rng = Random.fromSeed(`${world.seed}/draft/${season}`);
+/** What generating a class needs: the world, the save's seed and new player IDs. */
+export interface ClassSetup {
+  config: WorldConfig;
+  seed: string;
+  nextPid: () => number;
+}
+
+/**
+ * The class of `season`'s draft (held the next June), generated on `date` (1 July): aged
+ * per the config at the draft, prospects until then, viewable all season (SPEC §17.5).
+ */
+export function draftClass(setup: ClassSetup, season: number, date: string): Player[] {
+  const draft = setup.config.competitions.draft;
+  if (!draft) return [];
+  const draftDate = seasonDate(season, setup.config.competitions.keyDates.draft ?? "06-15");
+  const rng = Random.fromSeed(`${setup.seed}/draft/${season}`);
   const q = draft.prospectQuality;
-  const mix = worldMix(world.config);
+  const mix = worldMix(setup.config);
   return Array.from({ length: draft.classSize }, () => {
     const position = rng.weighted(ACADEMY_POSITIONS, ([, w]) => w)[0];
     const side: Side = ratingsConfig.sidedPositions.includes(position)
@@ -100,26 +110,30 @@ export function draftClass(
         age,
         nationality: sampleNationality(rng, mix),
         secondMix: mix,
-        status: "freeAgent",
+        status: "prospect",
         cid: null,
       },
-      world.nextPid(),
+      setup.nextPid(),
       season,
-      date,
+      draftDate,
     );
+    // Born for his age at the draft; his ratings are today's.
+    const first = player.ratingsHistory[0];
+    if (first) first.date = date;
     player.hidden.ceiling = capCeiling(
       player.hidden.ceiling + talent * q.talentHeadroom,
       player.ovr,
     );
-    updatePot(player, date, undefined, world.seed);
+    updatePot(player, date, undefined, setup.seed);
     return player;
   });
 }
 
 /**
- * Holds the draft of `season` (the season just played) on `date`: a new class, then
- * every club in `draftOrder` picks the prospect it values most, for each round. Logs the
- * new players (all prospects) and a transaction per pick.
+ * Holds the draft of `season` (the season just played) on `date`: every club in
+ * `draftOrder` picks the prospect it values most, for each round. The prospects not picked
+ * stay prospects until 1 July (`draftClassTurnover`). A world without a class yet (none
+ * so far) gets one here. Logs the picked players and a transaction per pick.
  */
 export function runDraft(
   world: LoopWorld,
@@ -132,9 +146,12 @@ export function runDraft(
   if (!draft) return log;
   const tiers = new Map(world.config.competitions.leagues.map((l) => [l.id, l.tier]));
   const order = draftOrder(draft, outcome, tiers);
-  const prospects = draftClass(world, draft, season, date);
-  world.players.push(...prospects);
-  log.added.push(...prospects);
+  let prospects = world.players.filter((p) => p.status === "prospect");
+  if (prospects.length === 0) {
+    prospects = draftClass(world, season, date);
+    world.players.push(...prospects);
+    log.added.push(...prospects);
+  }
   const available = new Set(prospects);
   const { potWeight, needBonus, areaTargets } = draft.aiPick;
   let pick = 0;
@@ -171,6 +188,7 @@ export function runDraft(
       };
       best.shirtNumber = freeShirtNumber(world, cid, 30);
       best.draft = { season, round, pick, cid };
+      log.changed.add(best.pid);
       best.transfers.push({ date, season, fromCid: null, toCid: cid, fee: 0, type: "draft" });
       log.transactions.push({
         season,
@@ -183,5 +201,23 @@ export function runDraft(
       });
     }
   }
+  return log;
+}
+
+/**
+ * 1 July in a world with a draft: the prospects nobody picked join free agency, and the
+ * class of this season's draft (next June) is generated.
+ */
+export function draftClassTurnover(world: LoopWorld, season: number, date: string): TurnoverLog {
+  const log = emptyLog();
+  for (const p of world.players) {
+    if (p.status !== "prospect") continue;
+    p.status = "freeAgent";
+    p.freeAgentSince = date;
+    log.changed.add(p.pid);
+  }
+  const next = draftClass(world, season, date);
+  world.players.push(...next);
+  log.added.push(...next);
   return log;
 }

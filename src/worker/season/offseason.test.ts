@@ -195,7 +195,7 @@ describe("preseason", () => {
   applyMoves(pre.clubs, outcome.moves);
   const date = "2027-07-01";
 
-  it("brings no youths in a world without academies (the Super League)", () => {
+  it("brings no youths in a world without academies, but a draft class (the Super League)", () => {
     const world = generateWorld({
       config: worlds.superLeague,
       seed: SEED,
@@ -214,9 +214,13 @@ describe("preseason", () => {
       seed: SEED,
       nextPid: () => pid++,
     };
+    const before = loop.players.filter((p) => p.status === "prospect");
     const log = preseasonTurnover(loop, 2027, "2027-07-01");
-    expect(log.added).toEqual([]);
     expect(loop.players.some((p) => p.status === "academy")).toBe(false);
+    // Instead of youths, the next draft's class; last year's undrafted are free agents.
+    expect(log.added).toHaveLength(110);
+    expect(log.added.every((p) => p.status === "prospect" && p.cid === null)).toBe(true);
+    expect(before.every((p) => p.status !== "prospect")).toBe(true);
   });
 
   it("tops AI squads up to 22 from free agents where players move by trades", () => {

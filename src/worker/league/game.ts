@@ -503,6 +503,7 @@ function toOffseasonStage(session: LeagueSession, option: PlayOption): PlayRepor
     const outcome = seasonOutcome(loadSeason(session), session.config.competitions);
     const drafted = runDraft(world, outcome, game.season, game.date);
     for (const p of drafted.added) session.cache.put("players", p);
+    for (const p of world.players) if (drafted.changed.has(p.pid)) session.cache.put("players", p);
     saveTransactions(session, drafted.transactions);
   }
   session.cache.put("meta", game, "game");

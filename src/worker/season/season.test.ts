@@ -5,6 +5,7 @@ import type { LeagueConfig } from "../../common/config/competitions";
 import { generateWorld } from "../generate/world";
 import { tableZone } from "../views/common";
 import { seasonAwards } from "./offseason";
+import { metInPlayoff } from "../club/board";
 import { fullStrengthPlay } from "./play";
 import {
   applyMoves,
@@ -288,6 +289,24 @@ describe("the Super League's play-offs (general play-off format)", () => {
     expect(club("playoffWinner", playoffId("STAR"))).toEqual([]);
     expect(club("playoffWinner", playoffId("GOLD"))).toEqual(slOutcome.playoffWinners.GOLD);
     expect(club("tableWinner", "GOLD")).toEqual([]);
+  });
+
+  it("lets the board count a play-off: the title semi-finals, a promotion play-off win", () => {
+    const [star, gold] = config.leagues as [LeagueConfig, LeagueConfig];
+    const fixtures = slState.fixtures;
+    const semis = byRound(slState, playoffId("STAR"), "Semi-finals");
+    const inSemis = new Set(clubsIn(semis));
+    const quarters = byRound(slState, playoffId("STAR"), "Quarter-finals");
+    const out = clubsIn(quarters).find((cid) => !inSemis.has(cid)) as number;
+    const semifinalist = semis[0]?.homeCid as number;
+    expect(metInPlayoff(star, "title", semifinalist, fixtures)).toBe(true);
+    expect(metInPlayoff(star, "title", out, fixtures)).toBe(false);
+    expect(metInPlayoff(star, "topEight", semifinalist, fixtures)).toBe(false);
+    const [final] = byRound(slState, playoffId("GOLD"), "Final");
+    const winner = final?.result?.winnerCid as number;
+    const loser = (final?.homeCid === winner ? final?.awayCid : final?.homeCid) as number;
+    expect(metInPlayoff(gold, "promotion", winner, fixtures)).toBe(true);
+    expect(metInPlayoff(gold, "promotion", loser, fixtures)).toBe(false);
   });
 
   it("shows Star's first place as a play-off place, not the title", () => {

@@ -94,8 +94,12 @@ export interface PlayoffRound {
 export interface BoardTarget {
   id: string;
   label: string;
-  /** Met by finishing here or better. */
+  /** Met by finishing here or better (and what the board reads during the season). */
   position: number;
+  /** Also met by reaching this round of the league's play-off (T, 2026-10-27). */
+  playoffRound?: string;
+  /** Also met by winning the league's play-off. */
+  playoffWin?: boolean;
   /** How many clubs (by preseason squad strength) get this target. */
   strongest: number;
 }
@@ -435,6 +439,15 @@ export function parseCompetitions(json: CompetitionsFile, file: string): Competi
     board: l.board,
   }));
   for (const league of leagues) {
+    for (const t of league.board) {
+      const rounds = league.playoff?.rounds.map((r) => r.name) ?? [];
+      if (
+        (t.playoffRound && !rounds.includes(t.playoffRound)) ||
+        (t.playoffWin && !league.playoff)
+      ) {
+        throw new Error(`${file}: ${league.id}'s ${t.id} target names a play-off it doesn't have`);
+      }
+    }
     const covered = league.board.reduce((n, t) => n + t.strongest, 0);
     if (covered !== league.clubs) {
       throw new Error(`${file}: ${league.id} board targets cover ${covered} clubs`);

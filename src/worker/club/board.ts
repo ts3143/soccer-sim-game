@@ -14,8 +14,9 @@
  *   played, or below 35 at the season's end; he is offered 1–3 jobs at clubs with lower
  *   reputation (the MVP has no managers at other clubs: these are fictional vacancies).
  */
-import type { CompetitionsConfig } from "../../common/config/competitions";
-import type { Club, ClubSeason, Player } from "../../common/schema";
+import type { CompetitionsConfig, LeagueConfig } from "../../common/config/competitions";
+import type { Club, ClubSeason, Fixture, Player } from "../../common/schema";
+import { playoffId } from "../season/season";
 import { Random } from "../core/random";
 import type { TableRow } from "../schedule/standings";
 import { clubStrength } from "./standing";
@@ -80,6 +81,29 @@ export const startingConfidence = (last: number | null | undefined): number =>
   last === null || last === undefined
     ? BOARD.fresh
     : Math.round(last + BOARD.carry * (BOARD.fresh - last));
+
+/**
+ * Whether a club met its target in its league's play-off (SPEC §17.2; T, 2026-10-27): by
+ * reaching the target's play-off round, or by winning the play-off.
+ */
+export function metInPlayoff(
+  league: LeagueConfig,
+  targetId: string | null,
+  cid: number,
+  fixtures: readonly Fixture[],
+): boolean {
+  const target = league.board.find((t) => t.id === targetId);
+  if (!target || !league.playoff) return false;
+  const id = playoffId(league.id);
+  const own = fixtures.filter(
+    (f) => f.competition === id && (f.homeCid === cid || f.awayCid === cid),
+  );
+  if (target.playoffRound && own.some((f) => f.round === target.playoffRound)) return true;
+  const final = league.playoff.rounds.at(-1)?.name;
+  return Boolean(
+    target.playoffWin && own.some((f) => f.round === final && f.result?.winnerCid === cid),
+  );
+}
 
 /** Live confidence from the current table, money and hype. */
 export function liveConfidence(
