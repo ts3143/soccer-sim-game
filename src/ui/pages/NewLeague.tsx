@@ -4,11 +4,15 @@
  */
 import { useEffect, useState } from "react";
 import type { ClubChoice } from "../../common/api";
+import type { WorldId } from "../../common/config/worlds";
 import { crestUrl } from "../crests";
 import { formatEuros } from "../format";
 import { leaguePath, Link, navigate } from "../router";
 import { toWorker } from "../workerClient";
 import { errorText } from "../errors";
+
+/** Classic only until New game offers the Super League too (MILESTONES SL7). */
+const WORLD: WorldId = "classic";
 
 export function NewLeague() {
   const [choices, setChoices] = useState<ClubChoice[]>([]);
@@ -20,7 +24,7 @@ export function NewLeague() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    toWorker("getClubChoices")
+    toWorker("getClubChoices", WORLD)
       .then(setChoices)
       .catch((e: unknown) => setError(errorText(e)));
   }, []);
@@ -36,7 +40,7 @@ export function NewLeague() {
     setCreating(true);
     setError(null);
     try {
-      const created = await toWorker("createLeague", { name, seed, userCid });
+      const created = await toWorker("createLeague", { world: WORLD, name, seed, userCid });
       navigate(leaguePath(created.lid), { replace: true });
     } catch (e) {
       setError(errorText(e));

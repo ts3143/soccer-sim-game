@@ -16,7 +16,12 @@ describe("match preview and player form (T, 2026-10-25)", () => {
     "shows both clubs' last five, their last meeting, derbies, and a player's last five",
     { timeout: 120_000 },
     async () => {
-      const league = await createLeague({ name: "Preview", seed: "preview-view", userCid: 5 });
+      const league = await createLeague({
+        world: "classic",
+        name: "Preview",
+        seed: "preview-view",
+        userCid: 5,
+      });
       const session = await openLeague(league.lid);
       for (let i = 0; i < 7; i++) await play(session, "untilNextMatch");
       const game = session.cache.get("meta", "game") as GameMeta;

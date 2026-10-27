@@ -12,7 +12,12 @@ beforeAll(() => {
 
 describe("squad and player pages", () => {
   it("list a club's players and show one player's profile", { timeout: 120_000 }, async () => {
-    const league = await createLeague({ name: "Players", seed: "players-view", userCid: 3 });
+    const league = await createLeague({
+      world: "classic",
+      name: "Players",
+      seed: "players-view",
+      userCid: 3,
+    });
     const squad = await getTeamSquad(league.lid, 3);
     expect(squad.players.length).toBeGreaterThanOrEqual(20);
     expect(squad.academy.length).toBeGreaterThan(5);

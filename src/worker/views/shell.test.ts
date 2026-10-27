@@ -15,7 +15,12 @@ describe("the app shell's view", () => {
     "names the league and lists every club, the leagues and the game state",
     { timeout: 60_000 },
     async () => {
-      const league = await createLeague({ name: "Shell", seed: "shell-view", userCid: 21 });
+      const league = await createLeague({
+        world: "classic",
+        name: "Shell",
+        seed: "shell-view",
+        userCid: 21,
+      });
       const shell = await getLeagueShell(league.lid);
       expect(shell).toMatchObject({
         lid: league.lid,
@@ -37,7 +42,12 @@ describe("the app shell's view", () => {
     "feeds the Dashboard: position, results, next match, table, board, inbox",
     { timeout: 120_000 },
     async () => {
-      const league = await createLeague({ name: "Dash", seed: "dash-view", userCid: 0 });
+      const league = await createLeague({
+        world: "classic",
+        name: "Dash",
+        seed: "dash-view",
+        userCid: 0,
+      });
       const before = await getDashboard(league.lid);
       expect(before.recent).toEqual([]);
       expect(before.nextMatch?.date).toBe("2026-08-15");

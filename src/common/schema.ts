@@ -8,6 +8,7 @@
  * the fields the spec names, and extended (with a DB version bump) when built.
  */
 import type { Position } from "./config/ratings";
+import type { WorldId } from "./config/worlds";
 import type { MatchResult } from "./match";
 
 // ---------------------------------------------------------------------------
@@ -93,8 +94,11 @@ export interface MetaRows {
   ids: IdCounters;
   /** Saved state of the league's main random stream. */
   rng: { seed: string; words: readonly [number, number, number, number] };
-  /** World-size config and per-league modifiers in force for this save. */
-  world: { leagues: string[]; styleModifiers: Record<string, StyleModifiersRow> };
+  /**
+   * The save's world (SPEC §17.1; saves before league DB v8 are Classic), with the
+   * leagues and per-league modifiers it had when created.
+   */
+  world: { id: WorldId; leagues: string[]; styleModifiers: Record<string, StyleModifiersRow> };
 }
 
 export interface StyleModifiersRow {

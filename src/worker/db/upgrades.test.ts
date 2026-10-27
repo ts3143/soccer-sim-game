@@ -214,6 +214,19 @@ describe("league DB upgrades", () => {
     kept.close();
   });
 
+  it("records an older save's world: every save before v8 is Classic", async () => {
+    const v7 = await openLeagueDb(9008, 7);
+    await v7.put("meta", { leagues: ["ENG1"], styleModifiers: {} }, "world");
+    v7.close();
+    const v8 = await openLeagueDb(9008);
+    expect(await v8.get("meta", "world")).toEqual({
+      id: "classic",
+      leagues: ["ENG1"],
+      styleModifiers: {},
+    });
+    v8.close();
+  });
+
   it("creates a new save at the current version with nothing to convert", async () => {
     const db = await openLeagueDb(9002);
     expect(db.version).toBe(LEAGUE_DB_VERSION);

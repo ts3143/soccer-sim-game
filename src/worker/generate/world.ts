@@ -263,6 +263,7 @@ export function generateWorld(options: WorldOptions): World {
     ids: { pid, fid: 1, oid: 1, xid: 1, mid: 1, aid: 1 },
     rng: root.getState(),
     world: {
+      id: options.config.id,
       leagues: competitions.leagues.map((l) => l.id),
       styleModifiers: Object.fromEntries(competitions.leagues.map((l) => [l.id, l.styleModifiers])),
     },

@@ -30,7 +30,7 @@ beforeAll(() => {
 });
 
 async function league(name: string) {
-  const created = await createLeague({ name, seed: "live-match", userCid: 0 });
+  const created = await createLeague({ world: "classic", name, seed: "live-match", userCid: 0 });
   return { lid: created.lid, session: await openLeague(created.lid) };
 }
 

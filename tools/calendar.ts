@@ -1,14 +1,14 @@
 /**
- * Prints a season's match calendar: `pnpm calendar [--season 2026]`.
+ * Prints a season's match calendar: `pnpm calendar [--season 2026] [--world classic]`.
  *
  * Per league: first and last round, midweek rounds, weekends left free, play-off dates.
  * Per cup: the date of each round. To play a season, use `pnpm season`.
  */
-import { worlds } from "../src/common/config/worlds";
 import { seasonCalendar } from "../src/worker/schedule/calendar";
+import { worldOption } from "./world-option";
 
-const config = worlds.classic;
 const args = process.argv.slice(2);
+const config = worldOption(args);
 const i = args.indexOf("--season");
 const SEASON = i >= 0 ? Number(args[i + 1]) : config.competitions.firstSeason;
 

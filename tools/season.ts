@@ -1,6 +1,6 @@
 /**
  * Plays whole seasons headlessly and prints what happened:
- * `pnpm season [--seed X] [--seasons N]`.
+ * `pnpm season [--seed X] [--seasons N] [--world classic]`.
  *
  * Per season: the league tables (in full for the first season, top and bottom after),
  * both cups round by round, the play-off bracket, and who went up and down, then the
@@ -9,19 +9,19 @@
  * players develop, retire and come through the academies between seasons (the same code
  * as a save, src/worker/season). `--quiet` prints only the numbers.
  */
-import { worlds } from "../src/common/config/worlds";
 import type { Fixture } from "../src/common/schema";
 import { PLAYOFF_ROUNDS } from "../src/worker/schedule/calendar";
 import type { TableRow } from "../src/worker/schedule/standings";
 import { playoffId } from "../src/worker/season/season";
 import { simulateWorld } from "./calibrate/world";
+import { worldOption } from "./world-option";
 
-const config = worlds.classic;
 const args = process.argv.slice(2);
 const option = (name: string, fallback: string) => {
   const i = args.indexOf(name);
   return i >= 0 && args[i + 1] ? (args[i + 1] as string) : fallback;
 };
+const config = worldOption(args);
 const SEED = option("--seed", "season");
 const SEASONS = Number(option("--seasons", "1"));
 const QUIET = args.includes("--quiet");

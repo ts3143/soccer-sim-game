@@ -1,21 +1,21 @@
 /**
- * `pnpm generate [--seed <seed>] [--check]`: generates a new-league world headlessly
+ * `pnpm generate [--seed <seed>] [--world <id>] [--check]`: generates a new-league world headlessly
  * and prints a report of the M1 acceptance checks. With --check (CI), exits non-zero
  * if any check fails.
  */
 import { createHash } from "node:crypto";
-import { worlds } from "../../src/common/config/worlds";
 import { ratingsConfig } from "../../src/common/config/ratings";
 import { exactAge } from "../../src/common/dates";
 import type { Player } from "../../src/common/schema";
 import { generateWorld, type World } from "../../src/worker/generate/world";
 import { realClubNamesToCheck } from "../real-club-names";
+import { worldOption } from "../world-option";
 import { evaluateWorld, type Check } from "../../src/worker/generate/checks";
 
 const args = process.argv.slice(2);
 const seed = args.includes("--seed") ? (args[args.indexOf("--seed") + 1] ?? "report") : "report";
 const strict = args.includes("--check");
-const config = worlds.classic;
+const config = worldOption(args);
 const options = {
   config,
   seed,

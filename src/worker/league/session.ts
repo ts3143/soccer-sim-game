@@ -4,8 +4,8 @@
  */
 import type { IDBPDatabase } from "idb";
 import type { NewLeagueInput } from "../../common/api";
-import { type WorldConfig, worlds } from "../../common/config/worlds";
-import type { GameMeta, LeagueSummary } from "../../common/schema";
+import { type WorldConfig, worldById } from "../../common/config/worlds";
+import type { GameMeta, LeagueSummary, MetaRows } from "../../common/schema";
 import { Cache } from "../db/cache";
 import { listLeagues, registerLeague, unregisterLeague } from "../db/globalDb";
 import { deleteLeagueDb, openLeagueDb, writeWorld } from "../db/leagueDb";
@@ -76,7 +76,7 @@ function newSeed(): string {
 }
 
 export async function createLeague(input: NewLeagueInput): Promise<LeagueSummary> {
-  const config = worlds.classic;
+  const config = worldById(input.world);
   const club = config.clubs[input.userCid];
   if (!club) throw new RangeError(`Unknown club ${input.userCid}`);
   if (input.name.trim().length > 60) throw new GameError("A league name has 1 to 60 characters.");
@@ -154,7 +154,10 @@ export function openLeague(lid: number): Promise<LeagueSession> {
       throw new GameError(`There's no league ${lid} in this browser. It may have been deleted.`);
     }
     const db = await openLeagueDb(lid);
-    const session: LeagueSession = { lid, db, cache: await openCache(db), config: worlds.classic };
+    const cache = await openCache(db);
+    const world = cache.get("meta", "world") as MetaRows["world"] | undefined;
+    if (!world) throw new Error(`League ${lid} has no world`);
+    const session: LeagueSession = { lid, db, cache, config: worldById(world.id) };
     ensureSeason(session); // saves from before M3 get their season set up here
     openedListener?.(lid);
     return session;

@@ -44,7 +44,12 @@ function target(session: LeagueSession): Player {
 
 describe("the user's transfers", () => {
   it("agrees a fee in steps, then signs the player on his terms", SLOW, async () => {
-    const league = await createLeague({ name: "Market", seed: "market-save", userCid: 0 });
+    const league = await createLeague({
+      world: "classic",
+      name: "Market",
+      seed: "market-save",
+      userCid: 0,
+    });
     const session = await openLeague(league.lid);
     const p = target(session);
     const talks = contractTalks(session, p.pid);
@@ -94,7 +99,12 @@ describe("the user's transfers", () => {
   });
 
   it("links bid messages to their offers in the Dashboard's inbox", SLOW, async () => {
-    const league = await createLeague({ name: "Inbox bids", seed: "inbox-bids", userCid: 0 });
+    const league = await createLeague({
+      world: "classic",
+      name: "Inbox bids",
+      seed: "inbox-bids",
+      userCid: 0,
+    });
     const session = await openLeague(league.lid);
     const [a, b] = seniorsOf(session.cache.getAll("players"), 0) as [Player, Player];
     const [x, y] = session.cache.getAll("clubs").filter((c) => c.cid !== 0);
@@ -143,7 +153,12 @@ describe("the user's transfers", () => {
     "answers bids for the user's players, and lets bids lapse when the window closes",
     SLOW,
     async () => {
-      const league = await createLeague({ name: "Bids", seed: "market-bids", userCid: 0 });
+      const league = await createLeague({
+        world: "classic",
+        name: "Bids",
+        seed: "market-bids",
+        userCid: 0,
+      });
       const session = await openLeague(league.lid);
       const mine = seniorsOf(session.cache.getAll("players"), 0);
       const [kept, sold] = [mine[3] as Player, mine[8] as Player];
@@ -206,7 +221,12 @@ describe("the user's transfers", () => {
     async () => {
       // An ENG2 club: stronger clubs' reserves would play for it, so it can borrow.
       const USER = 21;
-      const league = await createLeague({ name: "Loans", seed: "market-loans", userCid: USER });
+      const league = await createLeague({
+        world: "classic",
+        name: "Loans",
+        seed: "market-loans",
+        userCid: USER,
+      });
       const session = await openLeague(league.lid);
       const world = loopWorld(session, 2026);
       const mine = seniorsOf(world.players, USER);
@@ -269,7 +289,12 @@ describe("the user's transfers", () => {
     "feeds the Transfer Market: the user's squad, a market search, the budget control",
     SLOW,
     async () => {
-      const league = await createLeague({ name: "Market", seed: "club-lab", userCid: 0 });
+      const league = await createLeague({
+        world: "classic",
+        name: "Market",
+        seed: "club-lab",
+        userCid: 0,
+      });
       const session = await openLeague(league.lid);
       const view = await getTransferMarket(league.lid);
       expect(view.window).toEqual({ id: "summer", closes: "2026-08-31" });

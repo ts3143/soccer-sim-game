@@ -23,8 +23,9 @@ import type {
  *   v5: no store changes; academy players of a club's own country born in its city (half).
  *   v6: no store changes; injury histories start (meta game `injuriesSince`).
  *   v7: no store changes; the user's club gets a saved line-up if it has none.
+ *   v8: no store changes; the save records its world (meta `world.id`): older are Classic.
  */
-export const LEAGUE_DB_VERSION = 7;
+export const LEAGUE_DB_VERSION = 8;
 
 export interface LeagueDBSchema extends DBSchema {
   /** Key-value rows; see MetaRows in src/common/schema.ts. */

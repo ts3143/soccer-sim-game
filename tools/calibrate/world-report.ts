@@ -1,6 +1,7 @@
 /**
- * Season-loop calibration (M3), run by `pnpm calibrate --world [--seasons 20] [--worlds 3]
- * [--seed X] [--check]`.
+ * Season-loop calibration (M3), run by `pnpm calibrate --world [<world id>] [--seasons 20]
+ * [--worlds 3] [--seed X] [--check]`. The world is Classic unless named; the targets are
+ * Classic's.
  *
  * Plays W generated worlds for S seasons each (in parallel processes) with the real
  * season loop, then checks data/config/calibration_targets.json:
@@ -19,6 +20,7 @@ import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
+import { worldOption } from "../world-option";
 import type { WorldRun } from "./world";
 
 interface Band {
@@ -38,6 +40,7 @@ const option = (name: string, fallback: string) =>
 const SEASONS = Number(option("--seasons", "20"));
 const WORLDS = Number(option("--worlds", "3"));
 const SEED = option("--seed", "calibrate");
+const WORLD = worldOption(args).id;
 const CHECK = args.includes("--check");
 const OVERRIDES = option("--overrides", "");
 const JOBS = Math.max(
@@ -65,10 +68,14 @@ const tolerance = (group: string, key: string): number => {
 function runWorld(seed: string): Promise<WorldRun> {
   const script = fileURLToPath(new URL("./world-run.ts", import.meta.url));
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ["--import", "tsx", script, seed, String(SEASONS)], {
-      stdio: ["ignore", "pipe", "inherit"],
-      env: { ...process.env, ...(OVERRIDES ? { CALIBRATE_OVERRIDES: OVERRIDES } : {}) },
-    });
+    const child = spawn(
+      process.execPath,
+      ["--import", "tsx", script, seed, String(SEASONS), WORLD],
+      {
+        stdio: ["ignore", "pipe", "inherit"],
+        env: { ...process.env, ...(OVERRIDES ? { CALIBRATE_OVERRIDES: OVERRIDES } : {}) },
+      },
+    );
     let out = "";
     child.stdout.on("data", (chunk: Buffer) => (out += chunk.toString()));
     child.on("error", reject);
@@ -95,7 +102,7 @@ async function runAll(): Promise<WorldRun[]> {
 }
 
 const started = performance.now();
-console.log(`Soccer Sim Game: season-loop calibration (seed "${SEED}")`);
+console.log(`Soccer Sim Game: season-loop calibration (world ${WORLD}, seed "${SEED}")`);
 console.log(`${WORLDS} worlds × ${SEASONS} seasons, ${JOBS} at a time`);
 if (OVERRIDES) console.log(`Coefficient overrides: ${OVERRIDES}`);
 console.log("");

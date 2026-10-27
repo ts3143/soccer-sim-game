@@ -9,7 +9,7 @@ import {
   ratingTotalFromOldScale,
   winningSide,
 } from "../engine/ratings";
-import type { GameMeta } from "../../common/schema";
+import type { GameMeta, MetaRows } from "../../common/schema";
 import { bornLocally } from "../generate/birthplace";
 import { withAutoLineup } from "../club/tactics";
 import type { LeagueDBSchema } from "./schema";
@@ -169,4 +169,15 @@ export async function upgradeToV7(tx: UpgradeTransaction): Promise<void> {
     return;
   }
   await clubs.put(next);
+}
+
+/**
+ * League DB v8: the save records its world (SPEC §17.1). Every save made before the
+ * Super League is Classic.
+ */
+export async function upgradeToV8(tx: UpgradeTransaction): Promise<void> {
+  const meta = tx.objectStore("meta");
+  const world = (await meta.get("world")) as Partial<MetaRows["world"]> | undefined;
+  if (world?.id) return;
+  await meta.put({ leagues: [], styleModifiers: {}, ...world, id: "classic" }, "world");
 }

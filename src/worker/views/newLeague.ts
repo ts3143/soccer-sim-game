@@ -1,10 +1,10 @@
 /** The new league screen (SPEC §11): every club the user can start as. */
 import type { ClubChoice } from "../../common/api";
 import { leagueById } from "../../common/config/competitions";
-import { worlds } from "../../common/config/worlds";
+import { type WorldId, worldById } from "../../common/config/worlds";
 
-export function getClubChoices(): ClubChoice[] {
-  const { clubs, competitions } = worlds.classic;
+export function getClubChoices(world: WorldId): ClubChoice[] {
+  const { clubs, competitions } = worldById(world);
   return clubs.map((club, cid) => ({
     cid,
     code: club.code,

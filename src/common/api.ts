@@ -7,6 +7,7 @@
  * Arguments and results must be structured-cloneable (plain data).
  */
 import type { Position } from "./config/ratings";
+import type { WorldId } from "./config/worlds";
 import type { MatchEvent, MatchResult, Period } from "./match";
 import type { Fixture, InboxMessage, LeagueSummary, Phase, SliderSettings } from "./schema";
 
@@ -35,6 +36,8 @@ export interface ClubChoice {
 }
 
 export interface NewLeagueInput {
+  /** The world to play in (SPEC §17.1). */
+  world: WorldId;
   name: string;
   /** Empty: the worker picks a random seed. */
   seed: string;
@@ -1165,7 +1168,7 @@ export interface OfferView {
 export interface WorkerApi {
   getStatus(): WorkerStatus;
   listLeagues(): LeagueSummary[];
-  getClubChoices(): ClubChoice[];
+  getClubChoices(world: WorldId): ClubChoice[];
   createLeague(input: NewLeagueInput): LeagueSummary;
   deleteLeague(lid: number): void;
   /**

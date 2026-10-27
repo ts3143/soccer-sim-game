@@ -2,11 +2,11 @@
  * One world for `pnpm calibrate --world`, in its own process so worlds run in parallel:
  * `node --import tsx tools/calibrate/world-run.ts <seed> <seasons>` prints a WorldRun as JSON.
  */
-import { worlds } from "../../src/common/config/worlds";
+import { worldById } from "../../src/common/config/worlds";
 import { applyOverrides } from "./overrides";
 import { simulateWorld } from "./world";
 
 applyOverrides();
 
-const [seed = "calibrate-w0", seasons = "20"] = process.argv.slice(2);
-process.stdout.write(JSON.stringify(simulateWorld(worlds.classic, seed, Number(seasons))));
+const [seed = "calibrate-w0", seasons = "20", world = "classic"] = process.argv.slice(2);
+process.stdout.write(JSON.stringify(simulateWorld(worldById(world), seed, Number(seasons))));

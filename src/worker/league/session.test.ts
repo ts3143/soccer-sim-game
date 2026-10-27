@@ -1,14 +1,17 @@
 import { IDBFactory } from "fake-indexeddb";
 import "fake-indexeddb/auto";
 import { beforeAll, describe, expect, it } from "vitest";
-import type { GameMeta } from "../../common/schema";
-import { listLeagues } from "../db/globalDb";
+import { worlds } from "../../common/config/worlds";
+import type { GameMeta, MetaRows } from "../../common/schema";
+import { listLeagues, registerLeague } from "../db/globalDb";
+import { openLeagueDb, writeWorld } from "../db/leagueDb";
+import { generateWorld, type World } from "../generate/world";
 import { formationById } from "../../common/config/formations";
 import { isSenior } from "../../common/status";
 import { bestXi } from "../core/lineup";
 import { evaluateWorld } from "../generate/checks";
 import { getTeamSquad } from "../views/players";
-import { gameState, queued } from "./game";
+import { gameState, play, queued } from "./game";
 import { closeLeague, createLeague, deleteLeague, onLeagueOpened, openLeague } from "./session";
 
 beforeAll(() => {
@@ -20,7 +23,12 @@ const SLOW = { timeout: 60_000 };
 
 describe("league saves", () => {
   it("creates a full save that reopens with every acceptance check passing", SLOW, async () => {
-    const league = await createLeague({ name: "Test league", seed: "session-test", userCid: 0 });
+    const league = await createLeague({
+      world: "classic",
+      name: "Test league",
+      seed: "session-test",
+      userCid: 0,
+    });
     expect(league).toMatchObject({ lid: 1, name: "Test league", season: 2026 });
     expect((await listLeagues()).map((l) => l.lid)).toEqual([1]);
 
@@ -56,6 +64,44 @@ describe("league saves", () => {
       userCid: 0,
     });
     expect(cache.get("meta", "rng")).toBeTruthy();
+    // The save records its world, and the session plays it (SPEC §17.1).
+    expect(cache.get("meta", "world")).toMatchObject({ id: "classic" });
+    expect((await openLeague(league.lid)).config).toBe(worlds.classic);
+  });
+
+  it("opens a save from before the Super League as Classic, and plays on", SLOW, async () => {
+    const createdAt = "2026-07-01T00:00:00.000Z";
+    const world = generateWorld({
+      config: worlds.classic,
+      seed: "pre-super-league",
+      name: "Old",
+      userCid: 0,
+      createdAt,
+    });
+    const league = await registerLeague({
+      name: "Old",
+      createdAt,
+      lastPlayedAt: createdAt,
+      clubName: world.clubs[0]?.name ?? "",
+      season: 2026,
+    });
+    // A league DB v7 save: its world row has no id.
+    const old = await openLeagueDb(league.lid, 7);
+    const unnamed: Partial<MetaRows["world"]> = { ...world.meta.world };
+    delete unnamed.id;
+    await writeWorld(old, {
+      ...world,
+      meta: { ...world.meta, world: unnamed as MetaRows["world"] },
+    } satisfies World);
+    old.close();
+
+    const session = await openLeague(league.lid);
+    expect(session.config).toBe(worlds.classic);
+    expect(session.cache.get("meta", "world")).toEqual({ ...unnamed, id: "classic" });
+    await play(session, "oneWeek");
+    const report = await play(session, "untilNextMatch");
+    expect(report.matchesPlayed).toBeGreaterThan(10);
+    await deleteLeague(league.lid);
   });
 
   it("serves a club's squad and academy from the save", SLOW, async () => {
@@ -66,7 +112,7 @@ describe("league saves", () => {
   });
 
   it("gives a random seed when none is entered, and deletes saves", SLOW, async () => {
-    const second = await createLeague({ name: " ", seed: "", userCid: 5 });
+    const second = await createLeague({ world: "classic", name: " ", seed: "", userCid: 5 });
     expect(second.lid).toBe(2);
     expect(second.name).toBe("League 2");
     const game = (await openLeague(2)).cache.get("meta", "game") as GameMeta;
@@ -80,7 +126,12 @@ describe("league saves", () => {
     "lets an action under way finish before another league opens, then stops the closed one's",
     SLOW,
     async () => {
-      const other = await createLeague({ name: "Other", seed: "other", userCid: 3 });
+      const other = await createLeague({
+        world: "classic",
+        name: "Other",
+        seed: "other",
+        userCid: 3,
+      });
       const first = await openLeague(1);
       let finished = false;
       const running = queued(first, async () => {

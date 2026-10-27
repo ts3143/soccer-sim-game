@@ -62,10 +62,12 @@ describe("generateWorld", () => {
   });
 
   // Recorded from main (50616fc) before the Super League work: a new Classic world stays
-  // exactly this (MILESTONES SL0). Re-record only for a change T approved.
+  // exactly this (MILESTONES SL0). Re-record only for a change T approved. `meta` was
+  // re-recorded once, for the world's id the save now records (SPEC §17.1): without it,
+  // the hash was main's.
   it("generates exactly the recorded Classic world", async () => {
     expect(await fingerprints({ ...world })).toEqual({
-      meta: "572fff5668d82e7e",
+      meta: "1599e4ca3c158396",
       competitions: "7c8eb2984df9ee1d",
       clubs: "1b849c65c61e6cdc",
       clubSeasons: "6858b15c259cd513",

@@ -20,7 +20,12 @@ describe("history pages", () => {
     "record a finished season, a club's seasons, transactions, rankings and finances",
     { timeout: 300_000 },
     async () => {
-      const league = await createLeague({ name: "History", seed: "history-view", userCid: 0 });
+      const league = await createLeague({
+        world: "classic",
+        name: "History",
+        seed: "history-view",
+        userCid: 0,
+      });
       const session = await openLeague(league.lid);
       expect((await getHistory(league.lid)).seasons).toEqual([]);
 
