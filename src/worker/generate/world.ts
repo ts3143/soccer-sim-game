@@ -8,7 +8,14 @@ import { capOf, type CompetitionsConfig, leagueById } from "../../common/config/
 import { formationById, formationsConfig } from "../../common/config/formations";
 import type { WorldConfig } from "../../common/config/worlds";
 import { exactAge } from "../../common/dates";
-import type { Club, ClubSeason, CompetitionRow, MetaRows, Player } from "../../common/schema";
+import type {
+  Club,
+  ClubSeason,
+  CompetitionRow,
+  DraftPick,
+  MetaRows,
+  Player,
+} from "../../common/schema";
 import { estimatePotential, type PotentialClubContext } from "../core/potential";
 import { Random } from "../core/random";
 import { assignContracts, capBill, revenueBill } from "./contracts";
@@ -16,7 +23,7 @@ import { commercialBase, expectedTvAndGates, ticketPrice } from "../finance/fina
 import { bornLocally } from "./birthplace";
 import { generateFreeAgents, generateReleasedYouth } from "./freeAgents";
 import { worldMix } from "./identity";
-import { draftClass } from "../season/draft";
+import { draftClass, missingPicks } from "../season/draft";
 import { generateSquad } from "./squad";
 
 /** Bump when generation changes in a way that makes old saves inconsistent. */
@@ -48,6 +55,8 @@ export interface World {
   clubs: Club[];
   clubSeasons: ClubSeason[];
   players: Player[];
+  /** Every club's own picks for its first drafts (a world with a draft; SPEC §17.5). */
+  draftPicks: DraftPick[];
   /** Per club: best-XI mean slot OVR in its default formation (for reports/tests). */
   xiStrength: Map<number, number>;
 }
@@ -300,6 +309,7 @@ export function generateWorld(options: WorldOptions): World {
     clubs,
     clubSeasons,
     players,
+    draftPicks: competitions.draft ? missingPicks(competitions.draft, clubs, [], season) : [],
     xiStrength,
   };
 }

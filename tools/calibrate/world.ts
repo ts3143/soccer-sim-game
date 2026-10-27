@@ -111,6 +111,7 @@ export function simulateWorld(
     userCid: -1,
     seed,
     nextPid: () => nextPid++,
+    draftPicks: generated.draftPicks,
   };
   const active = () => players.filter((p) => p.status !== "retired").length;
   const run: WorldRun = {

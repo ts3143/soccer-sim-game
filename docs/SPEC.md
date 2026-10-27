@@ -415,6 +415,7 @@ Screen details:
 | `transactions` | Permanent log (transfers, loans, signings, renewals, releases, academy promotions, retirements) with name snapshots |
 | `inbox` | Messages to the user, with the players they name (IDs + snapshot names) and, for a bid, the bidding club (`bidFrom`); both optional, absent in older saves |
 | `awards` | Season awards, champions, cup winners, records (with name snapshots) |
+| `draftPicks` | A world with a draft (§17.5): each pick by season, round and original club, with its owner; used ones are deleted |
 
 - **Stored:** position OVRs + POT. **Derived on the fly:** team ratings/OVR, standings, per-90s, market value. **Match-only:** in-match energy.
 - **Retention:** full match records kept **2 seasons** in the MVP (setting), except the user's club matches, kept forever. The default scales down with world size later (e.g. current season only for other clubs once all 10 leagues are on). Season stat rows are kept forever unless the player is pruned (below).
@@ -512,7 +513,7 @@ A second world, picked at New game, inspired by the European Super League projec
 - **Lottery pool of 8:** the 4 relegated clubs and the bottom 4 of Blue. Odds come from a config table: the worst Blue clubs get the best odds, relegated clubs mid odds. The lottery draws picks 1–4 (config); the other 4 clubs of the pool follow the odds order. **Odds** (chance at pick 1; T, 2026-10-27): Blue 16th 20%, 15th 17%, 14th 15%, 13th 13%; Gold's relegated 11% and 9%; Star's relegated 8% and 7%. So Blue's last club gets a top-4 pick 69% of the time (average pick 3.2), Star's 15th 33% (average 6.3).
 - **Picks 9–44:** reverse combined standings: by the tier played this season, then by table points (Star by its table, not the play-off result), with the table tie-breakers.
 - **Picks 45–48:** the 4 promoted clubs, by the same rule.
-- **Picks are owned assets** and can be traded up to 3 seasons ahead (config). A traded pick takes the slot of the club that originally owned it, lottery included. No pick protections.
+- **Picks are owned assets** and can be traded up to 3 seasons ahead (config): each club holds picks for the coming draft and the three after it, as ZenGM (a new world starts with them; the picks of the draft three seasons on are made on 1 July; the draft uses its picks up). A traded pick takes the slot of the club that originally owned it, lottery included. No pick protections.
 - **Rookie contracts:** 3 years, wage by pick number (config table), signable over the cap. Drafted players count toward the squad limit at once.
 - **Playing the draft:** Play menu "Until your pick" and "To the end of the draft", the second auto-picking for the user, as ZenGM. AI clubs pick by value with some weight on positional need.
 - **Standings** show a lottery-odds column: each club's current chance at pick 1 if the season ended today, blank outside the pool.

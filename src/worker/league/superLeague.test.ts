@@ -86,6 +86,11 @@ describe("a Super League year in a save", () => {
       expect([of(2027).length, of(2028).length, of(2029).length]).toEqual([110, 110, 110]);
       expect(of(2027).every((p) => p.ratingsHistory.length === 2)).toBe(true);
       expect(of(2029).every((p) => p.ratingsHistory.length === 1)).toBe(true);
+      // The draft used up its picks; 1 July brought the picks three seasons on.
+      const owned = session.cache.getAll("draftPicks");
+      expect(owned).toHaveLength(48 * 2 * 4);
+      expect([...new Set(owned.map((p) => p.season))].sort()).toEqual([2027, 2028, 2029, 2030]);
+      expect(await session.db.count("draftPicks")).toBe(48 * 2 * 4);
     },
   );
 });

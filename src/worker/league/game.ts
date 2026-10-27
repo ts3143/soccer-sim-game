@@ -106,6 +106,7 @@ export function loopWorld(session: LeagueSession, season: number): LoopWorld {
       .getAll("offers")
       .filter((o) => o.status === "open" && o.toCid === game.userCid)
       .map((o) => ({ pid: o.pid, fromCid: o.fromCid, expires: o.expires })),
+    draftPicks: session.cache.getAll("draftPicks"),
     nextPid: () => {
       const pid = ids.pid++;
       session.cache.put("meta", { ...meta<IdCounters>(session, "ids"), pid: ids.pid }, "ids");
@@ -118,6 +119,18 @@ export function loopWorld(session: LeagueSession, season: number): LoopWorld {
 export function saveBooks(session: LeagueSession, world: LoopWorld): void {
   for (const club of world.clubs) session.cache.put("clubs", club);
   for (const row of world.clubSeasons.values()) session.cache.put("clubSeasons", row);
+}
+
+/** Saves the draft picks as the season code left them: new ones made, used ones gone. */
+export function savePicks(session: LeagueSession, world: LoopWorld): void {
+  const picks = world.draftPicks ?? [];
+  const kept = new Set(picks.map((p) => `${p.season}/${p.round}/${p.originalCid}`));
+  for (const p of session.cache.getAll("draftPicks")) {
+    if (!kept.has(`${p.season}/${p.round}/${p.originalCid}`)) {
+      session.cache.delete("draftPicks", [p.season, p.round, p.originalCid]);
+    }
+  }
+  for (const p of picks) session.cache.put("draftPicks", p);
 }
 
 export function saveTransactions(session: LeagueSession, rows: readonly NewTransaction[]): void {
@@ -488,8 +501,8 @@ function nextOffseasonStage(config: WorldConfig, phase: Phase): OffseasonStage |
 
 /**
  * Moves to the next off-season stage. The draft is held on reaching it (its AI core: the
- * AI picks for every club, the user's too, until SL4); the lottery (SL4) and the
- * re-signing period (SL5) only set the date and phase for now.
+ * AI picks for every club, the user's too, for now); the lottery stage and the re-signing
+ * period only set the date and phase for now.
  */
 function toOffseasonStage(session: LeagueSession, option: PlayOption): PlayReport {
   const game = { ...meta<GameMeta>(session, "game") };
@@ -504,6 +517,7 @@ function toOffseasonStage(session: LeagueSession, option: PlayOption): PlayRepor
     const drafted = runDraft(world, outcome, game.season, game.date);
     for (const p of drafted.added) session.cache.put("players", p);
     for (const p of world.players) if (drafted.changed.has(p.pid)) session.cache.put("players", p);
+    savePicks(session, world);
     saveTransactions(session, drafted.transactions);
   }
   session.cache.put("meta", game, "game");
@@ -643,6 +657,7 @@ async function advanceToPreseason(session: LeagueSession): Promise<PlayReport> {
   const turnover = summerTransition(world, loadSeason(session));
   for (const p of world.players) if (turnover.changed.has(p.pid)) cache.put("players", p);
   for (const p of turnover.added) cache.put("players", p);
+  savePicks(session, world);
   saveTransactions(session, turnover.transactions);
   saveMessages(session, turnover.messages);
 

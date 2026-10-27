@@ -273,7 +273,8 @@ describe("the season loop in a save", () => {
   // re-recorded once, for the world's id the save now records (SPEC §17.1): without it,
   // the hash was main's. `awards`, `clubs` and `transactions` were re-recorded for T's club
   // names (SPEC §17.3, SL1): with the old names put back, every store was byte-for-byte
-  // main's.
+  // main's. `draftPicks` (SL4) is a new store, empty in Classic: its hash is the empty
+  // list's.
   it("leaves exactly the recorded Classic save", SLOW, async () => {
     const { db } = await openLeague(1);
     const parts: Record<string, unknown> = {};
@@ -289,6 +290,7 @@ describe("the season loop in a save", () => {
       clubSeasons: "6aeb9d73f22032da",
       clubs: "66a899ac6fa217b4",
       competitions: "9c7053789f091c56",
+      draftPicks: "4f53cda18c2baa0c",
       fixtures: "bc36a8610645a8ba",
       inbox: "fac183c7acfaef80",
       matches: "9ac0b3aab2246683",

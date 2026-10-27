@@ -1,14 +1,14 @@
 /**
  * The draft (SPEC §17.5), its AI core: each June a class of prospects, the pick order from
- * the season's tables, and every club picking by value and need, two rounds in the same
- * order. Rookies sign rookie contracts; prospects nobody picks become free agents. The
- * lottery draw, the user's own picks and traded picks arrive in SL4: until then the pool
- * picks in odds order and the AI picks for the user too.
+ * the season's tables (the lottery first), and each slot's pick owner picking by value and
+ * need, two rounds in the same order. Rookies sign rookie contracts; prospects nobody picks
+ * become free agents. Picks are owned assets, made ahead and used up at the draft. The
+ * user's own picks arrive later in SL4: until then the AI picks for the user too.
  */
 import type { DraftConfig } from "../../common/config/competitions";
 import type { WorldConfig } from "../../common/config/worlds";
 import { ratingsConfig, type Side } from "../../common/config/ratings";
-import type { Player } from "../../common/schema";
+import type { Club, DraftPick, Player } from "../../common/schema";
 import { Random } from "../core/random";
 import { roundWage } from "../generate/contracts";
 import { sampleNationality, worldMix } from "../generate/identity";
@@ -96,6 +96,29 @@ export function rookieWage(draft: DraftConfig, pick: number): number {
   return roundWage((points.at(-1) as [number, number])[1]);
 }
 
+/**
+ * The picks missing for the drafts from `season`'s to `picksAhead` seasons after it: every
+ * club's own, each round (a club's traded picks stay with their owner). Returns the new ones.
+ */
+export function missingPicks(
+  draft: DraftConfig,
+  clubs: readonly Pick<Club, "cid">[],
+  picks: readonly DraftPick[],
+  season: number,
+): DraftPick[] {
+  const key = (s: number, round: number, cid: number) => `${s}/${round}/${cid}`;
+  const have = new Set(picks.map((p) => key(p.season, p.round, p.originalCid)));
+  const added: DraftPick[] = [];
+  for (let s = season; s <= season + draft.picksAhead; s++) {
+    for (let round = 1; round <= draft.rounds; round++) {
+      for (const { cid } of clubs) {
+        if (!have.has(key(s, round, cid))) added.push({ season: s, round, originalCid: cid, cid });
+      }
+    }
+  }
+  return added;
+}
+
 /** What generating a class needs: the world, the save's seed and new player IDs. */
 export interface ClassSetup {
   config: WorldConfig;
@@ -172,10 +195,11 @@ export function draftClass(setup: ClassSetup, season: number, date: string): Pla
 }
 
 /**
- * Holds the draft of `season` (the season just played) on `date`: every club in
- * `draftOrder` picks the prospect it values most, for each round. The prospects not picked
- * stay prospects until 1 July (`draftClassTurnover`). A world without a class yet (none
- * so far) gets one here. Logs the picked players and a transaction per pick.
+ * Holds the draft of `season` (the season just played) on `date`: in `draftOrder`, each
+ * slot's pick owner (the slot's club unless it traded the pick) picks the prospect it
+ * values most, for each round; the season's picks are then used up. The prospects not
+ * picked stay prospects until 1 July (`draftClassTurnover`). A world without a class yet
+ * (none so far) gets one here. Logs the picked players and a transaction per pick.
  */
 export function runDraft(
   world: LoopWorld,
@@ -197,10 +221,15 @@ export function runDraft(
   }
   const available = new Set(prospects);
   const { potWeight, needBonus, areaTargets } = draft.aiPick;
+  const picks = world.draftPicks ?? [];
+  const owner = (round: number, slot: number) =>
+    picks.find((p) => p.season === season && p.round === round && p.originalCid === slot)?.cid ??
+    slot;
   let pick = 0;
   for (let round = 1; round <= draft.rounds; round++) {
-    for (const cid of order) {
+    for (const slot of order) {
       pick++;
+      const cid = owner(round, slot);
       const club = world.clubs.find((c) => c.cid === cid);
       if (!club || available.size === 0) continue;
       const have = { gk: 0, def: 0, mid: 0, att: 0 };
@@ -245,12 +274,14 @@ export function runDraft(
       });
     }
   }
+  world.draftPicks = picks.filter((p) => p.season !== season);
   return log;
 }
 
 /**
- * 1 July in a world with a draft: the prospects nobody picked in June join free agency, and
- * the class of the draft `classesAhead` seasons on arrives (three visible, T 2026-10-27).
+ * 1 July in a world with a draft: the prospects nobody picked in June join free agency,
+ * the class of the draft `classesAhead` seasons on arrives (three visible, T 2026-10-27),
+ * and the clubs get their picks for the draft `picksAhead` seasons on.
  */
 export function draftClassTurnover(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
@@ -266,5 +297,7 @@ export function draftClassTurnover(world: LoopWorld, season: number, date: strin
   const next = draftClass(world, season + draft.classesAhead, date);
   world.players.push(...next);
   log.added.push(...next);
+  const picks = world.draftPicks ?? [];
+  world.draftPicks = [...picks, ...missingPicks(draft, world.clubs, picks, season)];
   return log;
 }

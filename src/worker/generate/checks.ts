@@ -5,9 +5,9 @@
  * numbers ("few 75+, many 50–65") are judgment calls, documented in PROGRESS.md; they are
  * Classic's, and the Super League's quality spread is calibrated in SL6.
  */
-import { capOf } from "../../common/config/competitions";
+import { capOf, type DraftConfig } from "../../common/config/competitions";
 import type { WorldConfig, WorldId } from "../../common/config/worlds";
-import type { Club, ClubSeason, Player } from "../../common/schema";
+import type { Club, ClubSeason, DraftPick, Player } from "../../common/schema";
 import { STARTING_SQUAD_COST } from "./contracts";
 import { FREE_AGENT_POOL_SIZE, RELEASED_YOUTH_COUNT } from "./freeAgents";
 import { OPENING_ACADEMY } from "./squad";
@@ -22,6 +22,8 @@ export interface WorldLike {
   clubs: Club[];
   clubSeasons: ClubSeason[];
   players: Player[];
+  /** A world with a draft: the clubs' picks (checked when given). */
+  draftPicks?: DraftPick[];
   /** Per club: best-XI mean slot OVR in its default formation. */
   xiStrength: Map<number, number>;
 }
@@ -50,6 +52,17 @@ export const WORLD_SHAPE: Partial<
 };
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
+
+/** Each club owns its own pick in every round of the first drafts, once. */
+function picksPass(picks: readonly DraftPick[], clubs: number, draft: DraftConfig): boolean {
+  const expected = clubs * draft.rounds * (draft.picksAhead + 1);
+  const distinct = new Set(picks.map((p) => `${p.season}/${p.round}/${p.originalCid}`));
+  return (
+    picks.length === expected &&
+    distinct.size === expected &&
+    picks.every((p) => p.cid === p.originalCid)
+  );
+}
 
 export function evaluateWorld(
   world: WorldLike,
@@ -145,6 +158,15 @@ export function evaluateWorld(
               (competitions.draft.classesAhead + 1) * competitions.draft.classSize,
             detail: `${world.players.filter((p) => p.status === "prospect").length}`,
           },
+          ...(world.draftPicks
+            ? [
+                {
+                  name: `every club's own picks for ${competitions.draft.picksAhead + 1} drafts`,
+                  pass: picksPass(world.draftPicks, clubCount, competitions.draft),
+                  detail: `${world.draftPicks.length}`,
+                },
+              ]
+            : []),
         ]
       : []),
     {

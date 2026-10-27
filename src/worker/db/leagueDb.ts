@@ -44,6 +44,9 @@ export function openLeagueDb(
         db.createObjectStore("inbox", { keyPath: "mid" });
         db.createObjectStore("awards", { keyPath: "aid" }).createIndex("season", "season");
       }
+      if (oldVersion < 9 && (newVersion ?? 0) >= 9) {
+        db.createObjectStore("draftPicks", { keyPath: ["season", "round", "originalCid"] });
+      }
       // An older save's rows need converting, one version at a time; a new save has none.
       if (oldVersion >= 2) {
         const target = newVersion ?? 0;
@@ -70,8 +73,10 @@ export function deleteLeagueDb(lid: number): Promise<void> {
 
 /** Writes a freshly generated world into an empty league database, in one transaction. */
 export async function writeWorld(db: IDBPDatabase<LeagueDBSchema>, world: World): Promise<void> {
+  // A world without a draft has no picks (and an older save no store for them).
+  const picks = world.draftPicks.length > 0 ? (["draftPicks"] as const) : [];
   const tx = db.transaction(
-    ["meta", "competitions", "clubs", "clubSeasons", "players"],
+    ["meta", "competitions", "clubs", "clubSeasons", "players", ...picks],
     "readwrite",
   );
   const writes: Promise<unknown>[] = [];
@@ -82,5 +87,6 @@ export async function writeWorld(db: IDBPDatabase<LeagueDBSchema>, world: World)
   for (const row of world.clubs) writes.push(tx.objectStore("clubs").put(row));
   for (const row of world.clubSeasons) writes.push(tx.objectStore("clubSeasons").put(row));
   for (const row of world.players) writes.push(tx.objectStore("players").put(row));
+  for (const row of world.draftPicks) writes.push(tx.objectStore("draftPicks").put(row));
   await Promise.all([...writes, tx.done]);
 }

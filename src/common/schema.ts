@@ -523,6 +523,21 @@ export interface Offer {
   season?: number;
 }
 
+/**
+ * A draft pick (SPEC §17.5): a club's slot in one round of one season's draft, an asset its
+ * owner can trade. Each club's picks exist for the coming draft and `picksAhead` seasons
+ * after it; the draft uses them up. Keyed by season, round and original club.
+ */
+export interface DraftPick {
+  /** The season whose draft (held the next June) it is in, as `Player.draftSeason`. */
+  season: number;
+  round: number;
+  /** The club whose slot it is: that club's finish places it, lottery included. */
+  originalCid: number;
+  /** Its owner now. */
+  cid: number;
+}
+
 export interface TransactionRow {
   xid: number;
   season: number;

@@ -8,6 +8,7 @@ import {
   draftOrder,
   drawLottery,
   lotteryOddsNow,
+  missingPicks,
   rookieWage,
   runDraft,
 } from "./draft";
@@ -53,6 +54,7 @@ function world(): LoopWorld {
     userCid: 0,
     seed: "draft-test",
     nextPid: () => pid++,
+    draftPicks: structuredClone(generated.draftPicks),
   };
 }
 
@@ -131,6 +133,56 @@ describe("the draft", () => {
     for (const s of [2027, 2028, 2029]) {
       expect(w.players.filter((p) => p.draftSeason === s)).toHaveLength(110);
     }
+  });
+
+  it("makes every club's own picks for the coming draft and three more", () => {
+    const picks = generated.draftPicks;
+    expect(picks).toHaveLength(48 * 2 * 4);
+    expect([...new Set(picks.map((p) => p.season))]).toEqual([2026, 2027, 2028, 2029]);
+    expect(picks.every((p) => p.cid === p.originalCid)).toBe(true);
+    // Only missing ones are made: a traded pick stays with its owner.
+    const traded = picks.map((p) => (p.originalCid === 5 ? { ...p, cid: 6 } : p));
+    expect(missingPicks(draft, generated.clubs, traded, 2026)).toEqual([]);
+    expect(missingPicks(draft, generated.clubs, traded, 2027)).toHaveLength(96);
+  });
+
+  it("gives a traded pick's owner the original club's slot, lottery included", SLOW, () => {
+    const blueLast = at("BLUE", 16);
+    const champion = at("STAR", 1);
+    const own = world();
+    runDraft(own, outcome, 2026, "2027-06-15");
+    const slotOf = (w: LoopWorld, cid: number, round: number) =>
+      w.players.find((p) => p.draft?.cid === cid && p.draft.round === round)?.draft?.pick;
+    const slot = slotOf(own, blueLast, 1);
+    expect(slot).toBeLessThanOrEqual(8);
+
+    const w = world();
+    const pick = w.draftPicks?.find(
+      (p) => p.season === 2026 && p.round === 1 && p.originalCid === blueLast,
+    );
+    if (pick) pick.cid = champion;
+    const later = w.draftPicks?.find(
+      (p) => p.season === 2028 && p.round === 2 && p.originalCid === blueLast,
+    );
+    if (later) later.cid = champion;
+    runDraft(w, outcome, 2026, "2027-06-15");
+    const drafted = (cid: number) => w.players.filter((p) => p.draft?.cid === cid);
+    expect(drafted(champion)).toHaveLength(3);
+    expect(drafted(blueLast)).toHaveLength(1);
+    expect(drafted(champion).some((p) => p.draft?.round === 1 && p.draft.pick === slot)).toBe(true);
+    // The draft used its picks up; the later ones wait, the traded one with its owner.
+    expect(w.draftPicks?.some((p) => p.season === 2026)).toBe(false);
+    expect(w.draftPicks).toHaveLength(48 * 2 * 3);
+    // 1 July: the picks of the draft three seasons on.
+    draftClassTurnover(w, 2027, "2027-07-01");
+    expect(w.draftPicks).toHaveLength(48 * 2 * 4);
+    expect([...new Set(w.draftPicks?.map((p) => p.season))].sort()).toEqual([
+      2027, 2028, 2029, 2030,
+    ]);
+    expect(w.draftPicks?.find((p) => p === later)?.cid).toBe(champion);
+    expect(
+      w.draftPicks?.filter((p) => p.season === 2030).every((p) => p.cid === p.originalCid),
+    ).toBe(true);
   });
 
   it("pays rookies by pick, interpolating the config's points", () => {

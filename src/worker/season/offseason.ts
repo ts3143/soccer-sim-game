@@ -22,6 +22,7 @@ import type {
   AwardRow,
   Club,
   ClubSeason,
+  DraftPick,
   InboxMessage,
   Player,
   TransactionRow,
@@ -114,6 +115,8 @@ export interface LoopWorld {
   nextPid: () => number;
   /** AI bids for the user's players, open until `expires` (at most one per player). */
   openBids?: { pid: number; fromCid: number; expires: string }[];
+  /** The draft picks (a world with a draft): replaced as picks are made and used up. */
+  draftPicks?: DraftPick[];
 }
 
 export type NewTransaction = Omit<TransactionRow, "xid">;

@@ -4,6 +4,7 @@ import type {
   Club,
   ClubSeason,
   CompetitionRow,
+  DraftPick,
   Fixture,
   InboxMessage,
   LeagueSummary,
@@ -24,8 +25,9 @@ import type {
  *   v6: no store changes; injury histories start (meta game `injuriesSince`).
  *   v7: no store changes; the user's club gets a saved line-up if it has none.
  *   v8: no store changes; the save records its world (meta `world.id`): older are Classic.
+ *   v9: `draftPicks` (SPEC §17.5), empty in a world without a draft.
  */
-export const LEAGUE_DB_VERSION = 8;
+export const LEAGUE_DB_VERSION = 9;
 
 export interface LeagueDBSchema extends DBSchema {
   /** Key-value rows; see MetaRows in src/common/schema.ts. */
@@ -45,6 +47,7 @@ export interface LeagueDBSchema extends DBSchema {
   transactions: { key: number; value: TransactionRow; indexes: { season: number; pids: number } };
   inbox: { key: number; value: InboxMessage };
   awards: { key: number; value: AwardRow; indexes: { season: number } };
+  draftPicks: { key: [number, number, number]; value: DraftPick };
 }
 
 export type { LeagueSummary };

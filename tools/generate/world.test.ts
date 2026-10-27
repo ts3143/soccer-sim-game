@@ -67,7 +67,8 @@ describe("generateWorld", () => {
   // exactly this (MILESTONES SL0). Re-record only for a change T approved. `meta` was
   // re-recorded once, for the world's id the save now records (SPEC §17.1): without it,
   // the hash was main's. `clubs` was re-recorded for T's club names (SPEC §17.3, SL1): with
-  // the old names put back, the world was byte-for-byte main's.
+  // the old names put back, the world was byte-for-byte main's. `draftPicks` (SL4) is new
+  // and empty in Classic: its hash is the empty list's.
   it("generates exactly the recorded Classic world", async () => {
     expect(await fingerprints({ ...world })).toEqual({
       meta: "1599e4ca3c158396",
@@ -75,6 +76,7 @@ describe("generateWorld", () => {
       clubs: "a979b40c04866ebc",
       clubSeasons: "6858b15c259cd513",
       players: "60eeb9aef2dd9623",
+      draftPicks: "4f53cda18c2baa0c",
       xiStrength: "7dbc52133ca8565b",
     });
   });

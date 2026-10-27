@@ -227,6 +227,15 @@ describe("league DB upgrades", () => {
     v8.close();
   });
 
+  it("gives an older save an empty store of draft picks (v9)", async () => {
+    const v8 = await openLeagueDb(9009, 8);
+    expect(v8.objectStoreNames.contains("draftPicks")).toBe(false);
+    v8.close();
+    const v9 = await openLeagueDb(9009);
+    expect(await v9.count("draftPicks")).toBe(0);
+    v9.close();
+  });
+
   it("creates a new save at the current version with nothing to convert", async () => {
     const db = await openLeagueDb(9002);
     expect(db.version).toBe(LEAGUE_DB_VERSION);

@@ -148,6 +148,8 @@ export interface DraftConfig {
   classSize: number;
   /** A class appears on 1 July this many seasons before its draft (so 1 + this are visible). */
   classesAhead: number;
+  /** Picks exist (and can be traded) for the coming draft and this many seasons' after it. */
+  picksAhead: number;
   /** Picks drawn by lottery from the pool; the rest of the pool follows in odds order. */
   lotteryPicks: number;
   /** Prospects' ages at the draft. */
@@ -412,6 +414,7 @@ function parseDraft(
     rounds: json.rounds,
     classSize: json.classSize,
     classesAhead: json.classesAhead,
+    picksAhead: json.picksAhead,
     lotteryPicks: json.lotteryPicks,
     ages: json.ages,
     prospectQuality: json.prospectQuality,
