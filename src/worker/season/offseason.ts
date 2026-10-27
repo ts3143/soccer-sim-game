@@ -728,14 +728,20 @@ export function preseasonTurnover(world: LoopWorld, season: number, date: string
   const log = emptyLog();
   // The youth intake and academy decisions only where clubs have academies (SPEC §17.4).
   const academies = world.config.switches.youth === "academy";
+  // With a re-signing period (SPEC §17.6), the AI re-signs as it closes, before contracts
+  // expire, and renews nobody else; otherwise it renews as the summer window opens.
+  const resigning = world.config.switches.renewals === "resigningPeriod";
   const steps: ((w: LoopWorld, s: number, d: string) => Partial<TurnoverLog>)[] = [
     (w, s, d) => returnLoans(w, d, s),
+    ...(resigning
+      ? [(w: LoopWorld, s: number, d: string) => aiRenewals(w, s, d, "resigning")]
+      : []),
     expireContracts,
     freeAgentDepartures,
     ...(academies ? [youthIntake, academyDecisions] : []),
     // With a draft: last class's undrafted to free agency, this season's class (SPEC §17.5).
     ...(world.config.switches.youth === "draft" ? [draftClassTurnover] : []),
-    (w, s, d) => aiRenewals(w, s, d, "summer"),
+    ...(resigning ? [] : [(w: LoopWorld, s: number, d: string) => aiRenewals(w, s, d, "summer")]),
     // Where players move by trades, free agency tops squads up from 1 July (SPEC §17.6).
     ...(world.config.switches.market === "trades" ? [freeAgencyTopUp] : []),
     promoteToSquadSize,

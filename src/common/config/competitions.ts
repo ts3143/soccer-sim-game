@@ -199,6 +199,11 @@ export interface SoftCapConfig {
   graceSeasons: number;
   /** AI re-signings price wages as if a club's revenue were its cap / this ratio. */
   aiWageRatio: number;
+  /**
+   * The AI re-signs its core players over the cap while its payroll stays within the cap
+   * plus this share of it (others only within the cap).
+   */
+  coreOverCap: number;
 }
 
 export interface CompetitionsConfig {
@@ -540,6 +545,7 @@ export function parseCompetitions(json: CompetitionsFile, file: string): Competi
           tradeMatching: json.softCap.tradeMatching,
           graceSeasons: json.softCap.graceSeasons,
           aiWageRatio: json.softCap.aiWageRatio,
+          coreOverCap: json.softCap.coreOverCap,
         }
       : null,
     draft: json.draft ? parseDraft(json.draft, leagues, file) : null,

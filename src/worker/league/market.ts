@@ -98,6 +98,17 @@ function notBanned(session: LeagueSession, date: string) {
 }
 
 /**
+ * Why the user can't renew a player now in a world with a re-signing period (SPEC §17.6):
+ * only in that period, only players in their final year. Null when he can.
+ */
+function resigningClosed(game: GameMeta, left: number): string | null {
+  if (game.phase !== "resigning") {
+    return "Contracts are renewed only in the re-signing period, from the draft to 30 June.";
+  }
+  return left === 1 ? null : "Only players in the final year of their contract can be re-signed.";
+}
+
+/**
  * Talks with a player: with one of the user's (a renewal), at another club (a transfer:
  * personal terms once the fee is agreed) or a free agent. His mood toward the user's club,
  * his market value and his wage ask per length.
@@ -121,6 +132,8 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
   const mood =
     kind === "renewal" ? moodAtClub(world, p, game.date) : moodToward(world, p, user, game.date);
   const left = yearsLeft(p, game.date);
+  const resigning = kind === "renewal" && session.config.switches.renewals === "resigningPeriod";
+  const closedReason = resigning ? resigningClosed(game, left) : null;
   const level = leagueLevel(world, (club ?? user).leagueId, game.date);
   const budgets = clubBudgets(world, user);
   return {
@@ -144,7 +157,11 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
       mood?.value ?? 0,
       kind === "renewal" && left === 1,
     ).map((a) => ({ ...a, expires: contractEnd(game.season, a.years, game.date) })),
-    windowOpen: openWindow(game.date, game.season, session.config.competitions) !== null,
+    // With a re-signing period, a renewal's "window" is that period.
+    windowOpen: resigning
+      ? closedReason === null
+      : openWindow(game.date, game.season, session.config.competitions) !== null,
+    closedReason,
     userPlayer: kind === "renewal",
     feeAgreed: kind === "transfer" ? (agreedOffer(session, user.cid, pid)?.fee ?? null) : null,
     squad: { seniors: seniorsOf(world.players, user.cid).length, max: TRANSFERS.maxSeniors },
@@ -167,8 +184,11 @@ export function renewContract(session: LeagueSession, pid: number, years: number
     const game = meta<GameMeta>(session, "game");
     const talks = contractTalks(session, pid);
     if (!talks.userPlayer) throw new GameError("You can only renew your own players.");
-    if (!talks.windowOpen)
-      throw new GameError("Contracts can only be renewed in a transfer window.");
+    if (!talks.windowOpen) {
+      throw new GameError(
+        talks.closedReason ?? "Contracts can only be renewed in a transfer window.",
+      );
+    }
     if (!talks.mood.willing) throw new GameError(`${talks.name} won't negotiate with your club`);
     const ask = talks.asks.find((a) => a.years === years);
     const p = session.cache.get("players", pid);

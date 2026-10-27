@@ -1860,6 +1860,21 @@ Plan (about 6 chunks): 1 T's board rule, and prospects visible all season; 2 the
 - **No Draft page yet** (SL7): on the clock the user can only play "To the end of the draft" in the browser.
 - **Checks:** lint; 396 unit tests (new: the order numbered on the lottery's day, the AI to the user's turn, his own pick, the AI to the end; in a save: the Play options through the draft, his pick by the worker call, a second call refused); `pnpm build`; `pnpm generate --check` for both worlds; `pnpm calibrate --check`; `pnpm calibrate --world --check` (main's numbers); `pnpm calibrate --world superLeague --check` (the report identical to chunk 2's); all 18 browser checks (416 passes).
 
+#### Chunk 5a: the re-signing period (2026-10-27)
+- **T's decision** after chunk 4: picks for the coming draft plus two more (`picksAhead` 2; see chunk 3).
+- **Built:** in a world with a re-signing period (SPEC §17.6) contracts are renewed only then, final-year players only. The AI decides as the period closes (ZenGM: its re-signings are the first step of 1 July, before contracts expire; `aiRenewals(…, "resigning")`), and renews nobody with years left (no summer or winter renewals there). Its wage bill is then the payroll that stays (released players' wages included) plus each re-signing's whole wage. The user renews in the period only, final-year players only: `ContractTalks.closedReason` says why not otherwise (the contract modal shows it), and the worker refuses. His inbox lists his final-year players as the period opens.
+- **The cap (a default for T):** with only final-year players re-signed, 44% of club-seasons ended over the cap (55% before). The AI's core players were re-signed whatever the payroll; now only while it stays within the cap plus 10% (`softCap.coreOverCap`; SPEC §17.7 `[DEFAULT]`). Measured on the tier report (3 worlds × 20 seasons):
+
+  | Core re-signed over the cap | Club-seasons over the cap | Luxury tax paid, all | Over after grace | The rise |
+  | --- | --- | --- | --- | --- |
+  | unbounded (T's rule as built) | 44% | €54.8bn | 101 | 9.9 seasons |
+  | to cap + 25% | 44% | €36.0bn | 112 | 11.3 |
+  | **to cap + 10% (default)** | 41% | €15.3bn | 107 | 8.9 |
+  | not over the cap | 17% | €0.6bn | 51 | 9.9 |
+
+  Many clubs end a little over: rookies (signable over the cap) and minimum-wage free agents come on top. SL5's salary-shedding trades work on the rest.
+- **Checks:** lint; 397 unit tests (new: the AI's re-signings at the period's close, only contracts that ended, within the cap and its allowance; in a save: renewals refused outside the period and for players with years left, the inbox list, a renewal in the period, the rest gone on 1 July, the AI's re-signings only of ended contracts); `pnpm calibrate --world --check` (main's numbers); `pnpm calibrate --world superLeague --check`. The browser checks run with 5b.
+
 ## Open issues
 - The UI bundle is past Vite's 500 KB chunk warning since SL1 (crests inlined): load crests as files, or split the bundle, if it matters.
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).

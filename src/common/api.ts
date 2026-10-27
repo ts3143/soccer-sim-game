@@ -1088,6 +1088,11 @@ export interface ContractTalks {
   /** Wage asked per contract length (1–5 years) and the end date it gives. */
   asks: { years: number; wage: number; expires: string }[];
   windowOpen: boolean;
+  /**
+   * Why he can't sign now, in plain words, where the world's rules say so (a re-signing
+   * period, free agency closed); null otherwise (the window rule above applies).
+   */
+  closedReason: string | null;
   userPlayer: boolean;
   /** Transfer: the fee his club accepted (null until a bid is accepted). */
   feeAgreed: number | null;

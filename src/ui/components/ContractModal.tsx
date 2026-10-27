@@ -88,15 +88,17 @@ export function ContractModal({ pid, onClose }: { pid: number; onClose: () => vo
   const windowNeeded = t !== null && t.kind !== "freeAgent";
   const blocked = !t
     ? null
-    : windowNeeded && !t.windowOpen
-      ? "The transfer window is closed: renewals and transfers wait for the next window. Free agents can be signed at any time."
-      : !t.mood.willing
-        ? `${t.name} won't negotiate with your club.`
-        : t.kind !== "renewal" && t.budget.bannedUntil
-          ? `FFP: your club can't sign anyone until ${formatDate(t.budget.bannedUntil)}.`
-          : needsFee && t.budget.cashFrozen
-            ? "Your club's cash is below zero, so transfers are frozen until it's back above zero."
-            : null;
+    : t.closedReason
+      ? t.closedReason
+      : windowNeeded && !t.windowOpen
+        ? "The transfer window is closed: renewals and transfers wait for the next window. Free agents can be signed at any time."
+        : !t.mood.willing
+          ? `${t.name} won't negotiate with your club.`
+          : t.kind !== "renewal" && t.budget.bannedUntil
+            ? `FFP: your club can't sign anyone until ${formatDate(t.budget.bannedUntil)}.`
+            : needsFee && t.budget.cashFrozen
+              ? "Your club's cash is below zero, so transfers are frozen until it's back above zero."
+              : null;
   // A full squad can still agree a fee (a sale may follow), but can't sign him yet.
   const full =
     t !== null && t.kind !== "renewal" && t.squad.seniors >= t.squad.max

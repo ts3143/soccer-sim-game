@@ -7,6 +7,7 @@ import { playoffId } from "../season/season";
 import { draftView } from "../views/draft";
 import { draftProspect } from "./draft";
 import { gameState, play } from "./game";
+import { contractTalks, renewContract } from "./market";
 import { createLeague, openLeague } from "./session";
 
 beforeAll(() => {
@@ -91,8 +92,42 @@ describe("a Super League year in a save", () => {
       expect(board.status).toBe("over");
       expect(board.slots.every((s) => s.player !== null)).toBe(true);
       expect(board.slots.find((s) => s.pick === lyon[0])?.player?.pid).toBe(choice.pid);
+
+      // Contracts are renewed only in the re-signing period, final-year players only.
+      const lyonPlayers = () =>
+        session.cache.getAll("players").filter((p) => p.cid === 39 && p.status === "club");
+      const ending = lyonPlayers().filter((p) => p.contract?.expires === "2027-06-30");
+      const lasting = lyonPlayers().find((p) => (p.contract?.expires ?? "") > "2027-06-30");
+      expect(ending.length).toBeGreaterThan(0);
+      expect(contractTalks(session, ending[0]?.pid ?? -1).closedReason).toMatch(
+        /only in the re-signing period/,
+      );
       await go("untilResigning");
+      const notice = session.cache
+        .getAll("inbox")
+        .find((m) => m.subject.startsWith("The re-signing period"));
+      expect(notice?.players?.map((p) => p.pid).sort()).toEqual(ending.map((p) => p.pid).sort());
+      expect(contractTalks(session, lasting?.pid ?? -1).closedReason).toMatch(/final year/);
+      const willing = ending.find((p) => contractTalks(session, p.pid).mood.willing);
+      if (willing) await renewContract(session, willing.pid, 2);
+      // The AI re-signs as the period closes, only players whose contracts ended.
+      const aiEnding = new Set(
+        session.cache
+          .getAll("players")
+          .filter((p) => p.cid !== 39 && p.contract?.expires === "2027-06-30")
+          .map((p) => p.pid),
+      );
       await go("advanceToPreseason");
+      for (const p of ending) {
+        const now = session.cache.get("players", p.pid);
+        if (p === willing) expect(now?.contract?.expires).toBe("2029-06-30");
+        else expect(now?.status === "club" && now.cid === 39).toBe(false);
+      }
+      const renewals = session.cache
+        .getAll("transactions")
+        .filter((t) => t.type === "renewal" && t.date === "2027-07-01");
+      expect(renewals.length).toBeGreaterThan(0);
+      expect(renewals.every((t) => aiEnding.has(t.pids[0] ?? -1))).toBe(true);
       expect(steps).toEqual([
         ["untilDraftLottery", "2027-06-05", "draftLottery"],
         ["untilDraft", "2027-06-15", "draft"],

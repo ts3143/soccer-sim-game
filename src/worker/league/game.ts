@@ -32,6 +32,7 @@ import type { GameState, PlayOption, PlayReport } from "../../common/api";
 import { updateLeagueSummary } from "../db/globalDb";
 import { applyCapGrace } from "../finance/softCap";
 import { makePicks, nextPick, setDraftOrder } from "../season/draft";
+import { resigningNotice } from "../market/renewals";
 import { seasonDate } from "../schedule/calendar";
 import {
   endOfSeasonTurnover,
@@ -539,8 +540,8 @@ function nextOffseasonStage(config: WorldConfig, phase: Phase): OffseasonStage |
 /**
  * Moves to the next off-season stage. The lottery sets the draft's order (a save that
  * reaches the draft without one gets it then); the draft's picks are made with the Play
- * options of its phase (`draftOptions`). The re-signing period only sets the date and
- * phase for now.
+ * options of its phase (`draftOptions`). The re-signing period opens with a note of the
+ * user's contracts that end; the AI re-signs as it closes (1 July).
  */
 function toOffseasonStage(session: LeagueSession, option: PlayOption): PlayReport {
   const game = { ...meta<GameMeta>(session, "game") };
@@ -556,6 +557,10 @@ function toOffseasonStage(session: LeagueSession, option: PlayOption): PlayRepor
     const world = loopWorld(session, game.season);
     const outcome = seasonOutcome(loadSeason(session), session.config.competitions);
     saveDraftLog(session, world, setDraftOrder(world, outcome, game.season, game.date));
+  }
+  if (stage.phase === "resigning") {
+    const notice = resigningNotice(loopWorld(session, game.season), game.season, game.date);
+    if (notice) saveMessages(session, [notice]);
   }
   session.cache.put("meta", game, "game");
   return { from, to: game.date, matchesPlayed: 0, events: [], phase: game.phase };

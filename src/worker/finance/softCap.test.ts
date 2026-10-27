@@ -155,6 +155,26 @@ describe("the soft cap", () => {
       expect(sum(capped)).toBeLessThan(sum(uncapped));
     });
 
+    it("re-signs as the re-signing period closes: contracts that ended, within the cap", () => {
+      const w = { ...fresh(), userCid: 0 };
+      const ended = new Set(
+        w.players.filter((p) => p.contract?.expires === "2027-06-30").map((p) => p.pid),
+      );
+      const stayed = (cid: number) =>
+        w.players.filter((p) => p.cid === cid && (p.contract?.expires ?? "") > "2027-06-30");
+      const before = new Map(w.clubs.map((c) => [c.cid, payroll(c, stayed(c.cid), "2027-07-01")]));
+      const log = aiRenewals(w, 2027, "2027-07-01", "resigning");
+      expect(log.transactions.length).toBeGreaterThan(20);
+      expect(log.transactions.every((t) => ended.has(t.pids[0] ?? -1))).toBe(true);
+      expect(log.transactions.some((t) => t.cids[0] === 0)).toBe(false);
+      // A club's re-signings take its payroll at most to its cap plus the core allowance.
+      for (const club of w.clubs) {
+        const limit = (clubCap(config, club, 2027) ?? 0) * (1 + softCap.coreOverCap);
+        const after = payroll(club, stayed(club.cid), "2027-07-01");
+        expect(after).toBeLessThanOrEqual(Math.max(limit, before.get(club.cid) ?? 0));
+      }
+    });
+
     it("pays no Youth dial where clubs have no academies", () => {
       const w = fresh();
       settleMonths(w, "2026-07-01", "2026-09-30", config);
