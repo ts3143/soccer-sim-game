@@ -128,3 +128,101 @@ Build in this order: **engine and simulation first, UI last.** Each milestone en
 
 **Accept**
 - Performance budget met; no known crashers; deployed to Cloudflare Pages as v0.1.
+
+---
+
+# Super League build plan (T, 2026-10-27)
+
+SPEC §17. Same rules as above: engine and simulation first, UI last; ~1-hour chunks, a check-in after each. **Every milestone also ends with Classic's gates green**: `pnpm lint`, `pnpm test`, `pnpm build`, `pnpm calibrate --check`, `pnpm calibrate --world --check`, `pnpm generate --check` and the browser checks. Super League must never change a Classic result.
+
+## SL0 — Worlds as data
+**Build**
+- A world = clubs file + competitions config + switches (SPEC §17.1). Classic is today's files, content unchanged.
+- The save records its world; the worker reads that world's config through the session, not from global imports (today `competitionsConfig` and `clubDefinitions` are imported by about 35 files). League DB version bump; older saves become Classic.
+- The headless tools (`calibrate`, `generate`, `tools/season.ts`) take a world.
+
+**Accept**
+- Same seed → the same Classic world and the same season results as `main` (a determinism test against a recorded run).
+- An older save opens as Classic and plays on.
+
+## SL1 — Super League data and generation
+**Build**
+- Clubs file for the 48 (T's names; club values proposed to T for approval), generated crests, a Ukrainian names file (missing today), nationality mixes for the new countries.
+- Competitions config: three tiers of 16, places up and down, play-off formats, board targets, TV pools.
+- Classic: the 14 shared clubs take T's names (name, short name, abbreviation, crest initials; city unchanged).
+- Generation without academies, with payrolls at 85–100% of the tier's cap (a placeholder cap until SL3).
+- New game (worker side): create a Super League save.
+
+**Accept**
+- 48 clubs; every club's best-XI OVR within ±1 of `strength`; tiers ordered by strength on average.
+- `pnpm generate --check` passes for both worlds. A new Classic world generates exactly as before (names aside).
+- No real names in the bundle.
+
+## SL2 — Season, play-offs and the first harness
+**Build**
+- General play-off brackets in config (rounds, legs, seeding, venue), replacing the two hardcoded shapes; ENG2's play-off rewritten in it.
+- The Star title play-off; the Gold and Blue 2nd–5th play-offs; the calendar (30 rounds, play-offs in May); champion and table winner in history; awards per tier.
+- The Super League off-season phases (lottery, draft, re-signing) as stubs, so the year runs end to end.
+- `pnpm calibrate --world superleague`, first version: tier mobility and yo-yo report.
+
+**Accept**
+- A 20-season headless run with 2 up and 2 down between every pair of tiers each season, and nobody out of Blue.
+- ENG2's play-offs give identical results to before.
+
+## SL3 — Soft cap and finances
+**Build**
+- Payroll, the cap by tier, the grace season, the minimum wage, salary matching in trades (rule only), the luxury tax and its sharing.
+- FFP off by switch; TV money by tier; play-off prize money; the Youth dial gone.
+- The base cap and the TV pools proposed to T.
+
+**Accept**
+- Finance unit tests (cap, grace, tax, a released player's wages on the cap).
+- The harness reports cap violations and tax paid.
+
+## SL4 — Draft
+**Build**
+- The draft class, the lottery (pool, odds table, picks drawn), the full order, picks as owned assets up to 3 seasons ahead, rookie contracts.
+- AI drafting; the user's picks (worker calls); undrafted prospects to free agency.
+- The re-signing period (ZenGM) and free agency opening 1 July; the 25-player limit from the first match.
+
+**Accept**
+- Lottery odds unit-tested against the config table over many draws.
+- Over 20 seasons the player pool stays within Classic's ±10% and the OVR and age distributions stay stable.
+
+## SL5 — Trades
+**Build**
+- Trade valuation (players and picks; OVR, POT, age, contract, cap space, contending or rebuilding).
+- AI-to-AI trades on market days while trades are open; AI offers to the user; the trading block.
+- The user's proposals and "What would make this work?" (worker calls); the roster deadline; salary matching for clubs over the cap.
+- AI salary shedding for over-cap clubs after their grace season. The transfer market and loans off by switch.
+
+**Accept**
+- Exploit checks: two average players never buy a star; a pick's value falls with the years left and with a stronger original owner.
+- In the harness, over-cap relegated clubs are back under the cap within a season of their grace ending.
+
+## SL6 — Validation and tuning
+**Build**
+- The full Super League report (SPEC §17.9) with targets in `calibration_targets.json`.
+- Tuning of config (lottery odds, cap levels, TV pools, rookie scale, class size) and of AI coefficients, never results. The report is added to CI.
+
+**Accept**
+- Targets pass with CI's seed; if the 4–6-season rise can't be met by tuning, it goes back to T with the numbers.
+
+## SL7 — UI
+**Build**
+- New game: the Classic / Super League choice and the names file.
+- Standings (three tiers, zones, the lottery-odds column); Play-offs brackets.
+- Draft, Trade, Trading Block, Re-sign Players, the team's draft picks; Finances with the cap.
+- The top bar; the sidebar without Transfer Market, Loans and Youth Academy; Play-menu steps for the new phases; How to play.
+- Browser checks for Super League.
+
+**Accept**
+- T can run a Super League club through 3+ seasons in the UI: trade (picks included), draft, re-sign, sign free agents, get promoted or relegated, live with the cap.
+- Every existing browser check passes on Classic.
+
+## SL8 — Release
+**Build**
+- All gates on both worlds; CHANGELOG; T's local test; PR; v0.3.0.
+
+**Accept**
+- T's OK after his local test; production serves it.

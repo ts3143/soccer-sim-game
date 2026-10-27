@@ -2,6 +2,8 @@
 
 This is the build spec for Claude Code. It consolidates every decision from the design doc (37 logged decisions, scoped Oct 13 2026) into one place, organised by system, with contradictions resolved. Updated Oct 14 2026 with the 15 kickoff-review decisions (logged in `PROGRESS.md` → Deviations from spec).
 
+**Two worlds** (T, 2026-10-27): **Classic** (§2–§16, the domestic leagues) and **Super League** (§17). Everything in §2–§16 describes Classic and also applies to Super League unless §17 says otherwise.
+
 **Tags:** `[MVP]` ships in the first playable version. `[v1.1]` is the next layer. `[Later]` is roadmap. Untagged text applies to the MVP.
 **Defaults:** items marked `[DEFAULT]` were not explicitly decided by T; they are sensible defaults listed in `OPEN_QUESTIONS.md` for confirmation. Build them as written unless told otherwise.
 
@@ -15,7 +17,7 @@ A web-based soccer management sim in the mold of the ZenGM games (Basketball GM,
 - **Mirror ZenGM** in architecture, UX and conventions wherever that is sufficient. Do not copy ZenGM code: it is not open source.
 - **Results come from players.** League "style" modifiers are small and act on inputs, never on results.
 - **The AI plays by the user's rules** (same tactics levers, budgets, FFP, rotation logic).
-- **Fictional but familiar.** Clubs mirror the real 2026/27 line-ups with fictional names on real cities. Real club names never appear in the UI.
+- **Fictional but familiar.** Clubs mirror the real 2026/27 line-ups with fictional names on real cities. Real club names never ship: not in the app, not in a save the game creates. A user may load a names file of his own at New game (§17.3).
 
 ---
 
@@ -388,7 +390,7 @@ Screen details:
 - **Inbox** (T, 2026-10-25): lives in the Dashboard's right-hand column, with no page of its own (old `/inbox` links open the Dashboard; the sidebar's unread count sits on Dashboard). Every message, newest first, in a list that scrolls on its own; a filter by kind and Mark all read. A bid for one of the user's players carries **Accept** and **Reject** in its message while the bid is open (the same answer as Transfer Market › Incoming offers), and the bid's status once it closes.
 - **Inbox player links** (T, 2026-10-21): subjects and bodies link the players they name. New transfer, bid, loan, contract and academy messages keep stable player IDs with snapshot names (§12). Older transfer, contract and injury messages gain links when a full name identifies a unique current player; ambiguous names stay plain text. Opening and marking messages read work independently of the links.
 - **Finances (own club):** revenue/expense breakdown, cash over seasons, FFP gauge, budget dials, ticket price, transfer/wage budgets and shift control.
-- **New league screen:** pick your club (any of the 62).
+- **New league screen:** pick the world, **Classic** or **Super League** (just these two; their switches are not shown, §17.1), then your club (any of the 62, or any of the 48). Optional: load a names file (§17.3).
 - `[v1.1]` Watch List, Compare Players (overlaid radar charts), advanced-stats views.
 - `[Later]` Dark mode, Manage Teams, export/import, God Mode.
 
@@ -457,3 +459,121 @@ Screen details:
 - **Window:** transfer and renewal period (summer, winter).
 - **Slot:** a position in a formation (group + side).
 
+
+---
+
+## 17. Super League world (T, 2026-10-27)
+
+A second world, picked at New game, inspired by the European Super League project: 48 clubs in three tiers, no transfer market, players moving by trades, a lottery draft and free agency, and a tiered soft cap. Decisions #79–#83 in the design doc. Everything in §2–§16 applies unless this section says otherwise. Classic is unchanged.
+
+### 17.1 Worlds and switches
+- New game offers exactly two worlds: **Classic** and **Super League**. The switches behind them aren't shown.
+- A world is data: its clubs file, its competitions config and a set of **switches**. The save records which world it is; the worker reads that world's config from the bundled files, as Classic does today, so config tuning reaches existing saves. Worker code branches on the switches, never on the world's name. A future world (or a mixed one) is a new combination of switches plus data, not new branches.
+
+| Switch | Classic | Super League |
+| --- | --- | --- |
+| Player market | transfers (§7.3) | trades (§17.6) |
+| Youth | academy (§7.2) | draft (§17.5) |
+| Money rule | FFP (§6.4) | soft cap (§17.7) |
+| Loans | on (§7.4) | off |
+| Renewals | in the windows, by 31 January (§3.1) | one re-signing period (§17.6) |
+| Cups | English and German cups | none |
+
+- Saves from before the Super League are Classic.
+
+### 17.2 Structure and season
+- **48 clubs, three tiers of 16:** Star (tier 1), Gold (tier 2), Blue (tier 3). Each tier plays a double round robin: 30 matches. Table tie-breakers as Classic (§2.1).
+- **Promotion and relegation:** 2 up and 2 down between Star and Gold, and between Gold and Blue. Nobody drops out of Blue.
+- **Gold and Blue promotion:** the table winner goes up automatically. The second place goes to the winner of a play-off among 2nd–5th: single-leg semi-finals (2nd hosts 5th, 3rd hosts 4th), then a single final at a neutral venue.
+- **Star title play-off:** the top 8 play off. Fixed bracket: 1st v 8th and 4th v 5th on one side, 2nd v 7th and 3rd v 6th on the other. Quarter- and semi-finals are two-legged, the higher seed hosting the second leg; the final is a single match at a neutral venue. A config flag makes every round single-leg. Knockout rules as §8.6.
+- **Champion** = the Star play-off winner. The Star table winner is recorded in history but isn't a title.
+- **No cups** for now. The config can add one later.
+- **Every number above lives in config:** tier sizes, places up and down, play-off positions, legs, bracket, venues.
+- **Calendar** (dates in config, set in SL2): regular season from mid-August to late April on weekend slots, play-offs in May, the Star final in late May. Then the off-season (§17.6): awards and promotion/relegation, the draft lottery (early June), the draft (mid-June), the re-signing period (to 30 June); 1 July is preseason.
+- **Development** stays twice a season: winter (1 January) and preseason (1 July), as §5. As in ZenGM, players are re-signed before the preseason update.
+- **Board targets** (config): Star = win the title / reach the top 8 / avoid relegation; Gold and Blue = promotion / reach the play-offs / mid-table.
+
+### 17.3 Clubs and names
+- **Names are T's: city + nickname.** There are no real club names, crests or kits; crests are generated as in Classic. The data file keeps `based_on` as a dev reference only (§6.1). Starting strength roughly follows tier order: club values (strength, reputation, market, capacity, revenue) are proposed in SL1 for T's approval.
+  - **Star:** Madrid Blancos, Madrid Colchoneros, Barcelona Blaugrana, Manchester Citizens, Liverpool Reds, London Gunners, London Blues, London Lilywhites, Munich Die Roten, Dortmund Schwarzgelben, Leverkusen Werkself, Milan Nerazzurri, Milan Rossoneri, Turin Bianconeri, Naples Partenopei, Paris Rouge-et-Bleu.
+  - **Gold:** Manchester Red Devils, Newcastle Magpies, Birmingham Lions, Seville Nervionenses, San Sebastián Txuri-Urdin, Bilbao Leones, Villarreal Submarino, Leipzig Bullen, Frankfurt Adler, Rome Giallorossi, Rome Biancocelesti, Bergamo Dea, Marseille Phocéens, Monaco Monégasques, Lisbon Encarnados, Porto Dragões.
+  - **Blue:** Amsterdam Godenzonen, Eindhoven Boeren, Rotterdam Stadionclub, Glasgow Bhoys, Glasgow Light Blues, Istanbul Aslanlar, Istanbul Kanaryalar, Lyon Gones, Lille Dogues, Lisbon Leões, Bruges Blauw-Zwart, Salzburg Mozartstädter, Donetsk Miners, Florence Viola, Stuttgart Schwaben, Seville Verdiblancos.
+- **The same names in Classic:** the 14 clubs in both worlds take T's names in Classic too (e.g. Islington Cannons → London Gunners). Only the name, short name, abbreviation and crest initials change. The city stays, so a new Classic world generates exactly as before.
+- **Names file** (both worlds): at New game the user may load a JSON file that renames clubs (name, short name, abbreviation, by club id), ZenGM style. It is validated and written into that save only. The game never ships such a file: it isn't in the repo, the app or a save the game creates. `pnpm build` keeps failing on real names in the bundle.
+
+### 17.4 Squads
+- **No academy:** no youth intake, no Youth academy page or dial, no academy players. Every player is a senior.
+- **Squad limit:** at most 25 players, counted from the first league match. In the off-season a club may hold more, so the draft and free agency work. While the user is over 25 at the first match, Play is blocked until he releases or trades; AI clubs trim themselves.
+- `[DEFAULT]` **Short of players:** with fewer than 16 fit players the bench is simply shorter (there is no academy to fill it, and no emergency signings: T, 2026-10-27). If fewer than 11 can play, players with the shortest injuries fill in; suspended players never do.
+
+### 17.5 Draft
+- **Two rounds** (config), mid-June, 48 picks a round. Draft prospects are aged 17–19.
+- `[DEFAULT]` **The class:** about 110 prospects (config), generated on 1 July for the next June's draft and viewable all season. Prospects don't develop before the draft. Undrafted prospects join free agency on 1 July.
+- **Lottery pool of 8:** the 4 relegated clubs and the bottom 4 of Blue. Odds come from a config table: the worst Blue clubs get the best odds, relegated clubs mid odds. The lottery draws picks 1–4 (config); the other 4 clubs of the pool follow the odds order.
+- **Picks 9–44:** reverse combined standings: by the tier played this season, then by table points (Star by its table, not the play-off result), with the table tie-breakers.
+- **Picks 45–48:** the 4 promoted clubs, by the same rule.
+- **Picks are owned assets** and can be traded up to 3 seasons ahead (config). A traded pick takes the slot of the club that originally owned it, lottery included. No pick protections.
+- **Rookie contracts:** 3 years, wage by pick number (config table), signable over the cap. Drafted players count toward the squad limit at once.
+- **Playing the draft:** Play menu "Until your pick" and "To the end of the draft", the second auto-picking for the user, as ZenGM. AI clubs pick by value with some weight on positional need.
+- **Standings** show a lottery-odds column: each club's current chance at pick 1 if the season ended today, blank outside the pool.
+- `[DEFAULT]` The player profile records where he was drafted (season, round, pick, club).
+
+### 17.6 Player movement
+- **No transfer market and no loans.** Players move by trades, the draft and free agency.
+- **Trades:** players and draft picks, no cash. Two-sided, ZenGM style: the user builds an offer, the AI says yes or no, and "What would make this work?" asks the AI what it would want added. AI clubs trade with each other and make offers to the user (in the inbox). A trading block lets the user ask for offers for chosen players.
+- **AI trade valuation** weighs OVR, POT, age, contract (years left, wage against worth), cap space and team state (contending clubs value current OVR, rebuilding clubs POT, youth and picks). It is nonlinear, so two average players never equal one star (§7.3). A pick is valued from its projected slot, discounted by the years until it's used.
+- **One roster deadline** for trades and free agents: after 60% of the regular-season rounds (config; round 18 of 30, early February). From then until the end of the play-offs, squads are locked except for releases. No exceptions (T, 2026-10-27).
+- **The year:**
+
+  | When | Trades | Free agents | Re-signing |
+  | --- | --- | --- | --- |
+  | 1 July (preseason) → roster deadline | open | open | – |
+  | Roster deadline → end of the play-offs | closed | closed | – |
+  | End of the play-offs → draft | open | closed | – |
+  | Draft (picks tradable during it) | open | closed | – |
+  | Draft → 30 June | open | closed | **open** |
+
+- **Re-signing period** (ZenGM): from the draft to 30 June, the one time contracts can be renewed. Only players in their final year qualify, and anyone not re-signed leaves on 1 July. There are no in-season renewals and no extensions for players with years left. AI clubs follow the same rule. During the season the Squad page shows whether each expiring player is willing to re-sign (from his mood, §4.6). Negotiation as §7.6.
+- **Trade restrictions:** after the season ends, final-year players can't be traded (their contracts are ending); drafted players can be traded at once.
+- **Free agency** opens 1 July with every player whose contract ended and the undrafted prospects. AI clubs sign most free agents on market days in July and August, and after that only to fill a gap, until the deadline. Asking prices drop the longer a player waits (§7.5).
+- **Releasing** (ZenGM, as §7.6): the player joins free agency, and his wages are paid until the contract ends and stay on the cap.
+
+### 17.7 Money: the soft cap
+- **Payroll** = wages of the players under contract plus the wages still owed to released players. There are no transfer fees, so nothing is amortised.
+- **The cap by tier:** Star 100%, Gold 80%, Blue 65% of a base cap in euros (config, set in SL3).
+- **Over the cap,** a club may still:
+  - re-sign its own players;
+  - sign its draft picks;
+  - sign free agents, but only at the minimum wage (config);
+  - trade, if the wages it takes back are at most 125% of those it sends out (config).
+- **Luxury tax:** 1.5× (config) the payroll above the cap, paid at season end. After the roster deadline a payroll can only change through releases, which don't lower it.
+  - `[DEFAULT]` The tax is shared equally among that tier's clubs under the cap, as ZenGM does.
+- **Grace season:** a relegated club keeps its old tier's cap for one season. After that, AI clubs over the cap shed salary by trades; the user decides for himself.
+- **FFP is off** in this world. Revenue, costs, cash, the budget dials (without Youth academy), the ticket price and the board all work as in Classic.
+- **Revenue:** TV money by tier (a pool per tier in config, equal share plus merit, as §6.2), with matchday and commercial income as Classic. `[DEFAULT]` Play-off prize money per round is in config.
+- **Opening payrolls** are generated at about 85–100% of the tier's cap.
+
+### 17.8 UI differences
+- **Gone:** Transfer Market, Loans, Youth Academy, window badges.
+- **New:**
+  - Trade (ZenGM style: both squads and picks side by side, the AI's answer, "What would make this work?");
+  - Trading Block;
+  - Draft (lottery, prospects, the draft board, picks made);
+  - Re-sign Players (during the re-signing period);
+  - the team's draft picks;
+  - Play-offs (brackets).
+- **Changed:**
+  - Standings (three tiers, zones for promotion, play-offs and relegation, the lottery-odds column);
+  - Finances (payroll, cap, tax, grace season);
+  - the top bar ("Trades open until <date>");
+  - How to play (a Super League section).
+
+### 17.9 Validation
+`pnpm calibrate` runs Super League headlessly for 20+ seasons and reports:
+- **Yo-yo clubs:** the share of promotions followed by relegation from the new tier within the next 2 seasons.
+- **The rise:** for each club finishing in Blue's bottom 4, the seasons until it first finishes in Star's table top 8. Average and median over the clubs that make it, plus the share that never does in the run. **Target: average 4–6.** The minimum possible is 3 seasons.
+- **Tier mobility:** promotions and relegations per club; distinct clubs that played in Star; how many of the opening Star 16 are still there after 10 and 20 seasons.
+- **Cap violations:** club-seasons over the cap at season end outside a grace season; luxury tax paid; relegated clubs still over the cap after their grace season.
+- **Classic's world health checks** (player count stable, OVR distribution, peak age, retirements, free-agent pool), so the draft keeps the player pool steady.
+
+Targets live in `calibration_targets.json`. Coefficients are tuned, never results (§14); if a target can't be met that way, it goes back to T.
