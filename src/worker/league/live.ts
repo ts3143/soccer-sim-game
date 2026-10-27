@@ -745,7 +745,7 @@ function liveView(session: LeagueSession, live: Running, from: number): LiveMatc
     fid: fixture.fid,
     date: fixture.date,
     competition: fixture.competition,
-    competitionName: competitionName(fixture.competition),
+    competitionName: competitionName(session.config.competitions, fixture.competition),
     round: fixture.round,
     leg: fixture.leg ?? null,
     userSide: live.row.side,

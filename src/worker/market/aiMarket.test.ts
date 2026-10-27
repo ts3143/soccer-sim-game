@@ -22,7 +22,7 @@ const freshWorld = (): MarketWorld => ({
   seed: "ai-market-test",
   openBids: [],
 });
-const days = marketDays(2026);
+const days = marketDays(2026, worlds.classic.competitions);
 const totalCash = (w: MarketWorld) => w.clubs.reduce((s, c) => s + c.cash, 0);
 
 describe("market days", () => {

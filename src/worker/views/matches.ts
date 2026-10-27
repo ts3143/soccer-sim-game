@@ -27,7 +27,11 @@ export async function getBoxScore(lid: number, fid: number): Promise<BoxScoreVie
       shirtNumber: p?.shirtNumber ?? null,
     };
   }
-  return { match: matchView(fixture, clubs), result: record?.result ?? null, players };
+  return {
+    match: matchView(fixture, clubs, session.config.competitions),
+    result: record?.result ?? null,
+    players,
+  };
 }
 
 export async function getGameLog(
@@ -53,7 +57,7 @@ export async function getGameLog(
       else if (result === "D") record.drawn++;
       else record.lost++;
     }
-    return clubMatch(f, cid, clubs);
+    return clubMatch(f, cid, clubs, session.config.competitions);
   });
   return { team: teamRef(clubs.get(cid)), season: s, matches, record };
 }
@@ -79,7 +83,7 @@ export async function getMatchPreview(lid: number, fid: number): Promise<MatchPr
       .filter((f) => (f.homeCid === cid || f.awayCid === cid) && played(f, fixture))
       .sort(byDate)
       .slice(-5)
-      .map((f) => clubMatch(f, cid, clubs));
+      .map((f) => clubMatch(f, cid, clubs, session.config.competitions));
   const home = clubs.get(fixture.homeCid);
   const away = clubs.get(fixture.awayCid);
   return {
@@ -104,6 +108,6 @@ async function lastMeeting(
       .filter((f) => both(f) && played(f, fixture))
       .sort(byDate)
       .at(-1);
-    if (met) return matchView(met, clubs);
+    if (met) return matchView(met, clubs, session.config.competitions);
   }
 }

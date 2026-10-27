@@ -1,12 +1,13 @@
 /**
- * Club definitions (data/clubs_2026_27.json), whitelisted field by field.
+ * Club definitions (Classic's are data/clubs_2026_27.json), whitelisted field by field.
+ * Each world has its own (worlds.ts).
  *
  * The data file's `based_on` field (the real club each one mirrors) is a dev reference
  * only (SPEC §6.1): it is never copied here, so it can't reach a save or the UI. The
  * build also strips it from the bundled JSON (tools/vite/strip-based-on.ts), and
  * tools/check-bundle.ts fails the build if a real club name turns up in the output.
  */
-import raw from "../../../data/clubs_2026_27.json";
+import type raw from "../../../data/clubs_2026_27.json";
 
 export interface ClubDefinition {
   /** Short lowercase code, e.g. "isl"; also names the crest file data/crests/<code>.svg. */
@@ -55,5 +56,3 @@ export const parseClubs = (json: ClubsFile): ClubDefinition[] =>
     strength: c.strength,
     crest: { shape: c.crest.shape, motif: c.crest.motif, initials: c.crest.initials },
   }));
-
-export const clubDefinitions: readonly ClubDefinition[] = parseClubs(raw);

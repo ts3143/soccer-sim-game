@@ -7,8 +7,10 @@
  *
  * Only Classic so far; the Super League world arrives with its data (MILESTONES SL1).
  */
-import { type ClubDefinition, clubDefinitions } from "./clubs";
-import { type CompetitionsConfig, competitionsConfig } from "./competitions";
+import classicClubs from "../../../data/clubs_2026_27.json";
+import classicCompetitions from "../../../data/config/competitions_mvp.json";
+import { type ClubDefinition, parseClubs } from "./clubs";
+import { type CompetitionsConfig, parseCompetitions } from "./competitions";
 
 export type WorldId = "classic";
 
@@ -39,8 +41,8 @@ export const worlds: Readonly<Record<WorldId, WorldConfig>> = {
   classic: {
     id: "classic",
     name: "Classic",
-    clubs: clubDefinitions,
-    competitions: competitionsConfig,
+    clubs: parseClubs(classicClubs),
+    competitions: parseCompetitions(classicCompetitions, "competitions_mvp.json"),
     switches: {
       market: "transfers",
       youth: "academy",

@@ -169,7 +169,7 @@ describe("loans", () => {
 
   it("are made by the AI for young players who'd play elsewhere, never for the user's club", () => {
     const w = freshWorld();
-    const summer = marketDays(2026).filter((d) => d.window === "summer");
+    const summer = marketDays(2026, competitions).filter((d) => d.window === "summer");
     const loans = summer
       .flatMap((d) => marketDay(w, 2026, d).transactions)
       .filter((t) => t.type === "loan");

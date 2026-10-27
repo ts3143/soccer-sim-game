@@ -10,7 +10,6 @@ import type {
   TeamHistoryView,
   TransactionsView,
 } from "../../common/api";
-import { competitionsConfig } from "../../common/config/competitions";
 import type { AwardRow, Club, GameMeta } from "../../common/schema";
 import { transferBanned } from "../finance/ffp";
 import { operatingRevenue, owedAmortisation, owedWages, totalOf } from "../finance/finance";
@@ -53,7 +52,7 @@ export async function getHistory(lid: number): Promise<HistoryView> {
         session.cache.get("playerStats", key) ?? (await session.db.get("playerStats", key)) ?? null
       );
     };
-    for (const league of competitionsConfig.leagues) {
+    for (const league of session.config.competitions.leagues) {
       const boot = find("goldenBoot", league.id);
       const goals = (await statsOf(boot, league.id))?.goals ?? null;
       const provider = find("topAssists", league.id);
@@ -80,7 +79,7 @@ export async function getHistory(lid: number): Promise<HistoryView> {
     out.push({
       season,
       leagues,
-      cups: competitionsConfig.cups.map((c) => ({
+      cups: session.config.competitions.cups.map((c) => ({
         id: c.id,
         name: c.name,
         winner: ref(find("cupWinner", c.id)),
@@ -97,8 +96,9 @@ export async function getTeamHistory(lid: number, cid: number): Promise<TeamHist
   if (!club) throw new GameError(`There's no club ${cid} in this league.`);
   const awards = (await allAwards(session)).filter((a) => a.cid === cid);
   const leagueName = (id: string) =>
-    competitionsConfig.leagues.find((l) => l.id === id)?.name ?? id;
-  const cupName = (id: string) => competitionsConfig.cups.find((c) => c.id === id)?.name ?? id;
+    session.config.competitions.leagues.find((l) => l.id === id)?.name ?? id;
+  const cupName = (id: string) =>
+    session.config.competitions.cups.find((c) => c.id === id)?.name ?? id;
   const honourOf = (a: AwardRow): string | null => {
     switch (a.type) {
       case "champions":

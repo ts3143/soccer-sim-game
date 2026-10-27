@@ -1,6 +1,5 @@
 /** The app shell's view of an open league (M5): names, clubs for the team picker, state. */
 import type { LeagueShell } from "../../common/api";
-import { competitionsConfig } from "../../common/config/competitions";
 import type { GameMeta } from "../../common/schema";
 import { gameState } from "../league/game";
 import { openLeague } from "../league/session";
@@ -12,7 +11,7 @@ export async function getLeagueShell(lid: number): Promise<LeagueShell> {
     lid,
     name: game.name,
     userCid: game.userCid,
-    firstSeason: competitionsConfig.firstSeason,
+    firstSeason: session.config.competitions.firstSeason,
     clubs: session.cache
       .getAll("clubs")
       .map((c) => ({
@@ -25,7 +24,7 @@ export async function getLeagueShell(lid: number): Promise<LeagueShell> {
         colors: c.colors,
       }))
       .sort((a, b) => a.name.localeCompare(b.name)),
-    leagues: competitionsConfig.leagues.map((l) => ({ id: l.id, name: l.name })),
+    leagues: session.config.competitions.leagues.map((l) => ({ id: l.id, name: l.name })),
     state: gameState(session),
     unread: session.cache.getAll("inbox").filter((m) => !m.read).length,
   };

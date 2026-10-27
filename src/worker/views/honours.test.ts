@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { worlds } from "../../common/config/worlds";
 import type { PlayerView } from "../../common/api";
 import type { AwardRow, Club } from "../../common/schema";
 import { honoursOf } from "./players";
@@ -43,7 +44,7 @@ describe("a player's honours (T, 2026-10-25)", () => {
   ];
 
   it("counts his awards, and his clubs' honours where he played in that competition", () => {
-    const got = honoursOf(awards, 7, career, clubs).map((h) => [
+    const got = honoursOf(awards, 7, career, clubs, worlds.classic.competitions).map((h) => [
       h.season,
       h.type,
       h.competition,
@@ -61,6 +62,8 @@ describe("a player's honours (T, 2026-10-25)", () => {
   });
 
   it("gives none to a player who never played", () => {
-    expect(honoursOf(awards, 9, [row(2026, 1, "ENG1", 0)], clubs)).toEqual([]);
+    expect(
+      honoursOf(awards, 9, [row(2026, 1, "ENG1", 0)], clubs, worlds.classic.competitions),
+    ).toEqual([]);
   });
 });

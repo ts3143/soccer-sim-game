@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { worlds } from "../../src/common/config/worlds";
-import { clubDefinitions } from "../../src/common/config/clubs";
 import { generateWorld } from "../../src/worker/generate/world";
 import { realClubNamesToCheck } from "../real-club-names";
 import { evaluateWorld } from "../../src/worker/generate/checks";
@@ -33,7 +32,7 @@ describe("generateWorld", () => {
   });
 
   it("uses integer IDs, saves the default formation as tactics, and records the user club", () => {
-    expect(world.clubs.map((c) => c.cid)).toEqual(clubDefinitions.map((_, i) => i));
+    expect(world.clubs.map((c) => c.cid)).toEqual(worlds.classic.clubs.map((_, i) => i));
     expect(new Set(world.players.map((p) => p.pid)).size).toBe(world.players.length);
     expect(world.players.every((p) => Number.isInteger(p.pid))).toBe(true);
     expect(world.meta.ids.pid).toBe(Math.max(...world.players.map((p) => p.pid)) + 1);

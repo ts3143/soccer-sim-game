@@ -10,7 +10,7 @@ import type {
   TableZone,
   TeamRef,
 } from "../../common/api";
-import { competitionsConfig } from "../../common/config/competitions";
+import type { CompetitionsConfig } from "../../common/config/competitions";
 import type {
   AwardRow,
   Club,
@@ -32,12 +32,12 @@ export const teamRef = (club: Club | undefined): TeamRef => ({
   code: club?.code ?? "",
 });
 
-export function competitionName(id: string): string {
-  const league = competitionsConfig.leagues.find((l) => l.id === id);
+export function competitionName(config: CompetitionsConfig, id: string): string {
+  const league = config.leagues.find((l) => l.id === id);
   if (league) return league.name;
-  const cup = competitionsConfig.cups.find((c) => c.id === id);
+  const cup = config.cups.find((c) => c.id === id);
   if (cup) return cup.name;
-  const po = competitionsConfig.leagues.find((l) => playoffId(l.id) === id);
+  const po = config.leagues.find((l) => playoffId(l.id) === id);
   return po ? `${po.name} play-offs` : id;
 }
 
@@ -50,12 +50,16 @@ export function scoreText(f: Fixture): string | null {
   return r.extraTime ? `${base} aet` : base;
 }
 
-export function matchView(f: Fixture, clubs: ReadonlyMap<number, Club>): MatchView {
+export function matchView(
+  f: Fixture,
+  clubs: ReadonlyMap<number, Club>,
+  config: CompetitionsConfig,
+): MatchView {
   return {
     fid: f.fid,
     date: f.date,
     competition: f.competition,
-    competitionName: competitionName(f.competition),
+    competitionName: competitionName(config, f.competition),
     round: f.round,
     leg: f.leg,
     neutral: f.neutral,
@@ -72,10 +76,11 @@ export function clubMatch(
   f: Fixture,
   cid: number,
   clubs: ReadonlyMap<number, Club>,
+  config: CompetitionsConfig,
 ): ClubMatchView {
   const home = f.homeCid === cid;
   return {
-    match: matchView(f, clubs),
+    match: matchView(f, clubs, config),
     venue: f.neutral ? "N" : home ? "H" : "A",
     opponent: teamRef(clubs.get(home ? f.awayCid : f.homeCid)),
     result: resultFor(f, cid),
@@ -119,7 +124,7 @@ export function leagueTables(
   const game = session.cache.get("meta", "game") as GameMeta;
   const stored = session.cache.get("meta", "season") as SeasonMeta;
   const clubs = new Map(session.cache.getAll("clubs").map((c) => [c.cid, c]));
-  return competitionsConfig.leagues.map((league) => {
+  return session.config.competitions.leagues.map((league) => {
     const cids = stored.leagueClubs[league.id] ?? [];
     const rows = leagueTable(
       cids,

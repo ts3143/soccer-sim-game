@@ -1,9 +1,10 @@
 /**
- * World config (data/config/competitions_mvp.json): leagues, cups, windows, key dates
- * and roster rules. Leagues and cups are data-driven: adding a country later means
- * adding config entries, not code.
+ * Competitions config (Classic's is data/config/competitions_mvp.json): leagues, cups,
+ * windows, key dates and roster rules. Leagues and cups are data-driven: adding a country
+ * later means adding config entries, not code. Each world has its own (worlds.ts); the
+ * worker reads the save's through its session, never a global.
  */
-import raw from "../../../data/config/competitions_mvp.json";
+import type raw from "../../../data/config/competitions_mvp.json";
 
 export interface StyleModifiers {
   chanceQuality: number;
@@ -262,11 +263,6 @@ export function parseCompetitions(json: CompetitionsFile, file: string): Competi
     renewals: json.renewals,
   };
 }
-
-export const competitionsConfig: CompetitionsConfig = parseCompetitions(
-  raw,
-  "competitions_mvp.json",
-);
 
 export function leagueById(config: CompetitionsConfig, id: string): LeagueConfig {
   const league = config.leagues.find((l) => l.id === id);

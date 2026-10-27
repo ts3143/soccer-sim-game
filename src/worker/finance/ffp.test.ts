@@ -109,7 +109,7 @@ describe("the 30 June check", () => {
     const banned = w.clubs[8] as Club;
     banned.ffp = { warned: true, bannedUntil: "2026-08-31" };
     banned.cash = 10 * banned.revenueAnchor;
-    const moves = marketDays(2026)
+    const moves = marketDays(2026, competitions)
       .filter((d) => d.window === "summer")
       .flatMap((d) => marketDay(w, 2026, d).transactions)
       .filter((t) => t.type !== "renewal");

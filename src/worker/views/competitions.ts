@@ -12,7 +12,7 @@ import type {
   StandingsView,
   TableZone,
 } from "../../common/api";
-import { competitionsConfig } from "../../common/config/competitions";
+import type { CompetitionsConfig } from "../../common/config/competitions";
 import { addDays } from "../../common/dates";
 import type { Club, Fixture, GameMeta } from "../../common/schema";
 import { openLeague } from "../league/session";
@@ -37,8 +37,13 @@ const ZONE_LABELS: Record<Exclude<TableZone, null>, string> = {
 };
 
 /** The zone of a final position under a league's rules. */
-function zoneOf(leagueId: string, position: number, clubs: number): TableZone {
-  const league = competitionsConfig.leagues.find((l) => l.id === leagueId);
+function zoneOf(
+  config: CompetitionsConfig,
+  leagueId: string,
+  position: number,
+  clubs: number,
+): TableZone {
+  const league = config.leagues.find((l) => l.id === leagueId);
   if (!league) return null;
   if (position === 1) return "champions";
   if (league.promotion && position <= league.promotion.automatic) return "promoted";
@@ -63,8 +68,8 @@ export async function getStandings(
   const game = cache.get("meta", "game") as GameMeta;
   const user = cache.get("clubs", game.userCid);
   const s = season ?? game.season;
-  const id = leagueId ?? user?.leagueId ?? competitionsConfig.leagues[0]?.id ?? "";
-  const league = competitionsConfig.leagues.find((l) => l.id === id);
+  const id = leagueId ?? user?.leagueId ?? session.config.competitions.leagues[0]?.id ?? "";
+  const league = session.config.competitions.leagues.find((l) => l.id === id);
   if (!league) throw new GameError(`There's no league "${id}" in this game.`);
   const clubs = new Map(cache.getAll("clubs").map((c) => [c.cid, c]));
   let rows: StandingsRow[];
@@ -97,7 +102,7 @@ export async function getStandings(
         goalsAgainst: r.goalsAgainst,
         goalDifference: r.goalsFor - r.goalsAgainst,
         points: r.points,
-        zone: zoneOf(id, position, finished.length),
+        zone: zoneOf(session.config.competitions, id, position, finished.length),
         form: null,
         home: null,
         away: null,
@@ -133,10 +138,10 @@ export async function getStandings(
 }
 
 /** Every knockout competition: the cups, then each league's play-offs. */
-function knockouts(): { id: string; name: string; rounds: string[] }[] {
+function knockouts(config: CompetitionsConfig): { id: string; name: string; rounds: string[] }[] {
   return [
-    ...competitionsConfig.cups.map((c) => ({ id: c.id, name: c.name, rounds: c.rounds })),
-    ...competitionsConfig.leagues
+    ...config.cups.map((c) => ({ id: c.id, name: c.name, rounds: c.rounds })),
+    ...config.leagues
       .filter((l) => l.promotion && l.promotion.playoffPositions.length > 0)
       .map((l) => ({
         id: playoffId(l.id),
@@ -157,7 +162,7 @@ export async function getCups(
 ): Promise<CupView> {
   const session = await openLeague(lid);
   const game = session.cache.get("meta", "game") as GameMeta;
-  const all = knockouts();
+  const all = knockouts(session.config.competitions);
   const comp = all.find((k) => k.id === competition) ?? all[0];
   if (!comp) throw new Error("No cups in the config");
   const s = season ?? game.season;
@@ -193,7 +198,7 @@ export async function getCups(
         return {
           home: teamRef(clubs.get(first.homeCid)),
           away: teamRef(clubs.get(first.awayCid)),
-          legs: legs.map((f) => matchView(f, clubs)),
+          legs: legs.map((f) => matchView(f, clubs, session.config.competitions)),
           aggregate,
           winner: winner !== null ? teamRef(clubs.get(winner)) : null,
         };
@@ -240,6 +245,8 @@ export async function getSchedule(lid: number, week: string | null): Promise<Sch
     season: game.season,
     weeks,
     week: chosen,
-    matches: fixtures.filter((f) => weekStart(f.date) === chosen).map((f) => matchView(f, clubs)),
+    matches: fixtures
+      .filter((f) => weekStart(f.date) === chosen)
+      .map((f) => matchView(f, clubs, session.config.competitions)),
   };
 }

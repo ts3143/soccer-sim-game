@@ -1,4 +1,5 @@
 import { expect, it } from "vitest";
+import { worlds } from "../../common/config/worlds";
 import type { Fixture } from "../../common/schema";
 import { matchView } from "./common";
 import { resultForClub, resultRowClass } from "../../ui/components/results";
@@ -16,7 +17,7 @@ const fixture = (result: Fixture["result"]): Fixture => ({
   result,
 });
 const view = (result: Fixture["result"]) => {
-  const m = matchView(fixture(result), new Map());
+  const m = matchView(fixture(result), new Map(), worlds.classic.competitions);
   return { ...m, home: { ...m.home, cid: 1 }, away: { ...m.away, cid: 2 } };
 };
 it("colours a result from the viewed club's perspective, including away games", () => {
