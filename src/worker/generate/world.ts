@@ -15,6 +15,7 @@ import { assignContracts } from "./contracts";
 import { commercialBase, expectedTvAndGates, ticketPrice } from "../finance/finance";
 import { bornLocally } from "./birthplace";
 import { generateFreeAgents, generateReleasedYouth } from "./freeAgents";
+import { worldMix } from "./identity";
 import { generateSquad } from "./squad";
 
 /** Bump when generation changes in a way that makes old saves inconsistent. */
@@ -151,6 +152,7 @@ function clubSeasonRow(def: ClubDefinition, cid: number, season: number): ClubSe
 
 export function generateWorld(options: WorldOptions): World {
   const { clubs: definitions, competitions } = options.config;
+  const mix = worldMix(options.config);
   const root = Random.fromSeed(options.seed);
   const season = competitions.firstSeason;
   const seasonStart = competitions.seasonStart;
@@ -185,6 +187,7 @@ export function generateWorld(options: WorldOptions): World {
       seasonStart,
       nextPid,
       rules: competitions.rosterRules,
+      worldMix: mix,
     });
     const ages = new Map(
       squad.seniors.map((p) => [p.pid, Math.floor(exactAge(p.birthDate, seasonStart))]),
@@ -214,7 +217,7 @@ export function generateWorld(options: WorldOptions): World {
     });
   });
 
-  players.push(...generateFreeAgents(root.fork("freeAgents"), season, seasonStart, nextPid));
+  players.push(...generateFreeAgents(root.fork("freeAgents"), season, seasonStart, nextPid, mix));
   players.push(
     ...generateReleasedYouth(
       root.fork("releasedYouth"),
@@ -222,6 +225,7 @@ export function generateWorld(options: WorldOptions): World {
       seasonStart,
       nextPid,
       competitions.leagues,
+      mix,
     ),
   );
 

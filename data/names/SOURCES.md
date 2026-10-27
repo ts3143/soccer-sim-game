@@ -2,7 +2,7 @@
 
 All files in this folder come from **[Wikidata](https://www.wikidata.org/)**, whose structured data is released under **CC0 1.0** (public domain dedication): no attribution is required, but we credit it here.
 
-Built by `tools/names/build-names.ts` (re-runnable; output committed). Fetched 2026-10-14 from the Wikidata Query Service.
+Built by `tools/names/build-names.ts` (re-runnable; output committed). Fetched 2026-10-14 from the Wikidata Query Service; UKR (for the Super League, SPEC §17) on 2026-10-27.
 
 ## Method
 For each nationality, the script counts **male association football players** (`P106 = Q937857`, `P21 = Q6581097`) **born in 1950 or later** and groups them by:
@@ -60,6 +60,7 @@ Known quirks: Iceland has few family names (most Icelanders use patronymics); De
 | SVK | 158 | 391 | 40 |
 | SWE | 200 | 400 | 40 |
 | TUR | 200 | 400 | 40 |
+| UKR | 200 | 400 | 40 |
 | URU | 200 | 400 | 40 |
 | USA | 200 | 400 | 40 |
 | WAL | 200 | 266 | 40 |

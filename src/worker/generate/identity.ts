@@ -1,5 +1,6 @@
 /** Nationality, name and birthplace sampling for generated players. */
 import { nationalitiesConfig } from "../../common/config/nationalities";
+import type { WorldConfig } from "../../common/config/worlds";
 import type { Random } from "../core/random";
 import { nameFiles, type NameFile, type WeightedLabel } from "./nameData";
 
@@ -24,16 +25,39 @@ export function sampleNationality(
   return rng.weighted(entries, ([, weight]) => weight)[0];
 }
 
-let combined: Record<string, number> | undefined;
+/**
+ * A club's nationality mix: its league's if the league has one (Classic's), else its
+ * country's (the Super League's tiers, SPEC §17.3).
+ */
+export function clubMix(leagueId: string, country: string): Record<string, number> {
+  const mix = nationalitiesConfig.leagueMix[leagueId] ?? nationalitiesConfig.countryMix[country];
+  if (!mix) throw new Error(`No nationality mix for league ${leagueId} or country ${country}`);
+  return mix;
+}
 
-/** Weighted mix of all leagues together (for free agents and second nationalities). */
-export function combinedMix(): Record<string, number> {
+const worldMixes = new WeakMap<WorldConfig, Record<string, number>>();
+
+/**
+ * A world's mixes added together, for free agents and second nationalities: each league's
+ * mix in league order, or for a league without one its clubs' country mixes.
+ */
+export function worldMix(config: WorldConfig): Record<string, number> {
+  let combined = worldMixes.get(config);
   if (!combined) {
     combined = {};
-    for (const mix of Object.values(nationalitiesConfig.leagueMix)) {
-      for (const [code, weight] of Object.entries(mix))
-        combined[code] = (combined[code] ?? 0) + weight;
+    for (const league of config.competitions.leagues) {
+      const own = nationalitiesConfig.leagueMix[league.id];
+      const mixes = own
+        ? [own]
+        : config.clubs
+            .filter((c) => c.league === league.id)
+            .map((c) => clubMix(c.league, c.country));
+      for (const mix of mixes) {
+        for (const [code, weight] of Object.entries(mix))
+          combined[code] = (combined[code] ?? 0) + weight;
+      }
     }
+    worldMixes.set(config, combined);
   }
   return combined;
 }
@@ -68,10 +92,15 @@ export interface Identity {
   birthplace: string;
 }
 
-export function sampleIdentity(rng: Random, nationality: string): Identity {
+/** `secondMix`: where a second nationality comes from (the world's mix, worldMix). */
+export function sampleIdentity(
+  rng: Random,
+  nationality: string,
+  secondMix: Record<string, number>,
+): Identity {
   const file = nameFile(nationality);
   const nationality2 = rng.bool(nationalitiesConfig.dualNationalityChance)
-    ? sampleNationality(rng, combinedMix(), nationality)
+    ? sampleNationality(rng, secondMix, nationality)
     : null;
   return {
     firstName: pickWeighted(rng, file.given),

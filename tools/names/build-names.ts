@@ -1,7 +1,7 @@
 /**
- * Builds data/names/<CODE>.json for every nationality in nationalities.json, from
- * Wikidata (CC0 1.0): given names, family names and birthplaces of male association
- * football players, weighted by how many players carry each. Re-runnable; the output
+ * Builds data/names/<CODE>.json for every nationality in nationalities.json (league and
+ * country mixes), from Wikidata (CC0 1.0): given names, family names and birthplaces of
+ * male association football players, weighted by how many players carry each. Re-runnable; the output
  * is committed and treated as a fixed input. Sources are documented in SOURCES.md.
  *
  *   pnpm exec tsx tools/names/build-names.ts            # all nationalities
@@ -59,6 +59,7 @@ const COUNTRIES: Record<string, { qid: string; prop: "P27" | "P1532" }> = {
   SVK: { qid: "Q214", prop: "P27" },
   SWE: { qid: "Q34", prop: "P27" },
   TUR: { qid: "Q43", prop: "P27" },
+  UKR: { qid: "Q212", prop: "P27" },
   URU: { qid: "Q77", prop: "P27" },
   USA: { qid: "Q30", prop: "P27" },
   WAL: { qid: "Q25", prop: "P1532" },
@@ -164,8 +165,15 @@ async function build(code: string): Promise<{ code: string; counts: Record<Kind,
 
 const nationalities = JSON.parse(
   readFileSync(new URL("../../data/config/nationalities.json", import.meta.url), "utf8"),
-) as { leagueMix: Record<string, Record<string, number>> };
-const allCodes = [...new Set(Object.values(nationalities.leagueMix).flatMap(Object.keys))].sort();
+) as {
+  leagueMix: Record<string, Record<string, number>>;
+  countryMix?: Record<string, Record<string, number>>;
+};
+const mixes = [
+  ...Object.values(nationalities.leagueMix),
+  ...Object.values(nationalities.countryMix ?? {}),
+];
+const allCodes = [...new Set(mixes.flatMap(Object.keys))].sort();
 const codes = process.argv.length > 2 ? process.argv.slice(2) : allCodes;
 
 for (const code of codes) {

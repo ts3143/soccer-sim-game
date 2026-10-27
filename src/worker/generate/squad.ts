@@ -6,12 +6,11 @@
 import type { ClubDefinition } from "../../common/config/clubs";
 import type { RosterRules } from "../../common/config/competitions";
 import type { Formation } from "../../common/config/formations";
-import { nationalitiesConfig } from "../../common/config/nationalities";
 import { ratingsConfig, type Position, type Side } from "../../common/config/ratings";
 import type { Player } from "../../common/schema";
 import { bestXi, type XiPick } from "../core/lineup";
 import type { Random } from "../core/random";
-import { sampleNationality } from "./identity";
+import { clubMix, sampleNationality } from "./identity";
 import { generatePlayer, setRatings, type PlayerSpec } from "./player";
 import { generateAcademyPlayer } from "./youth";
 
@@ -178,6 +177,8 @@ export interface SquadOptions {
   seasonStart: string;
   nextPid: () => number;
   rules: RosterRules;
+  /** The world's nationality mix (identity.ts worldMix), for second nationalities. */
+  worldMix: Record<string, number>;
 }
 
 export interface GeneratedSquad {
@@ -187,10 +188,9 @@ export interface GeneratedSquad {
 }
 
 export function generateSquad(rng: Random, options: SquadOptions): GeneratedSquad {
-  const { club, cid, formation, season, seasonStart, rules } = options;
+  const { club, cid, formation, season, seasonStart, rules, worldMix } = options;
   const seniorCount = rng.int(rules.startingSeniors.min, rules.startingSeniors.max);
-  const leagueMix = nationalitiesConfig.leagueMix[club.league];
-  if (!leagueMix) throw new Error(`No nationality mix for league ${club.league}`);
+  const mix = clubMix(club.league, club.country);
 
   const needs = squadNeeds(rng, formation, seniorCount);
   const seniors = needs.map((need) => {
@@ -200,7 +200,8 @@ export function generateSquad(rng: Random, options: SquadOptions): GeneratedSqua
       side: need.side,
       quality: clamp(quality, 25, 95),
       age,
-      nationality: sampleNationality(rng, leagueMix),
+      nationality: sampleNationality(rng, mix),
+      secondMix: worldMix,
       status: "club",
       cid,
     };
@@ -228,6 +229,7 @@ export function generateSquad(rng: Random, options: SquadOptions): GeneratedSqua
       options.nextPid(),
       season,
       seasonStart,
+      worldMix,
     );
   });
 

@@ -135,6 +135,8 @@ export interface PlayerSpec {
   /** Whole years of age on the season start date. */
   age: number;
   nationality: string;
+  /** Where a second nationality comes from: the world's mix (identity.ts worldMix). */
+  secondMix: Record<string, number>;
   status: PlayerStatus;
   cid: number | null;
 }
@@ -187,7 +189,7 @@ export function generatePlayer(
   season: number,
   seasonStart: string,
 ): Player {
-  const identity = sampleIdentity(rng, spec.nationality);
+  const identity = sampleIdentity(rng, spec.nationality, spec.secondMix);
   const sd = spec.position === "GK" ? 4.5 : 5.5;
   const heightCm = Math.round(
     Math.min(203, Math.max(163, rng.normal(HEIGHT_CM[spec.position], sd))),

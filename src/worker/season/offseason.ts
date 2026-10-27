@@ -34,6 +34,7 @@ import { Random } from "../core/random";
 import { COEFFICIENTS } from "../engine/coefficients";
 import { ratingCentre } from "../engine/ratings";
 import { roundWage, WAGE_STEEPNESS, wageAgeFactor } from "../generate/contracts";
+import { worldMix } from "../generate/identity";
 import { generateAcademyPlayer } from "../generate/youth";
 import { FREE_AGENT_CONTEXT } from "../generate/world";
 import { playoffId, type SeasonOutcome, type SeasonState } from "./season";
@@ -450,6 +451,7 @@ export function youthIntake(world: LoopWorld, season: number, date: string): Tur
         world.nextPid(),
         season,
         date,
+        worldMix(world.config),
       );
       player.shirtNumber = freeShirtNumber(world, club.cid, 36);
       player.birthplace = localBirthplace(world.seed, player, club) ?? player.birthplace;

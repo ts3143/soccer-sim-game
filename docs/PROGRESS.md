@@ -1766,6 +1766,10 @@ Plan (about 5 chunks): 1 club values for T's approval; 2 the clubs file, crests 
 - **Browser checks:** most picked "the first club" of the English top flight (strength, then name). After the renames that is Liverpool Reds instead of Manchester Sky, and the `sweep` playthrough then has the user sacked at the season's end (5th, as Liverpool). The checks now name their club (Manchester Citizens: the same club and game as before; `tabs`' second league Liverpool Reds, as before). `layout` still takes the longest name, now North London Lilywhites, whose first watched match has an unavailable player in the saved line-up: like `edges` and `career`, it now presses Auto when kick-off is held.
 - **Checks:** lint; 350 unit tests; `pnpm build` (87 real names checked), `pnpm generate --check`; the data builders reproduce the data exactly on a rerun; all 18 browser checks (17 in a full run, then `layout` after its fix).
 
+#### Chunk 3: nationalities (2026-10-27)
+- **Built:** `data/names/UKR.json` (Wikidata, as the others: 200 given names, 400 family names, 40 birthplaces; `build-names.ts` knows Ukraine and reads country mixes too). A club's nationality mix is its league's if the league has one (Classic's three), else its country's (`countryMix` in nationalities.json, for the Super League's tiers; `clubMix`). Free agents and second nationalities draw from the world's mixes added together (`worldMix`: each league's mix in league order, or its clubs' country mixes), passed down through generation (`PlayerSpec.secondMix`). Classic's is its three league mixes in the same order as before: the fingerprints are unchanged.
+- **Waiting for T:** the 13 country mixes (England and Germany reuse Classic's top-flight mixes, Monaco France's).
+
 ## Open issues
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).
 - For T: the academy incentive (academy players of 16+ play without counting toward the 25), and whether to add "tired" and "open bid" tags.

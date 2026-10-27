@@ -7,7 +7,7 @@ import type { LeagueConfig } from "../../common/config/competitions";
 import { ratingsConfig, type Position, type Side } from "../../common/config/ratings";
 import type { Player } from "../../common/schema";
 import type { Random } from "../core/random";
-import { combinedMix, sampleNationality } from "./identity";
+import { sampleNationality } from "./identity";
 import { generatePlayer } from "./player";
 import { generateAcademyPlayer } from "./youth";
 
@@ -26,8 +26,9 @@ export function generateFreeAgents(
   season: number,
   seasonStart: string,
   nextPid: () => number,
+  /** The world's nationality mix (identity.ts worldMix). */
+  mix: Record<string, number>,
 ): Player[] {
-  const mix = combinedMix();
   return Array.from({ length: FREE_AGENT_POOL_SIZE }, () => {
     const position = rng.weighted(POSITIONS_WEIGHTED, ([, w]) => w)[0];
     const side: Side = ratingsConfig.sidedPositions.includes(position)
@@ -43,6 +44,7 @@ export function generateFreeAgents(
         quality,
         age,
         nationality: sampleNationality(rng, mix),
+        secondMix: mix,
         status: "freeAgent",
         cid: null,
       },
@@ -60,6 +62,7 @@ export function generateReleasedYouth(
   seasonStart: string,
   nextPid: () => number,
   leagues: readonly LeagueConfig[],
+  worldMix: Record<string, number>,
 ): Player[] {
   return Array.from({ length: RELEASED_YOUTH_COUNT }, () => {
     const league = rng.choice(leagues);
@@ -76,6 +79,7 @@ export function generateReleasedYouth(
       nextPid(),
       season,
       seasonStart,
+      worldMix,
     );
     player.status = "freeAgent";
     player.cid = null;
