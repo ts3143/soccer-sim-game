@@ -140,15 +140,15 @@ describe("the draft", () => {
     }
   });
 
-  it("makes every club's own picks for the coming draft and three more", () => {
+  it("makes every club's own picks for the coming draft and two more", () => {
     const picks = generated.draftPicks;
-    expect(picks).toHaveLength(48 * 2 * 4);
-    expect([...new Set(picks.map((p) => p.season))]).toEqual([2026, 2027, 2028, 2029]);
+    expect(picks).toHaveLength(48 * 2 * 3);
+    expect([...new Set(picks.map((p) => p.season))]).toEqual([2026, 2027, 2028]);
     expect(picks.every((p) => p.cid === p.originalCid)).toBe(true);
     // Only missing ones are made: a traded pick stays with its owner.
     const traded = picks.map((p) => (p.originalCid === 5 ? { ...p, cid: 6 } : p));
-    expect(missingPicks(draft, generated.clubs, traded, 2026, 2029)).toEqual([]);
-    expect(missingPicks(draft, generated.clubs, traded, 2027, 2030)).toHaveLength(96);
+    expect(missingPicks(draft, generated.clubs, traded, 2026, 2028)).toEqual([]);
+    expect(missingPicks(draft, generated.clubs, traded, 2027, 2029)).toHaveLength(96);
   });
 
   it("numbers the picks on the lottery's day, then picks to the user's turn", SLOW, () => {
@@ -212,16 +212,14 @@ describe("the draft", () => {
     expect(drafted(champion).some((p) => p.draft?.round === 1 && p.draft.pick === slot)).toBe(true);
     // The draft used its picks up; the later ones wait, the traded one with its owner.
     expect(w.draftPicks?.some((p) => p.season === 2026)).toBe(false);
-    expect(w.draftPicks).toHaveLength(48 * 2 * 3);
-    // 1 July: the picks of the draft three seasons on.
+    expect(w.draftPicks).toHaveLength(48 * 2 * 2);
+    // 1 July: the picks of the draft two seasons on.
     draftClassTurnover(w, 2027, "2027-07-01");
-    expect(w.draftPicks).toHaveLength(48 * 2 * 4);
-    expect([...new Set(w.draftPicks?.map((p) => p.season))].sort()).toEqual([
-      2027, 2028, 2029, 2030,
-    ]);
+    expect(w.draftPicks).toHaveLength(48 * 2 * 3);
+    expect([...new Set(w.draftPicks?.map((p) => p.season))].sort()).toEqual([2027, 2028, 2029]);
     expect(w.draftPicks?.find((p) => p === later)?.cid).toBe(champion);
     expect(
-      w.draftPicks?.filter((p) => p.season === 2030).every((p) => p.cid === p.originalCid),
+      w.draftPicks?.filter((p) => p.season === 2029).every((p) => p.cid === p.originalCid),
     ).toBe(true);
   });
 
