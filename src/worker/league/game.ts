@@ -30,6 +30,7 @@ import {
 import type { MatchResult } from "../../common/match";
 import type { GameState, PlayOption, PlayReport } from "../../common/api";
 import { updateLeagueSummary } from "../db/globalDb";
+import { runDraft } from "../season/draft";
 import { seasonDate } from "../schedule/calendar";
 import {
   endOfSeasonTurnover,
@@ -485,8 +486,9 @@ function nextOffseasonStage(config: WorldConfig, phase: Phase): OffseasonStage |
 }
 
 /**
- * Moves to the next off-season stage. Stubs for now: the lottery and the draft arrive in
- * SL4, the re-signing period in SL5; each stage only sets the date and phase.
+ * Moves to the next off-season stage. The draft is held on reaching it (its AI core: the
+ * AI picks for every club, the user's too, until SL4); the lottery (SL4) and the
+ * re-signing period (SL5) only set the date and phase for now.
  */
 function toOffseasonStage(session: LeagueSession, option: PlayOption): PlayReport {
   const game = { ...meta<GameMeta>(session, "game") };
@@ -495,6 +497,13 @@ function toOffseasonStage(session: LeagueSession, option: PlayOption): PlayRepor
   const from = game.date;
   game.date = seasonDate(game.season, stage.date);
   game.phase = stage.phase;
+  if (stage.phase === "draft") {
+    const world = loopWorld(session, game.season);
+    const outcome = seasonOutcome(loadSeason(session), session.config.competitions);
+    const drafted = runDraft(world, outcome, game.season, game.date);
+    for (const p of drafted.added) session.cache.put("players", p);
+    saveTransactions(session, drafted.transactions);
+  }
   session.cache.put("meta", game, "game");
   return { from, to: game.date, matchesPlayed: 0, events: [], phase: game.phase };
 }

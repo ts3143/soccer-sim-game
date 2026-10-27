@@ -48,7 +48,7 @@ describe("a Super League year in a save", () => {
   });
 
   it(
-    "then holds the draft lottery, the draft and the re-signing period, to preseason",
+    "then the draft lottery, the draft (held) and the re-signing period, to preseason",
     SLOW,
     async () => {
       const session = await openLeague(1);
@@ -68,6 +68,13 @@ describe("a Super League year in a save", () => {
       ]);
       expect((session.cache.get("meta", "game") as GameMeta).season).toBe(2027);
       expect(session.cache.getAll("players").some((p) => p.status === "academy")).toBe(false);
+      // The draft was held on reaching it: two rounds of 48, the user's club's picks too.
+      await session.cache.flush();
+      const saved = await session.db.getAllFromIndex("transactions", "season", 2026);
+      const picks = saved.filter((t) => t.type === "draft");
+      expect(picks).toHaveLength(96);
+      const rookies = session.cache.getAll("players").filter((p) => p.draft?.season === 2026);
+      expect(rookies.filter((p) => p.cid === 39)).toHaveLength(2);
     },
   );
 });

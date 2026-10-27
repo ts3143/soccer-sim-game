@@ -94,7 +94,7 @@ export const TURNOVER = {
   topUpTo: 22,
 };
 
-const AREA: Record<Position, "gk" | "def" | "mid" | "att"> = {
+export const AREA: Record<Position, "gk" | "def" | "mid" | "att"> = {
   GK: "gk", CB: "def", FB: "def", WB: "def", DM: "mid", CM: "mid", WM: "mid", AM: "att", W: "att", ST: "att",
 }; // prettier-ignore
 
@@ -127,13 +127,13 @@ export interface TurnoverLog {
   messages: Omit<InboxMessage, "mid">[];
 }
 
-const emptyLog = (): TurnoverLog => ({
+export const emptyLog = (): TurnoverLog => ({
   changed: new Set(),
   added: [],
   transactions: [],
   messages: [],
 });
-const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
+export const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 const ratingsOf = (p: Player): number[] => p.ratingsHistory.at(-1)?.ratings ?? [];
 
@@ -151,7 +151,7 @@ function interpolate(points: readonly [number, number][], x: number): number {
 // ---------------------------------------------------------------------------
 // Club context
 
-interface ClubContext {
+export interface ClubContext {
   club: Club;
   seniors: Player[];
   academy: Player[];
@@ -160,7 +160,7 @@ interface ClubContext {
 }
 
 /** Per club: squads, best-XI level, and the average XI level of its league. */
-function clubContexts(world: LoopWorld): Map<number, ClubContext> {
+export function clubContexts(world: LoopWorld): Map<number, ClubContext> {
   const out = new Map<number, ClubContext>();
   for (const club of world.clubs) {
     const own = world.players.filter((p) => p.cid === club.cid);
@@ -192,7 +192,12 @@ function potContext(ctx: ClubContext | undefined): PotentialClubContext {
   };
 }
 
-function updatePot(p: Player, date: string, ctx: ClubContext | undefined, seed: string): void {
+export function updatePot(
+  p: Player,
+  date: string,
+  ctx: ClubContext | undefined,
+  seed: string,
+): void {
   const age = exactAge(p.birthDate, date);
   p.pot =
     age >= TURNOVER.potArcsBelowAge
@@ -412,7 +417,7 @@ function wageFor(ctx: ClubContext, ovr: number, age: number, date: string): numb
   return roundWage(scale * weight(ovr, age));
 }
 
-function freeShirtNumber(world: LoopWorld, cid: number, from: number): number {
+export function freeShirtNumber(world: LoopWorld, cid: number, from: number): number {
   const taken = new Set(
     world.players.filter((p) => p.cid === cid && p.status !== "retired").map((p) => p.shirtNumber),
   );

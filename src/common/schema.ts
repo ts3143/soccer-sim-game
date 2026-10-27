@@ -324,7 +324,7 @@ export interface TransferRecord {
   fromCid: number | null;
   toCid: number | null;
   fee: number;
-  type: "transfer" | "loan" | "freeAgent" | "academyPromotion" | "release";
+  type: "transfer" | "loan" | "freeAgent" | "academyPromotion" | "release" | "draft";
 }
 
 /** What development needs from the matches since the last update (SPEC §5.3). */
@@ -397,6 +397,8 @@ export interface Player {
   retiredSeason: number | null;
   /** On the user's transfer list (M6): AI clubs that need him bid around the asking price. */
   listed?: { asking: number; date: string };
+  /** Where he was drafted (SPEC §17.5): the season of the draft, round, overall pick, club. */
+  draft?: { season: number; round: number; pick: number; cid: number };
 }
 
 // ---------------------------------------------------------------------------

@@ -136,6 +136,37 @@ export interface RosterRules {
   minSeniorForMatch: number;
 }
 
+/** The draft (SPEC §17.5; the Super League's). See `_note` in its config. */
+export interface DraftConfig {
+  rounds: number;
+  classSize: number;
+  /** Prospects' ages at the draft. */
+  ages: { min: number; max: number };
+  /** Target OVR: mean + perYear × (age − ages.min) + noise (sd), clamped to [min, max]. */
+  prospectQuality: {
+    mean: number;
+    perYear: number;
+    sd: number;
+    min: number;
+    max: number;
+    /** Extra ceiling per standard deviation above the mean, as for academy players. */
+    talentHeadroom: number;
+  };
+  /** The lottery pool's table places, best odds first. */
+  lotteryPool: { league: string; position: number }[];
+  /** Rookie contracts: years, and wage by pick ([pick, euros] points, interpolated). */
+  rookieContract: { years: number; wageByPick: [number, number][] };
+  /**
+   * AI picks: weight on POT (the rest on OVR), and the bonus per senior a club is short of
+   * its target in the prospect's area.
+   */
+  aiPick: {
+    potWeight: number;
+    needBonus: number;
+    areaTargets: Record<"gk" | "def" | "mid" | "att", number>;
+  };
+}
+
 /** A tiered soft cap on payrolls (SPEC §17.7; the Super League's). Money rules arrive in SL3. */
 export interface SoftCapConfig {
   /** The top tier's cap on a club's payroll, in euros a season. */
@@ -160,6 +191,8 @@ export interface CompetitionsConfig {
   renewals: { endOfSeasonResignPhase: boolean; expiryWarningMonths: number };
   /** null: no cap (Classic, whose money rule is FFP). */
   softCap: SoftCapConfig | null;
+  /** null: no draft (Classic, whose clubs have academies). */
+  draft: DraftConfig | null;
 }
 
 /** A league's payroll cap in euros, or null in a world without one. */
@@ -270,6 +303,9 @@ export interface CompetitionsFile {
   rosterRules: RosterRules;
   renewals: { endOfSeasonResignPhase: boolean; expiryWarningMonths: number };
   softCap?: SoftCapConfig;
+  draft?: Omit<DraftConfig, "rookieContract"> & {
+    rookieContract: { years: number; wageByPick: number[][] };
+  };
 }
 
 /**
@@ -319,6 +355,36 @@ function parsePlayoff(where: string, file: PlayoffFile, clubs: number): PlayoffF
   if (new Set(positions).size !== positions.length) fail("a position joins twice");
   if (positions.some((p) => p < 1 || p > clubs)) fail("play-off positions must be table positions");
   return { decides: file.decides, positions, rounds, finalNear: file.finalNear };
+}
+
+/** Reads the draft and checks its pool's places and its wage table. */
+function parseDraft(
+  json: NonNullable<CompetitionsFile["draft"]>,
+  leagues: readonly LeagueConfig[],
+  file: string,
+): DraftConfig {
+  for (const slot of json.lotteryPool) {
+    const league = leagues.find((l) => l.id === slot.league);
+    if (!league || slot.position < 1 || slot.position > league.clubs) {
+      throw new Error(`${file}: the lottery pool has no ${slot.league} ${slot.position}`);
+    }
+  }
+  const wageByPick = json.rookieContract.wageByPick.map((point): [number, number] => {
+    if (point.length !== 2) throw new Error(`${file}: a rookie wage needs a pick and a wage`);
+    return [point[0] as number, point[1] as number];
+  });
+  if (wageByPick.some(([pick], i) => i > 0 && pick <= (wageByPick[i - 1]?.[0] ?? 0))) {
+    throw new Error(`${file}: rookie wages must be by increasing pick`);
+  }
+  return {
+    rounds: json.rounds,
+    classSize: json.classSize,
+    ages: json.ages,
+    prospectQuality: json.prospectQuality,
+    lotteryPool: json.lotteryPool,
+    rookieContract: { years: json.rookieContract.years, wageByPick },
+    aiPick: json.aiPick,
+  };
 }
 
 /** Reads and checks a competitions config file; `file` names it in errors. */
@@ -425,6 +491,7 @@ export function parseCompetitions(json: CompetitionsFile, file: string): Competi
           openingPayroll: json.softCap.openingPayroll,
         }
       : null,
+    draft: json.draft ? parseDraft(json.draft, leagues, file) : null,
   };
 }
 
