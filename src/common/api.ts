@@ -55,6 +55,9 @@ export type PlayOption =
   | "untilWindowCloses"
   | "untilEndOfSeason"
   | "proceedToPromotionRelegation"
+  | "untilDraftLottery"
+  | "untilDraft"
+  | "untilResigning"
   | "advanceToPreseason";
 
 export type SeasonEventKind =

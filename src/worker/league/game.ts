@@ -16,12 +16,14 @@ import { withPlayerReferences } from "./messages";
 import { addDays } from "../../common/dates";
 import { GameError, LEAGUE_CLOSED } from "../../common/errors";
 import type { CompetitionsConfig } from "../../common/config/competitions";
+import type { WorldConfig } from "../../common/config/worlds";
 import {
   PLAYER_STAT_TOTALS,
   type ClubSeason,
   type Fixture,
   type GameMeta,
   type IdCounters,
+  type Phase,
   type PlayerStatsRow,
   type SeasonMeta,
 } from "../../common/schema";
@@ -201,8 +203,10 @@ export function gameState(session: LeagueSession): GameState {
   if (game.fired || live !== null) {
     // Sacked: nothing to play until the user takes a job (acceptJobOffer). Watching: the
     // live match comes first.
-  } else if (game.phase === "endOfSeason") {
-    options.push(stored.movesApplied ? "advanceToPreseason" : "proceedToPromotionRelegation");
+  } else if (game.phase === "endOfSeason" && !stored.movesApplied) {
+    options.push("proceedToPromotionRelegation");
+  } else if (game.phase === "endOfSeason" || offseasonPhase(game.phase)) {
+    options.push(nextOffseasonStage(session.config, game.phase)?.option ?? "advanceToPreseason");
   } else {
     options.push("untilNextMatch");
     if (next) options.push("watchNextMatch");
@@ -438,6 +442,63 @@ function expireOffers(session: LeagueSession, date: string): void {
 }
 
 /** 1 June: promotion and relegation (SPEC §3.1). */
+/** An off-season stage after promotion and relegation: its phase, Play option and date. */
+interface OffseasonStage {
+  phase: Phase;
+  option: PlayOption;
+  /** MM-DD key date (config) the stage starts on. */
+  date: string;
+}
+
+const offseasonPhase = (phase: Phase) =>
+  phase === "draftLottery" || phase === "draft" || phase === "resigning";
+
+/**
+ * The world's off-season stages, in order (SPEC §17.2): with a draft, its lottery and the
+ * draft; with a re-signing period, that period. None in Classic.
+ */
+function offseasonStages(config: WorldConfig): OffseasonStage[] {
+  const dates = config.competitions.keyDates;
+  const stage = (phase: Phase, option: PlayOption, key: string): OffseasonStage => {
+    const date = dates[key];
+    if (!date) throw new Error(`The ${config.name} world has no ${key} date`);
+    return { phase, option, date };
+  };
+  return [
+    ...(config.switches.youth === "draft"
+      ? [
+          stage("draftLottery", "untilDraftLottery", "draftLottery"),
+          stage("draft", "untilDraft", "draft"),
+        ]
+      : []),
+    ...(config.switches.renewals === "resigningPeriod"
+      ? [stage("resigning", "untilResigning", "resigningOpens")]
+      : []),
+  ];
+}
+
+/** The stage after `phase` (from the end of the season), or null when preseason is next. */
+function nextOffseasonStage(config: WorldConfig, phase: Phase): OffseasonStage | null {
+  const stages = offseasonStages(config);
+  const at = stages.findIndex((s) => s.phase === phase);
+  return stages[at + 1] ?? null;
+}
+
+/**
+ * Moves to the next off-season stage. Stubs for now: the lottery and the draft arrive in
+ * SL4, the re-signing period in SL5; each stage only sets the date and phase.
+ */
+function toOffseasonStage(session: LeagueSession, option: PlayOption): PlayReport {
+  const game = { ...meta<GameMeta>(session, "game") };
+  const stage = offseasonStages(session.config).find((s) => s.option === option);
+  if (!stage) throw new Error(`No off-season stage for ${option}`);
+  const from = game.date;
+  game.date = seasonDate(game.season, stage.date);
+  game.phase = stage.phase;
+  session.cache.put("meta", game, "game");
+  return { from, to: game.date, matchesPlayed: 0, events: [], phase: game.phase };
+}
+
 function proceedToPromotionRelegation(session: LeagueSession): PlayReport {
   const game = { ...meta<GameMeta>(session, "game") };
   const state = loadSeason(session);
@@ -698,6 +759,11 @@ async function runPlay(session: LeagueSession, option: PlayOption): Promise<Play
       break;
     case "proceedToPromotionRelegation":
       report = proceedToPromotionRelegation(session);
+      break;
+    case "untilDraftLottery":
+    case "untilDraft":
+    case "untilResigning":
+      report = toOffseasonStage(session, option);
       break;
     case "advanceToPreseason":
       report = await advanceToPreseason(session);

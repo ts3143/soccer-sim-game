@@ -29,12 +29,18 @@ export const PLAY_LABELS: Record<PlayOption, string> = {
   untilWindowCloses: "Until the window closes",
   untilEndOfSeason: "Until the end of the season",
   proceedToPromotionRelegation: "Proceed to promotion and relegation",
+  untilDraftLottery: "Until the draft lottery",
+  untilDraft: "Until the draft",
+  untilResigning: "Until the re-signing period",
   advanceToPreseason: "Advance to preseason",
 };
 const PHASE_LABELS: Record<string, string> = {
   preseason: "Preseason",
   regularSeason: "Regular season",
   endOfSeason: "End of season",
+  draftLottery: "Draft lottery",
+  draft: "Draft",
+  resigning: "Re-signing period",
 };
 export const seasonLabel = (season: number) =>
   `${season}/${String((season + 1) % 100).padStart(2, "0")}`;

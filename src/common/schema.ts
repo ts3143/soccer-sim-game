@@ -36,7 +36,12 @@ export interface LeagueSummary {
  * inside it); the end of season runs from the last match to 30 June. There is no re-sign
  * phase: renewals happen in windows.
  */
-export type Phase = "preseason" | "regularSeason" | "endOfSeason";
+/**
+ * Where the season is. After the end of the season, a world with a draft has its draft
+ * lottery and draft, one with a re-signing period that period (SPEC §17.6), before 1 July.
+ */
+export type Phase =
+  "preseason" | "regularSeason" | "endOfSeason" | "draftLottery" | "draft" | "resigning";
 
 export interface GameMeta {
   /** Display name of the save. */

@@ -35,7 +35,12 @@ import {
 import { squadPlay } from "./squads";
 
 /** Dated events of a season (SPEC §3.1) besides matches: windows and the winter update. */
-export function seasonEvents(season: number, config: CompetitionsConfig): SeasonEvent[] {
+/** `academies`: whether the world's clubs have academies (the user's 1 May reminder). */
+export function seasonEvents(
+  season: number,
+  config: CompetitionsConfig,
+  academies: boolean,
+): SeasonEvent[] {
   const events: SeasonEvent[] = [];
   for (const w of config.windows) {
     events.push({ date: seasonDate(season, w.opens), kind: "windowOpens", window: w.id });
@@ -53,7 +58,7 @@ export function seasonEvents(season: number, config: CompetitionsConfig): Season
     });
   }
   // The user's academy decisions are due by 1 July (SPEC §7.2): a reminder on 1 May.
-  events.push({ date: seasonDate(season, "05-01"), kind: "academyReminder" });
+  if (academies) events.push({ date: seasonDate(season, "05-01"), kind: "academyReminder" });
   return events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
@@ -123,7 +128,7 @@ export function runDays(
 ): DaysResult {
   const config = world.config.competitions;
   const squads = squadPlay(state, world.clubs, world.players, world.userCid, config);
-  const events = seasonEvents(state.season, config);
+  const events = seasonEvents(state.season, config, world.config.switches.youth === "academy");
   const out: DaysResult = {
     date: from,
     played: [],
