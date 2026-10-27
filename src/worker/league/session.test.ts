@@ -48,7 +48,9 @@ describe("league saves", () => {
     expect(clubs).toHaveLength(62);
     const clubSeasons = cache.getAll("clubSeasons").filter((r) => r.season === 2026);
     expect(
-      evaluateWorld({ clubs, clubSeasons, players, xiStrength }).filter((c) => !c.pass),
+      evaluateWorld({ clubs, clubSeasons, players, xiStrength }, worlds.classic).filter(
+        (c) => !c.pass,
+      ),
     ).toEqual([]);
     for (const club of clubs) {
       expect(Math.abs((xiStrength.get(club.cid) ?? 0) - club.strengthTarget)).toBeLessThanOrEqual(
@@ -67,6 +69,27 @@ describe("league saves", () => {
     // The save records its world, and the session plays it (SPEC §17.1).
     expect(cache.get("meta", "world")).toMatchObject({ id: "classic" });
     expect((await openLeague(league.lid)).config).toBe(worlds.classic);
+  });
+
+  it("creates a Super League save: 48 clubs in three tiers, no academies", SLOW, async () => {
+    const league = await createLeague({
+      world: "superLeague",
+      name: "Super",
+      seed: "super-save",
+      userCid: 0,
+    });
+    expect(league.clubName).toBe("Madrid Blancos");
+    const session = await openLeague(league.lid);
+    expect(session.config).toBe(worlds.superLeague);
+    expect(session.cache.get("meta", "world")).toMatchObject({ id: "superLeague" });
+    expect(session.cache.getAll("clubs")).toHaveLength(48);
+    expect(session.cache.getAll("players").some((p) => p.status === "academy")).toBe(false);
+    // Each tier's double round robin: 16 clubs × 15 home matches, no cups.
+    const fixtures = session.cache.getAll("fixtures");
+    expect(fixtures).toHaveLength(3 * 16 * 15);
+    expect(new Set(fixtures.map((f) => f.competition))).toEqual(new Set(["STAR", "GOLD", "BLUE"]));
+    expect(gameState(session)).toMatchObject({ season: 2026, phase: "preseason", window: null });
+    await deleteLeague(league.lid);
   });
 
   it("opens a save from before the Super League as Classic, and plays on", SLOW, async () => {

@@ -40,6 +40,30 @@ function contractYears(rng: Random, age: number): number {
   return rng.weightedIndex(weights) + 1;
 }
 
+/** An opening squad's bill: the season's wages, and past fees still being paid off. */
+export interface OpeningBill {
+  wages: number;
+  fees: number;
+}
+
+/** Classic: the squad costs 50-65% of revenue, 70% of it wages (SPEC §6.4). */
+export function revenueBill(rng: Random, revenue: number): OpeningBill {
+  const bill = rng.real(STARTING_SQUAD_COST.min, STARTING_SQUAD_COST.max) * revenue;
+  return { wages: OPENING_WAGE_SHARE * bill, fees: (1 - OPENING_WAGE_SHARE) * bill };
+}
+
+/**
+ * Under a soft cap (SPEC §17.7): wages at a share of the club's cap, drawn from the
+ * config's range; no past fees (no transfer market).
+ */
+export function capBill(
+  rng: Random,
+  cap: number,
+  share: { min: number; max: number },
+): OpeningBill {
+  return { wages: rng.real(share.min, share.max) * cap, fees: 0 };
+}
+
 export function assignContracts(
   rng: Random,
   seniors: Player[],
@@ -47,9 +71,8 @@ export function assignContracts(
   strength: number,
   revenue: number,
   seasonStart: string,
+  bill: OpeningBill,
 ): { squadCostRatio: number } {
-  const target = rng.real(STARTING_SQUAD_COST.min, STARTING_SQUAD_COST.max);
-  const bill = target * revenue;
   const weights = seniors.map(
     (p) => Math.exp(WAGE_STEEPNESS * (p.ovr - strength)) * wageAgeFactor(ages.get(p.pid) ?? 27),
   );
@@ -60,14 +83,12 @@ export function assignContracts(
   const totalFeeWeight = feeWeights.reduce((s, w) => s + w, 0);
   let totalCost = 0;
   seniors.forEach((player, i) => {
-    const wage = roundWage((OPENING_WAGE_SHARE * bill * (weights[i] as number)) / totalWeight);
+    const wage = roundWage((bill.wages * (weights[i] as number)) / totalWeight);
     const years = contractYears(rng, ages.get(player.pid) ?? 27);
     // Contracts end on 30 June: one year left means it expires at the end of this season.
     player.contract = { wage, expires: addYears(seasonStart, years).slice(0, 4) + "-06-30" };
     const perYear =
-      totalFeeWeight > 0
-        ? Math.round(((1 - OPENING_WAGE_SHARE) * bill * (feeWeights[i] as number)) / totalFeeWeight)
-        : 0;
+      totalFeeWeight > 0 ? Math.round((bill.fees * (feeWeights[i] as number)) / totalFeeWeight) : 0;
     player.feeBalance = perYear > 0 ? { remaining: perYear * years, perYear } : null;
     totalCost += wage + perYear;
   });

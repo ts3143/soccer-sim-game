@@ -85,7 +85,7 @@ for (const [label, lo, hi] of [
     `  age ${label.padEnd(6)} n=${String(group.length).padStart(4)}  mean OVR ${(group.reduce((s, p) => s + p.ovr, 0) / Math.max(1, group.length)).toFixed(1)}  mean POT-OVR ${gap.toFixed(1)}`,
   );
 }
-for (const league of config.competitions.leagues) {
+for (const league of academy.length > 0 ? config.competitions.leagues : []) {
   const cids = new Set(world.clubs.filter((c) => c.leagueId === league.id).map((c) => c.cid));
   const kids = academy.filter((p) => p.cid !== null && cids.has(p.cid));
   console.log(
@@ -93,7 +93,7 @@ for (const league of config.competitions.leagues) {
   );
 }
 
-const checks: Check[] = evaluateWorld(world, {
+const checks: Check[] = evaluateWorld(world, config, {
   deterministic,
   realNames: realClubNamesToCheck().names,
 });

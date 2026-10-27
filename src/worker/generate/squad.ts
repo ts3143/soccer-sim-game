@@ -179,6 +179,8 @@ export interface SquadOptions {
   rules: RosterRules;
   /** The world's nationality mix (identity.ts worldMix), for second nationalities. */
   worldMix: Record<string, number>;
+  /** Whether clubs have academies (the world's youth switch, SPEC §17.1). */
+  academies: boolean;
 }
 
 export interface GeneratedSquad {
@@ -212,7 +214,8 @@ export function generateSquad(rng: Random, options: SquadOptions): GeneratedSqua
 
   // Opening academies in the shape the yearly intake settles at (T, 2026-10-15): 9–12
   // players aged 15–17 per club (18-year-olds are promoted or released each summer).
-  const academyCount = rng.int(OPENING_ACADEMY.min, OPENING_ACADEMY.max);
+  // None in a world without academies (the Super League, SPEC §17.4).
+  const academyCount = options.academies ? rng.int(OPENING_ACADEMY.min, OPENING_ACADEMY.max) : 0;
   const academy = Array.from({ length: academyCount }, () => {
     const age = rng.weighted(OPENING_ACADEMY.ages, ([, w]) => w)[0];
     return generateAcademyPlayer(

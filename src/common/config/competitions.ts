@@ -124,6 +124,16 @@ export interface RosterRules {
   minSeniorForMatch: number;
 }
 
+/** A tiered soft cap on payrolls (SPEC §17.7; the Super League's). Money rules arrive in SL3. */
+export interface SoftCapConfig {
+  /** The top tier's cap on a club's payroll, in euros a season. */
+  cap: number;
+  /** Each league's cap as a share of `cap`. */
+  tierShare: Record<string, number>;
+  /** Opening payrolls as a share of the club's cap. */
+  openingPayroll: { min: number; max: number };
+}
+
 export interface CompetitionsConfig {
   /** ISO date the first simulated season starts (e.g. 2026-07-01). */
   seasonStart: string;
@@ -136,6 +146,14 @@ export interface CompetitionsConfig {
   keyDates: Record<string, string>;
   rosterRules: RosterRules;
   renewals: { endOfSeasonResignPhase: boolean; expiryWarningMonths: number };
+  /** null: no cap (Classic, whose money rule is FFP). */
+  softCap: SoftCapConfig | null;
+}
+
+/** A league's payroll cap in euros, or null in a world without one. */
+export function capOf(config: CompetitionsConfig, leagueId: string): number | null {
+  const softCap = config.softCap;
+  return softCap ? Math.round(softCap.cap * (softCap.tierShare[leagueId] ?? 1)) : null;
 }
 
 const isTieBreaker = (value: string): value is TieBreaker =>
@@ -240,6 +258,7 @@ export interface CompetitionsFile {
   keyDates: Record<string, string>;
   rosterRules: RosterRules;
   renewals: { endOfSeasonResignPhase: boolean; expiryWarningMonths: number };
+  softCap?: SoftCapConfig;
 }
 
 /**
@@ -347,6 +366,11 @@ export function parseCompetitions(json: CompetitionsFile, file: string): Competi
       prizeMoney: c.prizeMoney,
     };
   });
+  for (const league of leagues) {
+    if (json.softCap && json.softCap.tierShare[league.id] === undefined) {
+      throw new Error(`${file}: the soft cap has no share for ${league.id}`);
+    }
+  }
   for (const cup of cups) {
     checkCupBracket(cup, leagues, file);
     if (cup.prizeMoney.roundWon.length !== cup.rounds.length) {
@@ -363,6 +387,13 @@ export function parseCompetitions(json: CompetitionsFile, file: string): Competi
     keyDates: json.keyDates,
     rosterRules: json.rosterRules,
     renewals: json.renewals,
+    softCap: json.softCap
+      ? {
+          cap: json.softCap.cap,
+          tierShare: json.softCap.tierShare,
+          openingPayroll: json.softCap.openingPayroll,
+        }
+      : null,
   };
 }
 

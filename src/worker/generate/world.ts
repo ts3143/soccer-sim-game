@@ -4,14 +4,14 @@
  * included) → identical world. Writing it to IndexedDB is the caller's job.
  */
 import type { ClubDefinition } from "../../common/config/clubs";
-import { type CompetitionsConfig, leagueById } from "../../common/config/competitions";
+import { capOf, type CompetitionsConfig, leagueById } from "../../common/config/competitions";
 import { formationById, formationsConfig } from "../../common/config/formations";
 import type { WorldConfig } from "../../common/config/worlds";
 import { exactAge } from "../../common/dates";
 import type { Club, ClubSeason, CompetitionRow, MetaRows, Player } from "../../common/schema";
 import { estimatePotential, type PotentialClubContext } from "../core/potential";
 import { Random } from "../core/random";
-import { assignContracts } from "./contracts";
+import { assignContracts, capBill, revenueBill } from "./contracts";
 import { commercialBase, expectedTvAndGates, ticketPrice } from "../finance/finance";
 import { bornLocally } from "./birthplace";
 import { generateFreeAgents, generateReleasedYouth } from "./freeAgents";
@@ -124,6 +124,14 @@ function clubRow(
   };
 }
 
+/** The opening squad's bill: from the club's cap in a world with one, else its revenue. */
+function openingBill(rng: Random, def: ClubDefinition, competitions: CompetitionsConfig) {
+  const cap = capOf(competitions, def.league);
+  return cap !== null && competitions.softCap
+    ? capBill(rng, cap, competitions.softCap.openingPayroll)
+    : revenueBill(rng, def.revenue);
+}
+
 const openingHype = (def: ClubDefinition) => Math.round(50 + (def.reputation - 50) * 0.4);
 
 function clubSeasonRow(def: ClubDefinition, cid: number, season: number): ClubSeason {
@@ -151,8 +159,9 @@ function clubSeasonRow(def: ClubDefinition, cid: number, season: number): ClubSe
 }
 
 export function generateWorld(options: WorldOptions): World {
-  const { clubs: definitions, competitions } = options.config;
+  const { clubs: definitions, competitions, switches } = options.config;
   const mix = worldMix(options.config);
+  const academies = switches.youth === "academy";
   const root = Random.fromSeed(options.seed);
   const season = competitions.firstSeason;
   const seasonStart = competitions.seasonStart;
@@ -188,6 +197,7 @@ export function generateWorld(options: WorldOptions): World {
       nextPid,
       rules: competitions.rosterRules,
       worldMix: mix,
+      academies,
     });
     const ages = new Map(
       squad.seniors.map((p) => [p.pid, Math.floor(exactAge(p.birthDate, seasonStart))]),
@@ -199,6 +209,7 @@ export function generateWorld(options: WorldOptions): World {
       def.strength,
       def.revenue,
       seasonStart,
+      openingBill(rng, def, competitions),
     );
 
     const club = clubRow(rng, def, cid, formationId, competitions);
@@ -218,16 +229,19 @@ export function generateWorld(options: WorldOptions): World {
   });
 
   players.push(...generateFreeAgents(root.fork("freeAgents"), season, seasonStart, nextPid, mix));
-  players.push(
-    ...generateReleasedYouth(
-      root.fork("releasedYouth"),
-      season,
-      seasonStart,
-      nextPid,
-      competitions.leagues,
-      mix,
-    ),
-  );
+  // Academies release their 18-year-olds into free agency; a world without them doesn't.
+  if (academies) {
+    players.push(
+      ...generateReleasedYouth(
+        root.fork("releasedYouth"),
+        season,
+        seasonStart,
+        nextPid,
+        competitions.leagues,
+        mix,
+      ),
+    );
+  }
 
   for (const player of players) {
     const ratings = player.ratingsHistory[0]?.ratings ?? [];

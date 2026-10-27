@@ -649,12 +649,13 @@ export function promoteToSquadSize(world: LoopWorld, season: number, date: strin
  */
 export function preseasonTurnover(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
+  // The youth intake and academy decisions only where clubs have academies (SPEC §17.4).
+  const academies = world.config.switches.youth === "academy";
   const steps: ((w: LoopWorld, s: number, d: string) => Partial<TurnoverLog>)[] = [
     (w, s, d) => returnLoans(w, d, s),
     expireContracts,
     freeAgentDepartures,
-    youthIntake,
-    academyDecisions,
+    ...(academies ? [youthIntake, academyDecisions] : []),
     (w, s, d) => aiRenewals(w, s, d, "summer"),
     promoteToSquadSize,
   ];

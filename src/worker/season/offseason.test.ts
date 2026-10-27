@@ -11,6 +11,7 @@ import {
   seasonAwards,
   type SeasonLine,
   startingReputation,
+  preseasonTurnover,
   promoteToSquadSize,
   youthIntake,
 } from "./offseason";
@@ -192,6 +193,30 @@ describe("preseason", () => {
   const pre = copyOf(world);
   applyMoves(pre.clubs, outcome.moves);
   const date = "2027-07-01";
+
+  it("brings no youths in a world without academies (the Super League)", () => {
+    const world = generateWorld({
+      config: worlds.superLeague,
+      seed: SEED,
+      name: "t",
+      userCid: 0,
+      createdAt: "2026-07-01T00:00:00.000Z",
+    });
+    let pid = Math.max(...world.players.map((p) => p.pid)) + 1;
+    const loop: LoopWorld = {
+      config: worlds.superLeague,
+      clubs: world.clubs,
+      players: world.players,
+      reputation: startingReputation(worlds.superLeague.clubs),
+      clubSeasons: new Map(world.clubSeasons.map((r) => [r.cid, r])),
+      userCid: 0,
+      seed: SEED,
+      nextPid: () => pid++,
+    };
+    const log = preseasonTurnover(loop, 2027, "2027-07-01");
+    expect(log.added).toEqual([]);
+    expect(loop.players.some((p) => p.status === "academy")).toBe(false);
+  });
 
   it("brings 3–6 youths aged 15–16 into every academy", () => {
     const log = youthIntake(pre, 2027, date);

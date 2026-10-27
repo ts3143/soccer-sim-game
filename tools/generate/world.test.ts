@@ -16,7 +16,9 @@ const world = generateWorld(options);
 
 describe("generateWorld", () => {
   it("passes every M1 acceptance check", () => {
-    const checks = evaluateWorld(world, { realNames: realClubNamesToCheck().names });
+    const checks = evaluateWorld(world, worlds.classic, {
+      realNames: realClubNamesToCheck().names,
+    });
     expect(checks.filter((c) => !c.pass)).toEqual([]);
   });
 
@@ -75,5 +77,36 @@ describe("generateWorld", () => {
       players: "60eeb9aef2dd9623",
       xiStrength: "7dbc52133ca8565b",
     });
+  });
+});
+
+describe("generateWorld for the Super League", () => {
+  const options = {
+    config: worlds.superLeague,
+    seed: "super-league-test",
+    name: "Test",
+    userCid: 0,
+    createdAt: "2026-07-01T00:00:00.000Z",
+  };
+  const world = generateWorld(options);
+
+  it("passes its acceptance checks: 48 clubs, XIs on strength, tiers in order, capped payrolls", () => {
+    const checks = evaluateWorld(world, worlds.superLeague, {
+      realNames: realClubNamesToCheck().names,
+    });
+    expect(checks.filter((c) => !c.pass)).toEqual([]);
+    expect(checks.map((c) => c.name)).toContain("tiers ordered by strength on average");
+  });
+
+  it("has no academies, no past fees, and records its world", { timeout: 60_000 }, () => {
+    expect(world.players.some((p) => p.status === "academy")).toBe(false);
+    expect(world.players.every((p) => p.feeBalance === null || p.feeBalance === undefined)).toBe(
+      true,
+    );
+    expect(world.meta.world.id).toBe("superLeague");
+    expect(world.clubs.map((c) => c.leagueId)).toEqual(
+      worlds.superLeague.clubs.map((c) => c.league),
+    );
+    expect(JSON.stringify(generateWorld(options))).toBe(JSON.stringify(world));
   });
 });
