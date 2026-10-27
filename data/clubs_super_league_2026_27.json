@@ -1,0 +1,1277 @@
+{
+  "season": "2026/27",
+  "notes": "Super League world (SPEC §17): T's city + nickname names. Values are relational, as in clubs_2026_27.json. Clubs also in Classic keep their Classic code and values. based_on is a dev reference only and must not ship in the game UI.",
+  "leagues": [
+    {
+      "id": "STAR",
+      "name": "Star",
+      "country": "EUR",
+      "tier": 1,
+      "clubs": 16
+    },
+    {
+      "id": "GOLD",
+      "name": "Gold",
+      "country": "EUR",
+      "tier": 2,
+      "clubs": 16
+    },
+    {
+      "id": "BLUE",
+      "name": "Blue",
+      "country": "EUR",
+      "tier": 3,
+      "clubs": 16
+    }
+  ],
+  "clubs": [
+    {
+      "id": "mbl",
+      "league": "STAR",
+      "based_on": "Real Madrid",
+      "name": "Madrid Blancos",
+      "short": "Blancos",
+      "abbr": "MBL",
+      "city": "Madrid",
+      "country": "ESP",
+      "capacity": 83186,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#00529F",
+        "tertiary": "#FEBE10"
+      },
+      "market": 96,
+      "reputation": 99,
+      "revenue_m": 1250,
+      "strength": 77,
+      "crest": {
+        "shape": "round",
+        "motif": "crown",
+        "initials": "MBL",
+        "svg": "data/crests/mbl.svg"
+      }
+    },
+    {
+      "id": "mco",
+      "league": "STAR",
+      "based_on": "Atlético Madrid",
+      "name": "Madrid Colchoneros",
+      "short": "Colchoneros",
+      "abbr": "MCO",
+      "city": "Madrid",
+      "country": "ESP",
+      "capacity": 70692,
+      "colors": {
+        "primary": "#CB3524",
+        "secondary": "#FFFFFF",
+        "tertiary": "#272E61"
+      },
+      "market": 88,
+      "reputation": 86,
+      "revenue_m": 470,
+      "strength": 71,
+      "crest": {
+        "shape": "shield",
+        "motif": "bear",
+        "initials": "MCO",
+        "svg": "data/crests/mco.svg"
+      }
+    },
+    {
+      "id": "bar",
+      "league": "STAR",
+      "based_on": "FC Barcelona",
+      "name": "Barcelona Blaugrana",
+      "short": "Blaugrana",
+      "abbr": "BAR",
+      "city": "Barcelona",
+      "country": "ESP",
+      "capacity": 99354,
+      "colors": {
+        "primary": "#A50044",
+        "secondary": "#004D98",
+        "tertiary": "#EDBB00"
+      },
+      "market": 94,
+      "reputation": 96,
+      "revenue_m": 1000,
+      "strength": 75,
+      "crest": {
+        "shape": "shield",
+        "motif": "cross",
+        "initials": "BAR",
+        "svg": "data/crests/bar.svg"
+      }
+    },
+    {
+      "id": "msk",
+      "league": "STAR",
+      "based_on": "Manchester City",
+      "name": "Manchester Citizens",
+      "short": "Citizens",
+      "abbr": "MCI",
+      "city": "Manchester",
+      "country": "ENG",
+      "capacity": 61470,
+      "colors": {
+        "primary": "#6CABDD",
+        "secondary": "#FFFFFF",
+        "tertiary": "#1C2C5B"
+      },
+      "market": 86,
+      "reputation": 92,
+      "revenue_m": 830,
+      "strength": 76,
+      "crest": {
+        "shape": "round",
+        "motif": "eagle",
+        "initials": "MCI",
+        "svg": "data/crests/msk.svg"
+      }
+    },
+    {
+      "id": "msr",
+      "league": "STAR",
+      "based_on": "Liverpool",
+      "name": "Liverpool Reds",
+      "short": "Reds",
+      "abbr": "LIV",
+      "city": "Liverpool",
+      "country": "ENG",
+      "capacity": 61276,
+      "colors": {
+        "primary": "#C8102E",
+        "secondary": "#FFFFFF",
+        "tertiary": "#00B2A9"
+      },
+      "market": 82,
+      "reputation": 94,
+      "revenue_m": 840,
+      "strength": 76,
+      "crest": {
+        "shape": "shield",
+        "motif": "bird",
+        "initials": "LIV",
+        "svg": "data/crests/msr.svg"
+      }
+    },
+    {
+      "id": "isl",
+      "league": "STAR",
+      "based_on": "Arsenal",
+      "name": "North London Gunners",
+      "short": "Gunners",
+      "abbr": "NLG",
+      "city": "London",
+      "country": "ENG",
+      "capacity": 60704,
+      "colors": {
+        "primary": "#EF0107",
+        "secondary": "#FFFFFF",
+        "tertiary": "#063672"
+      },
+      "market": 90,
+      "reputation": 90,
+      "revenue_m": 830,
+      "strength": 75,
+      "crest": {
+        "shape": "shield",
+        "motif": "cannon",
+        "initials": "NLG",
+        "svg": "data/crests/isl.svg"
+      }
+    },
+    {
+      "id": "ken",
+      "league": "STAR",
+      "based_on": "Chelsea",
+      "name": "London Blues",
+      "short": "Blues",
+      "abbr": "LBL",
+      "city": "London",
+      "country": "ENG",
+      "capacity": 40343,
+      "colors": {
+        "primary": "#034694",
+        "secondary": "#FFFFFF",
+        "tertiary": "#DBA111"
+      },
+      "market": 90,
+      "reputation": 88,
+      "revenue_m": 580,
+      "strength": 72,
+      "crest": {
+        "shape": "round",
+        "motif": "lion",
+        "initials": "LBL",
+        "svg": "data/crests/ken.svg"
+      }
+    },
+    {
+      "id": "har",
+      "league": "STAR",
+      "based_on": "Tottenham Hotspur",
+      "name": "North London Lilywhites",
+      "short": "Lilywhites",
+      "abbr": "NLL",
+      "city": "London",
+      "country": "ENG",
+      "capacity": 62850,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#132257",
+        "tertiary": "#000000"
+      },
+      "market": 88,
+      "reputation": 82,
+      "revenue_m": 670,
+      "strength": 69,
+      "crest": {
+        "shape": "shield",
+        "motif": "cockerel",
+        "initials": "NLL",
+        "svg": "data/crests/har.svg"
+      }
+    },
+    {
+      "id": "mun",
+      "league": "STAR",
+      "based_on": "FC Bayern München",
+      "name": "Munich Die Roten",
+      "short": "Die Roten",
+      "abbr": "MUN",
+      "city": "Munich",
+      "country": "GER",
+      "capacity": 75024,
+      "colors": {
+        "primary": "#DC052D",
+        "secondary": "#FFFFFF",
+        "tertiary": "#0066B2"
+      },
+      "market": 92,
+      "reputation": 95,
+      "revenue_m": 860,
+      "strength": 76,
+      "crest": {
+        "shape": "round",
+        "motif": "diamonds",
+        "initials": "MUN",
+        "svg": "data/crests/mun.svg"
+      }
+    },
+    {
+      "id": "bor",
+      "league": "STAR",
+      "based_on": "Borussia Dortmund",
+      "name": "Dortmund Schwarzgelben",
+      "short": "Schwarzgelben",
+      "abbr": "DSG",
+      "city": "Dortmund",
+      "country": "GER",
+      "capacity": 81365,
+      "colors": {
+        "primary": "#FDE100",
+        "secondary": "#000000",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 84,
+      "reputation": 86,
+      "revenue_m": 530,
+      "strength": 71,
+      "crest": {
+        "shape": "round",
+        "motif": "monogram",
+        "initials": "DSG",
+        "svg": "data/crests/bor.svg"
+      }
+    },
+    {
+      "id": "rhw",
+      "league": "STAR",
+      "based_on": "Bayer 04 Leverkusen",
+      "name": "Leverkusen Werkself",
+      "short": "Werkself",
+      "abbr": "LEV",
+      "city": "Leverkusen",
+      "country": "GER",
+      "capacity": 30210,
+      "colors": {
+        "primary": "#E32221",
+        "secondary": "#000000",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 60,
+      "reputation": 82,
+      "revenue_m": 330,
+      "strength": 70,
+      "crest": {
+        "shape": "round",
+        "motif": "cross",
+        "initials": "LEV",
+        "svg": "data/crests/rhw.svg"
+      }
+    },
+    {
+      "id": "mne",
+      "league": "STAR",
+      "based_on": "Inter Milan",
+      "name": "Milan Nerazzurri",
+      "short": "Nerazzurri",
+      "abbr": "MNE",
+      "city": "Milan",
+      "country": "ITA",
+      "capacity": 75817,
+      "colors": {
+        "primary": "#010E80",
+        "secondary": "#000000",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 88,
+      "reputation": 88,
+      "revenue_m": 600,
+      "strength": 73,
+      "crest": {
+        "shape": "round",
+        "motif": "serpent",
+        "initials": "MNE",
+        "svg": "data/crests/mne.svg"
+      }
+    },
+    {
+      "id": "mro",
+      "league": "STAR",
+      "based_on": "AC Milan",
+      "name": "Milan Rossoneri",
+      "short": "Rossoneri",
+      "abbr": "MRO",
+      "city": "Milan",
+      "country": "ITA",
+      "capacity": 75817,
+      "colors": {
+        "primary": "#FB090B",
+        "secondary": "#000000",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 88,
+      "reputation": 86,
+      "revenue_m": 500,
+      "strength": 70,
+      "crest": {
+        "shape": "shield",
+        "motif": "devil",
+        "initials": "MRO",
+        "svg": "data/crests/mro.svg"
+      }
+    },
+    {
+      "id": "tur",
+      "league": "STAR",
+      "based_on": "Juventus",
+      "name": "Turin Bianconeri",
+      "short": "Bianconeri",
+      "abbr": "TUR",
+      "city": "Turin",
+      "country": "ITA",
+      "capacity": 41507,
+      "colors": {
+        "primary": "#000000",
+        "secondary": "#FFFFFF",
+        "tertiary": "#D4AF37"
+      },
+      "market": 80,
+      "reputation": 88,
+      "revenue_m": 560,
+      "strength": 70,
+      "crest": {
+        "shape": "shield",
+        "motif": "zebra",
+        "initials": "TUR",
+        "svg": "data/crests/tur.svg"
+      }
+    },
+    {
+      "id": "nap",
+      "league": "STAR",
+      "based_on": "SSC Napoli",
+      "name": "Naples Partenopei",
+      "short": "Partenopei",
+      "abbr": "NAP",
+      "city": "Naples",
+      "country": "ITA",
+      "capacity": 54726,
+      "colors": {
+        "primary": "#12A0D7",
+        "secondary": "#FFFFFF",
+        "tertiary": "#003C82"
+      },
+      "market": 76,
+      "reputation": 80,
+      "revenue_m": 330,
+      "strength": 71,
+      "crest": {
+        "shape": "round",
+        "motif": "monogram",
+        "initials": "NAP",
+        "svg": "data/crests/nap.svg"
+      }
+    },
+    {
+      "id": "par",
+      "league": "STAR",
+      "based_on": "Paris Saint-Germain",
+      "name": "Paris Rouge-et-Bleu",
+      "short": "Rouge-et-Bleu",
+      "abbr": "PAR",
+      "city": "Paris",
+      "country": "FRA",
+      "capacity": 47929,
+      "colors": {
+        "primary": "#004170",
+        "secondary": "#DA291C",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 94,
+      "reputation": 92,
+      "revenue_m": 900,
+      "strength": 75,
+      "crest": {
+        "shape": "round",
+        "motif": "tower",
+        "initials": "PAR",
+        "svg": "data/crests/par.svg"
+      }
+    },
+    {
+      "id": "mdv",
+      "league": "GOLD",
+      "based_on": "Manchester United",
+      "name": "Manchester Red Devils",
+      "short": "Red Devils",
+      "abbr": "MRD",
+      "city": "Manchester",
+      "country": "ENG",
+      "capacity": 74197,
+      "colors": {
+        "primary": "#DA291C",
+        "secondary": "#000000",
+        "tertiary": "#FBE122"
+      },
+      "market": 88,
+      "reputation": 92,
+      "revenue_m": 780,
+      "strength": 70,
+      "crest": {
+        "shape": "shield",
+        "motif": "devil",
+        "initials": "MRD",
+        "svg": "data/crests/mdv.svg"
+      }
+    },
+    {
+      "id": "tyn",
+      "league": "GOLD",
+      "based_on": "Newcastle United",
+      "name": "Newcastle Magpies",
+      "short": "Magpies",
+      "abbr": "NEW",
+      "city": "Newcastle",
+      "country": "ENG",
+      "capacity": 52258,
+      "colors": {
+        "primary": "#241F20",
+        "secondary": "#FFFFFF",
+        "tertiary": "#41B6E6"
+      },
+      "market": 74,
+      "reputation": 78,
+      "revenue_m": 400,
+      "strength": 70,
+      "crest": {
+        "shape": "round",
+        "motif": "magpie",
+        "initials": "NEW",
+        "svg": "data/crests/tyn.svg"
+      }
+    },
+    {
+      "id": "ast",
+      "league": "GOLD",
+      "based_on": "Aston Villa",
+      "name": "Birmingham Lions",
+      "short": "Lions",
+      "abbr": "BIR",
+      "city": "Birmingham",
+      "country": "ENG",
+      "capacity": 42640,
+      "colors": {
+        "primary": "#670E36",
+        "secondary": "#95BFE5",
+        "tertiary": "#FEE505"
+      },
+      "market": 76,
+      "reputation": 76,
+      "revenue_m": 450,
+      "strength": 69,
+      "crest": {
+        "shape": "shield",
+        "motif": "lion",
+        "initials": "BIR",
+        "svg": "data/crests/ast.svg"
+      }
+    },
+    {
+      "id": "sne",
+      "league": "GOLD",
+      "based_on": "Sevilla FC",
+      "name": "Seville Nervionenses",
+      "short": "Nervionenses",
+      "abbr": "SNE",
+      "city": "Seville",
+      "country": "ESP",
+      "capacity": 43883,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#D81920",
+        "tertiary": "#000000"
+      },
+      "market": 70,
+      "reputation": 76,
+      "revenue_m": 210,
+      "strength": 65,
+      "crest": {
+        "shape": "shield",
+        "motif": "king",
+        "initials": "SNE",
+        "svg": "data/crests/sne.svg"
+      }
+    },
+    {
+      "id": "sse",
+      "league": "GOLD",
+      "based_on": "Real Sociedad",
+      "name": "San Sebastián Txuri-Urdin",
+      "short": "Txuri-Urdin",
+      "abbr": "SSE",
+      "city": "San Sebastián",
+      "country": "ESP",
+      "capacity": 39313,
+      "colors": {
+        "primary": "#0067B1",
+        "secondary": "#FFFFFF",
+        "tertiary": "#E4B04A"
+      },
+      "market": 54,
+      "reputation": 72,
+      "revenue_m": 190,
+      "strength": 66,
+      "crest": {
+        "shape": "round",
+        "motif": "crown",
+        "initials": "SSE",
+        "svg": "data/crests/sse.svg"
+      }
+    },
+    {
+      "id": "bil",
+      "league": "GOLD",
+      "based_on": "Athletic Club",
+      "name": "Bilbao Leones",
+      "short": "Leones",
+      "abbr": "BIL",
+      "city": "Bilbao",
+      "country": "ESP",
+      "capacity": 53331,
+      "colors": {
+        "primary": "#EE2523",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 66,
+      "reputation": 78,
+      "revenue_m": 200,
+      "strength": 67,
+      "crest": {
+        "shape": "shield",
+        "motif": "tree",
+        "initials": "BIL",
+        "svg": "data/crests/bil.svg"
+      }
+    },
+    {
+      "id": "vil",
+      "league": "GOLD",
+      "based_on": "Villarreal CF",
+      "name": "Villarreal Submarino",
+      "short": "Submarino",
+      "abbr": "VIL",
+      "city": "Villarreal",
+      "country": "ESP",
+      "capacity": 23008,
+      "colors": {
+        "primary": "#FFE600",
+        "secondary": "#005187",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 40,
+      "reputation": 70,
+      "revenue_m": 170,
+      "strength": 67,
+      "crest": {
+        "shape": "shield",
+        "motif": "submarine",
+        "initials": "VIL",
+        "svg": "data/crests/vil.svg"
+      }
+    },
+    {
+      "id": "sac",
+      "league": "GOLD",
+      "based_on": "RB Leipzig",
+      "name": "Leipzig Bullen",
+      "short": "Bullen",
+      "abbr": "LEI",
+      "city": "Leipzig",
+      "country": "GER",
+      "capacity": 47069,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#DD0741",
+        "tertiary": "#001F47"
+      },
+      "market": 66,
+      "reputation": 78,
+      "revenue_m": 480,
+      "strength": 69,
+      "crest": {
+        "shape": "round",
+        "motif": "bull",
+        "initials": "LEI",
+        "svg": "data/crests/sac.svg"
+      }
+    },
+    {
+      "id": "fra",
+      "league": "GOLD",
+      "based_on": "Eintracht Frankfurt",
+      "name": "Frankfurt Adler",
+      "short": "Adler",
+      "abbr": "FRA",
+      "city": "Frankfurt",
+      "country": "GER",
+      "capacity": 58000,
+      "colors": {
+        "primary": "#E1000F",
+        "secondary": "#000000",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 78,
+      "reputation": 74,
+      "revenue_m": 290,
+      "strength": 66,
+      "crest": {
+        "shape": "shield",
+        "motif": "eagle",
+        "initials": "FRA",
+        "svg": "data/crests/fra.svg"
+      }
+    },
+    {
+      "id": "rgi",
+      "league": "GOLD",
+      "based_on": "AS Roma",
+      "name": "Rome Giallorossi",
+      "short": "Giallorossi",
+      "abbr": "RGI",
+      "city": "Rome",
+      "country": "ITA",
+      "capacity": 70634,
+      "colors": {
+        "primary": "#8E1F2F",
+        "secondary": "#F0BC42",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 86,
+      "reputation": 80,
+      "revenue_m": 320,
+      "strength": 68,
+      "crest": {
+        "shape": "shield",
+        "motif": "wolf",
+        "initials": "RGI",
+        "svg": "data/crests/rgi.svg"
+      }
+    },
+    {
+      "id": "rbi",
+      "league": "GOLD",
+      "based_on": "Lazio",
+      "name": "Rome Biancocelesti",
+      "short": "Biancocelesti",
+      "abbr": "RBI",
+      "city": "Rome",
+      "country": "ITA",
+      "capacity": 70634,
+      "colors": {
+        "primary": "#87D8F7",
+        "secondary": "#FFFFFF",
+        "tertiary": "#002B5C"
+      },
+      "market": 86,
+      "reputation": 74,
+      "revenue_m": 200,
+      "strength": 67,
+      "crest": {
+        "shape": "shield",
+        "motif": "eagle",
+        "initials": "RBI",
+        "svg": "data/crests/rbi.svg"
+      }
+    },
+    {
+      "id": "bgo",
+      "league": "GOLD",
+      "based_on": "Atalanta",
+      "name": "Bergamo Dea",
+      "short": "Dea",
+      "abbr": "BGO",
+      "city": "Bergamo",
+      "country": "ITA",
+      "capacity": 24950,
+      "colors": {
+        "primary": "#1E71B8",
+        "secondary": "#000000",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 52,
+      "reputation": 78,
+      "revenue_m": 300,
+      "strength": 69,
+      "crest": {
+        "shape": "round",
+        "motif": "goddess",
+        "initials": "BGO",
+        "svg": "data/crests/bgo.svg"
+      }
+    },
+    {
+      "id": "mar",
+      "league": "GOLD",
+      "based_on": "Olympique de Marseille",
+      "name": "Marseille Phocéens",
+      "short": "Phocéens",
+      "abbr": "MAR",
+      "city": "Marseille",
+      "country": "FRA",
+      "capacity": 67394,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#2FAEE0",
+        "tertiary": "#000000"
+      },
+      "market": 78,
+      "reputation": 80,
+      "revenue_m": 300,
+      "strength": 67,
+      "crest": {
+        "shape": "shield",
+        "motif": "monogram",
+        "initials": "MAR",
+        "svg": "data/crests/mar.svg"
+      }
+    },
+    {
+      "id": "mon",
+      "league": "GOLD",
+      "based_on": "AS Monaco",
+      "name": "Monaco Monégasques",
+      "short": "Monégasques",
+      "abbr": "MON",
+      "city": "Monaco",
+      "country": "MCO",
+      "capacity": 16360,
+      "colors": {
+        "primary": "#E51B22",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 40,
+      "reputation": 74,
+      "revenue_m": 230,
+      "strength": 68,
+      "crest": {
+        "shape": "shield",
+        "motif": "diamonds",
+        "initials": "MON",
+        "svg": "data/crests/mon.svg"
+      }
+    },
+    {
+      "id": "len",
+      "league": "GOLD",
+      "based_on": "Benfica",
+      "name": "Lisbon Encarnados",
+      "short": "Encarnados",
+      "abbr": "LEN",
+      "city": "Lisbon",
+      "country": "POR",
+      "capacity": 64642,
+      "colors": {
+        "primary": "#E83030",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 80,
+      "reputation": 84,
+      "revenue_m": 330,
+      "strength": 68,
+      "crest": {
+        "shape": "round",
+        "motif": "eagle",
+        "initials": "LEN",
+        "svg": "data/crests/len.svg"
+      }
+    },
+    {
+      "id": "por",
+      "league": "GOLD",
+      "based_on": "FC Porto",
+      "name": "Porto Dragões",
+      "short": "Dragões",
+      "abbr": "POR",
+      "city": "Porto",
+      "country": "POR",
+      "capacity": 50033,
+      "colors": {
+        "primary": "#003893",
+        "secondary": "#FFFFFF",
+        "tertiary": "#E7C102"
+      },
+      "market": 70,
+      "reputation": 82,
+      "revenue_m": 300,
+      "strength": 67,
+      "crest": {
+        "shape": "shield",
+        "motif": "dragon",
+        "initials": "POR",
+        "svg": "data/crests/por.svg"
+      }
+    },
+    {
+      "id": "ams",
+      "league": "BLUE",
+      "based_on": "Ajax",
+      "name": "Amsterdam Godenzonen",
+      "short": "Godenzonen",
+      "abbr": "AMS",
+      "city": "Amsterdam",
+      "country": "NED",
+      "capacity": 55865,
+      "colors": {
+        "primary": "#D2122E",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 82,
+      "reputation": 84,
+      "revenue_m": 250,
+      "strength": 65,
+      "crest": {
+        "shape": "round",
+        "motif": "warrior",
+        "initials": "AMS",
+        "svg": "data/crests/ams.svg"
+      }
+    },
+    {
+      "id": "ein",
+      "league": "BLUE",
+      "based_on": "PSV",
+      "name": "Eindhoven Boeren",
+      "short": "Boeren",
+      "abbr": "EIN",
+      "city": "Eindhoven",
+      "country": "NED",
+      "capacity": 35119,
+      "colors": {
+        "primary": "#ED1C24",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 56,
+      "reputation": 76,
+      "revenue_m": 230,
+      "strength": 66,
+      "crest": {
+        "shape": "round",
+        "motif": "monogram",
+        "initials": "EIN",
+        "svg": "data/crests/ein.svg"
+      }
+    },
+    {
+      "id": "rot",
+      "league": "BLUE",
+      "based_on": "Feyenoord",
+      "name": "Rotterdam Stadionclub",
+      "short": "Stadionclub",
+      "abbr": "ROT",
+      "city": "Rotterdam",
+      "country": "NED",
+      "capacity": 47500,
+      "colors": {
+        "primary": "#E2001A",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 70,
+      "reputation": 76,
+      "revenue_m": 200,
+      "strength": 65,
+      "crest": {
+        "shape": "round",
+        "motif": "monogram",
+        "initials": "ROT",
+        "svg": "data/crests/rot.svg"
+      }
+    },
+    {
+      "id": "gbh",
+      "league": "BLUE",
+      "based_on": "Celtic",
+      "name": "Glasgow Bhoys",
+      "short": "Bhoys",
+      "abbr": "GBH",
+      "city": "Glasgow",
+      "country": "SCO",
+      "capacity": 60411,
+      "colors": {
+        "primary": "#018749",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 72,
+      "reputation": 80,
+      "revenue_m": 160,
+      "strength": 63,
+      "crest": {
+        "shape": "round",
+        "motif": "clover",
+        "initials": "GBH",
+        "svg": "data/crests/gbh.svg"
+      }
+    },
+    {
+      "id": "glb",
+      "league": "BLUE",
+      "based_on": "Rangers",
+      "name": "Glasgow Light Blues",
+      "short": "Light Blues",
+      "abbr": "GLB",
+      "city": "Glasgow",
+      "country": "SCO",
+      "capacity": 50817,
+      "colors": {
+        "primary": "#1B458F",
+        "secondary": "#FFFFFF",
+        "tertiary": "#E2001A"
+      },
+      "market": 72,
+      "reputation": 76,
+      "revenue_m": 140,
+      "strength": 62,
+      "crest": {
+        "shape": "round",
+        "motif": "lion",
+        "initials": "GLB",
+        "svg": "data/crests/glb.svg"
+      }
+    },
+    {
+      "id": "ias",
+      "league": "BLUE",
+      "based_on": "Galatasaray",
+      "name": "Istanbul Aslanlar",
+      "short": "Aslanlar",
+      "abbr": "IAS",
+      "city": "Istanbul",
+      "country": "TUR",
+      "capacity": 52223,
+      "colors": {
+        "primary": "#A90432",
+        "secondary": "#FDB912",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 88,
+      "reputation": 80,
+      "revenue_m": 330,
+      "strength": 66,
+      "crest": {
+        "shape": "round",
+        "motif": "lion",
+        "initials": "IAS",
+        "svg": "data/crests/ias.svg"
+      }
+    },
+    {
+      "id": "ika",
+      "league": "BLUE",
+      "based_on": "Fenerbahçe",
+      "name": "Istanbul Kanaryalar",
+      "short": "Kanaryalar",
+      "abbr": "IKA",
+      "city": "Istanbul",
+      "country": "TUR",
+      "capacity": 47834,
+      "colors": {
+        "primary": "#FFED00",
+        "secondary": "#00205B",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 88,
+      "reputation": 78,
+      "revenue_m": 270,
+      "strength": 65,
+      "crest": {
+        "shape": "round",
+        "motif": "canary",
+        "initials": "IKA",
+        "svg": "data/crests/ika.svg"
+      }
+    },
+    {
+      "id": "lyo",
+      "league": "BLUE",
+      "based_on": "Olympique Lyonnais",
+      "name": "Lyon Gones",
+      "short": "Gones",
+      "abbr": "LYO",
+      "city": "Lyon",
+      "country": "FRA",
+      "capacity": 59186,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#14387F",
+        "tertiary": "#DA0812"
+      },
+      "market": 74,
+      "reputation": 76,
+      "revenue_m": 270,
+      "strength": 65,
+      "crest": {
+        "shape": "round",
+        "motif": "lion",
+        "initials": "LYO",
+        "svg": "data/crests/lyo.svg"
+      }
+    },
+    {
+      "id": "lil",
+      "league": "BLUE",
+      "based_on": "Lille OSC",
+      "name": "Lille Dogues",
+      "short": "Dogues",
+      "abbr": "LIL",
+      "city": "Lille",
+      "country": "FRA",
+      "capacity": 50186,
+      "colors": {
+        "primary": "#E01E13",
+        "secondary": "#FFFFFF",
+        "tertiary": "#20325F"
+      },
+      "market": 64,
+      "reputation": 72,
+      "revenue_m": 200,
+      "strength": 66,
+      "crest": {
+        "shape": "round",
+        "motif": "dog",
+        "initials": "LIL",
+        "svg": "data/crests/lil.svg"
+      }
+    },
+    {
+      "id": "lle",
+      "league": "BLUE",
+      "based_on": "Sporting CP",
+      "name": "Lisbon Leões",
+      "short": "Leões",
+      "abbr": "LLE",
+      "city": "Lisbon",
+      "country": "POR",
+      "capacity": 50095,
+      "colors": {
+        "primary": "#008057",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 80,
+      "reputation": 80,
+      "revenue_m": 270,
+      "strength": 67,
+      "crest": {
+        "shape": "shield",
+        "motif": "lion",
+        "initials": "LLE",
+        "svg": "data/crests/lle.svg"
+      }
+    },
+    {
+      "id": "bru",
+      "league": "BLUE",
+      "based_on": "Club Brugge",
+      "name": "Bruges Blauw-Zwart",
+      "short": "Blauw-Zwart",
+      "abbr": "BRU",
+      "city": "Bruges",
+      "country": "BEL",
+      "capacity": 29062,
+      "colors": {
+        "primary": "#0067CE",
+        "secondary": "#000000",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 48,
+      "reputation": 72,
+      "revenue_m": 190,
+      "strength": 65,
+      "crest": {
+        "shape": "round",
+        "motif": "lion",
+        "initials": "BRU",
+        "svg": "data/crests/bru.svg"
+      }
+    },
+    {
+      "id": "sal",
+      "league": "BLUE",
+      "based_on": "Red Bull Salzburg",
+      "name": "Salzburg Mozartstädter",
+      "short": "Mozartstädter",
+      "abbr": "SAL",
+      "city": "Salzburg",
+      "country": "AUT",
+      "capacity": 30188,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#ED1C24",
+        "tertiary": "#0F1F3D"
+      },
+      "market": 46,
+      "reputation": 72,
+      "revenue_m": 170,
+      "strength": 64,
+      "crest": {
+        "shape": "round",
+        "motif": "bull",
+        "initials": "SAL",
+        "svg": "data/crests/sal.svg"
+      }
+    },
+    {
+      "id": "don",
+      "league": "BLUE",
+      "based_on": "Shakhtar Donetsk",
+      "name": "Donetsk Miners",
+      "short": "Miners",
+      "abbr": "DON",
+      "city": "Donetsk",
+      "country": "UKR",
+      "capacity": 52518,
+      "colors": {
+        "primary": "#F37021",
+        "secondary": "#000000",
+        "tertiary": "#FFFFFF"
+      },
+      "market": 60,
+      "reputation": 70,
+      "revenue_m": 150,
+      "strength": 62,
+      "crest": {
+        "shape": "round",
+        "motif": "pick",
+        "initials": "DON",
+        "svg": "data/crests/don.svg"
+      }
+    },
+    {
+      "id": "flo",
+      "league": "BLUE",
+      "based_on": "Fiorentina",
+      "name": "Florence Viola",
+      "short": "Viola",
+      "abbr": "FLO",
+      "city": "Florence",
+      "country": "ITA",
+      "capacity": 43147,
+      "colors": {
+        "primary": "#482E92",
+        "secondary": "#FFFFFF",
+        "tertiary": "#E2001A"
+      },
+      "market": 66,
+      "reputation": 72,
+      "revenue_m": 200,
+      "strength": 66,
+      "crest": {
+        "shape": "diamond",
+        "motif": "lily",
+        "initials": "FLO",
+        "svg": "data/crests/flo.svg"
+      }
+    },
+    {
+      "id": "scw",
+      "league": "BLUE",
+      "based_on": "VfB Stuttgart",
+      "name": "Stuttgart Schwaben",
+      "short": "Schwaben",
+      "abbr": "STU",
+      "city": "Stuttgart",
+      "country": "GER",
+      "capacity": 60058,
+      "colors": {
+        "primary": "#FFFFFF",
+        "secondary": "#E32219",
+        "tertiary": "#000000"
+      },
+      "market": 76,
+      "reputation": 72,
+      "revenue_m": 280,
+      "strength": 67,
+      "crest": {
+        "shape": "shield",
+        "motif": "antlers",
+        "initials": "STU",
+        "svg": "data/crests/scw.svg"
+      }
+    },
+    {
+      "id": "sve",
+      "league": "BLUE",
+      "based_on": "Real Betis",
+      "name": "Seville Verdiblancos",
+      "short": "Verdiblancos",
+      "abbr": "SVE",
+      "city": "Seville",
+      "country": "ESP",
+      "capacity": 60721,
+      "colors": {
+        "primary": "#00954C",
+        "secondary": "#FFFFFF",
+        "tertiary": "#000000"
+      },
+      "market": 70,
+      "reputation": 72,
+      "revenue_m": 230,
+      "strength": 66,
+      "crest": {
+        "shape": "shield",
+        "motif": "monogram",
+        "initials": "SVE",
+        "svg": "data/crests/sve.svg"
+      }
+    }
+  ]
+}

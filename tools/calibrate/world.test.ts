@@ -46,7 +46,9 @@ describe("season-loop harness", () => {
   });
 
   // Recorded from main (50616fc) before the Super League work: Classic seasons stay
-  // exactly these (MILESTONES SL0). Re-record only for a change T approved.
+  // exactly these (MILESTONES SL0). Re-record only for a change T approved. `clubs` and
+  // `days` (its transactions name clubs) were re-recorded for T's club names (SPEC §17.3,
+  // SL1): with the old names put back, both seasons were byte-for-byte main's.
   it("plays exactly the recorded Classic seasons", async () => {
     expect({
       seasons: await Promise.all(perSeason),
@@ -56,15 +58,15 @@ describe("season-loop harness", () => {
         {
           state: "bb6dcf17c7035f5d",
           outcome: "152a8da91eb941d7",
-          days: "029a4ea9fad6e007",
-          clubs: "a3c9f3ef5fb2ba13",
+          days: "8a371192be2a0b73",
+          clubs: "3228230375a78028",
           players: "4b31d634b8e57381",
         },
         {
           state: "b514b20225c19870",
           outcome: "bacc2290e872d1b8",
-          days: "4aea370bce785946",
-          clubs: "21a3042621ce6f97",
+          days: "7edb6ff4093dea7e",
+          clubs: "a6f7162410243bd4",
           players: "b745b8d3091fa027",
         },
       ],

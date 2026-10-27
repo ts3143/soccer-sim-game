@@ -14,7 +14,9 @@ const check = (name, ok) => {
 };
 try {
   await page.goto(`${BASE}/new?worker=dedicated`);
-  await page.locator('[data-testid="club-choices"] button').first().click();
+  await page
+    .locator('[data-testid="club-choices"] button', { hasText: "Manchester Citizens" })
+    .click();
   await page.fill("#new-league-name", "Injury hover regression");
   await page.fill("#new-league-seed", "injury-tooltip");
   await page.locator('[data-testid="start-league"]').click();

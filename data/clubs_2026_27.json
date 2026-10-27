@@ -29,9 +29,9 @@
       "id": "isl",
       "league": "ENG1",
       "based_on": "Arsenal",
-      "name": "Islington Cannons",
-      "short": "Cannons",
-      "abbr": "ISL",
+      "name": "North London Gunners",
+      "short": "Gunners",
+      "abbr": "NLG",
       "city": "London",
       "country": "ENG",
       "capacity": 60704,
@@ -47,7 +47,7 @@
       "crest": {
         "shape": "shield",
         "motif": "cannon",
-        "initials": "ISL",
+        "initials": "NLG",
         "svg": "data/crests/isl.svg"
       }
     },
@@ -55,9 +55,9 @@
       "id": "ast",
       "league": "ENG1",
       "based_on": "Aston Villa",
-      "name": "Aston Lions",
+      "name": "Birmingham Lions",
       "short": "Lions",
-      "abbr": "AST",
+      "abbr": "BIR",
       "city": "Birmingham",
       "country": "ENG",
       "capacity": 42640,
@@ -73,7 +73,7 @@
       "crest": {
         "shape": "shield",
         "motif": "lion",
-        "initials": "AST",
+        "initials": "BIR",
         "svg": "data/crests/ast.svg"
       }
     },
@@ -159,9 +159,9 @@
       "id": "ken",
       "league": "ENG1",
       "based_on": "Chelsea",
-      "name": "Kensington Blues",
+      "name": "London Blues",
       "short": "Blues",
-      "abbr": "KEN",
+      "abbr": "LBL",
       "city": "London",
       "country": "ENG",
       "capacity": 40343,
@@ -177,7 +177,7 @@
       "crest": {
         "shape": "round",
         "motif": "lion",
-        "initials": "KEN",
+        "initials": "LBL",
         "svg": "data/crests/ken.svg"
       }
     },
@@ -367,9 +367,9 @@
       "id": "msr",
       "league": "ENG1",
       "based_on": "Liverpool",
-      "name": "Merseyside Reds",
+      "name": "Liverpool Reds",
       "short": "Reds",
-      "abbr": "MSR",
+      "abbr": "LIV",
       "city": "Liverpool",
       "country": "ENG",
       "capacity": 61276,
@@ -385,7 +385,7 @@
       "crest": {
         "shape": "shield",
         "motif": "bird",
-        "initials": "MSR",
+        "initials": "LIV",
         "svg": "data/crests/msr.svg"
       }
     },
@@ -393,9 +393,9 @@
       "id": "msk",
       "league": "ENG1",
       "based_on": "Manchester City",
-      "name": "Manchester Sky",
+      "name": "Manchester Citizens",
       "short": "Citizens",
-      "abbr": "MSK",
+      "abbr": "MCI",
       "city": "Manchester",
       "country": "ENG",
       "capacity": 61470,
@@ -411,7 +411,7 @@
       "crest": {
         "shape": "round",
         "motif": "eagle",
-        "initials": "MSK",
+        "initials": "MCI",
         "svg": "data/crests/msk.svg"
       }
     },
@@ -419,9 +419,9 @@
       "id": "mdv",
       "league": "ENG1",
       "based_on": "Manchester United",
-      "name": "Manchester Devils",
-      "short": "Devils",
-      "abbr": "MDV",
+      "name": "Manchester Red Devils",
+      "short": "Red Devils",
+      "abbr": "MRD",
       "city": "Manchester",
       "country": "ENG",
       "capacity": 74197,
@@ -437,7 +437,7 @@
       "crest": {
         "shape": "shield",
         "motif": "devil",
-        "initials": "MDV",
+        "initials": "MRD",
         "svg": "data/crests/mdv.svg"
       }
     },
@@ -445,9 +445,9 @@
       "id": "tyn",
       "league": "ENG1",
       "based_on": "Newcastle United",
-      "name": "Tyneside Magpies",
+      "name": "Newcastle Magpies",
       "short": "Magpies",
-      "abbr": "TYN",
+      "abbr": "NEW",
       "city": "Newcastle",
       "country": "ENG",
       "capacity": 52258,
@@ -463,7 +463,7 @@
       "crest": {
         "shape": "round",
         "motif": "magpie",
-        "initials": "TYN",
+        "initials": "NEW",
         "svg": "data/crests/tyn.svg"
       }
     },
@@ -523,9 +523,9 @@
       "id": "har",
       "league": "ENG1",
       "based_on": "Tottenham Hotspur",
-      "name": "Haringey Cockerels",
-      "short": "Cockerels",
-      "abbr": "HAR",
+      "name": "North London Lilywhites",
+      "short": "Lilywhites",
+      "abbr": "NLL",
       "city": "London",
       "country": "ENG",
       "capacity": 62850,
@@ -541,7 +541,7 @@
       "crest": {
         "shape": "shield",
         "motif": "cockerel",
-        "initials": "HAR",
+        "initials": "NLL",
         "svg": "data/crests/har.svg"
       }
     },
@@ -1199,9 +1199,9 @@
       "id": "rhw",
       "league": "GER1",
       "based_on": "Bayer 04 Leverkusen",
-      "name": "Rheinland Werkself",
+      "name": "Leverkusen Werkself",
       "short": "Werkself",
-      "abbr": "RHW",
+      "abbr": "LEV",
       "city": "Leverkusen",
       "country": "GER",
       "capacity": 30210,
@@ -1217,7 +1217,7 @@
       "crest": {
         "shape": "round",
         "motif": "cross",
-        "initials": "RHW",
+        "initials": "LEV",
         "svg": "data/crests/rhw.svg"
       }
     },
@@ -1225,8 +1225,8 @@
       "id": "mun",
       "league": "GER1",
       "based_on": "FC Bayern München",
-      "name": "München Rot 1900",
-      "short": "Rekordmeister",
+      "name": "Munich Die Roten",
+      "short": "Die Roten",
       "abbr": "MUN",
       "city": "Munich",
       "country": "GER",
@@ -1251,9 +1251,9 @@
       "id": "bor",
       "league": "GER1",
       "based_on": "Borussia Dortmund",
-      "name": "Borsigplatz 09",
+      "name": "Dortmund Schwarzgelben",
       "short": "Schwarzgelben",
-      "abbr": "BOR",
+      "abbr": "DSG",
       "city": "Dortmund",
       "country": "GER",
       "capacity": 81365,
@@ -1269,7 +1269,7 @@
       "crest": {
         "shape": "round",
         "motif": "monogram",
-        "initials": "BOR",
+        "initials": "DSG",
         "svg": "data/crests/bor.svg"
       }
     },
@@ -1407,9 +1407,9 @@
       "id": "sac",
       "league": "GER1",
       "based_on": "RB Leipzig",
-      "name": "Sachsen Bullen",
+      "name": "Leipzig Bullen",
       "short": "Bullen",
-      "abbr": "SAC",
+      "abbr": "LEI",
       "city": "Leipzig",
       "country": "GER",
       "capacity": 47069,
@@ -1425,7 +1425,7 @@
       "crest": {
         "shape": "round",
         "motif": "bull",
-        "initials": "SAC",
+        "initials": "LEI",
         "svg": "data/crests/sac.svg"
       }
     },
@@ -1563,9 +1563,9 @@
       "id": "scw",
       "league": "GER1",
       "based_on": "VfB Stuttgart",
-      "name": "Schwaben 1893",
+      "name": "Stuttgart Schwaben",
       "short": "Schwaben",
-      "abbr": "SCW",
+      "abbr": "STU",
       "city": "Stuttgart",
       "country": "GER",
       "capacity": 60058,
@@ -1581,7 +1581,7 @@
       "crest": {
         "shape": "shield",
         "motif": "antlers",
-        "initials": "SCW",
+        "initials": "STU",
         "svg": "data/crests/scw.svg"
       }
     },

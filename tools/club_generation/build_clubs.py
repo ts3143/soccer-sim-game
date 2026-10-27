@@ -6,8 +6,11 @@ DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "dat
 # revenue_m (EUR M, 2026/27 projection, relational), strength (target starting-XI OVR),
 # crest_shape, crest_motif
 C = []
-def add(league, based_on, name, short, abbr, city, country, cap, p, s, t, market, rep, rev, strength, shape, motif):
-    C.append(dict(id=abbr.lower(), league=league, based_on=based_on, name=name, short=short, abbr=abbr,
+# code: the club's ID (crest file, random stream); defaults to the abbreviation. The 14
+# clubs renamed to T's names (SPEC §17.3) keep their original code, so a new world
+# generates exactly as before.
+def add(league, based_on, name, short, abbr, city, country, cap, p, s, t, market, rep, rev, strength, shape, motif, code=None):
+    C.append(dict(id=code or abbr.lower(), league=league, based_on=based_on, name=name, short=short, abbr=abbr,
                   city=city, country=country, capacity=cap,
                   colors=dict(primary=p, secondary=s, tertiary=t),
                   market=market, reputation=rep, revenue_m=rev, strength=strength,
@@ -15,12 +18,12 @@ def add(league, based_on, name, short, abbr, city, country, cap, p, s, t, market
 
 # ---------------- ENG1: Premier League 2026/27 (20) ----------------
 L = "ENG1"
-add(L,"Arsenal","Islington Cannons","Cannons","ISL","London","ENG",60704,"#EF0107","#FFFFFF","#063672",90,90,830,75,"shield","cannon")
-add(L,"Aston Villa","Aston Lions","Lions","AST","Birmingham","ENG",42640,"#670E36","#95BFE5","#FEE505",76,76,450,69,"shield","lion")
+add(L,"Arsenal","North London Gunners","Gunners","NLG","London","ENG",60704,"#EF0107","#FFFFFF","#063672",90,90,830,75,"shield","cannon","isl")
+add(L,"Aston Villa","Birmingham Lions","Lions","BIR","Birmingham","ENG",42640,"#670E36","#95BFE5","#FEE505",76,76,450,69,"shield","lion","ast")
 add(L,"AFC Bournemouth","Dorset Cherries","Cherries","DOR","Bournemouth","ENG",11307,"#DA291C","#000000","#FFFFFF",48,56,200,64,"round","cherry")
 add(L,"Brentford","West London Bees","Bees","WLB","London","ENG",17250,"#E30613","#FFFFFF","#000000",62,58,200,64,"round","bee")
 add(L,"Brighton & Hove Albion","Sussex Seagulls","Seagulls","SUS","Brighton","ENG",31876,"#0057B8","#FFFFFF","#FFCD00",64,66,260,66,"round","gull")
-add(L,"Chelsea","Kensington Blues","Blues","KEN","London","ENG",40343,"#034694","#FFFFFF","#DBA111",90,88,580,72,"round","lion")
+add(L,"Chelsea","London Blues","Blues","LBL","London","ENG",40343,"#034694","#FFFFFF","#DBA111",90,88,580,72,"round","lion","ken")
 add(L,"Coventry City","Warwickshire Sky Blues","Sky Blues","WAR","Coventry","ENG",32609,"#5BC2E7","#FFFFFF","#1D2A4D",58,50,180,61,"shield","elephant")
 add(L,"Crystal Palace","South London Eagles","Eagles","SLE","London","ENG",25486,"#1B458F","#C4122E","#FFFFFF",70,62,230,65,"shield","eagle")
 add(L,"Everton","Mersey Blues","Toffees","MER","Liverpool","ENG",52888,"#003399","#FFFFFF","#000000",74,68,230,64,"shield","tower")
@@ -28,13 +31,13 @@ add(L,"Fulham","Riverside Cottagers","Cottagers","RIV","London","ENG",29600,"#FF
 add(L,"Hull City","Humber Tigers","Tigers","HUM","Hull","ENG",25586,"#F5A12D","#000000","#FFFFFF",54,46,170,60,"round","tiger")
 add(L,"Ipswich Town","Suffolk Town","Tractors","SUF","Ipswich","ENG",30000,"#1C4A9F","#FFFFFF","#DE2C37",52,50,180,61,"shield","horse")
 add(L,"Leeds United","Yorkshire Whites","Whites","YOR","Leeds","ENG",37645,"#FFFFFF","#1D428A","#FFCD00",74,64,220,63,"shield","rose")
-add(L,"Liverpool","Merseyside Reds","Reds","MSR","Liverpool","ENG",61276,"#C8102E","#FFFFFF","#00B2A9",82,94,840,76,"shield","bird")
-add(L,"Manchester City","Manchester Sky","Citizens","MSK","Manchester","ENG",61470,"#6CABDD","#FFFFFF","#1C2C5B",86,92,830,76,"round","eagle")
-add(L,"Manchester United","Manchester Devils","Devils","MDV","Manchester","ENG",74197,"#DA291C","#000000","#FBE122",88,92,780,70,"shield","devil")
-add(L,"Newcastle United","Tyneside Magpies","Magpies","TYN","Newcastle","ENG",52258,"#241F20","#FFFFFF","#41B6E6",74,78,400,70,"round","magpie")
+add(L,"Liverpool","Liverpool Reds","Reds","LIV","Liverpool","ENG",61276,"#C8102E","#FFFFFF","#00B2A9",82,94,840,76,"shield","bird","msr")
+add(L,"Manchester City","Manchester Citizens","Citizens","MCI","Manchester","ENG",61470,"#6CABDD","#FFFFFF","#1C2C5B",86,92,830,76,"round","eagle","msk")
+add(L,"Manchester United","Manchester Red Devils","Red Devils","MRD","Manchester","ENG",74197,"#DA291C","#000000","#FBE122",88,92,780,70,"shield","devil","mdv")
+add(L,"Newcastle United","Newcastle Magpies","Magpies","NEW","Newcastle","ENG",52258,"#241F20","#FFFFFF","#41B6E6",74,78,400,70,"round","magpie","tyn")
 add(L,"Nottingham Forest","Trent Foresters","Foresters","TRE","Nottingham","ENG",30404,"#DD0000","#FFFFFF","#000000",64,62,220,65,"round","tree")
 add(L,"Sunderland","Wearside Black Cats","Black Cats","WEA","Sunderland","ENG",48707,"#EB172B","#FFFFFF","#000000",66,58,190,62,"shield","cat")
-add(L,"Tottenham Hotspur","Haringey Cockerels","Cockerels","HAR","London","ENG",62850,"#FFFFFF","#132257","#000000",88,82,670,69,"shield","cockerel")
+add(L,"Tottenham Hotspur","North London Lilywhites","Lilywhites","NLL","London","ENG",62850,"#FFFFFF","#132257","#000000",88,82,670,69,"shield","cockerel","har")
 
 # ---------------- ENG2: Championship 2026/27 (24) ----------------
 L = "ENG2"
@@ -66,21 +69,21 @@ add(L,"Wrexham","North Wales Dragons","Dragons","NWD","Wrexham","WAL",10771,"#D5
 # ---------------- GER1: Bundesliga 2026/27 (18) ----------------
 L = "GER1"
 add(L,"FC Augsburg","Augsburg Panther","Panther","AUG","Augsburg","GER",30660,"#BA3733","#46714D","#FFFFFF",54,52,130,61,"round","panther")
-add(L,"Bayer 04 Leverkusen","Rheinland Werkself","Werkself","RHW","Leverkusen","GER",30210,"#E32221","#000000","#FFFFFF",60,82,330,70,"round","cross")
-add(L,"FC Bayern München","München Rot 1900","Rekordmeister","MUN","Munich","GER",75024,"#DC052D","#FFFFFF","#0066B2",92,95,860,76,"round","diamonds")
-add(L,"Borussia Dortmund","Borsigplatz 09","Schwarzgelben","BOR","Dortmund","GER",81365,"#FDE100","#000000","#FFFFFF",84,86,530,71,"round","monogram")
+add(L,"Bayer 04 Leverkusen","Leverkusen Werkself","Werkself","LEV","Leverkusen","GER",30210,"#E32221","#000000","#FFFFFF",60,82,330,70,"round","cross","rhw")
+add(L,"FC Bayern München","Munich Die Roten","Die Roten","MUN","Munich","GER",75024,"#DC052D","#FFFFFF","#0066B2",92,95,860,76,"round","diamonds","mun")
+add(L,"Borussia Dortmund","Dortmund Schwarzgelben","Schwarzgelben","DSG","Dortmund","GER",81365,"#FDE100","#000000","#FFFFFF",84,86,530,71,"round","monogram","bor")
 add(L,"Eintracht Frankfurt","Frankfurt Adler","Adler","FRA","Frankfurt","GER",58000,"#E1000F","#000000","#FFFFFF",78,74,290,66,"shield","eagle")
 add(L,"SC Freiburg","Breisgau SC","Breisgauer","BRE","Freiburg","GER",34700,"#E30613","#FFFFFF","#000000",52,64,180,65,"shield","raven")
 add(L,"Hamburger SV","Hamburg Rauten","Rothosen","HAM","Hamburg","GER",57000,"#0A3F86","#FFFFFF","#000000",80,64,160,61,"diamond","diamond")
 add(L,"TSG Hoffenheim","Kraichgau 1899","Kraichgauer","KRA","Sinsheim","GER",30150,"#1961B5","#FFFFFF","#000000",44,58,170,64,"shield","monogram")
 add(L,"1. FC Köln","Domstadt Geissboecke","Geissboecke","DOM","Cologne","GER",50000,"#ED1C24","#FFFFFF","#000000",78,60,170,61,"round","goat")
-add(L,"RB Leipzig","Sachsen Bullen","Bullen","SAC","Leipzig","GER",47069,"#FFFFFF","#DD0741","#001F47",66,78,480,69,"round","bull")
+add(L,"RB Leipzig","Leipzig Bullen","Bullen","LEI","Leipzig","GER",47069,"#FFFFFF","#DD0741","#001F47",66,78,480,69,"round","bull","sac")
 add(L,"1. FSV Mainz 05","Rheinhessen 05","Nullfuenfer","RHE","Mainz","GER",33305,"#C3141E","#FFFFFF","#000000",54,58,150,62,"round","wheel")
 add(L,"Borussia Moenchengladbach","Niederrhein Fohlen","Fohlen","NIE","Moenchengladbach","GER",54042,"#FFFFFF","#000000","#00A13F",66,66,200,63,"diamond","foal")
 add(L,"SC Paderborn 07","Ostwestfalen 07","Paderborner","OST","Paderborn","GER",15000,"#005CA9","#000000","#FFFFFF",42,42,75,57,"shield","monogram")
 add(L,"FC Schalke 04","Gelsenkirchen Knappen","Koenigsblauen","GEL","Gelsenkirchen","GER",62271,"#004D9D","#FFFFFF","#000000",78,66,190,60,"round","pick")
 add(L,"SV 07 Elversberg","Spiesen 07","Elversberger","SPI","Spiesen-Elversberg","GER",10000,"#000000","#FFFFFF","#7F7F7F",30,36,55,57,"shield","monogram")
-add(L,"VfB Stuttgart","Schwaben 1893","Schwaben","SCW","Stuttgart","GER",60058,"#FFFFFF","#E32219","#000000",76,72,280,67,"shield","antlers")
+add(L,"VfB Stuttgart","Stuttgart Schwaben","Schwaben","STU","Stuttgart","GER",60058,"#FFFFFF","#E32219","#000000",76,72,280,67,"shield","antlers","scw")
 add(L,"1. FC Union Berlin","Koepenick Eisern","Eisernen","KOE","Berlin","GER",22012,"#EB1923","#FFFFFF","#FFD800",72,58,150,61,"round","iron")
 add(L,"SV Werder Bremen","Hanseaten Bremen","Werderaner","HAN","Bremen","GER",42100,"#1D9053","#FFFFFF","#000000",66,64,170,62,"diamond","monogram")
 

@@ -142,7 +142,7 @@ const saveStats = (lid, clubs) =>
 
 // --- A new league, then ten seasons ------------------------------------------------------------------
 await page.goto(`${BASE}/new`);
-await testId("club-choices").locator("button").first().click();
+await testId("club-choices").locator("button", { hasText: "Manchester Citizens" }).click();
 const club = (await testId("start-league").innerText()).replace(/^Start as /, "");
 userClubs.push(club);
 await page.fill("#new-league-name", "Perf");

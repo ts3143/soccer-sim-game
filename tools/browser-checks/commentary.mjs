@@ -30,7 +30,9 @@ const pressed = async () =>
   (await page.locator('[data-testid="feed-mode"] [aria-pressed="true"]').innerText()).trim();
 try {
   await page.goto(`${BASE}/new?worker=dedicated`);
-  await page.locator('[data-testid="club-choices"] button').first().click();
+  await page
+    .locator('[data-testid="club-choices"] button', { hasText: "Manchester Citizens" })
+    .click();
   await page.fill("#new-league-name", "Commentary");
   await page.fill("#new-league-seed", "commentary");
   await page.locator('[data-testid="start-league"]').click();

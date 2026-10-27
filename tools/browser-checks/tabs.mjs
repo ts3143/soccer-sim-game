@@ -54,11 +54,9 @@ async function play(p, label) {
   await p.waitForTimeout(100);
   await idle(p);
 }
-async function newLeague(p, name, seed, nth = 0) {
+async function newLeague(p, name, seed, club) {
   await p.goto(`${BASE}/new`);
-  const cards = id(p, "club-choices").locator("button");
-  await cards.first().waitFor({ timeout: 30_000 });
-  await cards.nth(nth).click();
+  await id(p, "club-choices").locator("button", { hasText: club }).click();
   await p.fill("#new-league-name", name);
   await p.fill("#new-league-seed", seed);
   await id(p, "start-league").click();
@@ -68,7 +66,7 @@ async function newLeague(p, name, seed, nth = 0) {
 
 // --- Two tabs on one league --------------------------------------------------------------------------
 const a = await open();
-const lid = await newLeague(a, "Tabs", "tabs");
+const lid = await newLeague(a, "Tabs", "tabs", "Manchester Citizens");
 const b = await open();
 const squadPath = `${BASE}/l/${lid}/squad`;
 await b.goto(squadPath);
@@ -139,7 +137,7 @@ check(
 
 // --- Two leagues in two tabs -------------------------------------------------------------------------
 // B starts a second league: A, on the first, stops and says why.
-const lid2 = await newLeague(b, "Tabs two", "tabs-two", 1);
+const lid2 = await newLeague(b, "Tabs two", "tabs-two", "Liverpool Reds");
 await id(a, "league-elsewhere")
   .waitFor({ timeout: 15_000 })
   .catch(() => {});

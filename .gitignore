@@ -7,3 +7,5 @@ coverage
 # Local previews written by tools/club_generation
 clubs_tables.md
 crest_preview.html
+super_league_tables.md
+__pycache__/

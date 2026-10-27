@@ -271,7 +271,9 @@ describe("the season loop in a save", () => {
   // season and summer stay exactly this (MILESTONES SL0), every store and meta row (less
   // the creation time). Re-record only for a change T approved. `meta.world` was
   // re-recorded once, for the world's id the save now records (SPEC §17.1): without it,
-  // the hash was main's.
+  // the hash was main's. `awards`, `clubs` and `transactions` were re-recorded for T's club
+  // names (SPEC §17.3, SL1): with the old names put back, every store was byte-for-byte
+  // main's.
   it("leaves exactly the recorded Classic save", SLOW, async () => {
     const { db } = await openLeague(1);
     const parts: Record<string, unknown> = {};
@@ -283,9 +285,9 @@ describe("the season loop in a save", () => {
       parts[`meta.${String(key)}`] = key === "game" ? { ...(row as GameMeta), createdAt: "" } : row;
     }
     expect(await fingerprints(parts)).toEqual({
-      awards: "47f1efe88efba86c",
+      awards: "bd68eee7d511c0d6",
       clubSeasons: "6aeb9d73f22032da",
-      clubs: "2af99ef805da44be",
+      clubs: "66a899ac6fa217b4",
       competitions: "9c7053789f091c56",
       fixtures: "bc36a8610645a8ba",
       inbox: "fac183c7acfaef80",
@@ -293,7 +295,7 @@ describe("the season loop in a save", () => {
       offers: "4f53cda18c2baa0c",
       playerStats: "98f2a2af1e532930",
       players: "ee42b5d7bfb43cde",
-      transactions: "08ee379892a4f115",
+      transactions: "5a2528917627fe8e",
       "meta.game": "2ea05655402d73d9",
       "meta.ids": "0b726e34894ca837",
       "meta.rng": "845fe46aa046db2e",
