@@ -5,6 +5,7 @@ import type { DraftProspectView, PlayOption } from "../../common/api";
 import { addDays } from "../../common/dates";
 import type { GameMeta } from "../../common/schema";
 import { playoffId } from "../season/season";
+import { getCups } from "../views/competitions";
 import { draftView } from "../views/draft";
 import { draftProspect } from "./draft";
 import { gameState, play } from "./game";
@@ -28,7 +29,24 @@ describe("a Super League year in a save", () => {
     });
     const session = await openLeague(league.lid);
     const before = new Map(session.cache.getAll("clubs").map((c) => [c.cid, c.leagueId]));
+    // Before the play-offs: their first round if the season ended today (the Play-offs page).
+    const positions = async (league: string) =>
+      (await getCups(1, playoffId(league), null)).projection?.ties.map((t) => [
+        t.home.position,
+        t.away.position,
+      ]);
+    expect(await positions("STAR")).toEqual([
+      [1, 8],
+      [4, 5],
+      [2, 7],
+      [3, 6],
+    ]);
+    expect(await positions("GOLD")).toEqual([
+      [3, 6],
+      [4, 5],
+    ]);
     await play(session, "untilEndOfSeason");
+    expect((await getCups(1, playoffId("STAR"), null)).projection).toBeNull();
     // Three draft classes have been there all season; prospects grow only in the summer
     // update, not on 1 January (T, 2026-10-27).
     const prospects = session.cache.getAll("players").filter((p) => p.status === "prospect");

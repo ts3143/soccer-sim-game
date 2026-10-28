@@ -1997,6 +1997,12 @@ Plan (about 6 chunks): 1 the world in the UI (the shell knows the save's world a
 - **Browser check `superleague`** (new, to grow with SL7): New game's choice and the Super League's three tiers, a Blue club started, the top bar's trades badge, the sidebar, a player's buttons.
 - **Checks:** lint; 425 unit tests; `pnpm build`; all 19 browser checks (423 passes: Classic's 416 and the new check's 7).
 
+#### Chunk 2: Standings and Play-offs (2026-10-28)
+- **Standings** already had the three tiers (league tabs), the zones from the config and the lottery-odds column (SL4): checked in the browser for 3 up and 3 down (Blue: champions and the 2nd promoted, 3rd–6th play-offs; Star: the top 8 in the title play-off, the bottom 3 relegated). Where a play-off decides the title the legend says "Title play-off" (Classic's "Play-offs" unchanged).
+- **Play-offs:** the Cups page already showed each league's play-off round by round; in a world without cups (`LeagueShell.world.cups`) it's called Play-offs, in the sidebar (`PageDef.titleIn`) and on the page. Before a play-off is drawn it shows its first round if the season ended today (`CupView.projection`, from the live table: the fixed ties as configured, or the entrants best against worst), with each club's position; the user's tie outlined.
+- **Browser check `superleague`:** Standings' zones and lottery odds, the Play-offs page's tabs and projections, then a whole season: Star's 7 ties played and its winner.
+- **Checks:** lint; 425 unit tests (extended: a save's play-off projections before the season's end, none after); `pnpm build`; all 19 browser checks (430 passes).
+
 ## Open issues
 - The UI bundle is past Vite's 500 KB chunk warning since SL1 (crests inlined): load crests as files, or split the bundle, if it matters.
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).

@@ -3,6 +3,7 @@
  * `team` pages carry a club id in the URL and show the team dropdown; `season` pages a
  * season dropdown. `when` limits a page to worlds whose switches allow it (SPEC §17.8).
  */
+import type { LeagueShell } from "../../common/api";
 import type { WorldSwitches } from "../../common/config/worlds";
 
 export const SECTIONS = ["General", "League", "Team", "Players", "Stats"] as const;
@@ -18,6 +19,8 @@ export interface PageDef {
   hidden?: boolean;
   /** Only in worlds whose switches pass (absent: every world). */
   when?: (switches: WorldSwitches) => boolean;
+  /** Its title in a world, where it differs from `title`. */
+  titleIn?: (world: LeagueShell["world"]) => string;
 }
 
 const transfers = (s: WorldSwitches) => s.market === "transfers";
@@ -26,7 +29,14 @@ const academies = (s: WorldSwitches) => s.youth === "academy";
 export const PAGES: PageDef[] = [
   { key: "dashboard", title: "Dashboard", section: "General" },
   { key: "standings", title: "Standings", section: "League", season: true },
-  { key: "cups", title: "Cups", section: "League", season: true },
+  // A world without cups (the Super League) has only play-offs there.
+  {
+    key: "cups",
+    title: "Cups",
+    section: "League",
+    season: true,
+    titleIn: (w) => (w.cups ? "Cups" : "Play-offs"),
+  },
   { key: "schedule", title: "Schedule", section: "League" },
   { key: "power-rankings", title: "Power Rankings", section: "League" },
   { key: "finances", title: "Finances", section: "League", season: true },
@@ -52,6 +62,10 @@ export const PAGES: PageDef[] = [
 ];
 
 export const pageOf = (key: string): PageDef | undefined => PAGES.find((p) => p.key === key);
+
+/** The page's title in this world. */
+export const pageTitle = (page: PageDef, world: LeagueShell["world"]): string =>
+  page.titleIn?.(world) ?? page.title;
 
 /** The page is part of this world (its switches allow it). */
 export const inWorld = (page: PageDef, switches: WorldSwitches): boolean =>

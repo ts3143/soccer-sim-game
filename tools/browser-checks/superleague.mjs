@@ -87,6 +87,93 @@ check(
   (await page.locator('[data-testid="profile-talks"]').count()) === 0,
 );
 
+// --- Chunk 2: Standings for three tiers; the Play-offs page ---------------------------------
+const testId = (id) => page.locator(`[data-testid="${id}"]`);
+const idle = () =>
+  page.waitForFunction(
+    () => !/Playing/.test(document.querySelector('[data-testid="play-button"]')?.textContent ?? ""),
+    null,
+    { timeout: 600_000 },
+  );
+async function play(label) {
+  await testId("play-button").click();
+  await testId("play-menu").getByRole("button", { name: label, exact: true }).click();
+  await page.waitForTimeout(150);
+  await idle();
+}
+await page.goto(`${BASE}/l/${lid}/standings`);
+await testId("standings-table").waitFor();
+const blueRows = testId("standings-table").locator("tbody tr");
+const zonesBlue = await testId("zones").innerText();
+check(
+  "Standings open on Blue: 16 clubs, champions, promotion (top 2) and play-offs (3rd-6th)",
+  (await blueRows.count()) === 16 &&
+    (await testId("standings-table").locator("tbody tr.table-success").count()) === 2 &&
+    (await testId("standings-table").locator("tbody tr.table-info").count()) === 4 &&
+    /Champions/.test(zonesBlue) &&
+    /Promotion/.test(zonesBlue) &&
+    /Play-offs/.test(zonesBlue),
+  zonesBlue.replace(/\n/g, " | "),
+);
+const lotteryCells = await testId("standings-table").locator("tbody tr td:nth-child(11)").allInnerTexts();
+check(
+  "Blue's bottom 4 show their lottery odds (20%, 17%, 15%, 13%)",
+  /Lottery/.test(await testId("standings-table").locator("thead").innerText()) &&
+    lotteryCells.filter((t) => /%$/.test(t)).length === 4,
+  lotteryCells.join(","),
+);
+await page.getByRole("link", { name: "Star", exact: true }).click();
+await page.waitForFunction(() => /Star/.test(document.querySelector("main")?.innerText ?? ""));
+await testId("zones").waitFor();
+const zonesStar = await testId("zones").innerText();
+check(
+  "Star: the top 8 play for the title, the bottom 3 go down",
+  /Title play-off/.test(zonesStar) &&
+    /Relegation/.test(zonesStar) &&
+    (await testId("standings-table").locator("tbody tr.table-info").count()) === 8 &&
+    (await testId("standings-table").locator("tbody tr.table-danger").count()) === 3,
+  zonesStar.replace(/\n/g, " | "),
+);
+await leakCheck("Standings");
+check(
+  "the sidebar has Play-offs, not Cups",
+  /Play-offs/.test(await testId("sidebar").innerText()) &&
+    !/\bCups\b/.test(await testId("sidebar").innerText()),
+);
+await page.getByRole("link", { name: "Play-offs", exact: true }).click();
+await testId("playoff-projection").waitFor({ timeout: 30_000 });
+const tabs = await page.locator("main .nav-pills").innerText();
+check(
+  "the Play-offs page has Star's, Gold's and Blue's, and Star's first round if the season ended today",
+  /Star play-offs/.test(tabs) &&
+    /Gold play-offs/.test(tabs) &&
+    /Blue play-offs/.test(tabs) &&
+    (await testId("playoff-projection").locator(".border").count()) === 4 &&
+    /1\. /.test(await testId("playoff-projection").innerText()) &&
+    /8\. /.test(await testId("playoff-projection").innerText()),
+);
+await page.getByRole("link", { name: "Blue play-offs" }).click();
+await page.waitForFunction(() =>
+  /3\./.test(document.querySelector('[data-testid="playoff-projection"]')?.textContent ?? ""),
+);
+check(
+  "Blue's play-off if it ended today: 3rd v 6th and 4th v 5th",
+  (await testId("playoff-projection").locator(".border").count()) === 2,
+);
+
+// A whole season: the brackets fill and the play-offs crown their winners.
+await play("Until the end of the season");
+await page.goto(`${BASE}/l/${lid}/cups`);
+await testId("cup-rounds").waitFor();
+await testId("cup-winner").waitFor({ timeout: 30_000 });
+check(
+  "after the season Star's play-off has its quarter-finals, semis and final, and a winner",
+  (await testId("playoff-projection").count()) === 0 &&
+    (await testId("cup-rounds").locator('[data-testid="cup-tie"]').count()) === 7 &&
+    /won the Star play-offs/.test(await testId("cup-winner").innerText()),
+);
+await leakCheck("the Play-offs page");
+
 check("no errors in the console", errors.length === 0, errors.slice(0, 3).join(" | "));
 await context.close();
 console.log(failures === 0 ? "\nAll Super League checks pass." : `\n${failures} check(s) failed.`);

@@ -153,6 +153,14 @@ export interface CupView {
   competitions: { id: string; name: string }[];
   rounds: { name: string; date: string | null; ties: CupTie[] }[];
   winner: TeamRef | null;
+  /**
+   * A league play-off not drawn yet this season: its first round if the season ended
+   * today, from the live table (each club with its position). Null otherwise.
+   */
+  projection: {
+    round: string;
+    ties: { home: TeamRef & { position: number }; away: TeamRef & { position: number } }[];
+  } | null;
 }
 
 /** The Weekly Schedule: one week's fixtures in every competition (weeks run Monday–Sunday). */
@@ -1012,8 +1020,8 @@ export interface DashboardView {
 export interface LeagueShell {
   lid: number;
   name: string;
-  /** The save's world (SPEC §17.1): pages show by its switches. */
-  world: { id: WorldId; name: string; switches: WorldSwitches };
+  /** The save's world (SPEC §17.1): pages show by its switches; `cups`: it has cups. */
+  world: { id: WorldId; name: string; switches: WorldSwitches; cups: boolean };
   userCid: number;
   /** The first season of every save (season pickers run from it to the current one). */
   firstSeason: number;

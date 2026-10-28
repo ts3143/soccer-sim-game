@@ -17,7 +17,7 @@ import { crestUrl } from "../crests";
 import { formatDate, formatDayMonth } from "../format";
 import { leaguePath, Link, navigate, usePath } from "../router";
 import { onWorkerEvent, toWorker } from "../workerClient";
-import { inWorld, PAGES, SECTIONS } from "./pages";
+import { inWorld, pageTitle, PAGES, SECTIONS } from "./pages";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { LEAGUE_CLOSED } from "../../common/errors";
 import { errorText } from "../errors";
@@ -265,7 +265,7 @@ function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }
                     onClick={onNavigate}
                     className={`nav-link py-1 ${current === p.key ? "active fw-semibold" : ""}`}
                   >
-                    {p.title}
+                    {pageTitle(p, shell.world)}
                     {p.key === "dashboard" && shell.unread > 0 && (
                       <span
                         className="badge rounded-pill text-bg-primary ms-2"

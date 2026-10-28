@@ -130,9 +130,14 @@ export async function getStandings(
     if (relegated.length) notes.push(`Relegated: ${relegated.join(", ")}`);
   }
 
+  // Where the play-off decides the title (the Super League's Star), it says so.
+  const label = (zone: Exclude<TableZone, null>) =>
+    zone === "playoffs" && league.playoff?.decides === "title"
+      ? "Title play-off"
+      : ZONE_LABELS[zone];
   const zones = (Object.keys(ZONE_LABELS) as Exclude<TableZone, null>[])
     .filter((z) => rows.some((r) => r.zone === z))
-    .map((zone) => ({ zone, label: ZONE_LABELS[zone] }));
+    .map((zone) => ({ zone, label: label(zone) }));
   return {
     leagueId: id,
     leagueName: league.name,
@@ -220,7 +225,46 @@ export async function getCups(
     competitions: all.map((k) => ({ id: k.id, name: k.name })),
     rounds,
     winner: final?.winner ?? null,
+    projection:
+      s === game.season && fixtures.length === 0 ? playoffProjection(session, comp.id, s) : null,
   };
+}
+
+/**
+ * A league play-off not yet drawn (SPEC §17.2): its first round if the season ended today,
+ * from the live table (fixed ties as configured, or the entrants best against worst).
+ */
+function playoffProjection(
+  session: Awaited<ReturnType<typeof openLeague>>,
+  competition: string,
+  season: number,
+): CupView["projection"] {
+  const league = session.config.competitions.leagues.find((l) => playoffId(l.id) === competition);
+  const first = league?.playoff?.rounds[0];
+  if (!league || !first) return null;
+  const table = leagueTables(session, seasonFixtures(session, season)).find(
+    (t) => t.id === league.id,
+  );
+  if (!table) return null;
+  const pairs: [number, number][] =
+    typeof first.pairing === "object"
+      ? first.pairing.ties
+      : (() => {
+          const seeds = [...first.entrants].sort((a, b) => a - b);
+          return seeds
+            .slice(0, seeds.length / 2)
+            .map((p, i): [number, number] => [p, seeds[seeds.length - 1 - i] as number]);
+        })();
+  const at = (position: number) => {
+    const row = table.rows[position - 1];
+    const club = row ? session.cache.get("clubs", row.cid) : undefined;
+    return club ? { ...teamRef(club), position } : null;
+  };
+  const ties = pairs.flatMap(([a, b]) => {
+    const [home, away] = [at(a), at(b)];
+    return home && away ? [{ home, away }] : [];
+  });
+  return ties.length > 0 ? { round: first.name, ties } : null;
 }
 
 /** The Monday of the week holding `date`. */
