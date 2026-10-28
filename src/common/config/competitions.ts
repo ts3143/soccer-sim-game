@@ -189,7 +189,7 @@ export interface TradesConfig {
   /** Squad places by value, [up to place, weight]. */
   squadWeights: [number, number][];
   /** Value points per cap's worth of yearly wages saved. */
-  salary: { underCap: number; overCap: number; rebuilding: number };
+  salary: { underCap: number; overCap: number; mustShed: number; rebuilding: number };
   picks: { weight: ByState; yearDiscount: number };
   /** "What would make this work?": the most assets the AI asks to have added. */
   makeItWorkMaxAdded: number;
@@ -200,6 +200,8 @@ export interface TradesConfig {
     minGain: number;
     shortlist: number;
     keepAcquiredDays: number;
+    /** Shedding wages: players offered a day (least value a euro first), clubs asked each. */
+    shed: { candidates: number; receivers: number; margin: number; overCapClubs: boolean };
     minByArea: Record<"gk" | "def" | "mid" | "att", number>;
   };
 }

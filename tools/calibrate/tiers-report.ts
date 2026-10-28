@@ -6,8 +6,9 @@
  * lowest tier: gated), yo-yo clubs, the rise from the bottom of the lowest tier to the top
  * of the highest (target in calibration_targets.json, gated from SL6), tier mobility and
  * the player pool, the world's health (gated from SL4: the player count, the squads' OVRs
- * and ages at the first league match, retirements; with --seasons 10 or more), cap
- * violations and the luxury tax.
+ * and ages at the first league match, retirements; with --seasons 10 or more), the AI's
+ * trades, cap violations and the luxury tax (gated from SL5: relegated clubs back under
+ * their own cap the season after their grace).
  */
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -242,8 +243,22 @@ console.log(
 console.log(
   `  luxury tax paid: EUR ${(caps.reduce((a, c) => a + c.taxPaid, 0) / 1e6).toFixed(1)}m in all, ${caps.filter((c) => c.taxPaid > 0).length} of ${caps.length} seasons with any`,
 );
-console.log(
-  `  relegated clubs still over their own cap after their grace: ${caps.reduce((a, c) => a + c.afterGrace, 0)}`,
+// MILESTONES SL5: relegated clubs back under their own cap by the close of the season after
+// their grace (relegations in the run's last two seasons can't be judged yet).
+const backUnder = SL.relegatedBackUnderCap as { maxStillOver: number; note: string };
+const judged = runs.reduce(
+  (a, run) =>
+    a +
+    run.seasons
+      .slice(0, Math.max(0, run.seasons.length - 2))
+      .reduce((b, s) => b + s.moves.filter((m) => m.reason === "relegated").length, 0),
+  0,
+);
+const stillOver = caps.reduce((a, c) => a + c.afterGrace, 0);
+gate(
+  stillOver <= backUnder.maxStillOver * judged,
+  `relegated clubs back under their own cap the season after their grace: ${judged - stillOver} of ${judged} (still over ${stillOver}; at most ${pct(backUnder.maxStillOver)})`,
+  SEASONS >= 3,
 );
 console.log(`\nwall time ${((performance.now() - started) / 1000).toFixed(0)} s`);
 

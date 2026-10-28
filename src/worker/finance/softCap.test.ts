@@ -175,6 +175,46 @@ describe("the soft cap", () => {
       }
     });
 
+    it("a relegated club re-signs against its own tier's cap, its grace season too", () => {
+      // A Gold club relegated from Star: through its grace (2027) and the season after,
+      // its re-signings fit Gold's cap, as once it's back to normal (grace long over).
+      const resigned = (capGrace: Club["capGrace"]) => {
+        const w = { ...fresh(), userCid: -1 };
+        const club = w.clubs.find((c) => c.leagueId === "GOLD") as Club;
+        club.capGrace = capGrace;
+        // Wages at Star's level: €30m more for the players who stay.
+        const stay = w.players.filter(
+          (p) => p.cid === club.cid && (p.contract?.expires ?? "") > "2027-06-30",
+        );
+        for (const p of stay.slice(0, 3)) {
+          if (p.contract) p.contract = { ...p.contract, wage: p.contract.wage + 10_000_000 };
+        }
+        return aiRenewals(w, 2027, "2027-07-01", "resigning")
+          .transactions.filter((t) => t.cids[0] === club.cid)
+          .map((t) => t.pids[0]);
+      };
+      const own = resigned(null);
+      expect(resigned({ leagueId: "STAR", through: 2027 })).toEqual(own);
+      expect(resigned({ leagueId: "STAR", through: 2026 })).toEqual(own);
+      // Against Star's cap (the grace's, as before SL5) it would have re-signed more.
+      const club = fresh().clubs.find((c) => c.leagueId === "GOLD") as Club;
+      const asStar = (() => {
+        const w = { ...fresh(), userCid: -1 };
+        const c = w.clubs.find((x) => x.cid === club.cid) as Club;
+        c.leagueId = "STAR";
+        const stay = w.players.filter(
+          (p) => p.cid === c.cid && (p.contract?.expires ?? "") > "2027-06-30",
+        );
+        for (const p of stay.slice(0, 3)) {
+          if (p.contract) p.contract = { ...p.contract, wage: p.contract.wage + 10_000_000 };
+        }
+        return aiRenewals(w, 2027, "2027-07-01", "resigning").transactions.filter(
+          (t) => t.cids[0] === c.cid,
+        ).length;
+      })();
+      expect(asStar).toBeGreaterThan(own.length);
+    });
+
     it("pays no Youth dial where clubs have no academies", () => {
       const w = fresh();
       settleMonths(w, "2026-07-01", "2026-09-30", config);

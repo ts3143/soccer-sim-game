@@ -4,11 +4,13 @@ import type { Player } from "../../common/schema";
 import { exactAge } from "../../common/dates";
 import { preseasonBoard } from "../club/board";
 import { clubStrength } from "../club/standing";
+import { rookieWage } from "../season/draft";
 import { generateWorld } from "../generate/world";
 import {
   clubView,
   pickTradeValue,
   playerTradeValue,
+  rookieRoom,
   talentValue,
   tradeDay,
   type TradeWorld,
@@ -83,7 +85,7 @@ describe("trade valuation", () => {
   });
 
   it("values a pick less a draft further away, and less from a stronger original owner", () => {
-    const view = clubView(world, 5, 2026);
+    const view = clubView(world, 5, day);
     const pickOf = (season: number, round: number, cid: number) => {
       const pick = world.draftPicks.find(
         (p) => p.season === season && p.round === round && p.originalCid === cid,
@@ -157,14 +159,12 @@ describe("trade valuation", () => {
     const contender = world.clubs.find((c) => tradeState(world, c.cid) === "contending");
     const rebuilder = world.clubs.find((c) => tradeState(world, c.cid) === "rebuilding");
     expect(
-      pickTradeValue(world, day, clubView(world, rebuilder?.cid ?? -1, 2026), pick),
-    ).toBeGreaterThan(
-      pickTradeValue(world, day, clubView(world, contender?.cid ?? -1, 2026), pick),
-    );
+      pickTradeValue(world, day, clubView(world, rebuilder?.cid ?? -1, day), pick),
+    ).toBeGreaterThan(pickTradeValue(world, day, clubView(world, contender?.cid ?? -1, day), pick));
   });
 
   it("prices the contract: overpaid and final-year players are worth less", () => {
-    const view = clubView(world, 20, 2026);
+    const view = clubView(world, 20, day);
     const p = seniors(20)[3] as Player;
     const at = (wage: number, expires: string) =>
       playerTradeValue(trades, { ...p, contract: { wage, expires } }, view, day);
@@ -179,11 +179,32 @@ describe("trade valuation", () => {
     expect(at(p.contract?.wage ?? 0, "2027-06-30")).toBeLessThan(fair);
   });
 
+  it("keeps room for the rookies of a club's picks in the coming draft", () => {
+    const draft = config.competitions.draft;
+    if (!draft) throw new Error("The Super League has a draft");
+    const cid = 40;
+    const slot = day.slots.get(cid) ?? 0;
+    expect(rookieRoom(world, day, cid)).toBe(
+      rookieWage(draft, slot) + rookieWage(draft, 48 + slot),
+    );
+    // A traded pick's rookie is its new holder's to pay.
+    const first = world.draftPicks.find(
+      (p) => p.season === 2026 && p.round === 1 && p.originalCid === cid,
+    );
+    if (!first) throw new Error("No pick");
+    const traded = {
+      ...world,
+      draftPicks: world.draftPicks.map((p) => (p === first ? { ...p, cid: 41 } : p)),
+    };
+    expect(rookieRoom(traded, day, cid)).toBe(rookieWage(draft, 48 + slot));
+    expect(rookieRoom(traded, day, 41)).toBe(rookieRoom(world, day, 41) + rookieWage(draft, slot));
+  });
+
   it("a club over its cap values shedding wages; under it, a little", () => {
     const cid = 30;
     const club = world.clubs.find((c) => c.cid === cid);
     const p = seniors(cid)[12] as Player;
-    const view = clubView(world, cid, 2026);
+    const view = clubView(world, cid, day);
     expect(view.cap).toBeGreaterThan(0);
     const shed = (wage: number) => {
       const players = world.players.map((x) =>

@@ -176,7 +176,7 @@
     "deadlineAfterRoundShare": 0.6
   },
   "trades": {
-    "_note": "AI trade valuation (SPEC §17.6; first values, SL5, tuned in SL5 and SL6), in value points: 1 = a 75-rated player in his prime on a fair contract. A club contends when its board target is one of contendingTargets, else it rebuilds. A player's rating = OVR + potShare x (POT - OVR) x youth (full to youthFullUntil, none from youthNoneFrom); value = exp(perOvr x (rating - 75)), x declinePerYear a year past declineFrom, x his contract (1 + contract.weight x (worth / wage - 1) x the years left up to contract.years / contract.years, within [min, max]; worth = the going wage at the club's cap / aiWageRatio, scaled to the league's wages against that rate), x finalYear while his contract ends this 30 June. A club's value: its squad by value, each place weighted by squadWeights ([up to place, weight]), so quantity never buys quality; plus its picks; plus its cap room, salary.underCap or salary.overCap points per cap's worth of yearly wages saved (x salary.rebuilding when rebuilding). A pick: the prospect its projected slot would take from its class (the original owner's place in the projected order: the table, or squad strength before a match is played; the number once the lottery has set it), valued as a player, x picks.weight, x picks.yearDiscount a draft further away. An AI club takes a trade that raises its value; asked what would make one work, it asks for up to makeItWorkMaxAdded more of the other club's players and picks, one at a time.",
+    "_note": "AI trade valuation (SPEC §17.6; first values, SL5, tuned in SL5 and SL6), in value points: 1 = a 75-rated player in his prime on a fair contract. A club contends when its board target is one of contendingTargets, else it rebuilds. A player's rating = OVR + potShare x (POT - OVR) x youth (full to youthFullUntil, none from youthNoneFrom); value = exp(perOvr x (rating - 75)), x declinePerYear a year past declineFrom, x his contract (1 + contract.weight x (worth / wage - 1) x the years left up to contract.years / contract.years, within [min, max]; worth = the going wage at the club's cap / aiWageRatio, scaled to the league's wages against that rate), x finalYear while his contract ends this 30 June. A club's value: its squad by value, each place weighted by squadWeights ([up to place, weight]), so quantity never buys quality; plus its picks; plus its cap room, salary.underCap or salary.overCap points per cap's worth of yearly wages saved (x salary.rebuilding when rebuilding); a club over its cap outside a grace season must shed wages (SPEC §17.7), and the part above its cap weighs salary.mustShed instead of overCap. A pick: the prospect its projected slot would take from its class (the original owner's place in the projected order: the table, or squad strength before a match is played; the number once the lottery has set it), valued as a player, x picks.weight, x picks.yearDiscount a draft further away. An AI club takes a trade that raises its value; asked what would make one work, it asks for up to makeItWorkMaxAdded more of the other club's players and picks, one at a time.",
     "contendingTargets": ["title", "topEight", "promotion", "playoffs"],
     "value": {
       "perOvr": 0.16,
@@ -194,16 +194,17 @@
       [25, 0.2],
       [99, 0]
     ],
-    "salary": { "underCap": 0.5, "overCap": 2, "rebuilding": 1.5 },
+    "salary": { "underCap": 0.5, "overCap": 2, "mustShed": 12, "rebuilding": 1.5 },
     "picks": { "weight": { "contending": 0.7, "rebuilding": 1 }, "yearDiscount": 0.8 },
     "makeItWorkMaxAdded": 4,
     "ai": {
-      "_note": "AI-to-AI trades (SL5), on trade days every everyDays days from 1 July while trades are open: attemptsPerDay times a random AI club looks at the players of the other AI clubs it values above their own club's value of them by more than minGain, picks one of the shortlist best at random, and asks the owner what would make it work (makeItWorkMaxAdded). The trade goes ahead when both clubs gain and neither ends below minByArea players in an area (or below what it had). An AI club keeps a player it got by trade for keepAcquiredDays before trading him on. First values, tuned in SL5 and SL6.",
+      "_note": "AI-to-AI trades (SL5), on trade days every everyDays days from 1 July while trades are open: attemptsPerDay times a random AI club looks at the players of the other AI clubs it values above their own club's value of them by more than minGain, picks one of the shortlist best at random, and asks the owner what would make it work (makeItWorkMaxAdded). The trade goes ahead when both clubs gain and neither ends below minByArea players in an area (or below what it had). An AI club keeps a player it got by trade for keepAcquiredDays before trading him on. First on each trade day, every AI club that must shed wages offers its shed.candidates players of least value a euro, one by one, to the shed.receivers clubs that value each most among those with room under their cap for his wage; the receiver may ask for the shedding club's picks to make it work. One such trade a club a day. First values, tuned in SL5 and SL6.",
       "everyDays": 7,
       "attemptsPerDay": 3,
       "minGain": 0.05,
       "shortlist": 5,
       "keepAcquiredDays": 90,
+      "shed": { "candidates": 4, "receivers": 5, "margin": 0.03, "overCapClubs": false },
       "minByArea": { "gk": 2, "def": 6, "mid": 5, "att": 3 }
     }
   }

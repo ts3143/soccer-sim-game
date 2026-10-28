@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { worlds, type WorldConfig } from "../../common/config/worlds";
 import { addDays } from "../../common/dates";
-import type { DraftPick } from "../../common/schema";
+import type { Club, DraftPick } from "../../common/schema";
+import { payroll } from "../finance/softCap";
 import { preseasonBoard } from "../club/board";
 import { generateWorld } from "../generate/world";
 import { AREA, type LoopWorld, startingReputation } from "../season/offseason";
 import { createSeason } from "../season/season";
 import { aiTradeDay, tradeDays } from "./aiTrades";
 import { tradeCalendar } from "./trades";
-import { tradeDay, valueChange } from "./tradeValue";
+import { clubView, rookieRoom, tradeDay, valueChange } from "./tradeValue";
 
 const base = worlds.superLeague;
 const trades = base.competitions.trades;
@@ -121,6 +122,46 @@ describe("AI-to-AI trades", () => {
         expect(addDays(traded[i - 1] as string, 90) < (traded[i] as string)).toBe(true);
       }
     }
+  });
+
+  it("a relegated club over its own cap sheds wages first, to clubs with room", () => {
+    const w = world();
+    const date = tradeDays(trades, cal)[0] as string;
+    const day = tradeDay(w, 2026, date);
+    // A Gold club relegated from Star after 2024 (grace 2025): in 2026 it must get under
+    // Gold's cap, less room for its rookies; its payroll is €25m over that.
+    const club = w.clubs.find((c) => c.leagueId === "GOLD") as Club;
+    club.capGrace = { leagueId: "STAR", through: 2025 };
+    let view = clubView(w, club.cid, day);
+    expect(view.relegated).toBe(true);
+    expect(view.line).toBeCloseTo(
+      (view.cap ?? 0) * (1 - trades.ai.shed.margin) - rookieRoom(w, day, club.cid),
+    );
+    const squad = w.players.filter((p) => p.cid === club.cid && p.status === "club");
+    const extra = (view.line ?? 0) + 25_000_000 - payroll(club, w.players, date);
+    for (const p of squad) {
+      if (p.contract) p.contract.wage += Math.round(extra / squad.length);
+    }
+    view = clubView(w, club.cid, day);
+    expect(view.mustShed).toBe(true);
+    // Another club over its cap, not relegated, doesn't have to (it pays the tax).
+    const other = w.clubs.find((c) => c.leagueId === "STAR") as Club;
+    for (const p of w.players) {
+      if (p.cid === other.cid && p.contract) p.contract.wage *= 1.5;
+    }
+    expect(clubView(w, other.cid, day).mustShed).toBe(false);
+    const before = payroll(club, w.players, date);
+    const log = aiTradeDay(w, 2026, date, cal);
+    const shed = log.transactions.filter((t) => t.cids[0] === club.cid);
+    expect(shed).toHaveLength(1);
+    const receiver = shed[0]?.cids[1] as number;
+    const r = w.clubs.find((c) => c.cid === receiver) as Club;
+    // It gave a player and took none back; the receiver stays under its own line.
+    expect(
+      shed[0]?.pids.every((pid) => w.players.find((p) => p.pid === pid)?.cid === receiver),
+    ).toBe(true);
+    expect(payroll(club, w.players, date)).toBeLessThan(before);
+    expect(payroll(r, w.players, date)).toBeLessThanOrEqual(clubView(w, receiver, day).line ?? 0);
   });
 
   it("are the same for the same seed, and don't happen while trades are closed", () => {

@@ -14,14 +14,14 @@
  * - cap room is worth more to a club over the cap, and more to a rebuilding one.
  * A club takes a trade that raises its value (chunk 2).
  */
-import type { TradeState, TradesConfig } from "../../common/config/competitions";
+import { capOf, type TradeState, type TradesConfig } from "../../common/config/competitions";
 import type { WorldConfig } from "../../common/config/worlds";
 import { exactAge } from "../../common/dates";
 import type { Club, ClubSeason, DraftPick, Player } from "../../common/schema";
 import { clubStrength } from "../club/standing";
 import { clubCap, payroll } from "../finance/softCap";
 import { seasonDate } from "../schedule/calendar";
-import { draftOrder } from "../season/draft";
+import { draftOrder, rookieWage } from "../season/draft";
 import type { ClubMove } from "../season/season";
 import { marketWage, yearsLeft } from "./market";
 
@@ -57,6 +57,8 @@ export interface TradeDay {
   slotValues: Readonly<Record<TradeState, readonly number[]>>;
   /** The league's wages against the going rate: worth × this is a fair wage. */
   wageLevel: number;
+  /** Players' values to clubs today, by `cid/pid` (filled as they're asked for). */
+  values: Map<string, number>;
 }
 
 /** How a club values trades today. */
@@ -66,6 +68,20 @@ export interface ClubView {
   /** Its cap (null: no cap) and the revenue its wages are priced at. */
   cap: number | null;
   revenue: number;
+  /**
+   * The payroll it means to stay under (null: no cap): its cap; for a relegated club its
+   * own tier's cap, less room for its coming draft's rookies and a margin (`ai.shed`), as
+   * those count at the season's close.
+   */
+  line: number | null;
+  /** Relegated, to the season after its grace: it sheds toward its own tier's cap, first. */
+  relegated: boolean;
+  /**
+   * It must shed wages (SPEC §17.7): a relegated club over its line, and with
+   * `shed.overCapClubs` any other club over its cap. The part of its payroll above the line
+   * weighs `salary.mustShed` (not `overCap` above the cap).
+   */
+  mustShed: boolean;
 }
 
 /** A trade's worth to one club, in value points, and its parts. */
@@ -94,18 +110,58 @@ export function tradeState(world: Pick<TradeWorld, "config" | "clubSeasons">, ci
   return state;
 }
 
-export function clubView(world: TradeWorld, cid: number, season: number): ClubView {
+export function clubView(
+  world: TradeWorld,
+  cid: number,
+  day: Pick<TradeDay, "season" | "date" | "nextDraft" | "slots">,
+): ClubView {
   const club = world.clubs.find((c) => c.cid === cid);
   if (!club) throw new Error(`No club ${cid}`);
   const competitions = world.config.competitions;
-  const cap = clubCap(competitions, club, season);
+  const cap = clubCap(competitions, club, day.season);
   const ratio = competitions.softCap?.aiWageRatio;
+  // A relegated club, from its relegation to the season after its grace, works its payroll
+  // down to its own tier's cap (it must be under it at that season's close), keeping room
+  // for its rookies and a margin. The others aim at the cap (SPEC §17.7).
+  const g = club.capGrace ?? null;
+  const relegated = g !== null && day.season <= g.through + 1;
+  const shed = competitions.trades?.ai.shed;
+  const own = capOf(competitions, club.leagueId);
+  const line =
+    cap === null
+      ? null
+      : relegated && own !== null
+        ? own * (1 - (shed?.margin ?? 0)) - rookieRoom(world, day, cid)
+        : cap;
+  const over = line !== null && payroll(club, world.players, day.date) > line;
   return {
     cid,
     state: tradeState(world, cid),
     cap,
     revenue: cap !== null && ratio ? cap / ratio : club.revenueAnchor,
+    line,
+    relegated,
+    mustShed: relegated ? over : over && (shed?.overCapClubs ?? false),
   };
+}
+
+/** The wages of the rookies a club's picks in the coming draft would bring (by slot). */
+export function rookieRoom(
+  world: Pick<TradeWorld, "config" | "clubs" | "draftPicks">,
+  day: Pick<TradeDay, "nextDraft" | "slots">,
+  cid: number,
+): number {
+  const draft = world.config.competitions.draft;
+  if (!draft) return 0;
+  const clubs = world.clubs.length;
+  let room = 0;
+  for (const pick of world.draftPicks) {
+    if (pick.cid !== cid || pick.season !== day.nextDraft) continue;
+    const overall =
+      pick.pick ?? (pick.round - 1) * clubs + (day.slots.get(pick.originalCid) ?? clubs);
+    room += rookieWage(draft, overall);
+  }
+  return room;
 }
 
 /**
@@ -243,6 +299,7 @@ export function tradeDay(
     slots: projectedSlots(world, date, tables),
     slotValues: slotValues(world, season, nextDraft),
     wageLevel: wageLevel(world, season, date),
+    values: new Map(),
   };
 }
 
@@ -286,6 +343,22 @@ export function playerTradeValue(
   return value;
 }
 
+/** `playerTradeValue`, kept for the day (a player's value to a club doesn't change in it). */
+export function cachedValue(
+  trades: TradesConfig,
+  p: Player,
+  club: ClubView,
+  day: TradeDay,
+): number {
+  const key = `${club.cid}/${p.pid}`;
+  let value = day.values.get(key);
+  if (value === undefined) {
+    value = playerTradeValue(trades, p, club, day);
+    day.values.set(key, value);
+  }
+  return value;
+}
+
 /**
  * A pick's value to the club: a typical class's value at its overall pick (its number once
  * the lottery has set it, else from its original owner's projected slot), less a share a
@@ -318,11 +391,12 @@ export function squadValue(trades: TradesConfig, values: readonly number[]): num
 
 /** What a payroll costs the club in value points: more for the part above its cap. */
 function payrollCost(trades: TradesConfig, club: ClubView, amount: number): number {
-  if (club.cap === null) return 0;
+  if (club.cap === null || club.line === null) return 0;
   const s = trades.salary;
+  // A club that must shed counts from its line, at the heavier weight; others from the cap.
+  const [line, weight] = club.mustShed ? [club.line, s.mustShed] : [club.cap, s.overCap];
   const cost =
-    (s.underCap * Math.min(amount, club.cap) + s.overCap * Math.max(0, amount - club.cap)) /
-    club.cap;
+    (s.underCap * Math.min(amount, line) + weight * Math.max(0, amount - line)) / club.cap;
   return club.state === "rebuilding" ? cost * s.rebuilding : cost;
 }
 
@@ -338,7 +412,7 @@ export function valueChange(
   gets: TradeSide,
 ): ValueChange {
   const trades = tradesOf(world);
-  const club = clubView(world, cid, day.season);
+  const club = clubView(world, cid, day);
   const byPid = new Map(world.players.map((p) => [p.pid, p]));
   const out = new Set(gives.pids);
   const incoming = gets.pids.map((pid) => {
@@ -346,7 +420,7 @@ export function valueChange(
     if (!p) throw new Error(`No player ${pid}`);
     return p;
   });
-  const value = (p: Player) => playerTradeValue(trades, p, club, day);
+  const value = (p: Player) => cachedValue(trades, p, club, day);
   const squad = world.players.filter((p) => p.cid === cid && p.status === "club");
   const before = squad.map(value);
   const after = [...squad.filter((p) => !out.has(p.pid)), ...incoming].map(value);

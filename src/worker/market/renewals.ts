@@ -13,6 +13,7 @@ import { contractClub } from "../../common/status";
 import { exactAge } from "../../common/dates";
 import type { Club, ClubSeason, InboxMessage, Player, TransactionRow } from "../../common/schema";
 import { clubStrength } from "../club/standing";
+import { capOf } from "../../common/config/competitions";
 import type { WorldConfig } from "../../common/config/worlds";
 import { clubCap, payroll } from "../finance/softCap";
 import {
@@ -106,7 +107,8 @@ export const clubRevenue = (world: ContractWorld, club: Club): number =>
  * What the AI prices its re-signings against, and the wage bill it keeps them within: its
  * revenue and a share of it; or under a soft cap the revenue its cap was set for (cap ÷
  * the config's wage ratio) and the cap itself, so payrolls stay near the cap whatever the
- * club earns (SPEC §17.7; T, 2026-10-27). Core players are re-signed regardless.
+ * club earns (SPEC §17.7; T, 2026-10-27). Core players are re-signed regardless. A relegated
+ * club uses its own tier's cap from its relegation (its grace only spares it the tax).
  */
 function wageScale(
   world: ContractWorld,
@@ -114,7 +116,13 @@ function wageScale(
   season: number,
 ): { revenue: number; budget: number; coreBudget: number } {
   const competitions = world.config.competitions;
-  const cap = clubCap(competitions, club, season);
+  // A relegated club re-signs against its own tier's cap, through its grace season too:
+  // it must be under that cap by the season after (SPEC §17.7).
+  const g = club.capGrace ?? null;
+  const cap =
+    g !== null && season <= g.through + 1
+      ? capOf(competitions, club.leagueId)
+      : clubCap(competitions, club, season);
   const softCap = competitions.softCap;
   if (cap !== null && softCap) {
     const coreBudget = cap * (1 + softCap.coreOverCap);
