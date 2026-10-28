@@ -4,12 +4,12 @@
  * projected from the tables), and its own picks other clubs hold.
  */
 import { TeamLink } from "../components/links";
+import { draftName } from "../format";
 import { leaguePath, Link } from "../router";
 import { PageHeader } from "../shell/PageHeader";
 import { useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
-import { draftName } from "./Draft";
 
 export function DraftPicks({ params }: { params: string[] }) {
   const { shell } = useShell();

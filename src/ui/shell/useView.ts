@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useShell } from "./Shell";
 import { errorText } from "../errors";
 
-export function useView<T>(key: string, load: () => Promise<T>) {
+export function useView<T>(key: string, load: () => Promise<T>, { stale = false } = {}) {
   const { version } = useShell();
   const [data, setData] = useState<{ key: string; value: T } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +31,9 @@ export function useView<T>(key: string, load: () => Promise<T>) {
     };
   }, [key, version]);
 
-  // While another key loads, keep showing nothing rather than the previous key's data.
-  return { data: data?.key === key ? data.value : null, error };
+  // While another key loads, show nothing rather than the previous key's data, unless
+  // `stale` (a page that changes its key as the user edits, e.g. the Trade page).
+  // `fresh`: the data is this key's.
+  const fresh = data?.key === key;
+  return { data: fresh || stale ? (data?.value ?? null) : null, error, fresh };
 }

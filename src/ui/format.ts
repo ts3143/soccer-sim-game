@@ -26,3 +26,6 @@ export const ordinal = (n: number): string => {
   const v = n % 100;
   return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
 };
+
+/** A draft by the year it's held: season 2026/27's is the "2027 draft" (June 2027). */
+export const draftName = (season: number): string => `${season + 1} draft`;

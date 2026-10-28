@@ -137,39 +137,36 @@ function lotteryPool(
 }
 
 /**
- * The picks club `cid` holds, the soonest first, each with its number once the lottery has
- * set it or, for this season's draft before then, where it projects; and its own picks
- * other clubs hold.
+ * The picks each club holds, the soonest first (call the result with a club ID): each with
+ * its number once the lottery has set it or, for this season's draft before then, where it
+ * projects (the projection made once for every club).
  */
-export function draftPicksView(session: LeagueSession, cid: number): DraftPicksView {
+export function heldPicks(session: LeagueSession): (cid: number) => DraftPickRow[] {
   const { cache, config } = session;
   const draft = config.competitions.draft;
-  if (!draft) throw noDraft();
   const game = cache.get("meta", "game") as GameMeta;
-  const club = cache.get("clubs", cid);
-  if (!club) throw new GameError(`There's no club ${cid} in this game.`);
   const clubs = cache.getAll("clubs");
   const byCid = new Map(clubs.map((c) => [c.cid, c]));
   const all = cache.getAll("draftPicks");
-  const held = all.filter((p) => p.cid === cid);
-  const unordered = held.some((p) => p.season === game.season && p.pick === undefined);
-  const slots = unordered
-    ? projectedSlots(
-        { config, clubs, players: cache.getAll("players") },
-        game.date,
-        playedTables(session, seasonFixtures(session, game.season)),
-      )
-    : null;
+  const unordered = all.some((p) => p.season === game.season && p.pick === undefined);
+  const slots =
+    draft && unordered
+      ? projectedSlots(
+          { config, clubs, players: cache.getAll("players") },
+          game.date,
+          playedTables(session, seasonFixtures(session, game.season)),
+        )
+      : null;
   const row = (p: DraftPick): DraftPickRow => {
     const slot =
       p.season === game.season && p.pick === undefined ? slots?.get(p.originalCid) : undefined;
     return {
       season: p.season,
       round: p.round,
-      from: p.originalCid === cid ? null : teamRef(byCid.get(p.originalCid)),
+      from: p.originalCid === p.cid ? null : teamRef(byCid.get(p.originalCid)),
       pick: p.pick ?? null,
       projected:
-        slot === undefined
+        slot === undefined || !draft
           ? null
           : {
               pick: (p.round - 1) * clubs.length + slot,
@@ -181,10 +178,25 @@ export function draftPicksView(session: LeagueSession, cid: number): DraftPicksV
     a.season - b.season ||
     a.round - b.round ||
     (a.pick ?? a.projected?.pick ?? 0) - (b.pick ?? b.projected?.pick ?? 0);
+  return (cid) =>
+    all
+      .filter((p) => p.cid === cid)
+      .map(row)
+      .sort(order);
+}
+
+/** Club `cid`'s picks (`heldPicks`), and its own picks other clubs hold. */
+export function draftPicksView(session: LeagueSession, cid: number): DraftPicksView {
+  const { cache, config } = session;
+  if (!config.competitions.draft) throw noDraft();
+  const club = cache.get("clubs", cid);
+  if (!club) throw new GameError(`There's no club ${cid} in this game.`);
+  const byCid = new Map(cache.getAll("clubs").map((c) => [c.cid, c]));
   return {
     club: teamRef(club),
-    picks: held.map(row).sort(order),
-    tradedAway: all
+    picks: heldPicks(session)(cid),
+    tradedAway: cache
+      .getAll("draftPicks")
       .filter((p) => p.originalCid === cid && p.cid !== cid)
       .sort((a, b) => a.season - b.season || a.round - b.round)
       .map((p) => ({ season: p.season, round: p.round, holder: teamRef(byCid.get(p.cid)) })),

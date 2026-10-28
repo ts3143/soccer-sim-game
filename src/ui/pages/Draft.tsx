@@ -1,21 +1,19 @@
 /**
  * The Draft (SPEC §17.5, §17.8): this season's lottery pool and its draw, the prospects
  * left and the draft board; on the clock, the user picks here. The drafts held and the
- * classes to come are a dropdown away. A draft is named by the year it's held (June).
+ * classes to come are a dropdown away.
  */
 import { useState } from "react";
 import type { DraftView } from "../../common/api";
 import { DataTable } from "../components/DataTable";
 import { PlayerLink, TeamLink } from "../components/links";
 import { errorText } from "../errors";
-import { formatDate, ordinal } from "../format";
+import { draftName, formatDate, ordinal } from "../format";
 import { leaguePath, navigate } from "../router";
 import { PageHeader } from "../shell/PageHeader";
 import { useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
-
-export const draftName = (season: number) => `${season + 1} draft`;
 
 export function Draft({ params }: { params: string[] }) {
   const { shell, reload } = useShell();

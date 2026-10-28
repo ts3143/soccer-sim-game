@@ -39,8 +39,9 @@ import { decideAcademyPlayer, setBudgetDials, setTicketPrice } from "../league/c
 import { getTactics, previewTactics, saveTactics } from "../views/tactics";
 import { getCups, getSchedule, getStandings } from "../views/competitions";
 import { draftPicksView, draftView } from "../views/draft";
+import { tradeView, tradingBlockView } from "../views/trade";
 import { draftProspect } from "../league/draft";
-import { makeTradeWork, proposeTrade, respondToTradeOffer, tradingBlock } from "../league/trade";
+import { makeTradeWork, proposeTrade, respondToTradeOffer } from "../league/trade";
 import { getDashboard, markAllInboxRead } from "../views/dashboard";
 import {
   getFinances,
@@ -272,8 +273,11 @@ export function createHandlers(
     async respondToTradeOffer(lid, mid, accept) {
       return change(lid, (session) => respondToTradeOffer(session, mid, accept));
     },
+    async getTrade(lid, proposal) {
+      return tradeView(await openLeague(lid), proposal);
+    },
     async getTradingBlock(lid, give) {
-      return tradingBlock(await openLeague(lid), give);
+      return tradingBlockView(await openLeague(lid), give);
     },
     async getLiveMatch(lid, from) {
       return getLive(await openLeague(lid), from);

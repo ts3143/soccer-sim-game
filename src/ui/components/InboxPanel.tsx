@@ -1,13 +1,15 @@
 /**
  * The inbox (SPEC §11), on the Dashboard: board messages, bids, contract warnings, FFP,
- * transfers; newest first. A bid for one of your players is answered in its message.
+ * transfers; newest first. A bid for one of your players, or an AI club's trade offer, is
+ * answered in its message.
  */
 import { useState } from "react";
 import type { InboxMessageView } from "../../common/api";
 import { errorText } from "../errors";
 import { formatDate } from "../format";
-import { leaguePath, Link } from "../router";
+import { leaguePath, Link, navigate } from "../router";
 import { useShell } from "../shell/Shell";
+import { saveTrade } from "../tradeDraft";
 import { toWorker } from "../workerClient";
 import { PlayerMentions } from "./PlayerMentions";
 
@@ -64,6 +66,75 @@ function BidActions({ bid }: { bid: Bid }) {
         All bids
       </Link>
       {error && <div className="text-danger small w-100">{error}</div>}
+    </div>
+  );
+}
+
+type Offer = NonNullable<InboxMessageView["tradeOffer"]>;
+
+/**
+ * An AI club's trade offer (SPEC §17.6): Accept (checked again, then made at once), Turn
+ * down, or open it on the Trade page to change it; once answered or lapsed, its status.
+ */
+function TradeOfferActions({ mid, offer }: { mid: number; offer: Offer }) {
+  const { shell, reload } = useShell();
+  const [busy, setBusy] = useState(false);
+  const [reply, setReply] = useState<{ ok: boolean; text: string } | null>(null);
+  const lapsed = offer.status === "open" && shell.state.date > offer.expires;
+  if (offer.status !== "open" || lapsed) {
+    const status = lapsed ? "lapsed" : offer.status === "accepted" ? "accepted" : "turned down";
+    return (
+      <>
+        {reply && (
+          <div className={`small mt-2 ${reply.ok ? "text-success" : ""}`}>{reply.text}</div>
+        )}
+        <div className="small text-body-secondary mt-2">Offer {status}</div>
+      </>
+    );
+  }
+  const answer = async (accept: boolean) => {
+    setBusy(true);
+    setReply(null);
+    try {
+      const r = await toWorker("respondToTradeOffer", shell.lid, mid, accept);
+      setReply({ ok: r.accepted, text: r.message });
+      reload();
+    } catch (e) {
+      setReply({ ok: false, text: errorText(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const open = () => {
+    saveTrade(shell.lid, { cid: offer.cid, give: offer.give, get: offer.get });
+    navigate(leaguePath(shell.lid, "trade", offer.cid));
+  };
+  const off = busy || shell.state.fired !== null;
+  return (
+    <div
+      className="d-flex flex-wrap align-items-center gap-1 mt-2"
+      data-testid="trade-offer-actions"
+    >
+      <button
+        type="button"
+        className="btn btn-success btn-sm py-0"
+        disabled={off}
+        onClick={() => void answer(true)}
+      >
+        Accept
+      </button>
+      <button
+        type="button"
+        className="btn btn-outline-danger btn-sm py-0"
+        disabled={off}
+        onClick={() => void answer(false)}
+      >
+        Turn down
+      </button>
+      <button type="button" className="btn btn-link btn-sm py-0 ms-auto" onClick={open}>
+        Open in Trade
+      </button>
+      {reply && <div className="small w-100">{reply.text}</div>}
     </div>
   );
 }
@@ -150,12 +221,17 @@ export function InboxPanel({ messages }: { messages: InboxMessageView[] }) {
                     {m.bid?.status === "open" && (
                       <span className="badge text-bg-primary ms-1">Open bid</span>
                     )}
+                    {m.tradeOffer?.status === "open" &&
+                      m.tradeOffer.expires >= shell.state.date && (
+                        <span className="badge text-bg-primary ms-1">Trade offer</span>
+                      )}
                   </div>
                 </div>
                 {openMid === m.mid && (
                   <div id={`inbox-body-${m.mid}`} className="small px-3 pb-3">
                     <PlayerMentions text={m.body} players={m.players} />
                     {m.bid && <BidActions bid={m.bid} />}
+                    {m.tradeOffer && <TradeOfferActions mid={m.mid} offer={m.tradeOffer} />}
                   </div>
                 )}
               </article>

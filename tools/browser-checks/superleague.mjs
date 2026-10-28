@@ -272,6 +272,112 @@ check(
   await testId("drafted").innerText(),
 );
 
+// --- Chunk 4: Trade, the Trading Block, offers in the inbox ---------------------------------
+const sidebarTrades = await testId("sidebar").innerText();
+check(
+  "the sidebar has Trade and the Trading Block",
+  /\bTrade\b/.test(sidebarTrades) && /Trading Block/.test(sidebarTrades),
+);
+await testId("sidebar").getByRole("link", { name: "Trade", exact: true }).click();
+await testId("trade-other").waitFor();
+// Their weakest player he could trade for; what would make it work, then proposed.
+const theirBoxes = testId("trade-other").locator("tbody input[type=checkbox]");
+const wanted = theirBoxes.last();
+const wantedPid = await wanted.locator("xpath=ancestor::tr").getAttribute("data-pid");
+await wanted.check();
+await page.waitForFunction(() =>
+  /give/.test(document.querySelector('[data-testid="trade-summary"]')?.textContent ?? ""),
+);
+check(
+  "ticking a player puts him in the summary, with the payrolls and squads after",
+  /Payroll .*→/.test(await testId("trade-summary").innerText()) &&
+    /Squad \d+ → \d+/.test(await testId("trade-summary").innerText()),
+);
+await testId("trade-work").click();
+await testId("trade-answer").waitFor();
+const workText = await testId("trade-answer").innerText();
+const workable = /would (do it if you add|take it as it is)/.test(workText);
+check('"What would make this work?" says what they\'d want', workable, workText);
+if (workable) {
+  await page.waitForFunction(() => {
+    const b = document.querySelector('[data-testid="propose-trade"]');
+    return b !== null && !b.disabled;
+  });
+  await testId("propose-trade").click();
+  await page.waitForFunction(() =>
+    /Trade done with/.test(
+      document.querySelector('[data-testid="trade-answer"]')?.textContent ?? "",
+    ),
+  );
+  await page.waitForFunction(
+    (pid) => document.querySelector(`[data-testid="trade-user"] tr[data-pid="${pid}"]`) !== null,
+    wantedPid,
+  );
+  check("proposed, the trade is made: he's in your squad on the page", true);
+}
+await leakCheck("the Trade page");
+
+// The trading block: offers for his best tradable player; one opened on the Trade page.
+await testId("sidebar").getByRole("link", { name: "Trading Block", exact: true }).click();
+await testId("block-assets").waitFor();
+const putUp = testId("block-assets").locator("tbody input[type=checkbox]").first();
+const putPid = await putUp.locator("xpath=ancestor::tr").getAttribute("data-pid");
+await putUp.check();
+await testId("block-ask").click();
+await testId("block-offers").waitFor({ timeout: 60_000 });
+const offerCount = await testId("block-offer").count();
+check(
+  "the trading block brings offers (at most five)",
+  offerCount > 0 && offerCount <= 5,
+  `${offerCount}`,
+);
+if (offerCount > 0) {
+  await testId("block-offer").first().getByRole("button", { name: "Negotiate" }).click();
+  await page.waitForURL(/\/trade\/\d+$/);
+  await testId("trade-user").waitFor();
+  check(
+    "Negotiate opens the offer on the Trade page: his player and their side ticked",
+    (await testId("trade-user").locator(`tr[data-pid="${putPid}"] input`).isChecked()) &&
+      (await testId("trade-other").locator("input:checked").count()) > 0,
+  );
+}
+
+// "Trade for him" on another club's player.
+await page.goto(`${BASE}/l/${lid}/squad/0`);
+await testId("squad-table").locator('a[href*="/player/"]').first().click();
+const forPid = page.url().match(/\/player\/(\d+)/)?.[1];
+await testId("profile-trade-for").click();
+await page.waitForURL(/\/trade\/0$/);
+await testId("trade-other").waitFor();
+check(
+  '"Trade for him" opens the Trade page with him asked for',
+  await testId("trade-other").locator(`tr[data-pid="${forPid}"] input`).isChecked(),
+);
+
+// AI clubs' offers reach the inbox from 8 July: answered there.
+await play("Until the re-signing period");
+await play("Advance to preseason");
+let offerBadge = null;
+for (let week = 0; week < 10 && !offerBadge; week++) {
+  await play("One week");
+  await page.goto(`${BASE}/l/${lid}`);
+  await testId("inbox").waitFor();
+  const badge = testId("inbox-list").locator(".badge", { hasText: "Trade offer" });
+  if ((await badge.count()) > 0) offerBadge = badge.first();
+}
+check("an AI club's trade offer comes to the inbox in July or August", offerBadge !== null);
+if (offerBadge) {
+  await offerBadge.locator("xpath=ancestor::article").locator(".inbox-message-toggle").click();
+  await testId("trade-offer-actions").waitFor();
+  await testId("trade-offer-actions").getByRole("button", { name: "Turn down" }).click();
+  await page.waitForFunction(() =>
+    /Offer turned down/.test(
+      document.querySelector('[data-testid="inbox-list"]')?.textContent ?? "",
+    ),
+  );
+  check("he turns it down in the inbox", true);
+}
+
 check("no errors in the console", errors.length === 0, errors.slice(0, 3).join(" | "));
 await context.close();
 console.log(failures === 0 ? "\nAll Super League checks pass." : `\n${failures} check(s) failed.`);

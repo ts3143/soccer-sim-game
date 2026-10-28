@@ -1320,6 +1320,67 @@ export interface DraftPickRow {
   projected: { pick: number; lottery: boolean } | null;
 }
 
+/** A squad player as the Trade page shows him. */
+export interface TradePlayerView {
+  pid: number;
+  name: string;
+  nationality: string;
+  position: string;
+  age: number;
+  ovr: number;
+  pot: number;
+  wage: number;
+  /** His contract's last day. */
+  expires: string;
+  injured: boolean;
+  /** Why his club can't trade him now (null: it can). */
+  untradable: string | null;
+}
+
+/** One club's side of a trade: its squad and picks, and its payroll and squad before and after. */
+export interface TradeSideView {
+  club: TeamRef;
+  players: TradePlayerView[];
+  picks: DraftPickRow[];
+  /** Payroll (wages under contract plus those owed to released players) now and after. */
+  payroll: number;
+  payrollAfter: number;
+  /** Its cap this season (its old tier's in a grace season); null without a cap. */
+  cap: number | null;
+  squad: number;
+  squadAfter: number;
+}
+
+/**
+ * The Trade page (SPEC §17.6, §17.8): the user's side and the other club's, for the trade
+ * as proposed. `proposal` is the one sent, less what no longer belongs to either club.
+ */
+export interface TradeView {
+  proposal: TradeProposal;
+  user: TradeSideView;
+  other: TradeSideView;
+  /** Why trades are closed today; null while they're open. */
+  closed: string | null;
+  /** The rules the trade breaks (none while nothing is proposed). */
+  problems: string[];
+}
+
+/** An offer on the trading block: what the club gives for what the user put up. */
+export interface TradingBlockOffer {
+  proposal: TradeProposal;
+  club: TeamRef;
+  players: TradePlayerView[];
+  picks: DraftPickRow[];
+}
+
+/** The Trading Block (SPEC §17.6): his squad and picks, and the best offers for those put up. */
+export interface TradingBlockView {
+  user: TradeSideView;
+  closed: string | null;
+  /** Best for him first; empty while nothing is put up. */
+  offers: TradingBlockOffer[];
+}
+
 /** A club's draft picks: those it holds, and its own that other clubs hold. */
 export interface DraftPicksView {
   club: TeamRef;
@@ -1424,8 +1485,10 @@ export interface WorkerApi {
   makeTradeWork(lid: number, proposal: TradeProposal): TradeWork;
   /** Answers an AI club's trade offer in the inbox (message `mid`). */
   respondToTradeOffer(lid: number, mid: number, accept: boolean): TradeAnswer;
+  /** The Trade page for a trade as it stands (nothing is proposed to the other club). */
+  getTrade(lid: number, proposal: TradeProposal): TradeView;
   /** The trading block: AI clubs' best offers for the players and picks he puts up. */
-  getTradingBlock(lid: number, give: TradeAssets): TradeWork[];
+  getTradingBlock(lid: number, give: TradeAssets): TradingBlockView;
   acceptJobOffer(lid: number, cid: number): GameState;
   markInboxRead(lid: number, mid: number): void;
   getContractTalks(lid: number, pid: number): ContractTalks;

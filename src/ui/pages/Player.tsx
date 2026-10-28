@@ -13,7 +13,8 @@ import { RATING_CODES, ratingsConfig } from "../../common/config/ratings";
 import { RadarChart } from "../components/charts";
 import { NationalityFlag, RatingChange, RatingsGrid } from "../components/PlayerDetails";
 import { ScoreLink, TeamLink } from "../components/links";
-import { leaguePath, Link } from "../router";
+import { leaguePath, Link, navigate } from "../router";
+import { noAssets, saveTrade } from "../tradeDraft";
 import { resultRowClass } from "../components/results";
 import { HonourBadge, HonoursCard } from "../components/Honours";
 import { formatDate, formatEuros } from "../format";
@@ -218,6 +219,11 @@ export function Player({ params }: { params: string[] }) {
             ? "Make a bid"
             : null
         : null;
+  // Opens the Trade page with him asked for (SPEC §17.8, ZenGM's "Trade For").
+  const tradeFor = (cid: number) => {
+    saveTrade(shell.lid, { cid, give: noAssets(), get: { pids: [view.pid], picks: [] } });
+    navigate(leaguePath(shell.lid, "trade", cid));
+  };
   return (
     <>
       <PageHeader title={view.name}>
@@ -234,6 +240,20 @@ export function Player({ params }: { params: string[] }) {
             {talk}
           </button>
         )}
+        {switches.market === "trades" &&
+          view.status === "club" &&
+          view.team &&
+          !own &&
+          !shell.state.fired && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              data-testid="profile-trade-for"
+              onClick={() => tradeFor(view.team?.cid ?? 0)}
+            >
+              Trade for him
+            </button>
+          )}
         {own && !shell.state.fired && (
           <>
             {transfers && (

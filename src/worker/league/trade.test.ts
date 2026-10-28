@@ -5,6 +5,7 @@ import type { TradeProposal } from "../../common/api";
 import { createLeague, openLeague } from "./session";
 import { gameState, play } from "./game";
 import { bidForPlayer, contractTalks, listPlayer, proposeLoan } from "./market";
+import { tradeView, tradingBlockView } from "../views/trade";
 import { makeTradeWork, proposeTrade, respondToTradeOffer, tradingBlock } from "./trade";
 
 beforeAll(() => {
@@ -34,6 +35,22 @@ describe("the user's trades in a save", () => {
     const ask: TradeProposal = { cid: 40, give: none(), get: { pids: [target.pid], picks: [] } };
     const no = await proposeTrade(session, ask);
     expect([no.accepted, no.message]).toEqual([false, expect.stringMatching(/turn it down/)]);
+    // The Trade page: both sides, the payrolls and squads after, no rule broken.
+    let page = tradeView(session, ask);
+    expect([page.user.club.cid, page.other.club.cid, page.closed, page.problems]).toEqual([
+      39,
+      40,
+      null,
+      [],
+    ]);
+    expect(page.proposal).toEqual(ask);
+    expect(page.other.payrollAfter).toBe(page.other.payroll - (target.contract?.wage ?? 0));
+    expect([page.user.squadAfter, page.other.squadAfter]).toEqual([
+      page.user.squad + 1,
+      page.other.squad - 1,
+    ]);
+    expect(page.user.picks).toHaveLength(6);
+    expect(tradeView(session, { cid: 40, give: none(), get: none() }).problems).toEqual([]);
     // What would make it work: some of Lyon's players or picks.
     const work = makeTradeWork(session, ask);
     expect(work.message).toMatch(/would do it if you add/);
@@ -58,6 +75,9 @@ describe("the user's trades in a save", () => {
     expect(trade?.cids).toEqual([39, 40]);
     // Saved, not just in memory.
     expect((await session.db.get("players", target.pid))?.cid).toBe(39);
+    // On the page the trade made drops out: nobody holds those assets any more.
+    page = tradeView(session, proposal);
+    expect(page.proposal).toEqual({ cid: 40, give: none(), get: none() });
 
     // A player who isn't his: the reason, not a trade.
     const other = squad(41)[0];
@@ -111,6 +131,14 @@ describe("the user's trades in a save", () => {
       ).toBeGreaterThan(0);
       expect(o.message).toMatch(/ offer /);
     }
+    // The page's offers: the same, with the players and picks each club gives.
+    const block = tradingBlockView(session, put);
+    expect(block.offers.map((o) => o.proposal)).toEqual(offers.map((o) => o.proposal));
+    for (const o of block.offers) {
+      expect(o.players.map((p) => p.pid).sort()).toEqual([...o.proposal.get.pids].sort());
+      expect(o.picks).toHaveLength(o.proposal.get.picks.length);
+    }
+    expect(tradingBlockView(session, none()).offers).toEqual([]);
     const best = offers[0]?.proposal;
     if (!best) throw new Error("No offer");
     expect((await proposeTrade(session, best)).accepted).toBe(true);

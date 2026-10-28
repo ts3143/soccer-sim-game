@@ -2012,6 +2012,16 @@ Plan (about 6 chunks): 1 the world in the UI (the shell knows the save's world a
 - **Browser check `superleague`:** after the season, Draft Picks (six picks, this season's projected), the Draft before the lottery (pool of 8, 110 prospects, the classes to come), the lottery's draw (picks 1–8, a board of 96), "Until your pick", drafting a prospect from the page, "To the end of the draft", the draftee's profile.
 - **Checks:** lint; 425 unit tests (the save's draft test extended: the pool and its odds before and after the draw, the user's picks projected then numbered, a class to come, a held draft's board); `pnpm build`; all 19 browser checks (437 passes: Classic's unchanged, the Super League's 21).
 
+#### Chunk 4: Trade, Trading Block, offers in the inbox (2026-10-28)
+- **Trade page** (Players section, worlds with trades; ZenGM style): a club dropdown (every club but his, by league); the other club's squad and picks, then his, a tick box each (a player his club can't trade, a final-year player once the season is over, has ✕ with the reason); a summary: what each side gives, each payroll now → after against its cap (red when over), each squad now → after, and the rules the trade breaks (the worker's `tradeProblems`, so the page and the trade agree). "Propose trade" (off while a rule is broken) puts it to the club: made at once or turned down; "What would make this work?" loads the trade the club would take, with its words; Clear. Worker call `getTrade` (`views/trade.ts`): both sides and the trade less what no longer belongs to either club.
+- **The trade in progress** is kept per league in the tab (sessionStorage, `tradeDraft.ts`; memory if storage fails), so it survives a reload or a look at a player; another club keeps his side and empties theirs (ZenGM).
+- **Trading Block** (Players section): he ticks players and picks, "What are they offering?" brings the five best offers (`getTradingBlock` now returns his side and the offers with the players and picks each club gives); "Negotiate" opens one on the Trade page, where he proposes it.
+- **Inbox:** an AI club's open offer has a "Trade offer" badge and Accept, Turn down, and Open in Trade; answered or lapsed, its status.
+- **Player profile:** "Trade for him" on another club's player opens the Trade page with him asked for (ZenGM's Trade For).
+- `useView` can keep the last data while a new key loads (`stale`), so ticking a box doesn't blank the Trade page. `draftName` moved to `format.ts`; `heldPicks` gives every club's picks with one projection.
+- **Browser check `superleague`:** after the draft: Trade (tick their weakest player, "What would make this work?", propose, he's in the squad), the Trading Block (offers, Negotiate loads one), "Trade for him", then preseason weeks until an AI offer comes to the inbox, turned down there.
+- **Checks:** lint; 425 unit tests (the trade tests extended: the page's sides, payrolls and squads after, a made trade dropping out; the block's offers with their players and picks); `pnpm build`; all 19 browser checks (446 passes: Classic's unchanged, the Super League's 30).
+
 ## Open issues
 - The UI bundle is past Vite's 500 KB chunk warning since SL1 (crests inlined): load crests as files, or split the bundle, if it matters.
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).
