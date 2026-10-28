@@ -172,8 +172,11 @@ type ByState = Record<TradeState, number>;
 
 /** AI trade valuation (SPEC §17.6; the Super League's). See `_note` in its config. */
 export interface TradesConfig {
-  /** Board targets (ids) whose clubs contend; the others rebuild. */
-  contendingTargets: string[];
+  /**
+   * Who contends (T, 2026-10-28): the clubs within `gap` OVR (best 11) of their league's
+   * strongest, at least `min` and at most `max` a league; the others rebuild.
+   */
+  contending: { gap: number; min: number; max: number };
   value: {
     perOvr: number;
     /** POT counts fully up to this age and not from `youthNoneFrom`. */

@@ -17,7 +17,7 @@
 import { capOf, type TradeState, type TradesConfig } from "../../common/config/competitions";
 import type { WorldConfig } from "../../common/config/worlds";
 import { exactAge } from "../../common/dates";
-import type { Club, ClubSeason, DraftPick, Player } from "../../common/schema";
+import type { Club, DraftPick, Player } from "../../common/schema";
 import { clubStrength } from "../club/standing";
 import { clubCap, payroll } from "../finance/softCap";
 import { seasonDate } from "../schedule/calendar";
@@ -32,7 +32,6 @@ export interface TradeWorld {
   config: WorldConfig;
   clubs: readonly Club[];
   players: readonly Player[];
-  clubSeasons: ReadonlyMap<number, ClubSeason>;
   draftPicks: readonly DraftPick[];
 }
 
@@ -57,6 +56,8 @@ export interface TradeDay {
   slotValues: Readonly<Record<TradeState, readonly number[]>>;
   /** The league's wages against the going rate: worth × this is a fair wage. */
   wageLevel: number;
+  /** The clubs that contend today (`contenders`); the others rebuild. */
+  contending: ReadonlySet<number>;
   /** Players' values to clubs today, by `cid/pid` (filled as they're asked for). */
   values: Map<string, number>;
 }
@@ -100,20 +101,47 @@ const tradesOf = (world: Pick<TradeWorld, "config">): TradesConfig => {
 
 const keyOf = (p: PickRef) => `${p.season}/${p.round}/${p.originalCid}`;
 
-/** A club contends when its board's target is a contending one, else it rebuilds. */
-export function tradeState(world: Pick<TradeWorld, "config" | "clubSeasons">, cid: number) {
-  const target = world.clubSeasons.get(cid)?.boardExpectation ?? null;
-  const state: TradeState =
-    target !== null && tradesOf(world).contendingTargets.includes(target)
-      ? "contending"
-      : "rebuilding";
-  return state;
+/**
+ * The clubs that contend today (T, 2026-10-28): in each league those whose strength (their
+ * best 11's mean OVR, injured players too) is within `contending.gap` of the strongest's,
+ * at least `min` and at most `max` of them (the strongest first). The rest rebuild. About
+ * 3 or 4 a league: more when the top is close, fewer when a club or two stand out.
+ */
+export function contenders(world: Pick<TradeWorld, "config" | "clubs" | "players">): Set<number> {
+  const out = new Set<number>();
+  const rule = world.config.competitions.trades?.contending;
+  if (!rule) return out;
+  const best = new Map<number, number[]>();
+  for (const p of world.players) {
+    if (p.status !== "club" || p.cid === null) continue;
+    const ovrs = best.get(p.cid);
+    if (ovrs) ovrs.push(p.ovr);
+    else best.set(p.cid, [p.ovr]);
+  }
+  const strength = (cid: number) => {
+    const top = (best.get(cid) ?? []).sort((a, b) => b - a).slice(0, 11);
+    return top.reduce((a, x) => a + x, 0) / Math.max(1, top.length);
+  };
+  for (const league of world.config.competitions.leagues) {
+    const ranked = world.clubs
+      .filter((c) => c.leagueId === league.id)
+      .map((c) => ({ cid: c.cid, s: strength(c.cid) }))
+      .sort((a, b) => b.s - a.s || a.cid - b.cid);
+    const top = ranked[0]?.s ?? 0;
+    ranked.forEach((c, i) => {
+      if (i < rule.min || (i < rule.max && c.s >= top - rule.gap)) out.add(c.cid);
+    });
+  }
+  return out;
 }
+
+export const tradeState = (day: Pick<TradeDay, "contending">, cid: number): TradeState =>
+  day.contending.has(cid) ? "contending" : "rebuilding";
 
 export function clubView(
   world: TradeWorld,
   cid: number,
-  day: Pick<TradeDay, "season" | "date" | "nextDraft" | "slots">,
+  day: Pick<TradeDay, "season" | "date" | "nextDraft" | "slots" | "contending">,
 ): ClubView {
   const club = world.clubs.find((c) => c.cid === cid);
   if (!club) throw new Error(`No club ${cid}`);
@@ -136,7 +164,7 @@ export function clubView(
   const over = line !== null && payroll(club, world.players, day.date) > line;
   return {
     cid,
-    state: tradeState(world, cid),
+    state: tradeState(day, cid),
     cap,
     revenue: cap !== null && ratio ? cap / ratio : club.revenueAnchor,
     line,
@@ -304,6 +332,7 @@ export function tradeDay(
     slots: projectedSlots(world, date, tables),
     slotValues: slotValues(world, season, nextDraft),
     wageLevel: wageLevel(world, season, date),
+    contending: contenders(world),
     values: new Map(),
   };
 }

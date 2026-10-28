@@ -9,7 +9,6 @@ import type { CompetitionsConfig } from "../../src/common/config/competitions";
 import type { ClubMove } from "../../src/worker/season/season";
 import { exactAge } from "../../src/common/dates";
 import type { DraftPick, Player } from "../../src/common/schema";
-import { preseasonBoard } from "../../src/worker/club/board";
 import {
   clubView,
   pickTradeValue,
@@ -231,8 +230,7 @@ export const shapeDrift = (runs: readonly TierRun[], key: keyof SquadShape, from
   lastShape(runs, key) - shapeAt(runs, key, (r) => r.seasons[from - 1]);
 
 /**
- * SL5's exploit checks (MILESTONES SL5) on a world as a run left it, the board's targets set
- * for `season` (states as the AI would read them):
+ * SL5's exploit checks (MILESTONES SL5) on a world as a run left it, as `season` opens:
  * - two average players never equal a star: every star (the best 2% of seniors) against
  *   each other club's two best average players (within 2 of the mean OVR, aged 23-30, POT
  *   at most 3 above OVR); the star's club must lose talent by the trade (its squad by
@@ -252,7 +250,6 @@ export function tradeExploits(world: LoopWorld, season: number): TradeExploits {
   };
   if (!trades) return out;
   const date = `${season}-07-01`;
-  preseasonBoard(world, season, date, world.config.competitions);
   const tw = { ...world, draftPicks: world.draftPicks ?? [] };
   const day = tradeDay(tw, season, date);
   const seniors = world.players.filter((p) => p.status === "club" && p.cid !== null);
@@ -275,7 +272,7 @@ export function tradeExploits(world: LoopWorld, season: number): TradeExploits {
       out.starsChecked++;
       // Talent by squad place: the star's club's squad with him, and with the two instead.
       const owner = star.cid as number;
-      const state = tradeState(tw, owner);
+      const state = tradeState(day, owner);
       const talent = (p: Player) => talentValue(trades, p, age(p), state);
       const squad = seniors.filter((p) => p.cid === owner);
       const withTwo = [...squad.filter((p) => p.pid !== star.pid), ...two];
@@ -293,7 +290,7 @@ export function tradeExploits(world: LoopWorld, season: number): TradeExploits {
     }
   }
   for (const state of ["contending", "rebuilding"] as const) {
-    const cid = world.clubs.find((c) => tradeState(tw, c.cid) === state)?.cid;
+    const cid = world.clubs.find((c) => tradeState(day, c.cid) === state)?.cid;
     if (cid === undefined) continue;
     const view = clubView(tw, cid, day);
     const value = (p: DraftPick) => pickTradeValue(tw, day, view, p);

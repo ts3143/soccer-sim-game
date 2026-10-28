@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { worlds } from "../../common/config/worlds";
 import type { Player } from "../../common/schema";
 import { exactAge } from "../../common/dates";
-import { preseasonBoard } from "../club/board";
 import { clubStrength } from "../club/standing";
 import { rookieWage } from "../season/draft";
 import { generateWorld } from "../generate/world";
@@ -34,10 +33,8 @@ const world: TradeWorld = {
   config,
   clubs: generated.clubs,
   players: generated.players,
-  clubSeasons: new Map(generated.clubSeasons.map((r) => [r.cid, r])),
   draftPicks: generated.draftPicks,
 };
-preseasonBoard({ ...world, userCid: -1 }, 2026, DATE, config.competitions);
 const day = tradeDay(world, 2026, DATE);
 const seniors = (cid: number) =>
   world.players
@@ -136,8 +133,26 @@ describe("trade valuation", () => {
   });
 
   it("contending clubs value OVR now; rebuilding ones POT, youth and picks", () => {
-    const states = world.clubs.map((c) => tradeState(world, c.cid));
-    expect(states.filter((s) => s === "contending")).toHaveLength(20);
+    // In each league 2 to 6 contend (T: about 3 or 4), the strongest by their best 11.
+    const strength = (cid: number) => {
+      const top = seniors(cid)
+        .slice(0, 11)
+        .map((p) => p.ovr);
+      return top.reduce((a, x) => a + x, 0) / top.length;
+    };
+    let contending = 0;
+    for (const league of ["STAR", "GOLD", "BLUE"]) {
+      const clubs = world.clubs.filter((c) => c.leagueId === league);
+      const on = clubs.filter((c) => tradeState(day, c.cid) === "contending");
+      const off = clubs.filter((c) => tradeState(day, c.cid) === "rebuilding");
+      expect(on.length).toBeGreaterThanOrEqual(2);
+      expect(on.length).toBeLessThanOrEqual(6);
+      const weakest = Math.min(...on.map((c) => strength(c.cid)));
+      expect(off.every((c) => strength(c.cid) <= weakest)).toBe(true);
+      contending += on.length;
+    }
+    expect(contending).toBeGreaterThanOrEqual(6);
+    expect(contending).toBeLessThanOrEqual(18);
     const young = { ovr: 62, pot: 80 };
     const prime = { ovr: 74, pot: 74 };
     const veteran = { ovr: 76, pot: 76 };
@@ -156,8 +171,8 @@ describe("trade valuation", () => {
     const pick = world.draftPicks.find((p) => p.season === 2026 && p.round === 1) as NonNullable<
       (typeof world.draftPicks)[0]
     >;
-    const contender = world.clubs.find((c) => tradeState(world, c.cid) === "contending");
-    const rebuilder = world.clubs.find((c) => tradeState(world, c.cid) === "rebuilding");
+    const contender = world.clubs.find((c) => tradeState(day, c.cid) === "contending");
+    const rebuilder = world.clubs.find((c) => tradeState(day, c.cid) === "rebuilding");
     expect(
       pickTradeValue(world, day, clubView(world, rebuilder?.cid ?? -1, day), pick),
     ).toBeGreaterThan(pickTradeValue(world, day, clubView(world, contender?.cid ?? -1, day), pick));
