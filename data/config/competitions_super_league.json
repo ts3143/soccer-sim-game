@@ -176,7 +176,7 @@
     "deadlineAfterRoundShare": 0.6
   },
   "trades": {
-    "_note": "AI trade valuation (SPEC §17.6; first values, SL5, tuned in SL5 and SL6), in value points: 1 = a 75-rated player in his prime on a fair contract. A club contends when its board target is one of contendingTargets, else it rebuilds. A player's rating = OVR + potShare x (POT - OVR) x youth (full to youthFullUntil, none from youthNoneFrom); value = exp(perOvr x (rating - 75)), x declinePerYear a year past declineFrom, x his contract (1 + contract.weight x (worth / wage - 1) x the years left up to contract.years / contract.years, within [min, max]; worth = the going wage at the club's cap / aiWageRatio, scaled to the league's wages against that rate), x finalYear while his contract ends this 30 June. A club's value: its squad by value, each place weighted by squadWeights ([up to place, weight]), so quantity never buys quality; plus its picks; plus its cap room, salary.underCap or salary.overCap points per cap's worth of yearly wages saved (x salary.rebuilding when rebuilding). A pick: the prospect its projected slot would take from its class (the original owner's place in the projected order: the table, or squad strength before a match is played; the number once the lottery has set it), valued as a player, x picks.weight, x picks.yearDiscount a draft further away.",
+    "_note": "AI trade valuation (SPEC §17.6; first values, SL5, tuned in SL5 and SL6), in value points: 1 = a 75-rated player in his prime on a fair contract. A club contends when its board target is one of contendingTargets, else it rebuilds. A player's rating = OVR + potShare x (POT - OVR) x youth (full to youthFullUntil, none from youthNoneFrom); value = exp(perOvr x (rating - 75)), x declinePerYear a year past declineFrom, x his contract (1 + contract.weight x (worth / wage - 1) x the years left up to contract.years / contract.years, within [min, max]; worth = the going wage at the club's cap / aiWageRatio, scaled to the league's wages against that rate), x finalYear while his contract ends this 30 June. A club's value: its squad by value, each place weighted by squadWeights ([up to place, weight]), so quantity never buys quality; plus its picks; plus its cap room, salary.underCap or salary.overCap points per cap's worth of yearly wages saved (x salary.rebuilding when rebuilding). A pick: the prospect its projected slot would take from its class (the original owner's place in the projected order: the table, or squad strength before a match is played; the number once the lottery has set it), valued as a player, x picks.weight, x picks.yearDiscount a draft further away. An AI club takes a trade that raises its value; asked what would make one work, it asks for up to makeItWorkMaxAdded more of the other club's players and picks, one at a time.",
     "contendingTargets": ["title", "topEight", "promotion", "playoffs"],
     "value": {
       "perOvr": 0.16,
@@ -195,6 +195,7 @@
       [99, 0]
     ],
     "salary": { "underCap": 0.5, "overCap": 2, "rebuilding": 1.5 },
-    "picks": { "weight": { "contending": 0.7, "rebuilding": 1 }, "yearDiscount": 0.8 }
+    "picks": { "weight": { "contending": 0.7, "rebuilding": 1 }, "yearDiscount": 0.8 },
+    "makeItWorkMaxAdded": 4
   }
 }

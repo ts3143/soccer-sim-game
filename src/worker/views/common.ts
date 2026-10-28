@@ -204,6 +204,11 @@ export function describeTransaction(t: Pick<TransactionRow, "type" | "names">): 
       return `${player} promoted from ${a}'s academy`;
     case "retirement":
       return `${player} retires`;
+    case "trade": {
+      // [club a, club b, what a gets, what b gets]
+      const [clubA = "", clubB = "", aGets = "", bGets = ""] = t.names;
+      return `${clubA} and ${clubB} trade: ${clubA} get ${aGets}; ${clubB} get ${bGets}`;
+    }
     default:
       return t.names.join(", ");
   }

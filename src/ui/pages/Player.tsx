@@ -31,6 +31,7 @@ const TRANSFER_LABELS: Record<string, string> = {
   freeAgent: "Free transfer",
   academyPromotion: "Academy promotion",
   release: "Released",
+  trade: "Trade",
 };
 const STATUS_LABELS: Record<string, string> = {
   club: "",

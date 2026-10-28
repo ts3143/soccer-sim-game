@@ -1201,6 +1201,31 @@ export interface DraftProspectView {
   nationality: string;
 }
 
+/** What one club gives in a trade: players and draft picks (by their key), no cash. */
+export interface TradeAssets {
+  pids: number[];
+  picks: { season: number; round: number; originalCid: number }[];
+}
+
+/** A trade the user puts to another club (`cid`): what he gives and what he gets. */
+export interface TradeProposal {
+  cid: number;
+  give: TradeAssets;
+  get: TradeAssets;
+}
+
+/** The other club's answer: yes (the trade is made) or no, and why. */
+export interface TradeAnswer {
+  accepted: boolean;
+  message: string;
+}
+
+/** "What would make this work?": the trade it would take (null: none), and its reply. */
+export interface TradeWork {
+  proposal: TradeProposal | null;
+  message: string;
+}
+
 /** One slot of the draft: its owner (and the club whose slot it was, if traded). */
 export interface DraftSlotView {
   pick: number;
@@ -1316,6 +1341,10 @@ export interface WorkerApi {
   getDraft(lid: number): DraftView;
   /** The user's club picks `pid` when it's on the clock in the draft. */
   draftProspect(lid: number, pid: number): DraftView;
+  /** Puts a trade to another club (SPEC §17.6): made at once if it says yes. */
+  proposeTrade(lid: number, proposal: TradeProposal): TradeAnswer;
+  /** "What would make this work?": what the other club would want added. */
+  makeTradeWork(lid: number, proposal: TradeProposal): TradeWork;
   acceptJobOffer(lid: number, cid: number): GameState;
   markInboxRead(lid: number, mid: number): void;
   getContractTalks(lid: number, pid: number): ContractTalks;

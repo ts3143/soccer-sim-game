@@ -191,6 +191,8 @@ export interface TradesConfig {
   /** Value points per cap's worth of yearly wages saved. */
   salary: { underCap: number; overCap: number; rebuilding: number };
   picks: { weight: ByState; yearDiscount: number };
+  /** "What would make this work?": the most assets the AI asks to have added. */
+  makeItWorkMaxAdded: number;
 }
 
 /** The draft (SPEC §17.5; the Super League's). See `_note` in its config. */

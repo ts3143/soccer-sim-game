@@ -40,6 +40,7 @@ import { getTactics, previewTactics, saveTactics } from "../views/tactics";
 import { getCups, getSchedule, getStandings } from "../views/competitions";
 import { draftView } from "../views/draft";
 import { draftProspect } from "../league/draft";
+import { makeTradeWork, proposeTrade } from "../league/trade";
 import { getDashboard, markAllInboxRead } from "../views/dashboard";
 import {
   getFinances,
@@ -258,6 +259,12 @@ export function createHandlers(
         await draftProspect(session, pid);
         return draftView(session);
       });
+    },
+    async proposeTrade(lid, proposal) {
+      return change(lid, (session) => proposeTrade(session, proposal));
+    },
+    async makeTradeWork(lid, proposal) {
+      return makeTradeWork(await openLeague(lid), proposal);
     },
     async getLiveMatch(lid, from) {
       return getLive(await openLeague(lid), from);

@@ -330,7 +330,7 @@ export interface TransferRecord {
   fromCid: number | null;
   toCid: number | null;
   fee: number;
-  type: "transfer" | "loan" | "freeAgent" | "academyPromotion" | "release" | "draft";
+  type: "transfer" | "loan" | "freeAgent" | "academyPromotion" | "release" | "draft" | "trade";
 }
 
 /** What development needs from the matches since the last update (SPEC §5.3). */
