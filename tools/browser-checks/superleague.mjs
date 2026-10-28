@@ -472,6 +472,186 @@ if (offerBadge) {
   check("he turns it down in the inbox", true);
 }
 
+// --- Chunk 6: a trade with a pick, then on through three seasons -----------------------------
+const money = (text) => {
+  const n = Number.parseFloat(text.replace(/[^\d.]/g, ""));
+  return /M/.test(text) ? n * 1e6 : /K/.test(text) ? n * 1e3 : n;
+};
+// Pick for pick (no wages move, so the cap doesn't stand in the way): his first-rounder in
+// the furthest draft for their second-rounder in it.
+await page.goto(`${BASE}/l/${lid}/trade/0`);
+await testId("trade-user").waitFor();
+// The trade page kept "Trade for him"'s trade: cleared first.
+await testId("trade-summary").getByRole("button", { name: "Clear" }).click();
+await page.waitForFunction(
+  () => document.querySelectorAll('[data-testid="trade-other"] input:checked').length === 0,
+);
+await testId("trade-user")
+  .locator(".form-check", { hasText: "round 1" })
+  .last()
+  .locator("input")
+  .check();
+await testId("trade-other")
+  .locator(".form-check", { hasText: "round 2" })
+  .last()
+  .locator("input")
+  .check();
+await page.waitForFunction(() => {
+  const b = document.querySelector('[data-testid="propose-trade"]');
+  return b !== null && !b.disabled;
+});
+await testId("propose-trade").click();
+await testId("trade-answer").waitFor();
+const pickTrade = await testId("trade-answer").innerText();
+check(
+  "a trade of draft picks: his first-rounder for their second-rounder",
+  /Trade done/.test(pickTrade) && /round 1 pick/.test(pickTrade) && /round 2 pick/.test(pickTrade),
+  pickTrade,
+);
+
+const squadSize = async () =>
+  Number((await testId("free-agents-summary").innerText()).match(/Squad (\d+)\//)?.[1]);
+/** In the summer: signs free agents he can afford until his squad is over 25. */
+async function signToOver() {
+  await page.goto(`${BASE}/l/${lid}/free-agents`);
+  await testId("free-agents").waitFor();
+  await page.locator("#fa-affordable").check();
+  for (let i = 0; i < 10 && (await squadSize()) <= 25; i++) {
+    const row = testId("free-agents").locator("tbody tr").filter({ hasText: "Negotiate" }).first();
+    if ((await row.count()) === 0) break;
+    await row.getByRole("button", { name: "Negotiate" }).click();
+    await testId("contract-asks").locator("input[type=radio]:not([disabled])").first().check();
+    await testId("agree-contract").click();
+    await testId("contract-note").waitFor();
+    await testId("contract-modal")
+      .getByRole("button", { name: "Close", exact: true })
+      .first()
+      .click();
+    await page.waitForTimeout(300);
+  }
+  return squadSize();
+}
+
+/** While Play waits on the squad limit, releases his cheapest players until it doesn't. */
+async function releaseToLimit() {
+  let released = 0;
+  while ((await testId("blocked-banner").count()) > 0 && released < 15) {
+    await page.goto(`${BASE}/l/${lid}/trade`);
+    await testId("trade-user").waitFor();
+    const rows = await testId("trade-user")
+      .locator("tbody tr")
+      .evaluateAll((trs) =>
+        trs.map((tr) => [tr.getAttribute("data-pid"), tr.children[6]?.textContent ?? ""]),
+      );
+    const [pid] = rows.sort((a, b) => money(a[1]) - money(b[1]))[0];
+    await page.goto(`${BASE}/l/${lid}/player/${pid}`);
+    await testId("profile-release").click();
+    await testId("release-confirm").click();
+    await testId("profile-release").waitFor({ state: "detached" });
+    released++;
+    await page.goto(`${BASE}/l/${lid}`);
+    await testId("top-bar").waitFor();
+    await page.waitForTimeout(300);
+  }
+  return released;
+}
+
+for (const season of ["2027/28", "2028/29"]) {
+  if (season === "2028/29") {
+    const size = await signToOver();
+    check("on 1 July he may hold more than 25 (free agents signed)", size > 25, `${size}/25`);
+  }
+  await play("Until the end of the season");
+  if ((await testId("blocked-banner").count()) > 0) {
+    const banner = await testId("blocked-banner").innerText();
+    const released = await releaseToLimit();
+    check(
+      `${season}: over 25 at the first match, Play waits until he releases enough`,
+      released > 0 && (await testId("blocked-banner").count()) === 0,
+      `${banner.split(":")[0]}; released ${released}`,
+    );
+    await play("Until the end of the season");
+  }
+  check(
+    `${season}: played to the season's end`,
+    /End of season/.test(await testId("top-bar").innerText()),
+  );
+  await play("Proceed to promotion and relegation");
+  await play("Until the draft lottery");
+  await play("Until the draft");
+  await play("To the end of the draft");
+  await play("Until the re-signing period");
+  await play("Advance to preseason");
+}
+await page.goto(`${BASE}/l/${lid}/team-history`);
+await testId("team-seasons").waitFor();
+const seasonRows = await testId("team-seasons").locator("tbody tr").allInnerTexts();
+check(
+  "three seasons played: his club's history has them, each finished in a tier",
+  seasonRows.filter((r) => /20\d\d\/\d\d/.test(r) && /(Star|Gold|Blue)/.test(r)).length >= 3,
+  seasonRows.map((r) => r.split("\t").slice(0, 3).join(" ")).join(" | "),
+);
+await leakCheck("Team History after three seasons");
+
+await page.goto(`${BASE}/how-to-play`);
+await testId("how-to-play-super-league").waitFor();
+const guide = await testId("how-to-play-super-league").innerText();
+check(
+  "How to play has a Super League section: tiers, trades, the draft, re-signing, the cap",
+  ["Star, Gold and Blue", "Trade", "draft", "Re-sign Players", "salary cap"].every((w) =>
+    guide.includes(w),
+  ),
+);
+await leakCheck("How to play");
+
+// The names file at New game: a template to download, a bad file refused, a good one used.
+await page.goto(`${BASE}/new`);
+await testId("world-superLeague").click();
+await page.getByRole("button", { name: "Blue", exact: true }).waitFor();
+await testId("names-file").locator("summary").click();
+const [download] = await Promise.all([
+  page.waitForEvent("download"),
+  testId("names-file").getByRole("button", { name: "Download a template" }).click(),
+]);
+const template = JSON.parse(readFileSync(await download.path(), "utf8"));
+check(
+  "New game's names template lists the 48 clubs by id with their names",
+  download.suggestedFilename() === "club-names-superLeague.json" &&
+    Object.keys(template.clubs).length === 48 &&
+    template.clubs.lyo?.name === "Lyon Gones",
+);
+const namesFile = (name, clubs) => ({
+  name,
+  mimeType: "application/json",
+  buffer: Buffer.from(JSON.stringify({ clubs })),
+});
+await testId("names-file-input").setInputFiles(namesFile("bad.json", { xyz: { name: "X" } }));
+await testId("names-file-problems").waitFor();
+check(
+  "a bad names file is refused, with the reason",
+  /no club "xyz"/.test(await testId("names-file-problems").innerText()) &&
+    (await testId("names-file-loaded").count()) === 0,
+);
+await testId("names-file-input").setInputFiles(
+  namesFile("names.json", { lyo: { name: "Lyon Lions", short: "Lions", abbr: "LYL" } }),
+);
+await testId("names-file-loaded").waitFor();
+await page.getByRole("button", { name: "Blue", exact: true }).click();
+const renamedCard = testId("club-choices").locator("button", { hasText: "Lyon Lions" });
+check(
+  "a good one renames the club on New game",
+  /1 club renamed/.test(await testId("names-file-loaded").innerText()) &&
+    (await renamedCard.count()) === 1,
+);
+await renamedCard.click();
+await page.fill("#new-league-name", "Names test");
+await page.locator('[data-testid="start-league"]').click();
+await testId("top-bar").waitFor({ timeout: 90_000 });
+check(
+  "the save uses the names file's names",
+  /Lyon Lions/.test(await testId("top-bar").innerText()),
+);
+
 check("no errors in the console", errors.length === 0, errors.slice(0, 3).join(" | "));
 await context.close();
 console.log(failures === 0 ? "\nAll Super League checks pass." : `\n${failures} check(s) failed.`);

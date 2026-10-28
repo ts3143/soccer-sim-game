@@ -9,6 +9,8 @@ export function getClubChoices(world: WorldId): ClubChoice[] {
     cid,
     code: club.code,
     name: club.name,
+    short: club.short,
+    abbr: club.abbr,
     leagueId: club.league,
     leagueName: leagueById(competitions, club.league).name,
     strength: club.strength,

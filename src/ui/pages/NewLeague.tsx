@@ -1,10 +1,17 @@
 /**
  * New league (SPEC §11, §17.1): pick a world (Classic or Super League; the switches behind
  * them aren't shown), then your club from its leagues (with crest, city, squad strength and
- * revenue), name the save, and start. The seed is optional.
+ * revenue), name the save, and start. The seed is optional, and so is a names file of the
+ * user's own that renames clubs in this save (SPEC §17.3).
  */
 import { useEffect, useState } from "react";
 import type { ClubChoice } from "../../common/api";
+import {
+  applyClubNames,
+  type ClubNames,
+  clubNamesTemplate,
+  readClubNames,
+} from "../../common/clubNames";
 import type { WorldId } from "../../common/config/worlds";
 import { crestUrl } from "../crests";
 import { formatEuros } from "../format";
@@ -30,7 +37,9 @@ const WORLDS: { id: WorldId; name: string; blurb: string }[] = [
 
 export function NewLeague() {
   const [world, setWorld] = useState<WorldId>("classic");
-  const [choices, setChoices] = useState<ClubChoice[]>([]);
+  const [bundled, setChoices] = useState<ClubChoice[]>([]);
+  const [names, setNames] = useState<{ file: string; names: ClubNames } | null>(null);
+  const [namesProblems, setNamesProblems] = useState<string[]>([]);
   const [league, setLeague] = useState<string>("");
   const [userCid, setUserCid] = useState<number | null>(null);
   const [name, setName] = useState("");
@@ -47,6 +56,7 @@ export function NewLeague() {
       .catch((e: unknown) => setError(errorText(e)));
   }, [world]);
 
+  const choices = names ? applyClubNames(bundled, names.names) : bundled;
   const leagues = [...new Map(choices.map((c) => [c.leagueId, c.leagueName])).entries()];
   const clubs = choices
     .filter((c) => c.leagueId === league)
@@ -58,7 +68,13 @@ export function NewLeague() {
     setCreating(true);
     setError(null);
     try {
-      const created = await toWorker("createLeague", { world, name, seed, userCid });
+      const created = await toWorker("createLeague", {
+        world,
+        name,
+        seed,
+        userCid,
+        ...(names ? { names: names.names } : {}),
+      });
       navigate(leaguePath(created.lid), { replace: true });
     } catch (e) {
       setError(errorText(e));
@@ -85,6 +101,9 @@ export function NewLeague() {
                 setWorld(w.id);
                 setChoices([]);
                 setUserCid(null);
+                // A names file is by the clubs of one world.
+                setNames(null);
+                setNamesProblems([]);
               }}
               aria-pressed={w.id === world}
               data-testid={`world-${w.id}`}
@@ -136,6 +155,21 @@ export function NewLeague() {
           </div>
         ))}
       </div>
+      <NamesFile
+        world={world}
+        clubs={bundled}
+        loaded={names}
+        problems={namesProblems}
+        onLoad={(file, text) => {
+          const read = readClubNames(text, bundled);
+          setNamesProblems(read.problems);
+          setNames(read.problems.length === 0 ? { file, names: read.names } : null);
+        }}
+        onRemove={() => {
+          setNames(null);
+          setNamesProblems([]);
+        }}
+      />
       <form
         className="row g-2 align-items-end"
         onSubmit={(e) => {
@@ -185,5 +219,100 @@ export function NewLeague() {
       </form>
       {error && <div className="alert alert-danger mt-3">{error}</div>}
     </main>
+  );
+}
+
+/**
+ * The optional names file (SPEC §17.3): load one of your own to rename clubs in this save,
+ * or download a template with every club's names as they are, to edit.
+ */
+function NamesFile({
+  world,
+  clubs,
+  loaded,
+  problems,
+  onLoad,
+  onRemove,
+}: {
+  world: WorldId;
+  clubs: ClubChoice[];
+  loaded: { file: string; names: ClubNames } | null;
+  problems: string[];
+  onLoad: (file: string, text: string) => void;
+  onRemove: () => void;
+}) {
+  const download = () => {
+    const blob = new Blob([clubNamesTemplate(clubs)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `club-names-${world}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  // Clubs whose names change (a template loaded as it is renames none).
+  const renamed = loaded
+    ? applyClubNames(clubs, loaded.names).filter((c, i) => {
+        const was = clubs[i];
+        return was && (c.name !== was.name || c.short !== was.short || c.abbr !== was.abbr);
+      }).length
+    : 0;
+  return (
+    <details
+      className="mb-3 small"
+      data-testid="names-file"
+      open={loaded !== null || problems.length > 0}
+    >
+      <summary>Club names (optional)</summary>
+      <p className="text-body-secondary mt-2 mb-2">
+        Load a JSON file of your own to rename clubs in this save: by club id, a name, short name
+        and abbreviation (2–4 capitals). The game ships only its own names; a file you load stays in
+        this save.{" "}
+        <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={download}>
+          Download a template
+        </button>{" "}
+        with every club's names as they are.
+      </p>
+      <div className="d-flex flex-wrap align-items-center gap-2">
+        <input
+          type="file"
+          accept=".json,application/json"
+          className="form-control form-control-sm w-auto"
+          aria-label="Names file"
+          data-testid="names-file-input"
+          disabled={clubs.length === 0}
+          onChange={(e) => {
+            const input = e.target;
+            const file = input.files?.[0];
+            if (!file) return;
+            void file.text().then((text) => {
+              onLoad(file.name, text);
+              input.value = "";
+            });
+          }}
+        />
+        {loaded && (
+          <>
+            <span className="text-success" data-testid="names-file-loaded">
+              {loaded.file}: {renamed} club{renamed === 1 ? "" : "s"} renamed
+            </span>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm py-0"
+              onClick={onRemove}
+            >
+              Remove
+            </button>
+          </>
+        )}
+      </div>
+      {problems.length > 0 && (
+        <ul className="text-danger mt-2 mb-0 ps-3" data-testid="names-file-problems">
+          {problems.map((p) => (
+            <li key={p}>{p}</li>
+          ))}
+        </ul>
+      )}
+    </details>
   );
 }

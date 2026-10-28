@@ -6,6 +6,7 @@
  * worker implements ApiHandlers<WorkerApi>, so any mismatch is a compile error.
  * Arguments and results must be structured-cloneable (plain data).
  */
+import type { ClubNames } from "./clubNames";
 import type { Position } from "./config/ratings";
 import type { WorldId, WorldSwitches } from "./config/worlds";
 import type { MatchEvent, MatchResult, Period } from "./match";
@@ -19,6 +20,7 @@ import type {
 } from "./schema";
 
 export type { TradeAssets };
+export type { ClubNames };
 
 export type WorkerKind = "shared" | "dedicated";
 
@@ -34,6 +36,8 @@ export interface ClubChoice {
   cid: number;
   code: string;
   name: string;
+  short: string;
+  abbr: string;
   leagueId: string;
   leagueName: string;
   strength: number;
@@ -51,6 +55,8 @@ export interface NewLeagueInput {
   /** Empty: the worker picks a random seed. */
   seed: string;
   userCid: number;
+  /** The user's names file, read (SPEC §17.3): written into this save only. */
+  names?: ClubNames;
 }
 
 // ---------------------------------------------------------------------------

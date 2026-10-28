@@ -4,6 +4,7 @@
  */
 import type { IDBPDatabase } from "idb";
 import type { NewLeagueInput } from "../../common/api";
+import { applyClubNames, clubNamesProblems } from "../../common/clubNames";
 import { type WorldConfig, worldById } from "../../common/config/worlds";
 import type { GameMeta, LeagueSummary, MetaRows } from "../../common/schema";
 import { Cache } from "../db/cache";
@@ -77,7 +78,13 @@ function newSeed(): string {
 }
 
 export async function createLeague(input: NewLeagueInput): Promise<LeagueSummary> {
-  const config = worldById(input.world);
+  const bundled = worldById(input.world);
+  // The user's names file renames clubs in this save only (SPEC §17.3); generation reads
+  // codes, never names, so the world is otherwise the same.
+  const names = input.names ?? {};
+  const problems = clubNamesProblems(names, bundled.clubs);
+  if (problems.length > 0) throw new GameError(`Names file: ${problems.join(" ")}`);
+  const config = { ...bundled, clubs: applyClubNames(bundled.clubs, names) };
   const club = config.clubs[input.userCid];
   if (!club) throw new RangeError(`Unknown club ${input.userCid}`);
   if (input.name.trim().length > 60) throw new GameError("A league name has 1 to 60 characters.");

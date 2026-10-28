@@ -92,6 +92,46 @@ describe("league saves", () => {
     await deleteLeague(league.lid);
   });
 
+  it("writes a names file into that save only: the same world, other names", SLOW, async () => {
+    const base = { world: "superLeague" as const, name: "Names", seed: "names-file", userCid: 0 };
+    const plain = await createLeague(base);
+    const renamed = await createLeague({
+      ...base,
+      names: { mbl: { name: "Madrid Whites", short: "Whites", abbr: "MWH" }, lyo: { abbr: "LYN" } },
+    });
+    expect([plain.clubName, renamed.clubName]).toEqual(["Madrid Blancos", "Madrid Whites"]);
+    const read = async (lid: number) => {
+      const session = await openLeague(lid);
+      return {
+        clubs: session.cache.getAll("clubs"),
+        players: JSON.stringify(session.cache.getAll("players")),
+        fixtures: JSON.stringify(session.cache.getAll("fixtures")),
+      };
+    };
+    const a = await read(plain.lid);
+    const b = await read(renamed.lid);
+    expect(b.players).toBe(a.players);
+    expect(b.fixtures).toBe(a.fixtures);
+    const names = (c: (typeof a.clubs)[number]) => ({ ...c, name: "", short: "", abbr: "" });
+    expect(b.clubs.map(names)).toEqual(a.clubs.map(names));
+    expect(b.clubs.find((c) => c.code === "mbl")).toMatchObject({
+      name: "Madrid Whites",
+      short: "Whites",
+      abbr: "MWH",
+    });
+    expect(b.clubs.find((c) => c.code === "lyo")).toMatchObject({
+      name: "Lyon Gones",
+      abbr: "LYN",
+    });
+    // The bundled world keeps its names; a bad file is refused.
+    expect(worlds.superLeague.clubs[0]?.name).toBe("Madrid Blancos");
+    await expect(createLeague({ ...base, names: { xyz: { name: "X" } } })).rejects.toThrow(
+      /Names file: There's no club "xyz"/,
+    );
+    await deleteLeague(plain.lid);
+    await deleteLeague(renamed.lid);
+  });
+
   it("opens a save from before the Super League as Classic, and plays on", SLOW, async () => {
     const createdAt = "2026-07-01T00:00:00.000Z";
     const world = generateWorld({
