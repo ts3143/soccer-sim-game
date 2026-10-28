@@ -248,23 +248,26 @@ describe("the Super League's play-offs (general play-off format)", () => {
     expect(slOutcome.moves.filter((m) => m.from === "STAR").map((m) => m.reason)).toEqual([
       "relegated",
       "relegated",
+      "relegated",
     ]);
   });
 
-  it("plays Gold's and Blue's 2nd-5th in single-leg semi-finals and a neutral final", SLOW, () => {
+  it("plays Gold's and Blue's 3rd-6th in single-leg semi-finals and a neutral final", SLOW, () => {
     for (const league of ["GOLD", "BLUE"]) {
       const at = atIn(league);
       const semis = byRound(slState, playoffId(league), "Semi-finals");
       expect(pairs(semis)).toEqual([
-        [at(2), at(5)],
-        [at(3), at(4)],
+        [at(3), at(6)],
+        [at(4), at(5)],
       ]);
       expect(semis.every((f) => f.leg === null && !f.neutral)).toBe(true);
       const [final] = byRound(slState, playoffId(league), "Final");
       expect(final?.neutral).toBe(true);
       const up = slOutcome.moves.filter((m) => m.from === league && m.reason !== "relegated");
+      // The top two go up, and the play-off's winner (T, 2026-10-28: 3 up).
       expect(up.map((m) => [m.cid, m.reason])).toEqual([
         [at(1), "promoted"],
+        [at(2), "promoted"],
         [final?.result?.winnerCid, "playoffs"],
       ]);
     }
@@ -311,14 +314,16 @@ describe("the Super League's play-offs (general play-off format)", () => {
 
   it("shows Star's first place as a play-off place, not the title", () => {
     const [star, gold] = config.leagues;
-    expect([1, 8, 9, 15].map((p) => tableZone(star as LeagueConfig, p, 16))).toEqual([
+    expect([1, 8, 9, 13, 14].map((p) => tableZone(star as LeagueConfig, p, 16))).toEqual([
       "playoffs",
       "playoffs",
       null,
+      null,
       "relegated",
     ]);
-    expect([1, 2, 5, 6].map((p) => tableZone(gold as LeagueConfig, p, 16))).toEqual([
+    expect([1, 2, 3, 6, 7].map((p) => tableZone(gold as LeagueConfig, p, 16))).toEqual([
       "champions",
+      "promoted",
       "playoffs",
       "playoffs",
       null,

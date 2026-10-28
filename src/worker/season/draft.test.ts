@@ -78,12 +78,16 @@ describe("the draft", () => {
       at("STAR", 16),
       at("STAR", 15),
     ]);
+    // The 6 promoted clubs last (3 up, T 2026-10-28): Blue's before Gold's, each tier from
+    // the bottom of its table.
     const promoted = outcome.moves.filter((m) => m.reason !== "relegated").map((m) => m.cid);
-    expect(new Set(order.slice(44))).toEqual(new Set(promoted));
-    // Blue's promoted clubs pick before Gold's; each tier from the bottom of its table.
+    expect(new Set(order.slice(42))).toEqual(new Set(promoted));
     const tierOf = (cid: number) => outcome.moves.find((m) => m.cid === cid)?.from ?? "";
-    expect(order.slice(44).map(tierOf)).toEqual(["BLUE", "BLUE", "GOLD", "GOLD"]);
-    const middle = order.slice(8, 44);
+    expect(order.slice(42).map(tierOf)).toEqual(["BLUE", "BLUE", "BLUE", "GOLD", "GOLD", "GOLD"]);
+    // Gold's and Star's third relegated clubs (14th) pick by reverse standings, in the middle.
+    const middle = order.slice(8, 42);
+    expect(middle).toContain(at("GOLD", 14));
+    expect(middle).toContain(at("STAR", 14));
     const league = (cid: number) =>
       Object.entries(outcome.tables).find(([, t]) => t.some((r) => r.cid === cid))?.[0];
     const firstGold = middle.findIndex((cid) => league(cid) === "GOLD");

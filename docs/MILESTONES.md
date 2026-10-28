@@ -166,7 +166,7 @@ SPEC §17. Same rules as above: engine and simulation first, UI last; ~1-hour ch
 - `pnpm calibrate --world superleague`, first version: tier mobility and yo-yo report.
 
 **Accept**
-- A 20-season headless run with 2 up and 2 down between every pair of tiers each season, and nobody out of Blue.
+- A 20-season headless run with the configured places up and down between every pair of tiers each season (2 and 2 when SL2 was built; 3 and 3 from SL6, T 2026-10-28), and nobody out of Blue.
 - ENG2's play-offs give identical results to before.
 
 ## SL3 — Soft cap and finances

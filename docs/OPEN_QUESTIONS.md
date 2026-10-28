@@ -145,7 +145,7 @@ All in SPEC §17 and design doc #79–#83.
 | 11 | Lottery | Draws picks 1–4; the rest of the pool by odds |
 | 12 | Draft order | Tier played, then table points (Star by table); promoted clubs 45–48 by the same rule |
 | 13 | The Star title | The play-off winner; the table winner recorded, not a title; fixed bracket, higher seed hosts the second leg |
-| 14 | Gold and Blue play-off | 2nd hosts 5th, 3rd hosts 4th; final at a neutral venue |
+| 14 | Gold and Blue play-off | 2nd hosts 5th, 3rd hosts 4th; final at a neutral venue. From SL6 (T, 2026-10-28): 3 up and 3 down, the top 2 automatic and a play-off among 3rd–6th (3rd hosts 6th, 4th hosts 5th) |
 | 15 | Cups | None for now |
 | 16 | Development | Twice a season: winter (1 Jan) and preseason (1 Jul) |
 | 17 | Board targets | Star title / top 8 / avoid relegation; Gold and Blue promotion / play-offs / mid-table |

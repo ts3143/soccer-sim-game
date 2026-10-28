@@ -5,7 +5,7 @@
  * Plays W worlds for S seasons each (in parallel processes) and reports the acceptance
  * (every season played, exactly the configured places up and down, nobody out of the
  * lowest tier: gated), yo-yo clubs, the rise from the bottom of the lowest tier to the top
- * of the highest (target in calibration_targets.json, gated from SL6), tier mobility and
+ * of the highest (target in calibration_targets.json, reported: T 2026-10-28), tier mobility and
  * the player pool, the world's health (gated from SL4: the player count, the squads' OVRs
  * and ages at the first league match, retirements; with --seasons 10 or more), the AI's
  * trades, cap violations and the luxury tax (gated from SL5: relegated clubs back under

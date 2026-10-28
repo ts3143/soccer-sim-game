@@ -19,7 +19,7 @@ beforeAll(() => {
 const SLOW = { timeout: 180_000 };
 
 describe("a Super League year in a save", () => {
-  it("plays the season, crowns Star's play-off winner, moves 2 up and 2 down", SLOW, async () => {
+  it("plays the season, crowns Star's play-off winner, moves 3 up and 3 down", SLOW, async () => {
     const league = await createLeague({
       world: "superLeague",
       name: "Year",
@@ -63,8 +63,8 @@ describe("a Super League year in a save", () => {
     const moved = (from: string, to: string) =>
       session.cache.getAll("clubs").filter((c) => before.get(c.cid) === from && c.leagueId === to)
         .length;
-    expect([moved("STAR", "GOLD"), moved("GOLD", "STAR")]).toEqual([2, 2]);
-    expect([moved("GOLD", "BLUE"), moved("BLUE", "GOLD")]).toEqual([2, 2]);
+    expect([moved("STAR", "GOLD"), moved("GOLD", "STAR")]).toEqual([3, 3]);
+    expect([moved("GOLD", "BLUE"), moved("BLUE", "GOLD")]).toEqual([3, 3]);
     expect(moved("STAR", "BLUE") + moved("BLUE", "STAR")).toBe(0);
   });
 

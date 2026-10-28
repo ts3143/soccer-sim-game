@@ -34,8 +34,8 @@ describe("worlds", () => {
     ]);
     for (const l of leagues) expect(world.clubs.filter((c) => c.league === l.id)).toHaveLength(16);
     expect(leagues.map((l) => l.relegation)).toEqual([
-      { places: 2, to: "GOLD" },
-      { places: 2, to: "BLUE" },
+      { places: 3, to: "GOLD" },
+      { places: 3, to: "BLUE" },
       null,
     ]);
     expect(cups).toEqual([]);
@@ -83,16 +83,17 @@ describe("worlds", () => {
       prizeMoney: { roundWon: [5_000_000, 10_000_000, 20_000_000], runnerUp: 10_000_000 },
     });
     for (const tier of [gold, blue]) {
-      expect(tier?.promotion).toMatchObject({ automatic: 1, promotedPlaces: 1 });
+      // 3 up (T, 2026-10-28): the top 2, then a play-off among 3rd-6th.
+      expect(tier?.promotion).toMatchObject({ automatic: 2, promotedPlaces: 1 });
       expect(tier?.playoff).toEqual({
         decides: "promotion",
-        positions: [2, 3, 4, 5],
+        positions: [3, 4, 5, 6],
         rounds: [
           {
             name: "Semi-finals",
             legs: 1,
             neutral: false,
-            entrants: [2, 3, 4, 5],
+            entrants: [3, 4, 5, 6],
             pairing: "reseed",
           },
           { name: "Final", legs: 1, neutral: true, entrants: [], pairing: "reseed" },

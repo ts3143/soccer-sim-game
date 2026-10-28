@@ -69,7 +69,7 @@
       "toTop": 8,
       "target": 5,
       "tol": [4, 6],
-      "note": "average seasons from a finish in Blue's bottom 4 to a finish in Star's table top 8; gated from SL6"
+      "note": "average seasons from a finish in Blue's bottom 4 to a finish in Star's table top 8; reported, not gated (T, 2026-10-28: not too important)"
     },
     "relegatedBackUnderCap": {
       "maxStillOver": 0.1,

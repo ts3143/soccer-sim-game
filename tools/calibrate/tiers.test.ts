@@ -167,20 +167,25 @@ describe("tier measures", () => {
   it("flags a season whose moves differ from the config", () => {
     const config = worlds.superLeague.competitions;
     const ids = (from: number) => Array.from({ length: 16 }, (_, i) => from + i);
+    // 3 up and 3 down between tiers (T, 2026-10-28).
     const right = [
+      down(13, "STAR", "GOLD"),
       down(14, "STAR", "GOLD"),
       down(15, "STAR", "GOLD"),
       up(16, "GOLD", "STAR"),
       up(17, "GOLD", "STAR"),
+      up(18, "GOLD", "STAR"),
+      down(29, "GOLD", "BLUE"),
       down(30, "GOLD", "BLUE"),
       down(31, "GOLD", "BLUE"),
       up(32, "BLUE", "GOLD"),
       up(33, "BLUE", "GOLD"),
+      up(34, "BLUE", "GOLD"),
     ];
     const ok = season(ids(0), ids(16), ids(32), right);
     expect(moveProblems(run(ok), config)).toEqual([]);
     const missing = season(ids(0), ids(16), ids(32), right.slice(1));
-    expect(moveProblems(run(missing), config)).toEqual(["toy season 1: 1 down from STAR"]);
+    expect(moveProblems(run(missing), config)).toEqual(["toy season 1: 2 down from STAR"]);
   });
 
   it("measures the player count against the start and the squads' drift over the run", () => {

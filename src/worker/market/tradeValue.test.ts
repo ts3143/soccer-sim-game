@@ -114,7 +114,7 @@ describe("trade valuation", () => {
       }
     }
     // Before a match: Blue's weakest has the first slot (the pool in odds order), Star's
-    // strongest the last before the promoted clubs (Blue's, then Gold's: its best is last).
+    // strongest the last before the 6 promoted clubs (Blue's, then Gold's: its best is last).
     const byStrength = (league: string) =>
       world.clubs
         .filter((c) => c.leagueId === league)
@@ -122,7 +122,7 @@ describe("trade valuation", () => {
         .sort((a, b) => b.s - a.s || a.cid - b.cid)
         .map((c) => c.cid);
     expect(day.slots.get(byStrength("BLUE").at(-1) as number)).toBe(1);
-    expect(day.slots.get(byStrength("STAR")[0] as number)).toBe(44);
+    expect(day.slots.get(byStrength("STAR")[0] as number)).toBe(42);
     expect(day.slots.get(byStrength("GOLD")[0] as number)).toBe(48);
     // A first-round pick is worth more than a second-round one from the same club.
     for (const cid of bySlot) {
