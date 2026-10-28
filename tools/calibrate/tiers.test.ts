@@ -47,6 +47,14 @@ const run = (...seasons: TierSeason[]): TierRun => ({
   activeAtStart: 0,
   activeAfter: [],
   retirements: [],
+  exploits: {
+    starsChecked: 0,
+    starsEqualled: 0,
+    starsBought: 0,
+    picksChecked: 0,
+    picksOutOfOrder: 0,
+  },
+  picksHeld: { most: 0, none: 0 },
   seconds: 0,
 });
 const up = (cid: number, from: string, to: string): ClubMove => ({

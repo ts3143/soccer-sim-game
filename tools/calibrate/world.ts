@@ -55,6 +55,8 @@ export interface SeasonReport {
   close: SeasonClose;
   /** Seniors at clubs on the season's first league matchday: squad sizes, the world's shape. */
   squadsAtFirstMatch: SquadShape;
+  /** The world itself, as the season left it (the next season's books open). */
+  world: LoopWorld;
 }
 
 /** Seniors at clubs on a day: squad sizes (fewest, most) and their OVRs and ages. */
@@ -454,6 +456,7 @@ export function simulateWorld(
       players,
       close: ffp,
       squadsAtFirstMatch,
+      world: loop,
     });
     lastFinish = finishesOf(outcome);
   }

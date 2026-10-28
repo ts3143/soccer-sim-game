@@ -145,7 +145,10 @@ export function clubView(
   };
 }
 
-/** The wages of the rookies a club's picks in the coming draft would bring (by slot). */
+/**
+ * The wages of the rookies a club's picks in the coming draft would bring: by number once
+ * the lottery has set it, else by projected slot (a slot in the lottery pool as the first).
+ */
 export function rookieRoom(
   world: Pick<TradeWorld, "config" | "clubs" | "draftPicks">,
   day: Pick<TradeDay, "nextDraft" | "slots">,
@@ -155,10 +158,12 @@ export function rookieRoom(
   if (!draft) return 0;
   const clubs = world.clubs.length;
   let room = 0;
+  const pool = draft.lotteryPool.length;
   for (const pick of world.draftPicks) {
     if (pick.cid !== cid || pick.season !== day.nextDraft) continue;
-    const overall =
-      pick.pick ?? (pick.round - 1) * clubs + (day.slots.get(pick.originalCid) ?? clubs);
+    // Before the lottery a slot in its pool may come out first: room for that.
+    const slot = day.slots.get(pick.originalCid) ?? clubs;
+    const overall = pick.pick ?? (pick.round - 1) * clubs + (slot <= pool ? 1 : slot);
     room += rookieWage(draft, overall);
   }
   return room;

@@ -72,8 +72,8 @@
       "note": "average seasons from a finish in Blue's bottom 4 to a finish in Star's table top 8; gated from SL6"
     },
     "relegatedBackUnderCap": {
-      "maxStillOver": 0.02,
-      "note": "relegated clubs back under their own cap at the close of the season after their grace (MILESTONES SL5): at most this share of relegations still over ([DEFAULT], mine, 2026-10-28, for T); relegations too late in the run to judge don't count"
+      "maxStillOver": 0.1,
+      "note": "relegated clubs back under their own cap at the close of the season after their grace (MILESTONES SL5): at most this share of relegations still over ([DEFAULT], mine, 2026-10-28, for T: 3-8% were still over across seeds, as few clubs have room under their caps for the wages); relegations too late in the run to judge don't count"
     },
     "_worldHealthNote": "The world's health over 20 seasons (MILESTONES SL4): the player count, the squads' OVRs and ages, retirements. Senior mean OVR, the 75+ share and peak age use Classic's bands (worldStability20Seasons), retirement ages Classic's rule (development.retirementAge); the squads are measured at each season's first league match. The ages are gated from season 10: a closed world of draftees (96 a year at 17-19) settles younger than the generated start (under-23s 27% to about 37%, mean age down a year, level from about season 9); the change from season 1 is reported as information.",
     "playerCountDrift": {

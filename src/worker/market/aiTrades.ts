@@ -131,8 +131,14 @@ export function aiTradeDay(
     .map((c) => views.get(c.cid) as ClubView)
     .filter((v) => v.mustShed)
     .sort((a, b) => Number(b.relegated) - Number(a.relegated));
-  for (const view of shedding) shedWages(view.cid);
-  function shedWages(cid: number) {
+  for (const view of shedding) {
+    // Up to `perDay` trades a club, while it still must shed.
+    for (let n = 0; n < trades.ai.shed.perDay; n++) {
+      if (!(views.get(view.cid) as ClubView).mustShed || !shedWages(view.cid)) break;
+    }
+  }
+  /** One wage-shedding trade for club `cid`, if it can make one. */
+  function shedWages(cid: number): boolean {
     const view = views.get(cid) as ClubView;
     const offers = world.players
       .filter(
@@ -147,7 +153,7 @@ export function aiTradeDay(
       .sort((a, b) => a.perEuro - b.perEuro || a.p.pid - b.p.pid);
     let tried = 0;
     for (const { p } of offers) {
-      if (tried === (trades?.ai.shed.candidates ?? 0)) return;
+      if (tried === (trades?.ai.shed.candidates ?? 0)) return false;
       // Only players it would let go for nothing (picks would only cost it more), and
       // without leaving it short in an area.
       const alone = { pids: [p.pid], picks: [] };
@@ -180,9 +186,10 @@ export function aiTradeDay(
         // The receiver may ask for picks (not players: they'd be wages back).
         const max = trades?.makeItWorkMaxAdded ?? 0;
         const worked = makeItWork(tw, day, cal, offer, receiver.cid, max, () => false);
-        if (worked && make(worked)) return;
+        if (worked && make(worked)) return true;
       }
     }
+    return false;
   }
 
   for (let attempt = 0; attempt < trades.ai.attemptsPerDay; attempt++) {

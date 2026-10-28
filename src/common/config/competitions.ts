@@ -201,7 +201,14 @@ export interface TradesConfig {
     shortlist: number;
     keepAcquiredDays: number;
     /** Shedding wages: players offered a day (least value a euro first), clubs asked each. */
-    shed: { candidates: number; receivers: number; margin: number; overCapClubs: boolean };
+    shed: {
+      candidates: number;
+      receivers: number;
+      margin: number;
+      overCapClubs: boolean;
+      /** Shedding trades a club a trade day, at most. */
+      perDay: number;
+    };
     /**
      * AI offers to the user: the chance a trade day, days they stand, at most this many open,
      * and days before a player is asked for again.

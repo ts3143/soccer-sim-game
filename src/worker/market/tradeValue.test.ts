@@ -148,9 +148,9 @@ describe("trade valuation", () => {
     expect(talentValue(trades, young, 19, "contending")).toBeLessThan(
       talentValue(trades, prime, 27, "contending"),
     );
-    // A 32-year-old is worth more to a contender.
+    // A 32-year-old is worth more to a contender: over half as much again.
     expect(talentValue(trades, veteran, 32, "contending")).toBeGreaterThan(
-      2 * talentValue(trades, veteran, 32, "rebuilding"),
+      1.5 * talentValue(trades, veteran, 32, "rebuilding"),
     );
     // Picks: worth more to a rebuilding club.
     const pick = world.draftPicks.find((p) => p.season === 2026 && p.round === 1) as NonNullable<

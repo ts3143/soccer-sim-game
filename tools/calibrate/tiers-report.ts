@@ -157,6 +157,13 @@ for (const run of runs) {
 const trades = runs.flatMap((run) => run.seasons.map((s) => s.trades));
 const tradeCount = trades.reduce((a, t) => a + t.count, 0);
 console.log("\nTrades (AI to AI, while trades are open)");
+const most = Math.max(...runs.map((r) => r.picksHeld.most));
+const none = Math.max(...runs.map((r) => r.picksHeld.none));
+const fair =
+  (world.competitions.draft?.rounds ?? 0) * (1 + (world.competitions.draft?.picksAhead ?? 0));
+console.log(
+  `  picks held at the end: at most ${most} by one club (its own are ${fair}); clubs with none, at most ${none} a world`,
+);
 console.log(
   `  ${(tradeCount / Math.max(1, trades.length)).toFixed(1)} a season (${Math.min(...trades.map((t) => t.count))}-${Math.max(...trades.map((t) => t.count))}); per trade ${(trades.reduce((a, t) => a + t.players, 0) / Math.max(1, tradeCount)).toFixed(1)} players and ${(trades.reduce((a, t) => a + t.picks, 0) / Math.max(1, tradeCount)).toFixed(1)} picks`,
 );
@@ -231,6 +238,24 @@ const span = (key: Parameters<typeof shapeDrift>[1], show: (x: number) => string
     .join(" -> ");
 console.log(
   `        season 1 -> ${settled} -> last: mean OVR ${span("seniorMeanOvr", (x) => x.toFixed(1))}, 75+ ${span("elite75Share", pct)}, mean age ${span("meanAge", (x) => x.toFixed(1))}, under 23 ${span("under23Share", pct)}, 30+ ${span("age30plusShare", pct)}`,
+);
+
+// MILESTONES SL5: the exploit checks, on each run's final world.
+const ex = runs.map((r) => r.exploits);
+const sum = (key: keyof (typeof ex)[0]) => ex.reduce((a, e) => a + e[key], 0);
+console.log("\nTrade exploits (gated from SL5; each run's final world)");
+gate(
+  sum("starsChecked") > 0 && sum("starsEqualled") === 0,
+  `two average players never equal a star in talent (by squad place): ${sum("starsEqualled")} of ${sum("starsChecked")}`,
+);
+gate(
+  sum("starsBought") === 0,
+  `  taken with contracts and cap room counted (an overpaid veteran, a club shedding wages): ${sum("starsBought")} of ${sum("starsChecked")}`,
+  false,
+);
+gate(
+  sum("picksChecked") > 0 && sum("picksOutOfOrder") === 0,
+  `a pick is worth less a draft later and from a stronger original owner: ${sum("picksOutOfOrder")} of ${sum("picksChecked")} pairs out of order`,
 );
 
 const caps = runs.flatMap((run) => run.seasons.map((s) => s.cap));

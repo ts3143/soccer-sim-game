@@ -7,6 +7,19 @@
  */
 import type { CompetitionsConfig } from "../../src/common/config/competitions";
 import type { ClubMove } from "../../src/worker/season/season";
+import { exactAge } from "../../src/common/dates";
+import type { DraftPick, Player } from "../../src/common/schema";
+import { preseasonBoard } from "../../src/worker/club/board";
+import {
+  clubView,
+  pickTradeValue,
+  squadValue,
+  talentValue,
+  tradeDay,
+  tradeState,
+  valueChange,
+} from "../../src/worker/market/tradeValue";
+import type { LoopWorld } from "../../src/worker/season/offseason";
 import type { SeasonReport, SquadShape } from "./world";
 
 export interface TierSeason {
@@ -25,6 +38,17 @@ export interface TierSeason {
   trades: { count: number; players: number; picks: number };
 }
 
+/** SL5's exploit checks on a run's final world (see `tradeExploits`). */
+export interface TradeExploits {
+  starsChecked: number;
+  /** Offers where two average players equal the star in talent, by squad place. */
+  starsEqualled: number;
+  /** Offers the star's club would take, contracts and cap room counted. */
+  starsBought: number;
+  picksChecked: number;
+  picksOutOfOrder: number;
+}
+
 /** One world's run (plain data: it crosses process boundaries as JSON). */
 export interface TierRun {
   seed: string;
@@ -33,6 +57,9 @@ export interface TierRun {
   activeAfter: number[];
   /** Retirements of players 30+: age and whether a goalkeeper. */
   retirements: { age: number; gk: boolean }[];
+  /** The exploit checks on the final world, and the picks clubs hold then (most, none). */
+  exploits: TradeExploits;
+  picksHeld: { most: number; none: number };
   seconds: number;
 }
 
@@ -202,3 +229,100 @@ export const lastShape = (runs: readonly TierRun[], key: keyof SquadShape): numb
 /** A squad-shape measure's drift: the last season's value less season `from`'s (from 1). */
 export const shapeDrift = (runs: readonly TierRun[], key: keyof SquadShape, from = 1): number =>
   lastShape(runs, key) - shapeAt(runs, key, (r) => r.seasons[from - 1]);
+
+/**
+ * SL5's exploit checks (MILESTONES SL5) on a world as a run left it, the board's targets set
+ * for `season` (states as the AI would read them):
+ * - two average players never equal a star: every star (the best 2% of seniors) against
+ *   each other club's two best average players (within 2 of the mean OVR, aged 23-30, POT
+ *   at most 3 above OVR); the star's club must lose talent by the trade (its squad by
+ *   place, contracts and cap room aside). Also counted: how many such offers it would take
+ *   with contracts and cap room counted (an overpaid veteran, a club shedding wages);
+ * - a pick's value falls a draft further away, and with a stronger original owner (a later
+ *   projected slot), to a contending and a rebuilding club alike.
+ */
+export function tradeExploits(world: LoopWorld, season: number): TradeExploits {
+  const trades = world.config.competitions.trades;
+  const out = {
+    starsChecked: 0,
+    starsEqualled: 0,
+    starsBought: 0,
+    picksChecked: 0,
+    picksOutOfOrder: 0,
+  };
+  if (!trades) return out;
+  const date = `${season}-07-01`;
+  preseasonBoard(world, season, date, world.config.competitions);
+  const tw = { ...world, draftPicks: world.draftPicks ?? [] };
+  const day = tradeDay(tw, season, date);
+  const seniors = world.players.filter((p) => p.status === "club" && p.cid !== null);
+  const mean = seniors.reduce((a, p) => a + p.ovr, 0) / Math.max(1, seniors.length);
+  const age = (p: Player) => exactAge(p.birthDate, date);
+  const stars = [...seniors]
+    .sort((a, b) => b.ovr - a.ovr || a.pid - b.pid)
+    .slice(0, Math.ceil(seniors.length * 0.02));
+  const average = seniors.filter(
+    (p) => Math.abs(p.ovr - mean) <= 2 && age(p) >= 23 && age(p) <= 30 && p.pot - p.ovr <= 3,
+  );
+  for (const star of stars) {
+    for (const club of world.clubs) {
+      if (club.cid === star.cid) continue;
+      const two = average
+        .filter((p) => p.cid === club.cid)
+        .sort((a, b) => b.ovr - a.ovr || a.pid - b.pid)
+        .slice(0, 2);
+      if (two.length < 2) continue;
+      out.starsChecked++;
+      // Talent by squad place: the star's club's squad with him, and with the two instead.
+      const owner = star.cid as number;
+      const state = tradeState(tw, owner);
+      const talent = (p: Player) => talentValue(trades, p, age(p), state);
+      const squad = seniors.filter((p) => p.cid === owner);
+      const withTwo = [...squad.filter((p) => p.pid !== star.pid), ...two];
+      if (squadValue(trades, withTwo.map(talent)) >= squadValue(trades, squad.map(talent))) {
+        out.starsEqualled++;
+      }
+      const change = valueChange(
+        tw,
+        day,
+        star.cid as number,
+        { pids: [star.pid], picks: [] },
+        { pids: two.map((p) => p.pid), picks: [] },
+      );
+      if (change.dv >= 0) out.starsBought++;
+    }
+  }
+  for (const state of ["contending", "rebuilding"] as const) {
+    const cid = world.clubs.find((c) => tradeState(tw, c.cid) === state)?.cid;
+    if (cid === undefined) continue;
+    const view = clubView(tw, cid, day);
+    const value = (p: DraftPick) => pickTradeValue(tw, day, view, p);
+    const own = (a: DraftPick, b: DraftPick) =>
+      a.round === b.round && a.originalCid === b.originalCid;
+    for (const p of tw.draftPicks) {
+      // The same slot a draft later is worth less...
+      const later = tw.draftPicks.find((q) => own(p, q) && q.season === p.season + 1);
+      if (later) {
+        out.picksChecked++;
+        if (!(value(later) < value(p))) out.picksOutOfOrder++;
+      }
+      // ...and so is a stronger original owner's (a later slot), the same draft and round.
+      for (const q of tw.draftPicks) {
+        if (q.season !== p.season || q.round !== p.round || p.pick !== undefined) continue;
+        const [sp, sq] = [day.slots.get(p.originalCid) ?? 0, day.slots.get(q.originalCid) ?? 0];
+        if (sq !== sp + 1) continue;
+        out.picksChecked++;
+        if (value(q) > value(p)) out.picksOutOfOrder++;
+      }
+    }
+  }
+  return out;
+}
+
+/** The picks clubs hold: the most by one club, and how many hold none. */
+export function picksHeld(world: LoopWorld): { most: number; none: number } {
+  const held = new Map(world.clubs.map((c) => [c.cid, 0]));
+  for (const p of world.draftPicks ?? []) held.set(p.cid, (held.get(p.cid) ?? 0) + 1);
+  const counts = [...held.values()];
+  return { most: Math.max(0, ...counts), none: counts.filter((n) => n === 0).length };
+}
