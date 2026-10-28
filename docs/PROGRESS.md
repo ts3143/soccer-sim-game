@@ -1966,6 +1966,21 @@ Plan (about 5 chunks): 1 measure the rise properly (a breakdown by league, more 
 - **What it says:** the rise is slow at its start. A club from Blue's bottom four takes 4.7 seasons on average to get out of Blue, then 2.9 in Gold; once in Star it's quick (56% of promoted clubs finish in the top 8 at once). Two thirds of the rises never finish in 20 seasons, most of them still in Blue. For an average of 4–6, getting out of Blue would have to take about 2 seasons.
 - **Checks:** lint; 424 unit tests (new: the breakdown); the tier report on 6 worlds, two seeds, every gate passes. Harness only.
 
+#### Chunk 2: why the rise is slow (2026-10-28)
+- **Built** (harness): each club's strength at the first league match (`squadStrength`: its best 11's mean OVR, injured or not), and per league in the report (`tierStrengths`): the mean, the spread (strongest less weakest) and how much strength decides the table (rank correlation between strength and final position).
+- **Measured** (6 worlds × 20 seasons, CI's seed; the rise as chunk 1, 9.1):
+
+  | League | Mean strength | Strongest less weakest | Table against strength |
+  | --- | --- | --- | --- |
+  | Star | 71.1 | 5.6 | 0.34 |
+  | Gold | 69.8 | 5.7 | 0.35 |
+  | Blue | 69.4 | 5.4 | 0.31 |
+
+  Following each club from a finish in Blue's bottom 4 (3 worlds): it is only about 2 OVR below Blue's second strongest, finishes 8th on average the next season (regression to the mean), and stays about 1.4 below; a club's strength moves about 1 OVR a year (sd 0.95). Pick 1 rookies are 65.8 at the draft (they play at once in Blue, whose 11th best is 62.3); the 5 best free agents on 1 July average 73.3, and 80% of the 70+ free agents sign at the minimum wage, with whichever club has the fewest players (over the cap a club signs anyone at the minimum wage).
+- **What it says:** the rise is mostly luck. The tiers stand less than 2 OVR apart (the draft hands the best prospects to the weakest clubs, the caps even out payrolls, free agents go to whoever has room in the squad), and within a tier strength explains a third of the table. A club from Blue's bottom 4 is barely weaker than the clubs that go up, and nothing lets it get clearly stronger quickly, so it waits for a good season: 4.7 seasons in Blue, 2.9 in Gold; Star's top 8 is easy (56% at once) as Star is barely stronger.
+- **Tried, my levers, rejected:** wider prospect quality (sd 9, max 72: lottery picks better at once): the rise worse (10.6), the 75+ share +7.8 pts, the relegated clubs' gate failed. Free agents keeping their asks (over the cap only those asking the minimum, so good ones go to clubs with room): squads couldn't be refilled (asks fall to 60% of the going wage, never to the minimum) and a club was left with 9 players; reverted. That needs a free-agent market redesign (asks falling to the minimum over time, ZenGM style, in this world), a design choice for T. Small changes swing a 3-world run a lot (one wage rounding moved the rise 8.2 to 10.3), so experiments need 6 worlds.
+- **Checks:** lint; 425 unit tests (new: tier strengths); the tier report on 6 worlds (the rise as chunk 1's). Harness only.
+
 ## Open issues
 - The UI bundle is past Vite's 500 KB chunk warning since SL1 (crests inlined): load crests as files, or split the bundle, if it matters.
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).

@@ -9,6 +9,7 @@ import {
   rise,
   riseBreakdown,
   shapeDrift,
+  tierStrengths,
   type TierRun,
   type TierSeason,
   yoYo,
@@ -41,6 +42,7 @@ const season = (
   freeAgents: 100,
   cap: { over: 0, taxPaid: 0, afterGrace: 0 },
   trades: { count: 0, players: 0, picks: 0 },
+  strengths: {},
 });
 const run = (...seasons: TierSeason[]): TierRun => ({
   seed: "toy",
@@ -90,6 +92,23 @@ describe("tier measures", () => {
       2,
     );
     expect(r).toEqual({ seasons: [3], never: 2 });
+  });
+
+  it("measures how far the tiers stand apart and how much strength decides a table", () => {
+    const s = (strengths: Record<string, number[]>): TierSeason => ({
+      ...season([1, 2, 3], [4, 5, 6], [7, 8, 9]),
+      strengths,
+    });
+    const t = tierStrengths([
+      run(
+        s({ STAR: [72, 71, 70], BLUE: [64, 66, 65] }),
+        s({ STAR: [74, 72, 70], BLUE: [66, 65, 64] }),
+      ),
+    ]);
+    // Star: the strongest first both seasons (1); Blue: reversed once, then in order (0).
+    expect(t.STAR).toEqual({ mean: 71.5, spread: 3, correlation: 1 });
+    expect(t.BLUE?.correlation).toBeCloseTo(0.25);
+    expect(t.BLUE?.spread).toBe(2);
   });
 
   it("takes the rise apart: seasons by league, rises still running, first seasons up", () => {

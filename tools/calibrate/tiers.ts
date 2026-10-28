@@ -35,6 +35,8 @@ export interface TierSeason {
   cap: { over: number; taxPaid: number; afterGrace: number };
   /** AI-to-AI trades in the season: how many, and the players and picks they moved. */
   trades: { count: number; players: number; picks: number };
+  /** Each league's clubs' strength at the first league match, in final table order. */
+  strengths: Record<string, number[]>;
 }
 
 /** SL5's exploit checks on a run's final world (see `tradeExploits`). */
@@ -91,6 +93,12 @@ export function recordTierSeason(report: SeasonReport): TierSeason {
     seniors: report.squadsAtFirstMatch,
     freeAgents: players.filter((p) => p.status === "freeAgent").length,
     trades: tradesOf(report),
+    strengths: Object.fromEntries(
+      Object.entries(outcome.tables).map(([id, rows]) => [
+        id,
+        rows.map((r) => report.strengthsAtFirstMatch[r.cid] ?? 0),
+      ]),
+    ),
     cap: {
       over: close.tax.paid.size,
       taxPaid: [...close.tax.paid.values()].reduce((a, b) => a + b, 0),
@@ -409,4 +417,41 @@ export function riseBreakdown(
     };
   }
   return out;
+}
+
+/**
+ * How the tiers stand apart and how much strength decides a table (SL6): each league's
+ * mean strength at the first match, its spread (strongest less weakest), and the rank
+ * correlation between strength and final position (1: the strongest always finish first).
+ */
+export function tierStrengths(
+  runs: readonly TierRun[],
+): Record<string, { mean: number; spread: number; correlation: number }> {
+  const acc: Record<string, { mean: number[]; spread: number[]; correlation: number[] }> = {};
+  for (const run of runs) {
+    for (const s of run.seasons) {
+      for (const [league, strengths] of Object.entries(s.strengths)) {
+        const n = strengths.length;
+        if (n < 2) continue;
+        const a = (acc[league] ??= { mean: [], spread: [], correlation: [] });
+        a.mean.push(strengths.reduce((x, y) => x + y, 0) / n);
+        a.spread.push(Math.max(...strengths) - Math.min(...strengths));
+        // Spearman: table position (index) against strength rank.
+        const byStrength = strengths
+          .map((v, i) => ({ v, i }))
+          .sort((x, y) => y.v - x.v || x.i - y.i)
+          .map((x) => x.i);
+        let d2 = 0;
+        byStrength.forEach((tableIndex, rank) => (d2 += (tableIndex - rank) ** 2));
+        a.correlation.push(1 - (6 * d2) / (n * (n * n - 1)));
+      }
+    }
+  }
+  const avg = (xs: number[]) => xs.reduce((x, y) => x + y, 0) / Math.max(1, xs.length);
+  return Object.fromEntries(
+    Object.entries(acc).map(([league, a]) => [
+      league,
+      { mean: avg(a.mean), spread: avg(a.spread), correlation: avg(a.correlation) },
+    ]),
+  );
 }

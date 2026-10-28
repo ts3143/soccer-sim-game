@@ -24,6 +24,7 @@ import {
   rise,
   riseBreakdown,
   shapeDrift,
+  tierStrengths,
   type TierRun,
   yoYo,
 } from "./tiers";
@@ -170,6 +171,17 @@ const perWorld = runs.map((run) => {
   return w.seasons.length ? mean(w.seasons).toFixed(1) : "-";
 });
 console.log(`           average by world: ${perWorld.join(", ")}`);
+
+// How far apart the tiers stand, and how much strength decides a table (SL6).
+const strengths = tierStrengths(runs);
+console.log("\nStrength (best 11's mean OVR at the first match)");
+for (const l of leagues) {
+  const t = strengths[l.id];
+  if (!t) continue;
+  console.log(
+    `  ${l.id}: mean ${t.mean.toFixed(1)}, strongest less weakest ${t.spread.toFixed(1)}, table against strength (rank correlation) ${t.correlation.toFixed(2)}`,
+  );
+}
 
 const m = mobility(runs, top, world.clubs.length, [10, 20]);
 console.log("\nTier mobility");

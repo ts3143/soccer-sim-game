@@ -55,8 +55,20 @@ export interface SeasonReport {
   close: SeasonClose;
   /** Seniors at clubs on the season's first league matchday: squad sizes, the world's shape. */
   squadsAtFirstMatch: SquadShape;
+  /** Each club's strength on that matchday (`squadStrength`), by club. */
+  strengthsAtFirstMatch: Record<number, number>;
   /** The world itself, as the season left it (the next season's books open). */
   world: LoopWorld;
+}
+
+/** A club's strength for the reports: its best 11 seniors' mean OVR, injured or not. */
+export function squadStrength(players: readonly Player[], cid: number): number {
+  const best = players
+    .filter((p) => p.cid === cid && p.status === "club")
+    .map((p) => p.ovr)
+    .sort((a, b) => b - a)
+    .slice(0, 11);
+  return best.reduce((a, x) => a + x, 0) / Math.max(1, best.length);
 }
 
 /** Seniors at clubs on a day: squad sizes (fewest, most) and their OVRs and ages. */
@@ -202,11 +214,14 @@ export function simulateWorld(
     let injuredTotal = 0;
     const firstMatch = firstLeagueDay(competitions, state.fixtures);
     const squadsAtFirstMatch = squadShape(clubs, [], seasonStart);
+    const strengthsAtFirstMatch: Record<number, number> = {};
     const days = runDays(loop, state, seasonStart, {
       limit: null,
       onDay: (date) => {
-        if (date === firstMatch)
+        if (date === firstMatch) {
           Object.assign(squadsAtFirstMatch, squadShape(clubs, players, date));
+          for (const c of clubs) strengthsAtFirstMatch[c.cid] = squadStrength(players, c.cid);
+        }
         for (const club of clubs) {
           injuredTotal += players.filter(
             (p) => p.cid === club.cid && p.status === "club" && isInjured(p, date),
@@ -456,6 +471,7 @@ export function simulateWorld(
       players,
       close: ffp,
       squadsAtFirstMatch,
+      strengthsAtFirstMatch,
       world: loop,
     });
     lastFinish = finishesOf(outcome);
