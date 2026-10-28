@@ -117,6 +117,10 @@ export interface LoopWorld {
   openBids?: { pid: number; fromCid: number; expires: string }[];
   /** The draft picks (a world with a draft): replaced as picks are made and used up. */
   draftPicks?: DraftPick[];
+  /** AI trade offers to the user still open (a world with trades). */
+  openTradeOffers?: number;
+  /** His players AI clubs have offered for, and when (a world with trades). */
+  offeredFor?: { pid: number; date: string }[];
 }
 
 export type NewTransaction = Omit<TransactionRow, "xid">;

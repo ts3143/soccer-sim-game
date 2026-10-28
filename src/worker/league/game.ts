@@ -110,6 +110,12 @@ export function loopWorld(session: LeagueSession, season: number): LoopWorld {
       .filter((o) => o.status === "open" && o.toCid === game.userCid)
       .map((o) => ({ pid: o.pid, fromCid: o.fromCid, expires: o.expires })),
     draftPicks: session.cache.getAll("draftPicks"),
+    openTradeOffers: session.cache
+      .getAll("inbox")
+      .filter((m) => m.tradeOffer?.status === "open" && m.tradeOffer.expires >= game.date).length,
+    offeredFor: session.cache
+      .getAll("inbox")
+      .flatMap((m) => (m.tradeOffer?.give.pids ?? []).map((pid) => ({ pid, date: m.date }))),
     nextPid: () => {
       const pid = ids.pid++;
       session.cache.put("meta", { ...meta<IdCounters>(session, "ids"), pid: ids.pid }, "ids");

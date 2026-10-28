@@ -7,7 +7,7 @@ import { preseasonBoard } from "../club/board";
 import { generateWorld } from "../generate/world";
 import { AREA, type LoopWorld, startingReputation } from "../season/offseason";
 import { createSeason } from "../season/season";
-import { aiTradeDay, tradeDays } from "./aiTrades";
+import { aiOfferToUser, aiTradeDay, tradeDays } from "./aiTrades";
 import { tradeCalendar } from "./trades";
 import { clubView, rookieRoom, tradeDay, valueChange } from "./tradeValue";
 
@@ -162,6 +162,39 @@ describe("AI-to-AI trades", () => {
     ).toBe(true);
     expect(payroll(club, w.players, date)).toBeLessThan(before);
     expect(payroll(r, w.players, date)).toBeLessThanOrEqual(clubView(w, receiver, day).line ?? 0);
+  });
+
+  it("offer the user a trade his club would take (as an AI club would), to his inbox", () => {
+    const sure: WorldConfig = {
+      ...config,
+      competitions: {
+        ...config.competitions,
+        trades: { ...trades, ai: { ...trades.ai, offers: { ...trades.ai.offers, chance: 1 } } },
+      },
+    };
+    const w = world(sure);
+    const date = tradeDays(trades, cal)[0] as string;
+    const day = tradeDay(w, 2026, date);
+    const [message] = aiOfferToUser(w, 2026, date, cal);
+    const offer = message?.tradeOffer;
+    if (!message || !offer) throw new Error("An offer");
+    expect(message.kind).toBe("trade");
+    expect(offer.status).toBe("open");
+    expect(offer.expires).toBe(addDays(date, trades.ai.offers.standDays));
+    // He gives at least one of his players; both clubs gain by the AI's reckoning.
+    expect(offer.give.pids.length).toBeGreaterThan(0);
+    expect(offer.give.pids.every((pid) => w.players.find((p) => p.pid === pid)?.cid === 0)).toBe(
+      true,
+    );
+    expect(valueChange(w, day, 0, offer.give, offer.get).dv).toBeGreaterThan(0);
+    expect(valueChange(w, day, offer.cid, offer.get, offer.give).dv).toBeGreaterThan(0);
+    expect(message.players?.map((p) => p.pid).sort()).toEqual(
+      [...offer.give.pids, ...offer.get.pids].sort(),
+    );
+    // One open at a time; none in the harness (no user) or while trades are closed.
+    expect(aiOfferToUser(w, 2026, tradeDays(trades, cal)[1] as string, cal)).toEqual([]);
+    expect(aiOfferToUser({ ...world(sure), userCid: -1 }, 2026, date, cal)).toEqual([]);
+    expect(aiOfferToUser(world(sure), 2026, addDays(cal.deadline as string, 7), cal)).toEqual([]);
   });
 
   it("are the same for the same seed, and don't happen while trades are closed", () => {

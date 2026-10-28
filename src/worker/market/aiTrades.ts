@@ -5,18 +5,20 @@
  * would make it work. The trade goes ahead when both clubs gain and neither is left short
  * in an area of the pitch, and a player got by trade stays a while before he's traded on.
  * Clubs over their cap outside a grace season shed wages first (SPEC §17.7).
- * The user's club isn't part of them (its offers come later).
+ * The user's club isn't part of them: AI clubs make him offers instead (`aiOfferToUser`).
  */
 import type { TradesConfig } from "../../common/config/competitions";
-import { addDays } from "../../common/dates";
+import { addDays, formatDay } from "../../common/dates";
 import type { Player } from "../../common/schema";
 import { Random } from "../core/random";
-import { AREA, emptyLog, type LoopWorld, type TurnoverLog } from "../season/offseason";
+import { AREA, emptyLog, fullName, type LoopWorld, type TurnoverLog } from "../season/offseason";
+import type { NewMessage } from "../season/runner";
 import {
   aiAccepts,
   applyTrade,
   makeItWork,
   noAssets,
+  pickLabel,
   type Trade,
   type TradeCalendar,
   tradeProblems,
@@ -213,4 +215,165 @@ export function aiTradeDay(
     if (worked) make(worked);
   }
   return log;
+}
+
+/**
+ * An AI club's trade offer to the user on a trade day (SPEC §17.6): with `offers.chance`,
+ * an AI club offers for one of his players what an AI club in his place would take ("What
+ * would make this work?" for his club), if it gains by it too: of the `shortlist` players
+ * AI clubs are keenest on (what he'd add where he'd stand in their squads, against what he
+ * adds to the user's), each with its keenest club, the first in random order that makes
+ * such an offer. It goes to his
+ * inbox and stands `offers.standDays`, to the roster deadline at most; at most
+ * `offers.maxOpen` stand at once.
+ */
+export function aiOfferToUser(
+  world: LoopWorld,
+  season: number,
+  date: string,
+  cal: TradeCalendar,
+  tables?: Readonly<Record<string, readonly number[]>>,
+): NewMessage[] {
+  const trades = world.config.competitions.trades;
+  const user = world.clubs.find((c) => c.cid === world.userCid);
+  if (!trades || !user || world.config.switches.market !== "trades") return [];
+  if (tradesClosed(cal, date) || (world.openTradeOffers ?? 0) >= trades.ai.offers.maxOpen) {
+    return [];
+  }
+  const rng = Random.fromSeed(`${world.seed}/offers/${date}`);
+  if (!rng.bool(trades.ai.offers.chance)) return [];
+  const tw: LoopWorld & TradeWorld = { ...world, draftPicks: world.draftPicks ?? [] };
+  const day = tradeDay(tw, season, date, tables);
+  const value = (p: Player, view: ClubView) => cachedValue(trades, p, view, day);
+  const mine = clubView(tw, user.cid, day);
+  const since = addDays(date, -trades.ai.keepAcquiredDays);
+  const settled = (p: Player) => {
+    const last = p.transfers.at(-1);
+    return !last || last.type !== "trade" || last.date <= since;
+  };
+  // Not a player asked for lately (an offer isn't made again within `repeatAfterDays`).
+  const lately = addDays(date, -trades.ai.offers.repeatAfterDays);
+  const asked = new Set((world.offeredFor ?? []).filter((o) => o.date > lately).map((o) => o.pid));
+  const squad = world.players.filter(
+    (p) =>
+      p.cid === user.cid &&
+      p.status === "club" &&
+      !asked.has(p.pid) &&
+      untradablePlayer(p, user.cid, cal, date) === null,
+  );
+  // How much a player adds to a squad where he'd stand (its values, best first): his value
+  // times his place's weight (`squadWeights`), so a club only wants him if he'd play.
+  const weightAt = (place: number) => trades.squadWeights.find(([upTo]) => place <= upTo)?.[1] ?? 0;
+  const adds = (v: number, squadValues: readonly number[]) =>
+    v * weightAt(1 + squadValues.filter((x) => x > v).length);
+  const valuesOf = (cid: number, view: ClubView) =>
+    world.players
+      .filter((q) => q.cid === cid && q.status === "club")
+      .map((q) => value(q, view))
+      .sort((a, b) => b - a);
+  const mineNow = valuesOf(user.cid, mine);
+  const others = world.clubs
+    .filter((c) => c.cid !== user.cid)
+    .map((c) => {
+      const view = clubView(tw, c.cid, day);
+      return { view, values: valuesOf(c.cid, view) };
+    });
+  // Each of his players' keenest AI club, by what he'd add there against what he adds to
+  // his club; the players clubs are keenest on first.
+  const pairs = squad
+    .map((p) => {
+      const own = value(p, mine);
+      const loss = own * weightAt(1 + mineNow.filter((x) => x > own).length);
+      let best = { cid: -1, gain: -Infinity };
+      for (const { view, values } of others) {
+        const gain = adds(value(p, view), values) - loss;
+        if (gain > best.gain) best = { cid: view.cid, gain };
+      }
+      return { ...best, p };
+    })
+    .filter((x) => x.gain > trades.ai.minGain)
+    .sort((a, b) => b.gain - a.gain || a.p.pid - b.p.pid)
+    .slice(0, trades.ai.shortlist);
+  /** The trade with the one asset of `cid`'s that costs it least, still good for both. */
+  function cheapestAddition(trade: Trade, cid: number): Trade | null {
+    const side = trade.aGives;
+    const options: Trade[] = [
+      ...world.players
+        .filter((q) => q.cid === cid && q.status === "club" && settled(q))
+        .map((q) => ({ ...trade, aGives: { ...side, pids: [...side.pids, q.pid] } })),
+      ...tw.draftPicks
+        .filter((q) => q.cid === cid)
+        .map((q) => ({
+          ...trade,
+          aGives: {
+            ...side,
+            picks: [
+              ...side.picks,
+              { season: q.season, round: q.round, originalCid: q.originalCid },
+            ],
+          },
+        })),
+    ];
+    let best: { trade: Trade; dv: number } | null = null;
+    for (const option of options) {
+      const dv = tradeValueFor(tw, day, option, cid).dv;
+      if (dv <= 0 || (best && dv <= best.dv)) continue;
+      if (!aiAccepts(tradeValueFor(tw, day, option, user?.cid ?? -1))) continue;
+      if (tradeProblems(tw, cal, date, option).length > 0) continue;
+      best = { trade: option, dv };
+    }
+    return best?.trade ?? null;
+  }
+  // In random order, the first that makes an offer both clubs would take.
+  let found: { cid: number; p: Player; offer: Trade } | null = null;
+  for (const { cid, p } of rng.shuffle(pairs)) {
+    const ask: Trade = {
+      a: cid,
+      b: user.cid,
+      aGives: noAssets(),
+      bGives: { pids: [p.pid], picks: [] },
+    };
+    const worked = makeItWork(tw, day, cal, ask, user.cid, trades.makeItWorkMaxAdded, settled);
+    // An offer gives him something: if he'd let the player go for nothing, the club adds
+    // what costs it least.
+    const offer =
+      worked && worked.aGives.pids.length + worked.aGives.picks.length === 0
+        ? cheapestAddition(worked, cid)
+        : worked;
+    if (!offer || !aiAccepts(tradeValueFor(tw, day, offer, cid))) continue;
+    if (tradeProblems(tw, cal, date, offer).length > 0) continue;
+    if (!keepsShapeOf(tw, cid, offer.aGives.pids, offer.bGives.pids, trades.ai.minByArea)) continue;
+    found = { cid, p, offer };
+    break;
+  }
+  if (!found) return [];
+  const { cid, p, offer } = found;
+  const deadline = cal.deadline ?? `${season + 1}-06-30`;
+  const standsTo = addDays(date, trades.ai.offers.standDays);
+  const expires = standsTo < deadline ? standsTo : deadline;
+  world.openTradeOffers = (world.openTradeOffers ?? 0) + 1;
+  (world.offeredFor ??= []).push(...offer.bGives.pids.map((pid) => ({ pid, date })));
+  const club = world.clubs.find((c) => c.cid === cid);
+  const named = (pids: readonly number[]) =>
+    pids.flatMap((pid) => {
+      const q = world.players.find((x) => x.pid === pid);
+      return q ? [{ pid, name: fullName(q) }] : [];
+    });
+  const words = (from: number, side: Trade["aGives"]) =>
+    [
+      ...named(side.pids).map((x) => x.name),
+      ...side.picks.map((ref) => pickLabel(ref, world.clubs, from)),
+    ].join(", ");
+  return [
+    {
+      date,
+      season,
+      kind: "trade",
+      subject: `${club?.name ?? "A club"} offer a trade for ${fullName(p)}`,
+      body: `${club?.name ?? "They"} offer ${words(cid, offer.aGives)} for ${words(user.cid, offer.bGives)}. The offer stands until ${formatDay(expires)}.`,
+      read: false,
+      players: named([...offer.bGives.pids, ...offer.aGives.pids]),
+      tradeOffer: { cid, give: offer.bGives, get: offer.aGives, expires, status: "open" },
+    },
+  ];
 }

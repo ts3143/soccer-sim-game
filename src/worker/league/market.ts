@@ -82,8 +82,17 @@ function employed(session: LeagueSession): GameMeta {
   return game;
 }
 
+const NO_TRANSFERS =
+  "There's no transfer market in this world: players move by trades, the draft and free agency.";
+
+/** Fails in a world without a transfer market (SPEC §17.1: the Super League trades). */
+function transfersOn(session: LeagueSession) {
+  if (session.config.switches.market !== "transfers") throw new GameError(NO_TRANSFERS);
+}
+
 /** Fails unless the user can act in the market now (a window is open and he has a job). */
 function marketOpen(session: LeagueSession) {
+  transfersOn(session);
   const game = employed(session);
   const window = openWindow(game.date, game.season, session.config.competitions);
   if (!window) throw new GameError("The transfer window is closed.");
@@ -154,7 +163,9 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
     ? resigningClosed(game, left)
     : kind === "freeAgent"
       ? freeAgencyClosed(session, game)
-      : null;
+      : kind === "transfer" && session.config.switches.market !== "transfers"
+        ? NO_TRANSFERS
+        : null;
   const level = leagueLevel(world, (club ?? user).leagueId, game.date);
   const budgets = clubBudgets(world, user);
   // Under a soft cap a signing's wage must fit the cap, or be the minimum wage (SPEC §17.7).
@@ -480,6 +491,7 @@ export function proposeLoan(
 ): Promise<LoanReply> {
   return queued(session, async () => {
     assertNotLive(session);
+    if (!session.config.switches.loans) throw new GameError("There are no loans in this world.");
     const { game } = marketOpen(session);
     if (![0, 0.5, 1].includes(wageShare)) throw new GameError("The wage share is 0, 50 or 100%");
     const world = loopWorld(session, game.season);
@@ -566,6 +578,7 @@ export function setWageShare(session: LeagueSession, share: number) {
 export function listPlayer(session: LeagueSession, pid: number, asking: number | null) {
   return queued(session, async () => {
     assertNotLive(session);
+    transfersOn(session);
     const game = employed(session);
     const p = session.cache.get("players", pid);
     if (!p || p.status !== "club" || p.cid !== game.userCid) {

@@ -311,3 +311,59 @@ export function makeItWork(
     dv = best.dv;
   }
 }
+
+/**
+ * The most club `from` would add to a trade for club `to` (the trading block, SPEC §17.6):
+ * one asset at a time, up to `maxAdded`, the one worth most to `to` that keeps the trade
+ * good for `from` and valid, while each makes it better for `to`. Only players `offered`
+ * allows. Returns the trade with what `from` adds (unchanged when it adds nothing).
+ */
+export function bestOffer(
+  world: TradeWorld,
+  day: TradeDay,
+  cal: TradeCalendar,
+  trade: Trade,
+  from: number,
+  maxAdded: number,
+  offered: (p: Player) => boolean = () => true,
+): Trade {
+  const to = from === trade.a ? trade.b : trade.a;
+  const sideOf = (t: Trade) => (from === t.a ? t.aGives : t.bGives);
+  const withSide = (t: Trade, side: TradeSide): Trade =>
+    from === t.a ? { ...t, aGives: side } : { ...t, bGives: side };
+  let current = trade;
+  let value = tradeValueFor(world, day, current, to).dv;
+  for (let added = 0; added < maxAdded; added++) {
+    const side = sideOf(current);
+    const inPids = new Set(side.pids);
+    const inPicks = new Set(side.picks.map(keyOf));
+    let best: { trade: Trade; dv: number } | null = null;
+    const candidates: Trade[] = [
+      ...world.players
+        .filter((p) => p.cid === from && p.status === "club" && !inPids.has(p.pid) && offered(p))
+        .map((p) => withSide(current, { ...side, pids: [...side.pids, p.pid] })),
+      ...world.draftPicks
+        .filter((p) => p.cid === from && !inPicks.has(keyOf(p)))
+        .map((p) =>
+          withSide(current, {
+            ...side,
+            picks: [
+              ...side.picks,
+              { season: p.season, round: p.round, originalCid: p.originalCid },
+            ],
+          }),
+        ),
+    ];
+    for (const candidate of candidates) {
+      const dv = tradeValueFor(world, day, candidate, to).dv;
+      if (dv <= value || (best && dv <= best.dv)) continue;
+      if (!aiAccepts(tradeValueFor(world, day, candidate, from))) continue;
+      if (tradeProblems(world, cal, day.date, candidate).length > 0) continue;
+      best = { trade: candidate, dv };
+    }
+    if (!best) break;
+    current = best.trade;
+    value = best.dv;
+  }
+  return current;
+}

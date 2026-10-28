@@ -9,7 +9,16 @@
 import type { Position } from "./config/ratings";
 import type { WorldId } from "./config/worlds";
 import type { MatchEvent, MatchResult, Period } from "./match";
-import type { Fixture, InboxMessage, LeagueSummary, Phase, SliderSettings } from "./schema";
+import type {
+  Fixture,
+  InboxMessage,
+  LeagueSummary,
+  Phase,
+  SliderSettings,
+  TradeAssets,
+} from "./schema";
+
+export type { TradeAssets };
 
 export type WorkerKind = "shared" | "dedicated";
 
@@ -1201,12 +1210,6 @@ export interface DraftProspectView {
   nationality: string;
 }
 
-/** What one club gives in a trade: players and draft picks (by their key), no cash. */
-export interface TradeAssets {
-  pids: number[];
-  picks: { season: number; round: number; originalCid: number }[];
-}
-
 /** A trade the user puts to another club (`cid`): what he gives and what he gets. */
 export interface TradeProposal {
   cid: number;
@@ -1345,6 +1348,10 @@ export interface WorkerApi {
   proposeTrade(lid: number, proposal: TradeProposal): TradeAnswer;
   /** "What would make this work?": what the other club would want added. */
   makeTradeWork(lid: number, proposal: TradeProposal): TradeWork;
+  /** Answers an AI club's trade offer in the inbox (message `mid`). */
+  respondToTradeOffer(lid: number, mid: number, accept: boolean): TradeAnswer;
+  /** The trading block: AI clubs' best offers for the players and picks he puts up. */
+  getTradingBlock(lid: number, give: TradeAssets): TradeWork[];
   acceptJobOffer(lid: number, cid: number): GameState;
   markInboxRead(lid: number, mid: number): void;
   getContractTalks(lid: number, pid: number): ContractTalks;

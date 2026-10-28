@@ -202,6 +202,13 @@ export interface TradesConfig {
     keepAcquiredDays: number;
     /** Shedding wages: players offered a day (least value a euro first), clubs asked each. */
     shed: { candidates: number; receivers: number; margin: number; overCapClubs: boolean };
+    /**
+     * AI offers to the user: the chance a trade day, days they stand, at most this many open,
+     * and days before a player is asked for again.
+     */
+    offers: { chance: number; standDays: number; maxOpen: number; repeatAfterDays: number };
+    /** The trading block: the most offers shown. */
+    blockOffers: number;
     minByArea: Record<"gk" | "def" | "mid" | "att", number>;
   };
 }

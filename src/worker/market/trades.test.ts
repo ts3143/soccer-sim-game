@@ -10,6 +10,7 @@ import { describeTransaction } from "../views/common";
 import {
   aiAccepts,
   applyTrade,
+  bestOffer,
   makeItWork,
   noAssets,
   type Trade,
@@ -200,5 +201,24 @@ describe("trades", () => {
     // A trade it would already take comes back as it is; with nothing to add, no deal.
     expect(makeItWork(w, day, cal, worked, 30, 4)).toEqual(worked);
     expect(makeItWork(w, day, cal, ask, 30, 0)).toBeNull();
+  });
+
+  it("builds the best offer a club would make for what another puts up", () => {
+    const w = world();
+    const day = tradeDay(w, 2026, DATE);
+    // Club 0 puts up a young player; club 30 adds what's worth most to club 0, still gaining.
+    const young = squad(w, 0).find((p) => p.pot - p.ovr >= 8) as Player;
+    const put: Trade = { a: 0, b: 30, aGives: give([young.pid]), bGives: noAssets() };
+    expect(aiAccepts(tradeValueFor(w, day, put, 30))).toBe(true);
+    const offer = bestOffer(w, day, cal, put, 30, 4);
+    const added = offer.bGives.pids.length + offer.bGives.picks.length;
+    expect(added).toBeGreaterThan(0);
+    expect(added).toBeLessThanOrEqual(4);
+    expect(offer.aGives).toEqual(put.aGives);
+    expect(tradeProblems(w, cal, DATE, offer)).toEqual([]);
+    expect(aiAccepts(tradeValueFor(w, day, offer, 30))).toBe(true);
+    expect(tradeValueFor(w, day, offer, 0).dv).toBeGreaterThan(tradeValueFor(w, day, put, 0).dv);
+    // Nothing more to add: it stays as it is.
+    expect(bestOffer(w, day, cal, put, 30, 0)).toEqual(put);
   });
 });

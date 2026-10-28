@@ -570,6 +570,24 @@ export interface InboxMessage {
    * player and the message date it names the offer. Absent in older saves.
    */
   bidFrom?: number;
+  /** An AI club's trade offer to the user (SPEC §17.6), until it's answered or expires. */
+  tradeOffer?: TradeOffer;
+}
+
+/** What one club gives in a trade: players and draft picks (by their key), no cash. */
+export interface TradeAssets {
+  pids: number[];
+  picks: { season: number; round: number; originalCid: number }[];
+}
+
+/** A trade an AI club (`cid`) offers the user: what he'd give and get, standing to `expires`. */
+export interface TradeOffer {
+  cid: number;
+  give: TradeAssets;
+  get: TradeAssets;
+  /** Its last day. */
+  expires: string;
+  status: "open" | "accepted" | "rejected";
 }
 
 export interface AwardRow {

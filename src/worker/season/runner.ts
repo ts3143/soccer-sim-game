@@ -19,7 +19,7 @@ import type { MatchResult } from "../../common/match";
 import { addDays } from "../../common/dates";
 import type { ClubSeason, Fixture, InboxMessage, TransactionRow } from "../../common/schema";
 import { marketDay, marketDays, type NewOffer } from "../market/aiMarket";
-import { aiTradeDay, tradeDays } from "../market/aiTrades";
+import { aiOfferToUser, aiTradeDay, tradeDays } from "../market/aiTrades";
 import { tradeCalendar } from "../market/trades";
 import { returnLoans } from "../market/loans";
 import { aiRenewals, contractWarning } from "../market/renewals";
@@ -156,7 +156,9 @@ export function runDays(
     transactions: [],
     offers: [],
   };
-  const market = marketDays(state.season, config);
+  // The transfer market's days (SPEC §7.3): a world with trades has none.
+  const market =
+    world.config.switches.market === "transfers" ? marketDays(state.season, config) : [];
   // Trades between AI clubs (SPEC §17.6), on trade days while trades are open.
   const tradeCal = tradeCalendar(config, state.season, state.fixtures);
   const trading =
@@ -310,6 +312,10 @@ export function runDays(
         for (const pid of log.changed) out.changed.add(pid);
         out.transactions.push(...log.transactions);
         if (log.changed.size > 0) squads.regroup();
+      }
+      // An AI club may offer the user a trade (his inbox).
+      if (trading.includes(day)) {
+        out.messages.push(...aiOfferToUser(world, state.season, day, tradeCal, tables()));
       }
     }
     if (options.hold?.(day, state.fixtures)) {
