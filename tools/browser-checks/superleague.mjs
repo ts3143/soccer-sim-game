@@ -354,9 +354,103 @@ check(
   await testId("trade-other").locator(`tr[data-pid="${forPid}"] input`).isChecked(),
 );
 
-// AI clubs' offers reach the inbox from 8 July: answered there.
+// --- Chunk 5: re-signing, the cap on the finance pages, a free agent under the cap -----------
 await play("Until the re-signing period");
+check(
+  "the sidebar has Re-sign Players",
+  /Re-sign Players/.test(await testId("sidebar").innerText()),
+);
+await testId("sidebar").getByRole("link", { name: "Re-sign Players", exact: true }).click();
+await testId("resigning-status").waitFor();
+const resignRows = testId("resigning").locator("tbody tr");
+const resignTexts = await resignRows.allInnerTexts();
+check(
+  "Re-sign Players: the period open, the cap now and next season's commitments",
+  /open until 30 Jun 2027/.test(await testId("resigning-status").innerText()) &&
+    (await testId("cap-summary").count()) === 1 &&
+    /already committed/.test(await testId("resigning-next").innerText()),
+  `${resignTexts.length} final-year player(s)`,
+);
+const willingRow = resignRows.filter({ hasNotText: "✕" }).filter({ hasText: "Negotiate" }).first();
+if ((await willingRow.count()) > 0) {
+  const resignName = await willingRow.locator("a").first().innerText();
+  await willingRow.getByRole("button", { name: "Negotiate" }).click();
+  await testId("contract-budget").locator('[data-testid="cap-summary"]').waitFor();
+  await testId("contract-asks").locator("input[type=radio]:not([disabled])").first().check();
+  await testId("agree-contract").click();
+  await testId("contract-note").waitFor();
+  const note = await testId("contract-note").innerText();
+  await testId("contract-modal")
+    .getByRole("button", { name: "Close", exact: true })
+    .first()
+    .click();
+  await page.waitForFunction(
+    (name) =>
+      !(document.querySelector('[data-testid="resigning"]')?.textContent ?? "").includes(name),
+    resignName,
+  );
+  check(
+    "he re-signs a willing player, the talks showing the cap; the player leaves the list",
+    /signs a new contract/.test(note),
+    note,
+  );
+} else {
+  check("he has a final-year player willing to talk", false, resignTexts.join(" | "));
+}
+await testId("sidebar").getByRole("link", { name: "Finances & Facilities", exact: true }).click();
+await testId("cap").waitFor();
+check(
+  "Finances & Facilities: the salary cap in place of FFP and the transfer budget; no youth dial",
+  (await testId("ffp").count()) === 0 &&
+    (await testId("budgets").count()) === 0 &&
+    /against a cap of/.test(await testId("cap").innerText()) &&
+    (await testId("dials").locator('input[type="range"]').count()) === 3,
+);
+await testId("sidebar").getByRole("link", { name: "Finances", exact: true }).click();
+await testId("finances").waitFor();
+const financeHead = await testId("finances").locator("thead").innerText();
+check(
+  "League Finances: each club's payroll, cap and room; no FFP",
+  /Payroll/.test(financeHead) &&
+    /Cap/.test(financeHead) &&
+    /Room/.test(financeHead) &&
+    !/FFP/.test(financeHead),
+  financeHead.replace(/\s+/g, " "),
+);
+
 await play("Advance to preseason");
+await testId("sidebar").getByRole("link", { name: "Free Agents", exact: true }).click();
+await testId("free-agents").waitFor();
+check(
+  "Free Agents on 1 July: open, the cap room shown, the squad limit not yet counting",
+  (await testId("free-agency-closed").count()) === 0 &&
+    (await testId("cap-summary").count()) === 1 &&
+    /limit counts from the first league match/.test(
+      await testId("free-agents-summary").innerText(),
+    ),
+);
+await page.locator("#fa-affordable").check();
+const affordable = testId("free-agents")
+  .locator("tbody tr")
+  .filter({ hasText: "Negotiate" })
+  .first();
+if ((await affordable.count()) > 0) {
+  await affordable.getByRole("button", { name: "Negotiate" }).click();
+  await testId("contract-budget").locator('[data-testid="cap-summary"]').waitFor();
+  await testId("contract-asks").locator("input[type=radio]:not([disabled])").first().check();
+  await testId("agree-contract").click();
+  await testId("contract-note").waitFor();
+  const signed = await testId("contract-note").innerText();
+  check("he signs a free agent within his cap room", /joins your club/.test(signed), signed);
+  await testId("contract-modal")
+    .getByRole("button", { name: "Close", exact: true })
+    .first()
+    .click();
+} else {
+  check("a willing free agent fits his cap room", false);
+}
+
+// AI clubs' offers reach the inbox from 8 July: answered there.
 let offerBadge = null;
 for (let week = 0; week < 10 && !offerBadge; week++) {
   await play("One week");

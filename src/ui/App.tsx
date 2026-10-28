@@ -22,6 +22,7 @@ import { NewLeague } from "./pages/NewLeague";
 import { Draft } from "./pages/Draft";
 import { DraftPicks } from "./pages/DraftPicks";
 import { Placeholder } from "./pages/Placeholder";
+import { ResignPlayers } from "./pages/ResignPlayers";
 import { Trade } from "./pages/Trade";
 import { TradingBlock } from "./pages/TradingBlock";
 import { Player } from "./pages/Player";
@@ -164,6 +165,8 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <TradingBlock />;
     case "draft":
       return <Draft params={params} />;
+    case "resign-players":
+      return <ResignPlayers />;
     case "draft-picks":
       return <DraftPicks params={params} />;
     case "club-finances":

@@ -1,6 +1,10 @@
-/** Finances overview of all clubs (SPEC §11): revenue, costs, cash, squad cost and FFP. */
+/**
+ * Finances overview of all clubs (SPEC §11): revenue, costs, cash, squad cost and FFP; under
+ * a soft cap (SPEC §17.7) the payroll against each club's cap, or a past season's luxury tax.
+ */
 import { useState } from "react";
-import { DataTable } from "../components/DataTable";
+import type { FinancesView } from "../../common/api";
+import { type Column, DataTable } from "../components/DataTable";
 import { TeamLink } from "../components/links";
 import { formatEuros, formatPercent } from "../format";
 import { leaguePath } from "../router";
@@ -22,6 +26,7 @@ export function Finances({ params }: { params: string[] }) {
   const { data: view, error } = useView(`finances/${season}`, () =>
     toWorker("getFinances", shell.lid, season),
   );
+  const capped = shell.world.switches.moneyRule === "softCap";
   return (
     <>
       <PageHeader
@@ -47,9 +52,13 @@ export function Finances({ params }: { params: string[] }) {
       ) : (
         <>
           <p className="small text-body-secondary">
-            {view.current
-              ? "This season so far; cash now; wages and squad cost a year at today's contracts."
-              : "The season's books; cash at the season's end; squad cost as the 30 June FFP check measured it."}
+            {capped
+              ? view.current
+                ? "This season so far; cash now; each payroll a year at today's contracts against the club's cap."
+                : "The season's books; cash at the season's end; the luxury tax paid by clubs over their cap and shared by those under it."
+              : view.current
+                ? "This season so far; cash now; wages and squad cost a year at today's contracts."
+                : "The season's books; cash at the season's end; squad cost as the 30 June FFP check measured it."}
           </p>
           <DataTable
             key={league}
@@ -100,48 +109,7 @@ export function Finances({ params }: { params: string[] }) {
                 ),
                 align: "end",
               },
-              ...(view.current
-                ? [
-                    {
-                      key: "wages",
-                      label: "Wages/yr",
-                      value: (r: (typeof view.rows)[number]) => r.wages,
-                      render: (r: (typeof view.rows)[number]) =>
-                        r.wages === null ? "" : formatEuros(r.wages),
-                      align: "end" as const,
-                    },
-                  ]
-                : []),
-              {
-                key: "scr",
-                label: "Squad cost",
-                title: "Wages and fee amortisation over revenue (FFP limit 70%)",
-                value: (r) => r.squadCostRatio,
-                render: (r) =>
-                  r.squadCostRatio === null ? (
-                    ""
-                  ) : (
-                    <span className={r.squadCostRatio > 0.7 ? "text-danger" : ""}>
-                      {formatPercent(r.squadCostRatio, 0)}
-                    </span>
-                  ),
-                align: "end",
-              },
-              ...(view.current
-                ? [
-                    {
-                      key: "ffp",
-                      label: "FFP",
-                      value: (r: (typeof view.rows)[number]) => r.ffp,
-                      render: (r: (typeof view.rows)[number]) =>
-                        r.ffp ? (
-                          <span className={`badge ${FFP_BADGE[r.ffp] ?? ""}`}>{r.ffp}</span>
-                        ) : (
-                          ""
-                        ),
-                    },
-                  ]
-                : []),
+              ...(capped ? capColumns(view) : ffpColumns(view)),
               { key: "rep", label: "Reputation", value: (r) => r.reputation, align: "end" },
             ]}
           />
@@ -149,4 +117,111 @@ export function Finances({ params }: { params: string[] }) {
       )}
     </>
   );
+}
+
+type Row = FinancesView["rows"][number];
+
+/** Under a soft cap: payroll and cap now; a past season's tax paid and received. */
+function capColumns(view: FinancesView): Column<Row>[] {
+  if (!view.current) {
+    return [
+      {
+        key: "taxPaid",
+        label: "Tax paid",
+        value: (r) => r.taxPaid,
+        render: (r) => (r.taxPaid ? formatEuros(r.taxPaid) : ""),
+        align: "end",
+      },
+      {
+        key: "taxReceived",
+        label: "Tax share",
+        title: "The luxury tax shared among the tier's clubs under the cap",
+        value: (r) => r.taxReceived,
+        render: (r) => (r.taxReceived ? formatEuros(r.taxReceived) : ""),
+        align: "end",
+      },
+    ];
+  }
+  return [
+    {
+      key: "payroll",
+      label: "Payroll",
+      title: "Wages under contract and those still owed to released players, a year",
+      value: (r) => r.payroll,
+      render: (r) =>
+        r.payroll === null ? (
+          ""
+        ) : (
+          <span className={r.cap !== null && r.payroll > r.cap ? "text-danger" : ""}>
+            {formatEuros(r.payroll)}
+          </span>
+        ),
+      align: "end",
+    },
+    {
+      key: "cap",
+      label: "Cap",
+      value: (r) => r.cap,
+      render: (r) => (r.cap === null ? "" : formatEuros(r.cap)),
+      align: "end",
+    },
+    {
+      key: "room",
+      label: "Room",
+      title: "Cap less payroll (negative: over the cap)",
+      value: (r) => (r.cap === null || r.payroll === null ? null : r.cap - r.payroll),
+      render: (r) =>
+        r.cap === null || r.payroll === null ? (
+          ""
+        ) : (
+          <span className={r.payroll > r.cap ? "text-danger" : ""}>
+            {formatEuros(r.cap - r.payroll)}
+          </span>
+        ),
+      align: "end",
+    },
+  ];
+}
+
+function ffpColumns(view: FinancesView): Column<Row>[] {
+  return [
+    ...(view.current
+      ? [
+          {
+            key: "wages",
+            label: "Wages/yr",
+            value: (r: (typeof view.rows)[number]) => r.wages,
+            render: (r: (typeof view.rows)[number]) =>
+              r.wages === null ? "" : formatEuros(r.wages),
+            align: "end" as const,
+          },
+        ]
+      : []),
+    {
+      key: "scr",
+      label: "Squad cost",
+      title: "Wages and fee amortisation over revenue (FFP limit 70%)",
+      value: (r) => r.squadCostRatio,
+      render: (r) =>
+        r.squadCostRatio === null ? (
+          ""
+        ) : (
+          <span className={r.squadCostRatio > 0.7 ? "text-danger" : ""}>
+            {formatPercent(r.squadCostRatio, 0)}
+          </span>
+        ),
+      align: "end",
+    },
+    ...(view.current
+      ? [
+          {
+            key: "ffp",
+            label: "FFP",
+            value: (r: (typeof view.rows)[number]) => r.ffp,
+            render: (r: (typeof view.rows)[number]) =>
+              r.ffp ? <span className={`badge ${FFP_BADGE[r.ffp] ?? ""}`}>{r.ffp}</span> : "",
+          },
+        ]
+      : []),
+  ];
 }

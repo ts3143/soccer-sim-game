@@ -43,6 +43,7 @@ export async function getTeamSquad(lid: number, cid: number): Promise<TeamSquadV
   const levels = clubLevels(world, game.date);
   const level = leagueLevel(world, club.leagueId, game.date);
   const medical = effectiveDials(club).medical;
+  const resigning = session.config.switches.renewals === "resigningPeriod";
   const stats = new Map<
     number,
     { appearances: number; goals: number; assists: number; ratingTotal: number }
@@ -92,6 +93,10 @@ export async function getTeamSquad(lid: number, cid: number): Promise<TeamSquadV
       expiring: status !== "academy" && yearsLeft(p, game.date) === 1,
       value: marketValue(p, game.date, level),
       mood: mood?.value ?? null,
+      willing:
+        resigning && cid === game.userCid && status === "club" && yearsLeft(p, game.date) === 1
+          ? (mood?.willing ?? false)
+          : null,
       season: {
         appearances: s?.appearances ?? 0,
         goals: s?.goals ?? 0,

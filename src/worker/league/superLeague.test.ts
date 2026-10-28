@@ -6,7 +6,12 @@ import { addDays } from "../../common/dates";
 import type { GameMeta } from "../../common/schema";
 import { playoffId } from "../season/season";
 import { getCups } from "../views/competitions";
+import { getClubFinances } from "../views/club";
 import { draftPicksView, draftView } from "../views/draft";
+import { getFinances } from "../views/history";
+import { getFreeAgents } from "../views/market";
+import { getTeamSquad } from "../views/players";
+import { resigningView } from "../views/resigning";
 import { draftProspect } from "./draft";
 import { gameState, play } from "./game";
 import { contractTalks, releasePlayer, renewContract } from "./market";
@@ -182,8 +187,52 @@ describe("a Super League year in a save", () => {
         .find((m) => m.subject.startsWith("The re-signing period"));
       expect(notice?.players?.map((p) => p.pid).sort()).toEqual(ending.map((p) => p.pid).sort());
       expect(contractTalks(session, lasting?.pid ?? -1).closedReason).toMatch(/final year/);
+      // Re-sign Players: the final-year players, the cap now and next season's commitments.
+      const page = resigningView(session);
+      expect(page).toMatchObject({ open: true, opens: "2027-06-16", closes: "2027-06-30" });
+      expect(page.players.map((p) => p.pid).sort()).toEqual(ending.map((p) => p.pid).sort());
+      const lyonClub = session.cache.get("clubs", 39);
+      const lasting2 = lyonPlayers().filter((p) => (p.contract?.expires ?? "") > "2027-06-30");
+      expect(page.next.committed).toBe(
+        lasting2.reduce((s, p) => s + (p.contract?.wage ?? 0), 0) +
+          (lyonClub?.released ?? [])
+            .filter((r) => r.until >= "2027-07-01")
+            .reduce((s, r) => s + r.wage, 0),
+      );
+      expect(page.cap?.payroll).toBe(
+        lyonPlayers().reduce((s, p) => s + (p.contract?.wage ?? 0), 0) +
+          (lyonClub?.released ?? [])
+            .filter((r) => r.until >= "2027-06-16")
+            .reduce((s, r) => s + r.wage, 0),
+      );
+      const cap = page.cap;
+      if (!cap) throw new Error("No cap");
+      expect(cap.room).toBe(cap.cap - cap.payroll);
+      expect(cap.freeAgentRoom).toBe(Math.max(cap.room, cap.minimumWage));
+      expect(cap.taxIfEnded).toBe(Math.max(0, Math.round(-cap.room * cap.taxRate)));
+      // The cap in place of FFP: free agents (closed until 1 July), finances, the squad.
+      const free = await getFreeAgents(1);
+      expect(free).toMatchObject({ cap, wageRoom: cap.freeAgentRoom, limitCounts: false });
+      expect(free.closed).toMatch(/Free agency is closed/);
+      const books = await getClubFinances(1);
+      expect(books.cap).toMatchObject({ payroll: cap.payroll, lastSeason: null });
+      expect(books.dials.map((d) => d.key)).toEqual(["coaching", "medical", "facilities"]);
+      const league = await getFinances(1, null);
+      const own = league.rows.find((r) => r.team.cid === 39);
+      expect(own).toMatchObject({ payroll: cap.payroll, ffp: null });
+      expect(league.rows.every((r) => r.cap !== null && r.payroll !== null)).toBe(true);
+      const squad = await getTeamSquad(1, 39);
+      expect(
+        squad.players
+          .filter((p) => p.willing !== null)
+          .map((p) => p.pid)
+          .sort(),
+      ).toEqual(ending.map((p) => p.pid).sort());
       const willing = ending.find((p) => contractTalks(session, p.pid).mood.willing);
       if (willing) await renewContract(session, willing.pid, 2);
+      if (willing) {
+        expect(resigningView(session).players.map((p) => p.pid)).not.toContain(willing.pid);
+      }
       // The AI re-signs as the period closes, only players whose contracts ended.
       const aiEnding = new Set(
         session.cache

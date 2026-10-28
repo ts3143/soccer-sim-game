@@ -8,7 +8,7 @@ import type { ClubFinancesView } from "../../common/api";
 import { SeasonLineChart } from "../components/charts";
 import { formatDate, formatEuros, formatPercent } from "../format";
 import { PageHeader } from "../shell/PageHeader";
-import { useShell } from "../shell/Shell";
+import { seasonLabel, useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
 import { errorText } from "../errors";
@@ -30,7 +30,8 @@ export function ClubFinances() {
         </div>
         <div className="col-xl-6">
           <Tickets view={view} />
-          <Budgets view={view} />
+          {/* No transfers under a soft cap: no transfer budget either. */}
+          {!view.cap && <Budgets view={view} />}
         </div>
       </div>
     </>
@@ -38,10 +39,6 @@ export function ClubFinances() {
 }
 
 function Overview({ view }: { view: ClubFinancesView }) {
-  const status = { ok: "text-bg-success", warned: "text-bg-warning", banned: "text-bg-danger" }[
-    view.ffp.status
-  ];
-  const share = Math.min(1, view.ffp.ratio / 1);
   return (
     <div className="row g-3 mb-3">
       <div className="col-lg-7">
@@ -105,56 +102,131 @@ function Overview({ view }: { view: ClubFinancesView }) {
           </div>
         </section>
       </div>
-      <div className="col-lg-5">
-        <section className="card h-100" data-testid="ffp">
-          <div className="card-body small">
-            <h2 className="h6">
-              Financial fair play <span className={`badge ${status}`}>{view.ffp.status}</span>
-            </h2>
-            <p className="mb-2">
-              Squad cost (wages and fee amortisation) this season:{" "}
-              <strong>{formatPercent(view.ffp.ratio, 0)}</strong> of revenue. The limit is{" "}
-              {formatPercent(view.ffp.limit, 0)}, checked on 30 June.
-            </p>
-            <div
-              className="position-relative mb-1"
-              style={{ height: 12 }}
-              aria-label={`Squad cost ${formatPercent(view.ffp.ratio, 0)} of revenue`}
-            >
-              <div className="progress" style={{ height: 12 }}>
-                <div
-                  className={`progress-bar ${view.ffp.ratio > view.ffp.limit ? "bg-danger" : view.ffp.ratio > view.ffp.limit - 0.05 ? "bg-warning" : "bg-success"}`}
-                  style={{ width: `${share * 100}%` }}
-                />
-              </div>
-              <div
-                className="position-absolute top-0 bottom-0 border-start border-2 border-dark"
-                style={{ left: `${view.ffp.limit * 100}%` }}
-                title="FFP limit"
-              />
-            </div>
-            <div className="d-flex justify-content-between text-body-secondary mb-2">
-              <span>0%</span>
-              <span>limit {formatPercent(view.ffp.limit, 0)}</span>
-              <span>100%</span>
-            </div>
-            {view.ffp.lastSeason !== null && (
-              <p className="mb-1">Last season: {formatPercent(view.ffp.lastSeason, 0)}.</p>
-            )}
-            {view.ffp.bannedUntil && (
-              <p className="text-danger mb-1">
-                Transfer ban until {formatDate(view.ffp.bannedUntil)}.
-              </p>
-            )}
-            <p className="text-body-secondary mb-0">
-              Over the limit at the check: a warning first, then a one-window transfer ban.
-              Facilities level {view.facilitiesLevel} (50 = average), following your Facilities dial
-              slowly.
-            </p>
-          </div>
-        </section>
-      </div>
+      <div className="col-lg-5">{view.cap ? <CapCard view={view} /> : <FfpCard view={view} />}</div>
     </div>
+  );
+}
+
+function FfpCard({ view }: { view: ClubFinancesView }) {
+  const status = { ok: "text-bg-success", warned: "text-bg-warning", banned: "text-bg-danger" }[
+    view.ffp.status
+  ];
+  const share = Math.min(1, view.ffp.ratio / 1);
+  return (
+    <section className="card h-100" data-testid="ffp">
+      <div className="card-body small">
+        <h2 className="h6">
+          Financial fair play <span className={`badge ${status}`}>{view.ffp.status}</span>
+        </h2>
+        <p className="mb-2">
+          Squad cost (wages and fee amortisation) this season:{" "}
+          <strong>{formatPercent(view.ffp.ratio, 0)}</strong> of revenue. The limit is{" "}
+          {formatPercent(view.ffp.limit, 0)}, checked on 30 June.
+        </p>
+        <div
+          className="position-relative mb-1"
+          style={{ height: 12 }}
+          aria-label={`Squad cost ${formatPercent(view.ffp.ratio, 0)} of revenue`}
+        >
+          <div className="progress" style={{ height: 12 }}>
+            <div
+              className={`progress-bar ${view.ffp.ratio > view.ffp.limit ? "bg-danger" : view.ffp.ratio > view.ffp.limit - 0.05 ? "bg-warning" : "bg-success"}`}
+              style={{ width: `${share * 100}%` }}
+            />
+          </div>
+          <div
+            className="position-absolute top-0 bottom-0 border-start border-2 border-dark"
+            style={{ left: `${view.ffp.limit * 100}%` }}
+            title="FFP limit"
+          />
+        </div>
+        <div className="d-flex justify-content-between text-body-secondary mb-2">
+          <span>0%</span>
+          <span>limit {formatPercent(view.ffp.limit, 0)}</span>
+          <span>100%</span>
+        </div>
+        {view.ffp.lastSeason !== null && (
+          <p className="mb-1">Last season: {formatPercent(view.ffp.lastSeason, 0)}.</p>
+        )}
+        {view.ffp.bannedUntil && (
+          <p className="text-danger mb-1">Transfer ban until {formatDate(view.ffp.bannedUntil)}.</p>
+        )}
+        <p className="text-body-secondary mb-0">
+          Over the limit at the check: a warning first, then a one-window transfer ban. Facilities
+          level {view.facilitiesLevel} (50 = average), following your Facilities dial slowly.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/** Under a soft cap (SPEC §17.7), in FFP's place: the payroll against the cap and the tax. */
+function CapCard({ view }: { view: ClubFinancesView }) {
+  const cap = view.cap;
+  if (!cap) return null;
+  const share = cap.payroll / Math.max(1, cap.cap);
+  const scale = Math.max(1.5, share * 1.1);
+  return (
+    <section className="card h-100" data-testid="cap">
+      <div className="card-body small">
+        <h2 className="h6">
+          Salary cap{" "}
+          <span className={`badge ${cap.room < 0 ? "text-bg-danger" : "text-bg-success"}`}>
+            {cap.room < 0 ? "over" : "under"}
+          </span>
+        </h2>
+        <p className="mb-2">
+          Payroll (wages under contract and those still owed to released players):{" "}
+          <strong>{formatEuros(cap.payroll)}</strong> against a cap of{" "}
+          <strong>{formatEuros(cap.cap)}</strong>.
+        </p>
+        <div
+          className="position-relative mb-1"
+          style={{ height: 12 }}
+          aria-label={`Payroll ${formatPercent(share, 0)} of the cap`}
+        >
+          <div className="progress" style={{ height: 12 }}>
+            <div
+              className={`progress-bar ${share > 1 ? "bg-danger" : share > 0.95 ? "bg-warning" : "bg-success"}`}
+              style={{ width: `${Math.min(1, share / scale) * 100}%` }}
+            />
+          </div>
+          <div
+            className="position-absolute top-0 bottom-0 border-start border-2 border-dark"
+            style={{ left: `${(1 / scale) * 100}%` }}
+            title="The cap"
+          />
+        </div>
+        <p className="mb-2">
+          {cap.room < 0
+            ? `${formatEuros(-cap.room)} over: a luxury tax of ${formatEuros(cap.taxIfEnded)} if the season ended today (${cap.taxRate}× the payroll above the cap, paid at the season's end and shared among the clubs of your tier under it).`
+            : `Cap room ${formatEuros(cap.room)}. Clubs under the cap at the season's end share their tier's luxury tax.`}
+        </p>
+        {cap.grace && (
+          <p className="mb-2">
+            Grace season: relegated, your club keeps {cap.grace.league}'s cap through{" "}
+            {seasonLabel(cap.grace.through)}.
+          </p>
+        )}
+        {cap.lastSeason && (
+          <p className="mb-2" data-testid="cap-last-season">
+            {seasonLabel(cap.lastSeason.season)}:{" "}
+            {cap.lastSeason.paid > 0
+              ? `paid ${formatEuros(cap.lastSeason.paid)} luxury tax`
+              : cap.lastSeason.received > 0
+                ? `received ${formatEuros(cap.lastSeason.received)} of the luxury tax`
+                : "no luxury tax paid or received"}
+            .
+          </p>
+        )}
+        <p className="text-body-secondary mb-0">
+          Over the cap you can still re-sign your own players, sign your draft picks, sign free
+          agents at the minimum wage ({formatEuros(cap.minimumWage)}) and trade, taking back at most{" "}
+          {formatPercent(cap.tradeMatching, 0)} of the wages you send. Facilities level{" "}
+          {view.facilitiesLevel} (50 = average), following your Facilities dial slowly.
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -252,7 +324,7 @@ function Dials({ view }: { view: ClubFinancesView }) {
             Save dials
           </button>
           <span className="text-body-secondary">
-            All four: {formatEuros(total)} a season ({formatPercent(total / view.budget.base, 0)} of
+            Together: {formatEuros(total)} a season ({formatPercent(total / view.budget.base, 0)} of
             revenue)
           </span>
         </div>

@@ -2,13 +2,15 @@
  * Contract negotiation (SPEC §7.6, §11): one window for renewing the user's players,
  * personal terms after an agreed fee (a transfer, with the bid step first) and free agents.
  * The player asks a wage per contract length, adjusted by his mood; the user picks one or
- * walks away. The transfer budget and wage room are always shown (SPEC §6.3).
+ * walks away. The transfer budget and wage room are always shown (SPEC §6.3), or under a
+ * soft cap the payroll against the cap (SPEC §17.7).
  */
 import { useEffect, useState } from "react";
 import type { ContractTalks } from "../../common/api";
 import { formatDate, formatEuros, formatPercent } from "../format";
 import { useShell } from "../shell/Shell";
 import { toWorker } from "../workerClient";
+import { CapSummary } from "./CapSummary";
 import { MoodTable } from "./Mood";
 import { errorText } from "../errors";
 
@@ -102,7 +104,7 @@ export function ContractModal({ pid, onClose }: { pid: number; onClose: () => vo
   // A full squad can still agree a fee (a sale may follow), but can't sign him yet.
   const full =
     t !== null && t.kind !== "renewal" && t.squad.enforced && t.squad.seniors >= t.squad.max
-      ? `Your squad is full (${t.squad.max} seniors): sell, loan or release a player before he can sign.`
+      ? `Your squad is full (${t.squad.max} seniors): ${shell.world.switches.market === "trades" ? "trade or release" : "sell, loan or release"} a player before he can sign.`
       : null;
 
   return (
@@ -139,22 +141,47 @@ export function ContractModal({ pid, onClose }: { pid: number; onClose: () => vo
                     {t.expires &&
                       ` · ${formatEuros(t.wage)} a year until ${formatDate(t.expires)} (${t.yearsLeft} season${t.yearsLeft === 1 ? "" : "s"} left)`}
                   </p>
-                  <div className="d-flex flex-wrap gap-3 mb-3" data-testid="contract-budget">
-                    <span>
-                      Transfer budget <strong>{formatEuros(t.budget.transfer)}</strong>
-                    </span>
-                    <span>
-                      Wage room <strong>{formatEuros(t.budget.wageRoom)}</strong> a year
-                    </span>
-                    <span>
-                      Squad cost {formatPercent(t.budget.squadCostRatio, 0)} of revenue (FFP limit{" "}
-                      {formatPercent(t.budget.ffpLimit, 0)})
-                    </span>
-                    <span className={t.squad.seniors >= t.squad.max ? "text-danger" : ""}>
-                      Seniors {t.squad.seniors}/{t.squad.max}
-                    </span>
-                    {t.budget.warned && <span className="badge text-bg-warning">FFP warning</span>}
-                  </div>
+                  {t.cap ? (
+                    <div className="mb-3" data-testid="contract-budget">
+                      <CapSummary cap={t.cap} freeAgents={t.kind === "freeAgent"} />
+                      <div className="mt-1">
+                        <span
+                          className={
+                            t.squad.enforced && t.squad.seniors >= t.squad.max ? "text-danger" : ""
+                          }
+                        >
+                          Squad {t.squad.seniors}/{t.squad.max}
+                          {!t.squad.enforced && " (the limit counts from the first league match)"}
+                        </span>
+                        {t.kind === "renewal" && (
+                          <span className="text-body-secondary">
+                            {" "}
+                            · You can re-sign your own players over the cap: their wages count
+                            toward the luxury tax.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="d-flex flex-wrap gap-3 mb-3" data-testid="contract-budget">
+                      <span>
+                        Transfer budget <strong>{formatEuros(t.budget.transfer)}</strong>
+                      </span>
+                      <span>
+                        Wage room <strong>{formatEuros(t.budget.wageRoom)}</strong> a year
+                      </span>
+                      <span>
+                        Squad cost {formatPercent(t.budget.squadCostRatio, 0)} of revenue (FFP limit{" "}
+                        {formatPercent(t.budget.ffpLimit, 0)})
+                      </span>
+                      <span className={t.squad.seniors >= t.squad.max ? "text-danger" : ""}>
+                        Seniors {t.squad.seniors}/{t.squad.max}
+                      </span>
+                      {t.budget.warned && (
+                        <span className="badge text-bg-warning">FFP warning</span>
+                      )}
+                    </div>
+                  )}
                   <div className="row g-3">
                     <div className="col-md-6">
                       <h3 className="h6">
@@ -239,7 +266,11 @@ export function ContractModal({ pid, onClose }: { pid: number; onClose: () => vo
                                 </td>
                                 <td className="text-end">
                                   {formatEuros(a.wage)}
-                                  {tooMuch && <span className="ms-1">(over your wage room)</span>}
+                                  {tooMuch && (
+                                    <span className="ms-1">
+                                      ({t.cap ? "over your cap room" : "over your wage room"})
+                                    </span>
+                                  )}
                                 </td>
                                 <td>
                                   {formatDate(a.expires)}

@@ -13,7 +13,8 @@ import { daysBetween, exactAge } from "../../common/dates";
 import type { GameMeta } from "../../common/schema";
 import { FFP, transferBanned } from "../finance/ffp";
 import { owedAmortisation, owedWages } from "../finance/finance";
-import { userOffers } from "../league/market";
+import { freeAgencyClosed, userOffers } from "../league/market";
+import { capView } from "./cap";
 import { teamRef } from "./common";
 import { loopWorld, openWindow } from "../league/game";
 import { openLeague } from "../league/session";
@@ -61,12 +62,18 @@ export async function getFreeAgents(lid: number): Promise<FreeAgentsView> {
       };
     })
     .sort((a, b) => b.ovr - a.ovr || a.pid - b.pid);
+  const cap = capView(session, user, world.players, game.season, game.date);
+  const rules = session.config.competitions.rosterRules;
   return {
     rows,
-    wageRoom: budgets.wageRoom,
+    wageRoom: cap ? cap.freeAgentRoom : budgets.wageRoom,
     seniors: seniorsOf(world.players, user.cid).length,
-    maxSeniors: TRANSFERS.maxSeniors,
+    maxSeniors: rules.maxSeniorFromFirstMatch ? rules.maxSenior : TRANSFERS.maxSeniors,
+    // As contract talks count it (SPEC §17.4).
+    limitCounts: !rules.maxSeniorFromFirstMatch || game.phase === "regularSeason",
     windowOpen: openWindow(game.date, game.season, session.config.competitions) !== null,
+    closed: freeAgencyClosed(session, game),
+    cap,
     banned: transferBanned(user, game.date) ? (user.ffp?.bannedUntil ?? null) : null,
     fired: Boolean(game.fired),
   };

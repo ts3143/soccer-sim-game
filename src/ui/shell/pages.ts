@@ -27,6 +27,7 @@ const transfers = (s: WorldSwitches) => s.market === "transfers";
 const academies = (s: WorldSwitches) => s.youth === "academy";
 const drafts = (s: WorldSwitches) => s.youth === "draft";
 const trades = (s: WorldSwitches) => s.market === "trades";
+const resigningPeriod = (s: WorldSwitches) => s.renewals === "resigningPeriod";
 
 export const PAGES: PageDef[] = [
   { key: "dashboard", title: "Dashboard", section: "General" },
@@ -56,6 +57,7 @@ export const PAGES: PageDef[] = [
   { key: "trade", title: "Trade", section: "Players", when: trades },
   { key: "trading-block", title: "Trading Block", section: "Players", when: trades },
   { key: "draft", title: "Draft", section: "Players", when: drafts },
+  { key: "resign-players", title: "Re-sign Players", section: "Players", when: resigningPeriod },
   { key: "player", title: "Player", section: "Players", hidden: true },
   { key: "box-score", title: "Box Score", section: "Team", hidden: true },
   { key: "live", title: "Live match", section: "Team", hidden: true },

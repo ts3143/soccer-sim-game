@@ -201,6 +201,11 @@ export interface SquadPlayerView {
   value: number;
   /** Mood toward his club (−1 to 1); null for academy players. */
   mood: number | null;
+  /**
+   * In a world with a re-signing period (SPEC §17.6): an expiring player of the user's
+   * club would talk about a new contract; null otherwise.
+   */
+  willing: boolean | null;
   season: { appearances: number; goals: number; assists: number; rating: number | null };
 }
 
@@ -660,6 +665,29 @@ export interface LiveBoardView extends TacticsView {
 }
 
 /** The Free Agents page (M6): every unsigned player, his ask and his mood toward the user's club. */
+/**
+ * A club's payroll against its soft cap (SPEC §17.7), in a world with one: what it may
+ * still spend on free agents, and the luxury tax if the season ended today.
+ */
+export interface CapView {
+  /** Wages of the players under contract plus those owed to released players, a year. */
+  payroll: number;
+  cap: number;
+  /** Cap less payroll: negative when over. */
+  room: number;
+  minimumWage: number;
+  /** The most a free agent's wage can be now: the room, or the minimum wage over the cap. */
+  freeAgentRoom: number;
+  /** The luxury tax on this payroll if the season ended today. */
+  taxIfEnded: number;
+  /** Tax per euro over the cap. */
+  taxRate: number;
+  /** Over the cap, a trade may bring back at most this times the wages sent out. */
+  tradeMatching: number;
+  /** A relegated club's grace: its old league's cap, through this season. */
+  grace: { league: string; through: number } | null;
+}
+
 export interface FreeAgentsView {
   rows: {
     pid: number;
@@ -678,11 +706,17 @@ export interface FreeAgentsView {
     willing: boolean;
     daysFree: number;
   }[];
-  /** The user's wage room (a year) now. */
+  /** The user's wage room (a year) now; under a soft cap, his free-agent room. */
   wageRoom: number;
   seniors: number;
   maxSeniors: number;
+  /** The squad limit counts now (in the Super League from the first league match). */
+  limitCounts: boolean;
   windowOpen: boolean;
+  /** Where free agency has its own dates (SPEC §17.6): why it's closed now, else null. */
+  closed: string | null;
+  /** The soft cap (null in a world without one). */
+  cap: CapView | null;
   /** FFP transfer ban until this date, if any. */
   banned: string | null;
   fired: boolean;
@@ -790,6 +824,11 @@ export interface ClubFinancesView {
     bannedUntil: string | null;
   };
   budget: { transfer: number; wageRoom: number; wageShare: number; base: number };
+  /**
+   * Under a soft cap (SPEC §17.7), in place of FFP and the transfer budget: the cap now,
+   * and last season's luxury tax paid and share received. Null in a world without one.
+   */
+  cap: (CapView & { lastSeason: { season: number; paid: number; received: number } | null }) | null;
   dials: {
     key: "coaching" | "youth" | "medical" | "facilities";
     label: string;
@@ -946,6 +985,12 @@ export interface FinancesView {
     wages: number | null;
     /** Squad cost over revenue: projected now, or the season's FFP ratio. */
     squadCostRatio: number | null;
+    /** Under a soft cap, the current season: the payroll and the club's cap. */
+    payroll: number | null;
+    cap: number | null;
+    /** Under a soft cap, a finished season: the luxury tax paid and the share received. */
+    taxPaid: number | null;
+    taxReceived: number | null;
     ffp: "ok" | "warned" | "banned" | null;
     reputation: number;
   }[];
@@ -1154,6 +1199,8 @@ export interface ContractTalks {
     /** Cash below zero: transfer fees are frozen until it's back above zero (SPEC §6.4). */
     cashFrozen: boolean;
   };
+  /** The soft cap in its place (SPEC §17.7; null in a world without one). */
+  cap: CapView | null;
 }
 
 /** A club's answer to the user's bid. */
@@ -1388,6 +1435,43 @@ export interface DraftPicksView {
   tradedAway: { season: number; round: number; holder: TeamRef }[];
 }
 
+/** A final-year player on the Re-sign Players page. */
+export interface ResigningRow {
+  pid: number;
+  name: string;
+  nationality: string;
+  position: string;
+  age: number;
+  ovr: number;
+  pot: number;
+  /** His wage now, a year. */
+  wage: number;
+  mood: number;
+  willing: boolean;
+  /** His lowest ask a year (over 1–5 years) for a new contract. */
+  ask: number;
+}
+
+/**
+ * Re-sign Players (SPEC §17.6): the user's players whose contracts end this 30 June. They
+ * can be re-signed only in the re-signing period (from the draft to 30 June), over the cap
+ * too; anyone not re-signed leaves on 1 July.
+ */
+export interface ResigningView {
+  open: boolean;
+  /** The period's first and last days this season. */
+  opens: string;
+  closes: string;
+  players: ResigningRow[];
+  /** This season's cap (null without one). */
+  cap: CapView | null;
+  /**
+   * Next season: the wages already committed (contracts running past 30 June, released
+   * players still owed) and the cap then, in the club's league as it stands.
+   */
+  next: { committed: number; cap: number | null; league: string };
+}
+
 export interface WorkerApi {
   getStatus(): WorkerStatus;
   listLeagues(): LeagueSummary[];
@@ -1413,6 +1497,7 @@ export interface WorkerApi {
   getTeamStats(lid: number, leagueId: string | null, season: number | null): TeamStatsView;
   getInjuries(lid: number): InjuriesView;
   getFreeAgents(lid: number): FreeAgentsView;
+  getResigning(lid: number): ResigningView;
   getTransferMarket(lid: number): TransferMarketView;
   getAcademy(lid: number): AcademyView;
   /** When the user has been sacked: the club, his record and his job offers (else null). */

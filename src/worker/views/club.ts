@@ -21,6 +21,7 @@ import { loopWorld } from "../league/game";
 import { openLeague } from "../league/session";
 import { clubBudgets, seniorsOf, squadCost, TRANSFERS } from "../market/transfers";
 import { mustDecideBy, promotionWage } from "../season/offseason";
+import { capView } from "./cap";
 import { leagueTables, seasonFixtures, teamRef } from "./common";
 
 export async function getAcademy(lid: number): Promise<AcademyView> {
@@ -64,6 +65,8 @@ const REVENUE_LABELS: Record<string, string> = {
   prize: "Prize money",
   commercial: "Sponsorship and merchandise",
   playerSales: "Player sales",
+  merit: "TV merit payments",
+  taxShare: "Luxury tax share",
 };
 const EXPENSE_LABELS: Record<string, string> = {
   wages: "Wages",
@@ -72,6 +75,7 @@ const EXPENSE_LABELS: Record<string, string> = {
   youth: "Youth academy",
   medical: "Medical",
   facilities: "Facilities",
+  luxuryTax: "Luxury tax",
 };
 const DIALS = [
   { key: "coaching", label: "Coaching", what: "How fast every player develops." },
@@ -122,6 +126,21 @@ export async function getClubFinances(lid: number): Promise<ClubFinancesView> {
   const prices = [...new Set([...PRICE_POINTS.map((f) => Math.round(f * fair)), club.ticketPrice])];
   const effects = effectiveDials(club);
   const income = operatingRevenue(row.revenue) + (row.revenue.playerSales ?? 0);
+  const capOf = () => {
+    const cap = capView(session, club, world.players, game.season, game.date);
+    return (
+      cap && {
+        ...cap,
+        lastSeason: last
+          ? {
+              season: last.season,
+              paid: Math.round(last.expenses.luxuryTax ?? 0),
+              received: Math.round(last.revenue.taxShare ?? 0),
+            }
+          : null,
+      }
+    );
+  };
   const spent = expenses.reduce((sum, e) => sum + e.amount, 0);
   return {
     season: game.season,
@@ -153,7 +172,11 @@ export async function getClubFinances(lid: number): Promise<ClubFinancesView> {
       wageShare: club.wageShare ?? TRANSFERS.budget.wageShare,
       base: budgets.base,
     },
-    dials: DIALS.map((d) => ({
+    cap: capOf(),
+    // Without academies there's no youth dial (SPEC §17.7).
+    dials: DIALS.filter(
+      (d) => d.key !== "youth" || session.config.switches.youth === "academy",
+    ).map((d) => ({
       key: d.key,
       label: d.label,
       what: d.what,

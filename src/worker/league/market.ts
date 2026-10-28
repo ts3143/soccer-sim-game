@@ -29,9 +29,9 @@ import {
   startLoan,
 } from "../market/loans";
 import { clubRevenue, moodAtClub } from "../market/renewals";
-import { clubCap, freeAgentWageRoom, payroll } from "../finance/softCap";
 import { freeAgencyOpen, rosterDeadline } from "../season/freeAgency";
 import { releaseToFreeAgency } from "../season/offseason";
+import { capView } from "../views/cap";
 import {
   askingPrice,
   bidOutcome,
@@ -113,7 +113,7 @@ function notBanned(session: LeagueSession, date: string) {
  * Why the user can't sign a free agent now where free agency has its own dates (SPEC
  * §17.6): from 1 July to the roster deadline. Null when he can, or without such dates.
  */
-function freeAgencyClosed(session: LeagueSession, game: GameMeta): string | null {
+export function freeAgencyClosed(session: LeagueSession, game: GameMeta): string | null {
   const competitions = session.config.competitions;
   if (!competitions.freeAgency) return null;
   const fixtures = session.cache.getAll("fixtures").filter((f) => f.season === game.season);
@@ -169,13 +169,9 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
   const level = leagueLevel(world, (club ?? user).leagueId, game.date);
   const budgets = clubBudgets(world, user);
   // Under a soft cap a signing's wage must fit the cap, or be the minimum wage (SPEC §17.7).
-  const competitions = session.config.competitions;
-  const cap = clubCap(competitions, user, game.season);
-  const wageRoom =
-    competitions.softCap && cap !== null
-      ? freeAgentWageRoom(competitions.softCap, payroll(user, world.players, game.date), cap)
-      : budgets.wageRoom;
-  const rules = competitions.rosterRules;
+  const cap = capView(session, user, world.players, game.season, game.date);
+  const wageRoom = cap ? cap.freeAgentRoom : budgets.wageRoom;
+  const rules = session.config.competitions.rosterRules;
   return {
     pid,
     name: fullName(p),
@@ -218,6 +214,7 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
       bannedUntil: transferBanned(user, game.date) ? (user.ffp?.bannedUntil ?? null) : null,
       cashFrozen: user.cash < 0,
     },
+    cap,
   };
 }
 

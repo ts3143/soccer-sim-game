@@ -12,6 +12,7 @@ import type {
 } from "../../common/api";
 import type { AwardRow, Club, GameMeta } from "../../common/schema";
 import { transferBanned } from "../finance/ffp";
+import { clubCap, payroll } from "../finance/softCap";
 import { operatingRevenue, owedAmortisation, owedWages, totalOf } from "../finance/finance";
 import { clubStrength } from "../club/standing";
 import type { LeagueSession } from "../league/session";
@@ -232,6 +233,8 @@ export async function getFinances(lid: number, season: number | null): Promise<F
   const current = s === game.season;
   const clubs = clubsOf(session);
   const players = session.cache.getAll("players");
+  const competitions = session.config.competitions;
+  const softCap = competitions.softCap;
   return {
     season: s,
     current,
@@ -262,8 +265,12 @@ export async function getFinances(lid: number, season: number | null): Promise<F
                   1000,
               ) / 1000
             : r.squadCostRatio,
+          payroll: current && club && softCap ? payroll(club, players, game.date) : null,
+          cap: current && club ? clubCap(competitions, club, s) : null,
+          taxPaid: !current && softCap ? Math.round(r.expenses.luxuryTax ?? 0) : null,
+          taxReceived: !current && softCap ? Math.round(r.revenue.taxShare ?? 0) : null,
           ffp:
-            current && club
+            current && club && !softCap
               ? transferBanned(club, game.date)
                 ? "banned"
                 : club.ffp?.warned
