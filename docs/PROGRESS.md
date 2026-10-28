@@ -1945,6 +1945,27 @@ Plan (about 6 chunks): 1 trade valuation (players, picks, contract, cap room, te
 - **SL5 is complete.** For T: who contends (the board's top two targets, chunk 1); the star for four starters (chunk 1); offers taken with contracts and cap room counted (8–12%, above), or a star premium so a club never lets its star go for two average players; non-relegated clubs over the cap paying the tax rather than shedding (chunk 4); the relegated clubs' gate at 10%; if T wants them all back under, a relegation wage clause (wages cut on relegation, as in football contracts) would do it where trades can't.
 - **T's answers (2026-10-28):** who contends changes: about 3 or 4 clubs a league, more or fewer by how close the top is that season (`contenders`: the clubs within 1 OVR of the league's strongest by their best 11, injured players too, 2 to 6 a league, judged on the day's squads; config `trades.contending`). Over 10 seasons of a harness world: 3.4 a league (2–6). The rest stands as built: the star for four starters, offers taken with contracts and cap room counted (now about 16%: more clubs rebuild), clubs over the cap paying the tax, the relegated clubs' gate at 10%, no relegation wage clause. Design doc #90. 20 seasons × 3 worlds after the change: every gate passes; 43.9 trades a season; 5 of 216 relegated clubs still over after their grace; the rise 8.2 seasons. Checks: lint; 423 unit tests (changed: contenders are 2 to 6 a league, the strongest); `pnpm build`; `pnpm calibrate --world superLeague --check`. Classic doesn't trade: its numbers can't move.
 
+### SL6: Validation and tuning (from 2026-10-28)
+Plan (about 5 chunks): 1 measure the rise properly (a breakdown by league, more worlds, config overrides for experiments); 2 find the bottleneck and tune AI coefficients first; 3 if that isn't enough, a table of T's levers (cap shares, TV pools, lottery odds, class size and quality, rookie wages) with measured effects; 4 T's choice applied, the rise gated at 4–6 on CI's seed, the other §17.9 items checked, docs; 5 buffer and CI time.
+
+#### Chunk 1: measuring the rise (2026-10-28)
+- **Built:** the tier report takes `--overrides` like `pnpm calibrate --world`'s, now also a world's config by its id (`{"superLeague":{"softCap":{...}}}`, `overrides.ts`), for experiments. The rise is taken apart (`riseBreakdown`): the seasons the rises that made it spent in each league, where unfinished rises stand when the runs end, how promoted clubs do in their first season up (into Star: top 8; into Gold: up again at once), and each world's average.
+- **Measured** (6 worlds × 20 seasons, two seeds; T's contending rule):
+
+  | | CI's seed | another seed |
+  | --- | --- | --- |
+  | The rise: average (median) | 9.1 (8) | 9.0 (8) |
+  | Rises that made it / still on the way | 68 / 120 | 57 / 131 |
+  | Seasons on the way: Blue, Gold, Star | 4.7, 2.9, 1.5 | 4.7, 2.9, 1.4 |
+  | Still on the way, in: Blue, Gold, Star | 74, 41, 5 | 80, 49, 2 |
+  | Promoted into Star: mean finish, top 8 in the first season | 7.8, 56% | 8.0, 55% |
+  | Promoted into Gold: mean finish, up again at once | 7.0, 22% | 7.3, 18% |
+  | Each world's average | 8.3, 7.9, 8.4, 10.2, 8.8, 10.9 | 9.4, 9.2, 10.1, 6.2, 9.5, 9.5 |
+
+  A world's own average swings 6–11, so 3 worlds read 7.6–11.0 across seeds while 6 read 9.0–9.1. Every other gate passes on both seeds with 6 worlds.
+- **What it says:** the rise is slow at its start. A club from Blue's bottom four takes 4.7 seasons on average to get out of Blue, then 2.9 in Gold; once in Star it's quick (56% of promoted clubs finish in the top 8 at once). Two thirds of the rises never finish in 20 seasons, most of them still in Blue. For an average of 4–6, getting out of Blue would have to take about 2 seasons.
+- **Checks:** lint; 424 unit tests (new: the breakdown); the tier report on 6 worlds, two seeds, every gate passes. Harness only.
+
 ## Open issues
 - The UI bundle is past Vite's 500 KB chunk warning since SL1 (crests inlined): load crests as files, or split the bundle, if it matters.
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).

@@ -323,3 +323,90 @@ export function picksHeld(world: LoopWorld): { most: number; none: number } {
   const counts = [...held.values()];
   return { most: Math.max(0, ...counts), none: counts.filter((n) => n === 0).length };
 }
+
+/** The rise taken apart (SL6): where its seasons go, and how promoted clubs fare. */
+export interface RiseBreakdown {
+  clocks: number;
+  made: number;
+  /** Over the rises that made it: mean seasons played in each league on the way. */
+  seasonsIn: Record<string, number>;
+  /** Rises still running when the runs ended, by the league played last. */
+  runningIn: Record<string, number>;
+  /**
+   * The first season after promotion into each league: how many such seasons, the mean
+   * finish, how often in the top `toTop`, and how often promoted again at once.
+   */
+  firstSeason: Record<
+    string,
+    { clubs: number; meanFinish: number; topShare: number; upAgain: number }
+  >;
+}
+
+/** The rise (as `rise`) taken apart by league, and promoted clubs' first seasons. */
+export function riseBreakdown(
+  runs: readonly TierRun[],
+  bottomLeague: string,
+  fromBottom: number,
+  topLeague: string,
+  toTop: number,
+): RiseBreakdown {
+  const out: RiseBreakdown = { clocks: 0, made: 0, seasonsIn: {}, runningIn: {}, firstSeason: {} };
+  const totals: Record<string, number> = {};
+  const first: Record<string, { clubs: number; finish: number; top: number; up: number }> = {};
+  for (const run of runs) {
+    const leagueOf = (i: number, cid: number) =>
+      Object.entries(run.seasons[i]?.tables ?? {}).find(([, t]) => t.includes(cid))?.[0] ?? "";
+    const started = new Map<number, number>();
+    run.seasons.forEach((s, i) => {
+      for (const cid of (s.tables[topLeague] ?? []).slice(0, toTop)) {
+        const from = started.get(cid);
+        if (from === undefined) continue;
+        out.made++;
+        for (let k = from + 1; k <= i; k++) {
+          const league = leagueOf(k, cid);
+          totals[league] = (totals[league] ?? 0) + 1;
+        }
+        started.delete(cid);
+      }
+      for (const cid of (s.tables[bottomLeague] ?? []).slice(-fromBottom)) {
+        if (!started.has(cid)) {
+          started.set(cid, i);
+          out.clocks++;
+        }
+      }
+      // Clubs promoted at the end of the season before: their first season up.
+      for (const move of run.seasons[i - 1]?.moves ?? []) {
+        if (move.reason === "relegated") continue;
+        const table = s.tables[move.to] ?? [];
+        const position = table.indexOf(move.cid) + 1;
+        if (position === 0) continue;
+        const f = (first[move.to] ??= { clubs: 0, finish: 0, top: 0, up: 0 });
+        f.clubs++;
+        f.finish += position;
+        if (position <= toTop) f.top++;
+        if (
+          s.moves.some((m) => m.cid === move.cid && m.from === move.to && m.reason !== "relegated")
+        ) {
+          f.up++;
+        }
+      }
+    });
+    const last = run.seasons.length - 1;
+    for (const cid of started.keys()) {
+      const league = leagueOf(last, cid);
+      out.runningIn[league] = (out.runningIn[league] ?? 0) + 1;
+    }
+  }
+  for (const [league, total] of Object.entries(totals)) {
+    out.seasonsIn[league] = total / Math.max(1, out.made);
+  }
+  for (const [league, f] of Object.entries(first)) {
+    out.firstSeason[league] = {
+      clubs: f.clubs,
+      meanFinish: f.finish / Math.max(1, f.clubs),
+      topShare: f.top / Math.max(1, f.clubs),
+      upAgain: f.up / Math.max(1, f.clubs),
+    };
+  }
+  return out;
+}

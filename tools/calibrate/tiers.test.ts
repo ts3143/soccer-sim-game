@@ -7,6 +7,7 @@ import {
   moveProblems,
   playerCountDrift,
   rise,
+  riseBreakdown,
   shapeDrift,
   type TierRun,
   type TierSeason,
@@ -89,6 +90,31 @@ describe("tier measures", () => {
       2,
     );
     expect(r).toEqual({ seasons: [3], never: 2 });
+  });
+
+  it("takes the rise apart: seasons by league, rises still running, first seasons up", () => {
+    // As above: club 12 rises in 3 seasons (a season each in Blue, Gold and Star); clubs 11
+    // and 9 are still in Blue. Club 12 went up from Blue after season 2 and finished first
+    // in Gold in season 3, then went up again.
+    const b = riseBreakdown(
+      [
+        run(
+          season([1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]),
+          season([1, 2, 3, 4], [5, 6, 7, 8], [12, 10, 9, 11], [up(12, "BLUE", "GOLD")]),
+          season([1, 2, 3, 4], [12, 6, 7, 8], [5, 10, 9, 11], [up(12, "GOLD", "STAR")]),
+          season([12, 2, 3, 4], [1, 6, 7, 8], [5, 10, 9, 11]),
+        ),
+      ],
+      "BLUE",
+      2,
+      "STAR",
+      2,
+    );
+    expect([b.clocks, b.made]).toEqual([3, 1]);
+    expect(b.seasonsIn).toEqual({ BLUE: 1, GOLD: 1, STAR: 1 });
+    expect(b.runningIn).toEqual({ BLUE: 2 });
+    expect(b.firstSeason.GOLD).toEqual({ clubs: 1, meanFinish: 1, topShare: 1, upAgain: 1 });
+    expect(b.firstSeason.STAR).toEqual({ clubs: 1, meanFinish: 1, topShare: 1, upAgain: 0 });
   });
 
   it("counts a promotion relegated again within two seasons as a yo-yo", () => {

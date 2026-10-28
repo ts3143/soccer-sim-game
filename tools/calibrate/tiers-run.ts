@@ -4,8 +4,11 @@
  * <seasons> <world>` prints a TierRun as JSON.
  */
 import { worldById } from "../../src/common/config/worlds";
+import { applyOverrides } from "./overrides";
 import { picksHeld, recordTierSeason, type TierRun, type TierSeason, tradeExploits } from "./tiers";
 import { type SeasonReport, simulateWorld } from "./world";
+
+applyOverrides();
 
 const [seed = "calibrate-w0", seasons = "20", world = "superLeague"] = process.argv.slice(2);
 const records: TierSeason[] = [];

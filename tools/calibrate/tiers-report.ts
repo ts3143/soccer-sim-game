@@ -1,6 +1,7 @@
 /**
  * The tier report for a world of tiers (the Super League, SPEC §17.9), run by
- * `pnpm calibrate --world superLeague [--seasons 20] [--worlds 3] [--seed X] [--check]`.
+ * `pnpm calibrate --world superLeague [--seasons 20] [--worlds 3] [--seed X] [--check]
+ * [--overrides JSON]` (overrides as `pnpm calibrate --world`'s, the world's config by its id).
  * Plays W worlds for S seasons each (in parallel processes) and reports the acceptance
  * (every season played, exactly the configured places up and down, nobody out of the
  * lowest tier: gated), yo-yo clubs, the rise from the bottom of the lowest tier to the top
@@ -21,6 +22,7 @@ import {
   moveProblems,
   playerCountDrift,
   rise,
+  riseBreakdown,
   shapeDrift,
   type TierRun,
   yoYo,
@@ -33,6 +35,7 @@ const SEASONS = Number(option("--seasons", "20"));
 const WORLDS = Number(option("--worlds", "3"));
 const SEED = option("--seed", "calibrate");
 const CHECK = args.includes("--check");
+const OVERRIDES = option("--overrides", "");
 const world = worldOption(args);
 const JOBS = Math.max(
   1,
@@ -68,7 +71,10 @@ function runWorld(seed: string): Promise<TierRun> {
     const child = spawn(
       process.execPath,
       ["--import", "tsx", script, seed, String(SEASONS), world.id],
-      { stdio: ["ignore", "pipe", "inherit"] },
+      {
+        stdio: ["ignore", "pipe", "inherit"],
+        env: { ...process.env, ...(OVERRIDES ? { CALIBRATE_OVERRIDES: OVERRIDES } : {}) },
+      },
     );
     let out = "";
     child.stdout.on("data", (chunk: Buffer) => (out += chunk.toString()));
@@ -104,7 +110,9 @@ const median = (xs: readonly number[]) =>
 const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
 
 console.log(`Soccer Sim Game: tier report (world ${world.id}, seed "${SEED}")`);
-console.log(`  ${WORLDS} worlds x ${SEASONS} seasons\n`);
+console.log(`  ${WORLDS} worlds x ${SEASONS} seasons`);
+if (OVERRIDES) console.log(`  overrides: ${OVERRIDES}`);
+console.log("");
 
 const problems = [
   ...runs.flatMap((r) =>
@@ -136,6 +144,32 @@ console.log(
 console.log(
   `           ${r.seasons.length} made it, ${r.never} still on the way when the runs ended (${pct(r.never / Math.max(1, r.never + r.seasons.length))})`,
 );
+
+// The rise taken apart (SL6): its seasons by league, where unfinished rises stand, and how
+// promoted clubs do in their first season up; and each world's average.
+const parts = riseBreakdown(runs, bottom, riseTarget.fromBottom, top, riseTarget.toTop);
+const byLeague = (record: Record<string, number>, show: (x: number) => string) =>
+  leagues.map((l) => `${l.id} ${show(record[l.id] ?? 0)}`).join(", ");
+console.log(
+  `           seasons on the way, by league: ${byLeague(parts.seasonsIn, (x) => x.toFixed(1))}`,
+);
+console.log(
+  `           still on the way, by the league played last: ${byLeague(parts.runningIn, String)}`,
+);
+for (const l of leagues) {
+  const f = parts.firstSeason[l.id];
+  if (!f) continue;
+  const next =
+    l.id === top ? `top ${riseTarget.toTop} ${pct(f.topShare)}` : `up again ${pct(f.upAgain)}`;
+  console.log(
+    `           first season after promotion into ${l.id}: ${f.clubs} clubs, mean finish ${f.meanFinish.toFixed(1)}, ${next}`,
+  );
+}
+const perWorld = runs.map((run) => {
+  const w = rise([run], bottom, riseTarget.fromBottom, top, riseTarget.toTop);
+  return w.seasons.length ? mean(w.seasons).toFixed(1) : "-";
+});
+console.log(`           average by world: ${perWorld.join(", ")}`);
 
 const m = mobility(runs, top, world.clubs.length, [10, 20]);
 console.log("\nTier mobility");
