@@ -34,6 +34,7 @@ import { applyCapGrace } from "../finance/softCap";
 import { makePicks, nextPick, setDraftOrder } from "../season/draft";
 import { firstLeagueDay } from "../season/freeAgency";
 import { resigningNotice } from "../market/renewals";
+import { tradeCalendar, tradesClosed } from "../market/trades";
 import { seasonDate } from "../schedule/calendar";
 import {
   endOfSeasonTurnover,
@@ -217,6 +218,16 @@ export function saveMessages(session: LeagueSession, rows: readonly NewMessage[]
   session.cache.put("meta", ids, "ids");
 }
 
+/** Trades on the game date (a world with trades): open to the deadline or 30 June, or closed. */
+function tradeWindow(session: LeagueSession, game: GameMeta): GameState["trades"] {
+  if (session.config.switches.market !== "trades") return null;
+  const fixtures = session.cache.getAll("fixtures").filter((f) => f.season === game.season);
+  const cal = tradeCalendar(session.config.competitions, game.season, fixtures);
+  if (tradesClosed(cal, game.date)) return { open: false, until: null };
+  const toDeadline = cal.deadline !== null && game.date <= cal.deadline;
+  return { open: true, until: toDeadline ? cal.deadline : `${game.season + 1}-06-30` };
+}
+
 export function gameState(session: LeagueSession): GameState {
   const game = meta<GameMeta>(session, "game");
   const stored = meta<SeasonMeta>(session, "season");
@@ -257,6 +268,7 @@ export function gameState(session: LeagueSession): GameState {
     phase: game.phase,
     date: game.date,
     window,
+    trades: tradeWindow(session, game),
     options,
     nextUserFixture: next ?? null,
     live: live === null ? null : { fid: live },

@@ -205,13 +205,18 @@ export function Player({ params }: { params: string[] }) {
   if (!view) return <p>Loading…</p>;
   const status = STATUS_LABELS[view.status] ?? view.status;
   const own = view.status === "club" && view.team?.cid === shell.userCid;
+  // A world with trades has no bids, transfer list or loans (SPEC §17.8).
+  const { switches } = shell.world;
+  const transfers = switches.market === "transfers";
   const talk =
     view.status === "freeAgent"
       ? "Offer a contract"
       : view.status === "club" && view.team
         ? view.team.cid === shell.userCid
           ? "New contract"
-          : "Make a bid"
+          : transfers
+            ? "Make a bid"
+            : null
         : null;
   return (
     <>
@@ -231,21 +236,25 @@ export function Player({ params }: { params: string[] }) {
         )}
         {own && !shell.state.fired && (
           <>
-            <button
-              type="button"
-              className="btn btn-outline-primary btn-sm"
-              onClick={() => setDialog("list")}
-              data-testid="profile-list"
-            >
-              {view.listed ? `Listed at ${formatEuros(view.listed.asking)}` : "List for transfer"}
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline-secondary btn-sm"
-              onClick={() => setDialog("loan")}
-            >
-              Loan out
-            </button>
+            {transfers && (
+              <button
+                type="button"
+                className="btn btn-outline-primary btn-sm"
+                onClick={() => setDialog("list")}
+                data-testid="profile-list"
+              >
+                {view.listed ? `Listed at ${formatEuros(view.listed.asking)}` : "List for transfer"}
+              </button>
+            )}
+            {switches.loans && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => setDialog("loan")}
+              >
+                Loan out
+              </button>
+            )}
             <button
               type="button"
               className="btn btn-outline-danger btn-sm"

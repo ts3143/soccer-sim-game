@@ -17,7 +17,7 @@ import { crestUrl } from "../crests";
 import { formatDate, formatDayMonth } from "../format";
 import { leaguePath, Link, navigate, usePath } from "../router";
 import { onWorkerEvent, toWorker } from "../workerClient";
-import { PAGES, SECTIONS } from "./pages";
+import { inWorld, PAGES, SECTIONS } from "./pages";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { LEAGUE_CLOSED } from "../../common/errors";
 import { errorText } from "../errors";
@@ -145,6 +145,13 @@ function TopBar({ menuOpen, onMenu }: { menuOpen: boolean; onMenu: () => void })
   const windowText =
     state.window &&
     `${state.window.id === "summer" ? "Summer" : "Winter"} window until ${formatDate(state.window.closes)}`;
+  // A world with trades (SPEC §17.8): "Trades open until <date>", or closed to the play-offs' end.
+  const trades = state.trades;
+  const tradesText = trades
+    ? trades.open && trades.until
+      ? `Trades open until ${formatDate(trades.until)}`
+      : "Trades closed until the play-offs end"
+    : null;
   return (
     <nav
       className="navbar navbar-dark bg-dark sticky-top px-3 gap-3 flex-nowrap"
@@ -186,6 +193,20 @@ function TopBar({ menuOpen, onMenu }: { menuOpen: boolean; onMenu: () => void })
           <span className="badge text-bg-success" title={windowText ?? undefined}>
             <span className="d-none d-xl-inline">{windowText}</span>
             <span className="d-xl-none">Window until {formatDayMonth(state.window.closes)}</span>
+          </span>
+        )}
+        {trades && (
+          <span
+            className={`badge ${trades.open ? "text-bg-success" : "text-bg-secondary"}`}
+            title={tradesText ?? undefined}
+            data-testid="trades-badge"
+          >
+            <span className="d-none d-xl-inline">{tradesText}</span>
+            <span className="d-xl-none">
+              {trades.open && trades.until
+                ? `Trades until ${formatDayMonth(trades.until)}`
+                : "Trades closed"}
+            </span>
           </span>
         )}
       </div>
@@ -231,7 +252,9 @@ function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }
             {section}
           </div>
           <ul className="nav flex-column">
-            {PAGES.filter((p) => p.section === section && !p.hidden).map((p) => {
+            {PAGES.filter(
+              (p) => p.section === section && !p.hidden && inWorld(p, shell.world.switches),
+            ).map((p) => {
               const to = p.team
                 ? leaguePath(shell.lid, p.key, shell.userCid)
                 : leaguePath(shell.lid, p.key);

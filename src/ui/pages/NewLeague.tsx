@@ -1,6 +1,7 @@
 /**
- * New league (SPEC §11): pick your club from any of the 62 (by league, with crest, city,
- * squad strength and revenue), name the save, and start. The seed is optional.
+ * New league (SPEC §11, §17.1): pick a world (Classic or Super League; the switches behind
+ * them aren't shown), then your club from its leagues (with crest, city, squad strength and
+ * revenue), name the save, and start. The seed is optional.
  */
 import { useEffect, useState } from "react";
 import type { ClubChoice } from "../../common/api";
@@ -11,12 +12,26 @@ import { leaguePath, Link, navigate } from "../router";
 import { toWorker } from "../workerClient";
 import { errorText } from "../errors";
 
-/** Classic only until New game offers the Super League too (MILESTONES SL7). */
-const WORLD: WorldId = "classic";
+/** The two ways to play (SPEC §17.1), as offered at New game. */
+const WORLDS: { id: WorldId; name: string; blurb: string }[] = [
+  {
+    id: "classic",
+    name: "Classic",
+    blurb:
+      "England's top two divisions and Germany's top flight: transfers, loans, youth academies and Financial Fair Play.",
+  },
+  {
+    id: "superLeague",
+    name: "Super League",
+    blurb:
+      "48 clubs in three tiers of 16 with promotion and relegation: a draft with a lottery, trades instead of transfers, and a soft salary cap.",
+  },
+];
 
 export function NewLeague() {
+  const [world, setWorld] = useState<WorldId>("classic");
   const [choices, setChoices] = useState<ClubChoice[]>([]);
-  const [league, setLeague] = useState<string>("ENG1");
+  const [league, setLeague] = useState<string>("");
   const [userCid, setUserCid] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [seed, setSeed] = useState("");
@@ -24,10 +39,13 @@ export function NewLeague() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    toWorker("getClubChoices", WORLD)
-      .then(setChoices)
+    toWorker("getClubChoices", world)
+      .then((loaded) => {
+        setChoices(loaded);
+        setLeague(loaded[0]?.leagueId ?? "");
+      })
       .catch((e: unknown) => setError(errorText(e)));
-  }, []);
+  }, [world]);
 
   const leagues = [...new Map(choices.map((c) => [c.leagueId, c.leagueName])).entries()];
   const clubs = choices
@@ -40,7 +58,7 @@ export function NewLeague() {
     setCreating(true);
     setError(null);
     try {
-      const created = await toWorker("createLeague", { world: WORLD, name, seed, userCid });
+      const created = await toWorker("createLeague", { world, name, seed, userCid });
       navigate(leaguePath(created.lid), { replace: true });
     } catch (e) {
       setError(errorText(e));
@@ -55,6 +73,29 @@ export function NewLeague() {
         <Link to="/" className="ms-auto">
           Back to your leagues
         </Link>
+      </div>
+      <div className="row g-2 mb-3" data-testid="world-choices">
+        {WORLDS.map((w) => (
+          <div key={w.id} className="col-md-6">
+            <button
+              type="button"
+              className={`card w-100 h-100 text-start ${w.id === world ? "border-primary border-2 shadow-sm" : ""}`}
+              onClick={() => {
+                if (w.id === world) return;
+                setWorld(w.id);
+                setChoices([]);
+                setUserCid(null);
+              }}
+              aria-pressed={w.id === world}
+              data-testid={`world-${w.id}`}
+            >
+              <div className="card-body py-2">
+                <div className="fw-semibold">{w.name}</div>
+                <div className="small text-body-secondary">{w.blurb}</div>
+              </div>
+            </button>
+          </div>
+        ))}
       </div>
       <p className="text-body-secondary">
         Pick the club you'll manage. Every other club is run by the computer.

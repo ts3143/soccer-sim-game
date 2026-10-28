@@ -1,8 +1,10 @@
 /**
  * Every league page of the game UI (SPEC §11), by sidebar section.
  * `team` pages carry a club id in the URL and show the team dropdown; `season` pages a
- * season dropdown.
+ * season dropdown. `when` limits a page to worlds whose switches allow it (SPEC §17.8).
  */
+import type { WorldSwitches } from "../../common/config/worlds";
+
 export const SECTIONS = ["General", "League", "Team", "Players", "Stats"] as const;
 export type Section = (typeof SECTIONS)[number];
 
@@ -14,7 +16,12 @@ export interface PageDef {
   season?: boolean;
   /** Reached by links only (player profile, box score), not listed in the sidebar. */
   hidden?: boolean;
+  /** Only in worlds whose switches pass (absent: every world). */
+  when?: (switches: WorldSwitches) => boolean;
 }
+
+const transfers = (s: WorldSwitches) => s.market === "transfers";
+const academies = (s: WorldSwitches) => s.youth === "academy";
 
 export const PAGES: PageDef[] = [
   { key: "dashboard", title: "Dashboard", section: "General" },
@@ -27,12 +34,12 @@ export const PAGES: PageDef[] = [
   { key: "transactions", title: "Transactions", section: "League", season: true },
   { key: "squad", title: "Squad", section: "Team", team: true },
   { key: "tactics", title: "Tactics", section: "Team", team: true },
-  { key: "academy", title: "Youth Academy", section: "Team" },
+  { key: "academy", title: "Youth Academy", section: "Team", when: academies },
   { key: "club-finances", title: "Finances & Facilities", section: "Team" },
   { key: "game-log", title: "Game Log", section: "Team", team: true, season: true },
   { key: "team-history", title: "Team History", section: "Team", team: true },
   { key: "free-agents", title: "Free Agents", section: "Players" },
-  { key: "transfer-market", title: "Transfer Market", section: "Players" },
+  { key: "transfer-market", title: "Transfer Market", section: "Players", when: transfers },
   { key: "player", title: "Player", section: "Players", hidden: true },
   { key: "box-score", title: "Box Score", section: "Team", hidden: true },
   { key: "live", title: "Live match", section: "Team", hidden: true },
@@ -45,3 +52,7 @@ export const PAGES: PageDef[] = [
 ];
 
 export const pageOf = (key: string): PageDef | undefined => PAGES.find((p) => p.key === key);
+
+/** The page is part of this world (its switches allow it). */
+export const inWorld = (page: PageDef, switches: WorldSwitches): boolean =>
+  page.when?.(switches) ?? true;

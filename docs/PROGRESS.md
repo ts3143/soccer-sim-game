@@ -1989,6 +1989,14 @@ Plan (about 5 chunks): 1 measure the rise properly (a breakdown by league, more 
 - **Checks:** lint; 425 unit tests (changed for 3 up and 3 down: the moves, Gold's and Blue's play-off pairs and promotions, zones, the draft order with 6 promoted clubs, pick slots, the parsed config, the harness's move check); `pnpm build`; `pnpm generate --world superLeague --check`; `pnpm calibrate --world superLeague --check` (CI's 3 worlds: every gate passes). Classic's config untouched.
 - **SL6:** with the rise reported, not gated, and every gate passing on CI's seed, SL6's acceptance is met: complete, with chunks 4 and 5 folded in (CI's run stays at 3 worlds, about 2 minutes locally).
 
+### SL7: UI (from 2026-10-28)
+Plan (about 6 chunks): 1 the world in the UI (the shell knows the save's world and switches; the sidebar without the Transfer Market and Youth Academy where they're off; New game's world choice; the top bar's trades badge; no bids, transfer list or loans on player pages); 2 Standings for three tiers (zones, the lottery-odds column) and a Play-offs page (brackets); 3 the Draft page and the team's draft picks; 4 the Trade page, trade offers answered in the inbox, the Trading Block; 5 Re-sign Players, free agents and contract talks under the cap, Finances with the cap; 6 the names file at New game, How to play's Super League section, browser checks through 3 seasons. Acceptance (MILESTONES SL7): T runs a Super League club through 3+ seasons in the UI; every Classic browser check passes.
+
+#### Chunk 1: the world in the UI (2026-10-28)
+- **Built:** the shell carries the save's world (`LeagueShell.world`: id, name, switches) and pages can name the switches they need (`PageDef.when`): the Transfer Market shows where the market is transfers, the Youth Academy where youth is the academy. `GameState.trades` gives the trade window in a world with trades (open to the roster deadline, or to 30 June after the play-offs; closed until the play-offs end), shown in the top bar as Classic's window is. The player page offers no bid, transfer list or loan where they're off. New game offers Classic and the Super League (a card each, with a line on what it is; the clubs follow the choice).
+- **Browser check `superleague`** (new, to grow with SL7): New game's choice and the Super League's three tiers, a Blue club started, the top bar's trades badge, the sidebar, a player's buttons.
+- **Checks:** lint; 425 unit tests; `pnpm build`; all 19 browser checks (423 passes: Classic's 416 and the new check's 7).
+
 ## Open issues
 - The UI bundle is past Vite's 500 KB chunk warning since SL1 (crests inlined): load crests as files, or split the bundle, if it matters.
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).

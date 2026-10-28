@@ -7,7 +7,7 @@
  * Arguments and results must be structured-cloneable (plain data).
  */
 import type { Position } from "./config/ratings";
-import type { WorldId } from "./config/worlds";
+import type { WorldId, WorldSwitches } from "./config/worlds";
 import type { MatchEvent, MatchResult, Period } from "./match";
 import type {
   Fixture,
@@ -87,6 +87,12 @@ export interface GameState {
   date: string;
   /** The transfer window open on the game date, if any. */
   window: { id: string; closes: string } | null;
+  /**
+   * In a world with trades (SPEC §17.6): whether they're open on the game date, and to
+   * when (the roster deadline, or 30 June after the play-offs); closed, they reopen when
+   * the play-offs end. Null in a world with transfers.
+   */
+  trades: { open: boolean; until: string | null } | null;
   options: PlayOption[];
   /** The user's next fixture, if one is scheduled. */
   nextUserFixture: Fixture | null;
@@ -1006,6 +1012,8 @@ export interface DashboardView {
 export interface LeagueShell {
   lid: number;
   name: string;
+  /** The save's world (SPEC §17.1): pages show by its switches. */
+  world: { id: WorldId; name: string; switches: WorldSwitches };
   userCid: number;
   /** The first season of every save (season pickers run from it to the current one). */
   firstSeason: number;

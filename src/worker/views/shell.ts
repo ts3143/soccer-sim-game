@@ -10,6 +10,11 @@ export async function getLeagueShell(lid: number): Promise<LeagueShell> {
   return {
     lid,
     name: game.name,
+    world: {
+      id: session.config.id,
+      name: session.config.name,
+      switches: session.config.switches,
+    },
     userCid: game.userCid,
     firstSeason: session.config.competitions.firstSeason,
     clubs: session.cache
