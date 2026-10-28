@@ -36,6 +36,7 @@ export const PLAY_LABELS: Record<PlayOption, string> = {
   untilResigning: "Until the re-signing period",
   advanceToPreseason: "Advance to preseason",
 };
+const TO_DRAFT = new Set<PlayOption>(["untilDraftLottery", "untilDraft", "untilYourPick"]);
 const PHASE_LABELS: Record<string, string> = {
   preseason: "Preseason",
   regularSeason: "Regular season",
@@ -86,6 +87,8 @@ function PlayMenu() {
       const report = await toWorker("playGame", shell.lid, option);
       setLast(report);
       if (report.live) navigate(leaguePath(shell.lid, "live"));
+      // The lottery's draw and the draft itself are on the Draft page (ZenGM).
+      else if (TO_DRAFT.has(option)) navigate(leaguePath(shell.lid, "draft"));
     } catch (e) {
       setError(errorText(e));
     } finally {

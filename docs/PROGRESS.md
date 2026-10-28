@@ -2003,6 +2003,15 @@ Plan (about 6 chunks): 1 the world in the UI (the shell knows the save's world a
 - **Browser check `superleague`:** Standings' zones and lottery odds, the Play-offs page's tabs and projections, then a whole season: Star's 7 ties played and its winner.
 - **Checks:** lint; 425 unit tests (extended: a save's play-off projections before the season's end, none after); `pnpm build`; all 19 browser checks (430 passes).
 
+#### Chunk 3: the Draft and the team's draft picks (2026-10-28)
+- **Draft page** (Players section, worlds with a draft; ZenGM's place): a draft is named by the year it's held ("2027 draft" for 2026/27's). This season's shows the lottery pool from the tables (if the season ended today, once a league match is played; the final tables after), each club's league, place and odds, and after the draw its pick with ▲/▼ against odds order; the prospects left (sortable, searchable); the board of both rounds (club, "via" for a traded slot, the player taken, the pick on the clock and the user's highlighted). A line on top says where the draft stands. On the clock, each prospect has a Draft button. A dropdown shows the drafts held (their boards) and the two classes to come (their prospects).
+- **Play menu:** "Until the draft lottery", "Until the draft" and "Until your pick" open the Draft page afterwards (ZenGM does the same). A pick is on the clock from the draft's day, not on the lottery's (`DraftView.onTheClock` was 1 from the lottery on).
+- **Draft Picks** (Team section, any club): the picks it holds for the coming draft and the two after it: number once the lottery has set it, before that this season's projected (~12; "(lottery)" when in the pool, whose draw can move it) from the tables, by squad strength before a league match (as trade valuation projects it; `playedTables`, now shared with the trade calls); the slot's club when traded in; its own picks other clubs hold.
+- **Player profile:** "Drafted: 2027 round 1, pick 12 by LYO" (and the slot's club when traded), the SPEC §17.5 default.
+- Tidy-up: `ordinal` moved to `format.ts` (it was copied in four pages).
+- **Browser check `superleague`:** after the season, Draft Picks (six picks, this season's projected), the Draft before the lottery (pool of 8, 110 prospects, the classes to come), the lottery's draw (picks 1–8, a board of 96), "Until your pick", drafting a prospect from the page, "To the end of the draft", the draftee's profile.
+- **Checks:** lint; 425 unit tests (the save's draft test extended: the pool and its odds before and after the draw, the user's picks projected then numbered, a class to come, a held draft's board); `pnpm build`; all 19 browser checks (437 passes: Classic's unchanged, the Super League's 21).
+
 ## Open issues
 - The UI bundle is past Vite's 500 KB chunk warning since SL1 (crests inlined): load crests as files, or split the bundle, if it matters.
 - Firefox: T tests it by hand in M7 chunk 6 (Chrome: automated and T; Safari: T).

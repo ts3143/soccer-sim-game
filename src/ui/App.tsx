@@ -19,6 +19,8 @@ import { Injuries } from "./pages/Injuries";
 import { LeagueLeaders } from "./pages/LeagueLeaders";
 import { Live } from "./pages/Live";
 import { NewLeague } from "./pages/NewLeague";
+import { Draft } from "./pages/Draft";
+import { DraftPicks } from "./pages/DraftPicks";
 import { Placeholder } from "./pages/Placeholder";
 import { Player } from "./pages/Player";
 import { PlayerRatings } from "./pages/PlayerRatings";
@@ -154,6 +156,10 @@ function LeaguePage({ page, params }: { page: string; params: string[] }) {
       return <TransferMarket params={params} />;
     case "academy":
       return <Academy />;
+    case "draft":
+      return <Draft params={params} />;
+    case "draft-picks":
+      return <DraftPicks params={params} />;
     case "club-finances":
       return <ClubFinances />;
     case "fired":

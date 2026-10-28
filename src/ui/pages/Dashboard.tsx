@@ -7,19 +7,13 @@ import { DataTable } from "../components/DataTable";
 import { FormBadges, PlayerLink, ScoreLink, TeamLink } from "../components/links";
 import { ZONE_CLASS } from "../components/zones";
 import { crestUrl } from "../crests";
-import { formatDate, formatEuros } from "../format";
+import { formatDate, formatEuros, ordinal } from "../format";
 import { leaguePath, Link } from "../router";
 import { PageHeader } from "../shell/PageHeader";
 import { NextMatchButtons } from "../components/PlayButtons";
 import { useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
-
-const ordinal = (n: number) => {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
-};
 
 function MatchRow({ m }: { m: MatchView }) {
   const { shell } = useShell();

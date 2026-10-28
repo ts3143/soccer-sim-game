@@ -6,7 +6,7 @@ import { addDays } from "../../common/dates";
 import type { GameMeta } from "../../common/schema";
 import { playoffId } from "../season/season";
 import { getCups } from "../views/competitions";
-import { draftView } from "../views/draft";
+import { draftPicksView, draftView } from "../views/draft";
 import { draftProspect } from "./draft";
 import { gameState, play } from "./game";
 import { contractTalks, releasePlayer, renewContract } from "./market";
@@ -97,14 +97,53 @@ describe("a Super League year in a save", () => {
         const report = await play(session, option);
         steps.push([option, report.to, report.phase]);
       };
+      // Before the lottery: the pool from the final tables, the picks projected.
+      let board = draftView(session);
+      expect(board).toMatchObject({ status: "notOrdered", seasons: [2026, 2027, 2028] });
+      expect(board.lottery?.map((r) => r.odds)).toEqual([20, 17, 15, 13, 11, 9, 8, 7]);
+      expect(board.lottery?.every((r) => r.pick === null)).toBe(true);
+      let held = draftPicksView(session, 39).picks;
+      expect(held.map((p) => [p.season, p.round])).toEqual([
+        [2026, 1],
+        [2026, 2],
+        [2027, 1],
+        [2027, 2],
+        [2028, 1],
+        [2028, 2],
+      ]);
+      expect(held.map((p) => p.projected !== null)).toEqual([
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+      ]);
+      expect((held[1]?.projected?.pick ?? 0) - (held[0]?.projected?.pick ?? 0)).toBe(48);
+      // A class to come: its prospects only.
+      const later = draftView(session, 2028);
+      expect(later).toMatchObject({ status: "class", lottery: null, slots: [] });
+      expect(later.prospects).toHaveLength(110);
       await go("untilDraftLottery");
       // The lottery set the order: 96 picks numbered, two of them Lyon's, one a round.
-      let board = draftView(session);
-      expect(board).toMatchObject({ season: 2026, status: "on", onTheClock: 1, yourTurn: false });
+      board = draftView(session);
+      expect(board.lottery?.map((r) => r.pick).sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual([
+        1, 2, 3, 4, 5, 6, 7, 8,
+      ]);
+      expect(board).toMatchObject({
+        season: 2026,
+        status: "on",
+        onTheClock: null,
+        yourTurn: false,
+      });
       expect(board.slots.map((s) => s.pick)).toEqual(Array.from({ length: 96 }, (_, i) => i + 1));
       const lyon = board.slots.filter((s) => s.club.cid === 39).map((s) => s.pick);
       expect(lyon).toHaveLength(2);
       expect(lyon[1]).toBe((lyon[0] ?? 0) + 48);
+      held = draftPicksView(session, 39).picks;
+      expect(held.filter((p) => p.season === 2026).map((p) => [p.pick, p.projected])).toEqual(
+        lyon.map((pick) => [pick, null]),
+      );
       await go("untilDraft");
       // AI clubs pick up to his turn; on the clock, he can only pick or let the AI finish.
       if (lyon[0] !== 1) {
@@ -189,6 +228,11 @@ describe("a Super League year in a save", () => {
       expect(owned).toHaveLength(48 * 2 * 3);
       expect([...new Set(owned.map((p) => p.season))].sort()).toEqual([2027, 2028, 2029]);
       expect(await session.db.count("draftPicks")).toBe(48 * 2 * 3);
+      // The draft held stays on the page, after it the classes to come.
+      expect(draftView(session)).toMatchObject({ season: 2027, seasons: [2026, 2027, 2028, 2029] });
+      const held2026 = draftView(session, 2026);
+      expect(held2026).toMatchObject({ status: "over", lottery: null, prospects: [] });
+      expect(held2026.slots).toHaveLength(96);
     },
   );
 

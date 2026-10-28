@@ -1,5 +1,6 @@
 // Headless Chrome check of the Super League in the game UI (MILESTONES SL7) against a
-// running server (BASE): New game's world choice, then a Super League club's pages.
+// running server (BASE): New game's world choice, then a Super League club's pages through
+// a season and its draft.
 import { chromium } from "playwright-core";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -115,7 +116,9 @@ check(
     /Play-offs/.test(zonesBlue),
   zonesBlue.replace(/\n/g, " | "),
 );
-const lotteryCells = await testId("standings-table").locator("tbody tr td:nth-child(11)").allInnerTexts();
+const lotteryCells = await testId("standings-table")
+  .locator("tbody tr td:nth-child(11)")
+  .allInnerTexts();
 check(
   "Blue's bottom 4 show their lottery odds (20%, 17%, 15%, 13%)",
   /Lottery/.test(await testId("standings-table").locator("thead").innerText()) &&
@@ -173,6 +176,101 @@ check(
     /won the Star play-offs/.test(await testId("cup-winner").innerText()),
 );
 await leakCheck("the Play-offs page");
+
+// --- Chunk 3: the Draft and the team's draft picks --------------------------------------------
+const sidebarNow = await testId("sidebar").innerText();
+check(
+  "the sidebar has the Draft and Draft Picks",
+  /\bDraft\b/.test(sidebarNow) && /Draft Picks/.test(sidebarNow),
+);
+const pickRows = () => testId("draft-picks").locator("tbody tr");
+await testId("sidebar").getByRole("link", { name: "Draft Picks", exact: true }).click();
+await testId("draft-picks").waitFor();
+const projected = await pickRows().locator("td:nth-child(3)").allInnerTexts();
+check(
+  "Draft Picks: his six own picks (two rounds of three drafts), this season's projected",
+  (await pickRows().count()) === 6 &&
+    projected.slice(0, 2).every((t) => /^~\d+/.test(t)) &&
+    projected.slice(2).every((t) => t === "–"),
+  projected.join(","),
+);
+await testId("sidebar").getByRole("link", { name: "Draft", exact: true }).click();
+await testId("draft-lottery").waitFor();
+const picker = await testId("draft-picker").locator("option").allInnerTexts();
+check(
+  "the Draft before the lottery: the pool from the final tables, the class, the drafts to come",
+  (await testId("draft-lottery").locator("tbody tr").count()) === 8 &&
+    /if the season ended today/.test(await testId("draft-lottery").innerText()) &&
+    /Prospects \(110\)/.test(await page.locator("main").innerText()) &&
+    picker.join(",") === "2027 draft,2028 draft (class),2029 draft (class)",
+  picker.join(","),
+);
+await play("Proceed to promotion and relegation");
+await play("Until the draft lottery");
+await page.waitForURL(/\/draft$/);
+await testId("draft-board").waitFor();
+const drawn = await testId("draft-lottery").locator("tbody tr td:nth-child(4)").allInnerTexts();
+check(
+  "the lottery's day: the Draft page shows the draw (picks 1-8) and the board of 96",
+  drawn
+    .map((t) => Number.parseInt(t, 10))
+    .sort((a, b) => a - b)
+    .join(",") === "1,2,3,4,5,6,7,8" &&
+    (await testId("draft-board").locator("tbody tr").count()) === 96,
+  drawn.join(","),
+);
+await play("Until the draft");
+await page.waitForURL(/\/draft$/);
+// AI clubs pick up to his turn: then he's on the clock, or another club is.
+await page.waitForFunction(() =>
+  /on the clock/.test(document.querySelector('[data-testid="draft-status"]')?.textContent ?? ""),
+);
+if (!/You're on the clock/.test(await testId("draft-status").innerText())) {
+  await play("Until your pick");
+}
+await page.waitForFunction(() =>
+  /You're on the clock/.test(
+    document.querySelector('[data-testid="draft-status"]')?.textContent ?? "",
+  ),
+);
+const status = await testId("draft-status").innerText();
+const ourPick = Number(status.match(/pick (\d+)/)?.[1]);
+const firstProspect = testId("draft-prospects").locator("tbody tr").first();
+const pickedName = await firstProspect.locator("a").innerText();
+await firstProspect.getByRole("button", { name: "Draft" }).click();
+await page.waitForFunction(
+  (n) =>
+    document
+      .querySelector(`[data-testid="draft-board"] tr[data-pick="${n}"]`)
+      ?.querySelector("a[href*='/player/']") !== null,
+  ourPick,
+);
+check(
+  "on the clock he drafts a prospect from the page; the board shows him at his pick",
+  (await testId("draft-board").locator(`tr[data-pick="${ourPick}"]`).innerText()).includes(
+    pickedName,
+  ),
+  `pick ${ourPick}: ${pickedName}`,
+);
+await play("To the end of the draft");
+await page.waitForFunction(() =>
+  /The draft is over/.test(
+    document.querySelector('[data-testid="draft-status"]')?.textContent ?? "",
+  ),
+);
+check(
+  "to the end of the draft: every pick made",
+  (await testId("draft-board").locator("tbody tr").count()) === 96 &&
+    !/On the clock/.test(await testId("draft-board").innerText()),
+);
+await leakCheck("the Draft");
+await testId("draft-board").locator(`tr[data-pick="${ourPick}"] a[href*="/player/"]`).click();
+await testId("drafted").waitFor();
+check(
+  "his draftee's profile says where he was drafted",
+  new RegExp(`^2027 round 1, pick ${ourPick} by LYO`).test(await testId("drafted").innerText()),
+  await testId("drafted").innerText(),
+);
 
 check("no errors in the console", errors.length === 0, errors.slice(0, 3).join(" | "));
 await context.close();

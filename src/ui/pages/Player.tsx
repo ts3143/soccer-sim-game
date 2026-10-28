@@ -330,6 +330,15 @@ export function Player({ params }: { params: string[] }) {
               <Fact label="Foot">{view.foot === "L" ? "Left" : "Right"}</Fact>
               <Fact label="Height">{view.heightCm} cm</Fact>
               {view.shirtNumber !== null && <Fact label="Shirt">{view.shirtNumber}</Fact>}
+              {view.drafted && (
+                <Fact label="Drafted">
+                  <span data-testid="drafted">
+                    {view.drafted.season + 1} round {view.drafted.round}, pick {view.drafted.pick}{" "}
+                    by <TeamLink team={view.drafted.club} short />
+                    {view.drafted.from && ` (${view.drafted.from.abbr}'s pick)`}
+                  </span>
+                </Fact>
+              )}
               {view.retiredSeason !== null && <Fact label="Retired">{view.retiredSeason}</Fact>}
               {view.freeAgentSince && (
                 <Fact label="Free agent since">{formatDate(view.freeAgentSince)}</Fact>

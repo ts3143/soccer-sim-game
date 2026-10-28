@@ -229,6 +229,18 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
       fee: t.fee,
     })),
     freeAgentSince: p.freeAgentSince,
+    drafted: p.draft
+      ? {
+          season: p.draft.season,
+          round: p.draft.round,
+          pick: p.draft.pick,
+          club: teamRef(clubs.get(p.draft.cid)),
+          from:
+            p.draft.originalCid === undefined || p.draft.originalCid === p.draft.cid
+              ? null
+              : teamRef(clubs.get(p.draft.originalCid)),
+        }
+      : null,
     listed: p.status === "club" && p.cid === game.userCid ? (p.listed ?? null) : null,
     today: game.date,
     retiredSeason: p.retiredSeason,

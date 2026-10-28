@@ -19,3 +19,10 @@ export const formatDate = (iso: string): string => formatDay(iso);
 
 /** 30 Jun, where the year is plain from what's next to it. */
 export const formatDayMonth = (iso: string): string => formatDay(iso).replace(/ \d+$/, "");
+
+/** 1st, 2nd, 3rd, 11th, 22nd. */
+export const ordinal = (n: number): string => {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
+};

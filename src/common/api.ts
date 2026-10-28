@@ -260,6 +260,15 @@ export interface PlayerView {
     fee: number;
   }[];
   freeAgentSince: string | null;
+  /** Where he was drafted (SPEC §17.5): null if he wasn't. */
+  drafted: {
+    season: number;
+    round: number;
+    pick: number;
+    club: TeamRef;
+    /** The club whose slot it was, when it wasn't the picking club's own. */
+    from: TeamRef | null;
+  } | null;
   /** On the user's transfer list (his own players only). */
   listed: { asking: number; date: string } | null;
   /** The game date (for what a release would cost). */
@@ -1255,13 +1264,36 @@ export interface DraftSlotView {
   player: DraftProspectView | null;
 }
 
+/** A club in the draft lottery's pool (SPEC §17.5): where it finished, its odds, its draw. */
+export interface DraftLotteryRow {
+  club: TeamRef;
+  /** Its league's name and its place in the table. */
+  league: string;
+  position: number;
+  /** Its chance at the first pick (%). */
+  odds: number;
+  /** The first-round pick its slot drew; null until the lottery is drawn. */
+  pick: number | null;
+  /** Who holds that pick, when another club does. */
+  owner: TeamRef | null;
+}
+
 /**
- * This season's draft (SPEC §17.5): before the lottery its class only; then its order,
- * the picks made and to come, and who is on the clock.
+ * A draft (SPEC §17.5). This season's: before the lottery its class (and the lottery pool
+ * if the season ended today); then its order, the picks made and to come, and who is on
+ * the clock. A draft held: the picks made. A class to come: its prospects.
  */
 export interface DraftView {
+  /** The season whose draft it is (held the next June). */
   season: number;
-  status: "notOrdered" | "on" | "over";
+  status: "class" | "notOrdered" | "on" | "over";
+  /** The drafts the page can show, the oldest first: those held, this one, the classes after. */
+  seasons: number[];
+  /** The lottery's and the draft's days. */
+  lotteryDate: string;
+  draftDate: string;
+  /** This season's lottery pool (as it stands or as drawn); null for other drafts. */
+  lottery: DraftLotteryRow[] | null;
   userCid: number;
   /** The pick being made, and whether it's the user's club's. */
   onTheClock: number | null;
@@ -1269,6 +1301,30 @@ export interface DraftView {
   slots: DraftSlotView[];
   /** The prospects still there, the best (OVR) first. */
   prospects: DraftProspectView[];
+}
+
+/** One draft pick a club holds (SPEC §17.5). */
+export interface DraftPickRow {
+  /** The season whose draft it is in (held the next June). */
+  season: number;
+  round: number;
+  /** The club whose slot it is, when it isn't the holder's own. */
+  from: TeamRef | null;
+  /** Its number once the lottery has set it. */
+  pick: number | null;
+  /**
+   * Before the lottery, for this season's draft: where it would fall if the season ended
+   * today (by squad strength before a league match), and whether that's in the lottery pool,
+   * whose draw can move it. Null for later drafts.
+   */
+  projected: { pick: number; lottery: boolean } | null;
+}
+
+/** A club's draft picks: those it holds, and its own that other clubs hold. */
+export interface DraftPicksView {
+  club: TeamRef;
+  picks: DraftPickRow[];
+  tradedAway: { season: number; round: number; holder: TeamRef }[];
 }
 
 export interface WorkerApi {
@@ -1357,9 +1413,11 @@ export interface WorkerApi {
   getSchedule(lid: number, week: string | null): ScheduleView;
   markAllInboxRead(lid: number): void;
   playGame(lid: number, option: PlayOption): PlayReport;
-  getDraft(lid: number): DraftView;
+  /** A draft: `season`'s (null: this season's); see `DraftView.seasons`. */
+  getDraft(lid: number, season: number | null): DraftView;
   /** The user's club picks `pid` when it's on the clock in the draft. */
   draftProspect(lid: number, pid: number): DraftView;
+  getDraftPicks(lid: number, cid: number): DraftPicksView;
   /** Puts a trade to another club (SPEC §17.6): made at once if it says yes. */
   proposeTrade(lid: number, proposal: TradeProposal): TradeAnswer;
   /** "What would make this work?": what the other club would want added. */

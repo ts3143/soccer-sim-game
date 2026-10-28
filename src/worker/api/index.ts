@@ -38,7 +38,7 @@ import { fairTicketPrice, getAcademy, getClubFinances, getJobOffers } from "../v
 import { decideAcademyPlayer, setBudgetDials, setTicketPrice } from "../league/club";
 import { getTactics, previewTactics, saveTactics } from "../views/tactics";
 import { getCups, getSchedule, getStandings } from "../views/competitions";
-import { draftView } from "../views/draft";
+import { draftPicksView, draftView } from "../views/draft";
 import { draftProspect } from "../league/draft";
 import { makeTradeWork, proposeTrade, respondToTradeOffer, tradingBlock } from "../league/trade";
 import { getDashboard, markAllInboxRead } from "../views/dashboard";
@@ -251,8 +251,11 @@ export function createHandlers(
           : play(session, option, () => announce(session)),
       );
     },
-    async getDraft(lid) {
-      return draftView(await openLeague(lid));
+    async getDraft(lid, season) {
+      return draftView(await openLeague(lid), season);
+    },
+    async getDraftPicks(lid, cid) {
+      return draftPicksView(await openLeague(lid), cid);
     },
     async draftProspect(lid, pid) {
       return change(lid, async (session) => {

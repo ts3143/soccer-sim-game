@@ -155,6 +155,21 @@ export function leagueTables(
   });
 }
 
+/**
+ * Each league's table this season (club IDs, top first) once a league match is played;
+ * undefined before, so a projected draft order goes by squad strength (`projectedSlots`).
+ */
+export function playedTables(
+  session: LeagueSession,
+  fixtures: readonly Fixture[],
+): Record<string, number[]> | undefined {
+  const leagues = new Set(session.config.competitions.leagues.map((l) => l.id));
+  if (!fixtures.some((f) => f.result && leagues.has(f.competition))) return undefined;
+  return Object.fromEntries(
+    leagueTables(session, fixtures).map((t) => [t.id, t.rows.map((r) => r.cid)]),
+  );
+}
+
 type SeasonStore = "fixtures" | "awards" | "playerStats" | "transactions" | "matches";
 
 /**

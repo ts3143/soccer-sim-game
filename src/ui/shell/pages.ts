@@ -25,6 +25,7 @@ export interface PageDef {
 
 const transfers = (s: WorldSwitches) => s.market === "transfers";
 const academies = (s: WorldSwitches) => s.youth === "academy";
+const drafts = (s: WorldSwitches) => s.youth === "draft";
 
 export const PAGES: PageDef[] = [
   { key: "dashboard", title: "Dashboard", section: "General" },
@@ -46,10 +47,12 @@ export const PAGES: PageDef[] = [
   { key: "tactics", title: "Tactics", section: "Team", team: true },
   { key: "academy", title: "Youth Academy", section: "Team", when: academies },
   { key: "club-finances", title: "Finances & Facilities", section: "Team" },
+  { key: "draft-picks", title: "Draft Picks", section: "Team", team: true, when: drafts },
   { key: "game-log", title: "Game Log", section: "Team", team: true, season: true },
   { key: "team-history", title: "Team History", section: "Team", team: true },
   { key: "free-agents", title: "Free Agents", section: "Players" },
   { key: "transfer-market", title: "Transfer Market", section: "Players", when: transfers },
+  { key: "draft", title: "Draft", section: "Players", when: drafts },
   { key: "player", title: "Player", section: "Players", hidden: true },
   { key: "box-score", title: "Box Score", section: "Team", hidden: true },
   { key: "live", title: "Live match", section: "Team", hidden: true },

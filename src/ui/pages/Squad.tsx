@@ -7,17 +7,11 @@ import { ContractModal } from "../components/ContractModal";
 import { DataTable, type Column } from "../components/DataTable";
 import { PlayerRatings, RatingChange, NationalityFlag } from "../components/PlayerDetails";
 import { PlayerLink } from "../components/links";
-import { formatDate, formatEuros } from "../format";
+import { formatDate, formatEuros, ordinal } from "../format";
 import { PageHeader } from "../shell/PageHeader";
 import { useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
-
-const ordinal = (n: number) => {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
-};
 
 function NameCell({ p }: { p: SquadPlayerView }) {
   const { shell } = useShell();

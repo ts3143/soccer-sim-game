@@ -23,7 +23,7 @@ import {
 } from "../market/trades";
 import { type TradeDay, tradeDay, type TradeWorld } from "../market/tradeValue";
 import { fullName, type LoopWorld } from "../season/offseason";
-import { leagueTables, seasonFixtures } from "../views/common";
+import { playedTables, seasonFixtures } from "../views/common";
 import { assertNotLive, loopWorld, meta, queued, savePicks, saveTransactions } from "./game";
 import type { LeagueSession } from "./session";
 
@@ -50,18 +50,10 @@ function setup(session: LeagueSession, proposal: TradeProposal): TradeSetup {
   const loop = loopWorld(session, game.season);
   const world = { ...loop, draftPicks: loop.draftPicks ?? [] };
   const fixtures = seasonFixtures(session, game.season);
-  // The tables once a league match is played; before that, squad strength (projectedSlots).
-  const leagues = new Set(session.config.competitions.leagues.map((l) => l.id));
-  const started = fixtures.some((f) => f.result && leagues.has(f.competition));
-  const tables = started
-    ? Object.fromEntries(
-        leagueTables(session, fixtures).map((t) => [t.id, t.rows.map((r) => r.cid)]),
-      )
-    : undefined;
   return {
     game,
     world,
-    day: tradeDay(world, game.season, game.date, tables),
+    day: tradeDay(world, game.season, game.date, playedTables(session, fixtures)),
     cal: tradeCalendar(session.config.competitions, game.season, fixtures),
     trade: { a: game.userCid, b: proposal.cid, aGives: proposal.give, bGives: proposal.get },
   };
