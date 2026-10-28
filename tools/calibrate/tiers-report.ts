@@ -153,6 +153,13 @@ for (const run of runs) {
   );
 }
 
+const trades = runs.flatMap((run) => run.seasons.map((s) => s.trades));
+const tradeCount = trades.reduce((a, t) => a + t.count, 0);
+console.log("\nTrades (AI to AI, while trades are open)");
+console.log(
+  `  ${(tradeCount / Math.max(1, trades.length)).toFixed(1)} a season (${Math.min(...trades.map((t) => t.count))}-${Math.max(...trades.map((t) => t.count))}); per trade ${(trades.reduce((a, t) => a + t.players, 0) / Math.max(1, tradeCount)).toFixed(1)} players and ${(trades.reduce((a, t) => a + t.picks, 0) / Math.max(1, tradeCount)).toFixed(1)} picks`,
+);
+
 // The world's health (MILESTONES SL4): Classic's checks, the squads measured at the first
 // league match (in the summer they're still forming: free agency runs to the deadline).
 const SL = targets.superLeague;

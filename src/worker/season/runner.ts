@@ -19,6 +19,8 @@ import type { MatchResult } from "../../common/match";
 import { addDays } from "../../common/dates";
 import type { ClubSeason, Fixture, InboxMessage, TransactionRow } from "../../common/schema";
 import { marketDay, marketDays, type NewOffer } from "../market/aiMarket";
+import { aiTradeDay, tradeDays } from "../market/aiTrades";
+import { tradeCalendar } from "../market/trades";
 import { returnLoans } from "../market/loans";
 import { aiRenewals, contractWarning } from "../market/renewals";
 import { seasonDate } from "../schedule/calendar";
@@ -155,6 +157,11 @@ export function runDays(
     offers: [],
   };
   const market = marketDays(state.season, config);
+  // Trades between AI clubs (SPEC §17.6), on trade days while trades are open.
+  const tradeCal = tradeCalendar(config, state.season, state.fixtures);
+  const trading =
+    world.config.switches.market === "trades" ? tradeDays(config.trades, tradeCal) : [];
+  const leagueIds = new Set(config.leagues.map((l) => l.id));
   const freeAgency = freeAgencyDays(state.season, config, rosterDeadline(config, state.fixtures));
   const limitFrom = config.rosterRules.maxSeniorFromFirstMatch
     ? firstLeagueDay(config, state.fixtures)
@@ -229,7 +236,8 @@ export function runDays(
     const nextEvent = events.find((e) => e.date > out.date)?.date ?? null;
     const nextMarket = market.find((m) => m.date > out.date)?.date ?? null;
     const nextFreeAgency = freeAgency.find((m) => m.date > out.date)?.date ?? null;
-    const day = [nextEvent, nextMarket, nextFreeAgency].reduce<string>(
+    const nextTrades = trading.find((d) => d > out.date) ?? null;
+    const day = [nextEvent, nextMarket, nextFreeAgency, nextTrades].reduce<string>(
       (d, x) => (x !== null && x < d ? x : d),
       nextMatch,
     );
@@ -278,10 +286,23 @@ export function runDays(
         out.offers.push(...log.offers);
         if (log.moved) squads.regroup();
       }
+      // Values read the tables once a league match is played (squad strength before).
+      const tables = () =>
+        state.fixtures.some((f) => f.result && leagueIds.has(f.competition))
+          ? Object.fromEntries(
+              config.leagues.map((l) => [
+                l.id,
+                leagueTableOf(state, l.id, config).map((r) => r.cid),
+              ]),
+            )
+          : undefined;
       const logs = [
         ...freeAgency
           .filter((m) => m.date === day)
           .map((m) => freeAgencyDay(world, state.season, m)),
+        ...(trading.includes(day)
+          ? [aiTradeDay(world, state.season, day, tradeCal, tables())]
+          : []),
         // From the first league match the squad limit counts: AI clubs over it trim.
         ...(limitFrom !== null && day >= limitFrom ? [trimSquads(world, state.season, day)] : []),
       ];

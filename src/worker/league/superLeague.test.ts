@@ -34,6 +34,17 @@ describe("a Super League year in a save", () => {
     const prospects = session.cache.getAll("players").filter((p) => p.status === "prospect");
     expect(prospects).toHaveLength(330);
     expect(prospects.every((p) => p.ratingsHistory.length === 1)).toBe(true);
+    // AI clubs traded with each other (not with the user's club), picks too, all saved.
+    const trades = session.cache.getAll("transactions").filter((t) => t.type === "trade");
+    expect(trades.length).toBeGreaterThan(5);
+    expect(trades.every((t) => t.cids.length === 2 && !t.cids.includes(39))).toBe(true);
+    const owners = (picks: { season: number; round: number; originalCid: number; cid: number }[]) =>
+      picks.map((p) => `${p.season}/${p.round}/${p.originalCid}:${p.cid}`).sort();
+    const tradedPicks = session.cache.getAll("draftPicks").filter((p) => p.cid !== p.originalCid);
+    expect(tradedPicks.length).toBeGreaterThan(0);
+    expect(owners(await session.db.getAll("draftPicks"))).toEqual(
+      owners(session.cache.getAll("draftPicks")),
+    );
     expect(gameState(session)).toMatchObject({
       phase: "endOfSeason",
       options: ["proceedToPromotionRelegation"],

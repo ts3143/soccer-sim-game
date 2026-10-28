@@ -193,6 +193,15 @@ export interface TradesConfig {
   picks: { weight: ByState; yearDiscount: number };
   /** "What would make this work?": the most assets the AI asks to have added. */
   makeItWorkMaxAdded: number;
+  /** AI-to-AI trades. See `ai._note` in the config. */
+  ai: {
+    everyDays: number;
+    attemptsPerDay: number;
+    minGain: number;
+    shortlist: number;
+    keepAcquiredDays: number;
+    minByArea: Record<"gk" | "def" | "mid" | "att", number>;
+  };
 }
 
 /** The draft (SPEC §17.5; the Super League's). See `_note` in its config. */

@@ -39,6 +39,7 @@ const season = (
   seniors: shape,
   freeAgents: 100,
   cap: { over: 0, taxPaid: 0, afterGrace: 0 },
+  trades: { count: 0, players: 0, picks: 0 },
 });
 const run = (...seasons: TierSeason[]): TierRun => ({
   seed: "toy",

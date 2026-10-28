@@ -196,6 +196,15 @@
     ],
     "salary": { "underCap": 0.5, "overCap": 2, "rebuilding": 1.5 },
     "picks": { "weight": { "contending": 0.7, "rebuilding": 1 }, "yearDiscount": 0.8 },
-    "makeItWorkMaxAdded": 4
+    "makeItWorkMaxAdded": 4,
+    "ai": {
+      "_note": "AI-to-AI trades (SL5), on trade days every everyDays days from 1 July while trades are open: attemptsPerDay times a random AI club looks at the players of the other AI clubs it values above their own club's value of them by more than minGain, picks one of the shortlist best at random, and asks the owner what would make it work (makeItWorkMaxAdded). The trade goes ahead when both clubs gain and neither ends below minByArea players in an area (or below what it had). An AI club keeps a player it got by trade for keepAcquiredDays before trading him on. First values, tuned in SL5 and SL6.",
+      "everyDays": 7,
+      "attemptsPerDay": 3,
+      "minGain": 0.05,
+      "shortlist": 5,
+      "keepAcquiredDays": 90,
+      "minByArea": { "gk": 2, "def": 6, "mid": 5, "att": 3 }
+    }
   }
 }

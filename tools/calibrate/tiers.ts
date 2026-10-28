@@ -21,6 +21,8 @@ export interface TierSeason {
    * paid in euros, and relegated clubs still over their own cap after their grace.
    */
   cap: { over: number; taxPaid: number; afterGrace: number };
+  /** AI-to-AI trades in the season: how many, and the players and picks they moved. */
+  trades: { count: number; players: number; picks: number };
 }
 
 /** One world's run (plain data: it crosses process boundaries as JSON). */
@@ -34,6 +36,25 @@ export interface TierRun {
   seconds: number;
 }
 
+/** The season's trades, players and picks moved (picks read from the transactions' words). */
+function tradesOf(report: SeasonReport): TierSeason["trades"] {
+  const rows = report.days.transactions.filter((t) => t.type === "trade");
+  return {
+    count: rows.length,
+    players: rows.reduce((s, t) => s + t.pids.length, 0),
+    picks: rows.reduce(
+      (s, t) =>
+        s +
+        t.names
+          .slice(2)
+          .join(", ")
+          .split(/\d{4} round \d+ pick/).length -
+        1,
+      0,
+    ),
+  };
+}
+
 export function recordTierSeason(report: SeasonReport): TierSeason {
   const { outcome, players, close } = report;
   return {
@@ -43,6 +64,7 @@ export function recordTierSeason(report: SeasonReport): TierSeason {
     moves: outcome.moves,
     seniors: report.squadsAtFirstMatch,
     freeAgents: players.filter((p) => p.status === "freeAgent").length,
+    trades: tradesOf(report),
     cap: {
       over: close.tax.paid.size,
       taxPaid: [...close.tax.paid.values()].reduce((a, b) => a + b, 0),

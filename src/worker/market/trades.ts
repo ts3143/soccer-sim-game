@@ -256,7 +256,7 @@ export const aiAccepts = (change: ValueChange): boolean => change.dv > 0;
  * "What would make this work?" (ZenGM): the AI club `ai` asks for more from the other club,
  * one asset at a time, up to `maxAdded`: the one that makes the trade good enough for it
  * at the smallest overpayment, else the one that helps it most. Only additions that keep
- * the trade valid count. Returns the trade it would take (unchanged if it already would),
+ * the trade valid count, and of the players only those `offered` allows. Returns the trade it would take (unchanged if it already would),
  * or null when nothing the other club has would do.
  */
 export function makeItWork(
@@ -266,6 +266,7 @@ export function makeItWork(
   trade: Trade,
   ai: number,
   maxAdded: number,
+  offered: (p: Player) => boolean = () => true,
 ): Trade | null {
   const other = ai === trade.a ? trade.b : trade.a;
   const sideOf = (t: Trade) => (other === t.a ? t.aGives : t.bGives);
@@ -281,7 +282,7 @@ export function makeItWork(
     const inPicks = new Set(side.picks.map(keyOf));
     const candidates: Trade[] = [
       ...world.players
-        .filter((p) => p.cid === other && p.status === "club" && !inPids.has(p.pid))
+        .filter((p) => p.cid === other && p.status === "club" && !inPids.has(p.pid) && offered(p))
         .map((p) => withSide(current, { ...side, pids: [...side.pids, p.pid] })),
       ...world.draftPicks
         .filter((p) => p.cid === other && !inPicks.has(keyOf(p)))

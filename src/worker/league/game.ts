@@ -471,6 +471,8 @@ export function processDays(
   saveMessages(session, days.messages);
   saveTransactions(session, days.transactions);
   saveOffers(session, days.offers);
+  // AI trades move picks too.
+  if (days.transactions.some((t) => t.type === "trade")) savePicks(session, world);
   // Players the AI signed: bids for them elsewhere no longer stand.
   const moved = new Set(
     days.transactions
