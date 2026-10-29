@@ -5,6 +5,11 @@ import type { Side } from "./ratings";
 export interface NationalitiesConfig {
   /** Percent weights per nationality code, per league (normalised when sampling). */
   leagueMix: Record<string, Record<string, number>>;
+  /**
+   * The same per club country, for leagues without a mix of their own: the Super League's
+   * tiers mix clubs from many countries (SPEC §17.3).
+   */
+  countryMix: Record<string, Record<string, number>>;
   youthIntake: {
     homeShareSmallClub: number;
     homeShareBigClub: number;
@@ -18,6 +23,7 @@ export interface NationalitiesConfig {
 
 export const nationalitiesConfig: NationalitiesConfig = {
   leagueMix: raw.leagueMix,
+  countryMix: raw.countryMix,
   youthIntake: {
     homeShareSmallClub: raw.youthIntake.homeShareSmallClub,
     homeShareBigClub: raw.youthIntake.homeShareBigClub,
@@ -29,7 +35,11 @@ export const nationalitiesConfig: NationalitiesConfig = {
   preferredFoot: raw.preferredFoot,
 };
 
-/** Every nationality code that appears in any league mix. */
+/** Every nationality code that appears in any league or country mix. */
 export const ALL_NATIONALITIES: readonly string[] = [
-  ...new Set(Object.values(raw.leagueMix).flatMap((mix) => Object.keys(mix))),
+  ...new Set(
+    [...Object.values(raw.leagueMix), ...Object.values(nationalitiesConfig.countryMix)].flatMap(
+      (mix) => Object.keys(mix),
+    ),
+  ),
 ].sort();

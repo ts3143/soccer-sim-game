@@ -5,24 +5,28 @@
  *
  * Each processed day: training injuries and month-end money for the days since the last
  * one, then the day's dated events (the winter development update on 1 January), the AI's
- * market on market days (src/worker/market/aiMarket.ts), then its matches (gate receipts
- * and prize money). When the matches end, TV merit money is paid.
+ * market on market days (src/worker/market/aiMarket.ts; without windows, free agency's
+ * market days, src/worker/season/freeAgency.ts), then its matches (gate receipts and prize
+ * money; where the squad limit counts from the first league match, AI clubs over it trim
+ * first). When the matches end, TV merit money is paid.
  * A day is processed when it has a match or an event; the game date is the last day
  * processed. A match the user watches splits its day (M6): `hold` stops before the day's
  * matches, `resume` plays them with the watched result and finishes the day.
  */
 import type { SeasonEvent } from "../../common/api";
-import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
+import type { CompetitionsConfig } from "../../common/config/competitions";
 import type { MatchResult } from "../../common/match";
 import { addDays } from "../../common/dates";
 import type { ClubSeason, Fixture, InboxMessage, TransactionRow } from "../../common/schema";
 import { marketDay, marketDays, type NewOffer } from "../market/aiMarket";
+import { aiOfferToUser, aiTradeDay, tradeDays } from "../market/aiTrades";
+import { tradeCalendar } from "../market/trades";
 import { returnLoans } from "../market/loans";
 import { aiRenewals, contractWarning } from "../market/renewals";
 import { seasonDate } from "../schedule/calendar";
 import { academyReminder, developmentUpdate, type LoopWorld } from "./offseason";
 import { matchdayIncome, meritIncome, prizeIncome, settleMonths } from "../finance/finance";
-import { boardSacks, updateConfidence } from "../club/board";
+import { boardSacks, metInPlayoff, targetPosition, updateConfidence } from "../club/board";
 import { seasonEndStanding, updateHype } from "../club/standing";
 import {
   leagueTableOf,
@@ -33,9 +37,21 @@ import {
   type SeasonState,
 } from "./season";
 import { squadPlay } from "./squads";
+import {
+  firstLeagueDay,
+  freeAgencyDay,
+  freeAgencyDays,
+  rosterDeadline,
+  trimSquads,
+} from "./freeAgency";
 
 /** Dated events of a season (SPEC §3.1) besides matches: windows and the winter update. */
-export function seasonEvents(season: number, config = competitionsConfig): SeasonEvent[] {
+/** `academies`: whether the world's clubs have academies (the user's 1 May reminder). */
+export function seasonEvents(
+  season: number,
+  config: CompetitionsConfig,
+  academies: boolean,
+): SeasonEvent[] {
   const events: SeasonEvent[] = [];
   for (const w of config.windows) {
     events.push({ date: seasonDate(season, w.opens), kind: "windowOpens", window: w.id });
@@ -53,7 +69,7 @@ export function seasonEvents(season: number, config = competitionsConfig): Seaso
     });
   }
   // The user's academy decisions are due by 1 July (SPEC §7.2): a reminder on 1 May.
-  events.push({ date: seasonDate(season, "05-01"), kind: "academyReminder" });
+  if (academies) events.push({ date: seasonDate(season, "05-01"), kind: "academyReminder" });
   return events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
@@ -112,7 +128,6 @@ export interface DaysOptions {
    * simulated) and everything after them, without its events, market or training again.
    */
   resume?: { date: string; results: ReadonlyMap<number, MatchResult> };
-  config?: CompetitionsConfig;
 }
 
 /** Processes days after `from` until the limit, the stop condition or the season's end. */
@@ -122,9 +137,9 @@ export function runDays(
   from: string,
   options: DaysOptions,
 ): DaysResult {
-  const config = options.config ?? competitionsConfig;
+  const config = world.config.competitions;
   const squads = squadPlay(state, world.clubs, world.players, world.userCid, config);
-  const events = seasonEvents(state.season, config);
+  const events = seasonEvents(state.season, config, world.config.switches.youth === "academy");
   const out: DaysResult = {
     date: from,
     played: [],
@@ -141,7 +156,18 @@ export function runDays(
     transactions: [],
     offers: [],
   };
-  const market = marketDays(state.season, config);
+  // The transfer market's days (SPEC §7.3): a world with trades has none.
+  const market =
+    world.config.switches.market === "transfers" ? marketDays(state.season, config) : [];
+  // Trades between AI clubs (SPEC §17.6), on trade days while trades are open.
+  const tradeCal = tradeCalendar(config, state.season, state.fixtures);
+  const trading =
+    world.config.switches.market === "trades" ? tradeDays(config.trades, tradeCal) : [];
+  const leagueIds = new Set(config.leagues.map((l) => l.id));
+  const freeAgency = freeAgencyDays(state.season, config, rosterDeadline(config, state.fixtures));
+  const limitFrom = config.rosterRules.maxSeniorFromFirstMatch
+    ? firstLeagueDay(config, state.fixtures)
+    : null;
   const warn = (row: ClubSeason, day: string) => {
     if (row.cid !== world.userCid || (row.boardConfidence ?? 100) >= 40 || row.boardWarned) return;
     row.boardWarned = true;
@@ -158,6 +184,18 @@ export function runDays(
   const afterMatchday = (day: string, seasonOver: boolean) => {
     for (const leagueId of Object.keys(state.leagueClubs)) {
       const table = leagueTableOf(state, leagueId, config);
+      // At the season's end, a club that met its target in the play-off counts as having
+      // finished where the target asked (the board judges the table otherwise).
+      const league = config.leagues.find((l) => l.id === leagueId);
+      const judged = (t: (typeof table)[0]) => {
+        const row = world.clubSeasons.get(t.cid);
+        if (!seasonOver || !league || !row) return table;
+        if (!metInPlayoff(league, row.boardExpectation, t.cid, state.fixtures)) return table;
+        const target = targetPosition(leagueId, row.boardExpectation, config);
+        return table.map((r) =>
+          r.cid === t.cid ? { ...r, position: Math.min(r.position, target) } : r,
+        );
+      };
       const games = 2 * ((state.leagueClubs[leagueId]?.length ?? 2) - 1);
       for (const t of table) {
         const row = world.clubSeasons.get(t.cid);
@@ -173,7 +211,7 @@ export function runDays(
           points: t.points,
           finish: seasonOver ? t.position : null,
         });
-        const confidence = updateConfidence(row, club, table, t.played / games, config);
+        const confidence = updateConfidence(row, club, judged(t), t.played / games, config);
         warn(row, day);
         if (!row.boardSacked && boardSacks(confidence, t.played / games, seasonOver)) {
           row.boardSacked = true;
@@ -199,7 +237,9 @@ export function runDays(
     if (nextMatch === null) break;
     const nextEvent = events.find((e) => e.date > out.date)?.date ?? null;
     const nextMarket = market.find((m) => m.date > out.date)?.date ?? null;
-    const day = [nextEvent, nextMarket].reduce<string>(
+    const nextFreeAgency = freeAgency.find((m) => m.date > out.date)?.date ?? null;
+    const nextTrades = trading.find((d) => d > out.date) ?? null;
+    const day = [nextEvent, nextMarket, nextFreeAgency, nextTrades].reduce<string>(
       (d, x) => (x !== null && x < d ? x : d),
       nextMatch,
     );
@@ -248,6 +288,35 @@ export function runDays(
         out.offers.push(...log.offers);
         if (log.moved) squads.regroup();
       }
+      // Values read the tables once a league match is played (squad strength before).
+      const tables = () =>
+        state.fixtures.some((f) => f.result && leagueIds.has(f.competition))
+          ? Object.fromEntries(
+              config.leagues.map((l) => [
+                l.id,
+                leagueTableOf(state, l.id, config).map((r) => r.cid),
+              ]),
+            )
+          : undefined;
+      const logs = [
+        ...freeAgency
+          .filter((m) => m.date === day)
+          .map((m) => freeAgencyDay(world, state.season, m)),
+        ...(trading.includes(day)
+          ? [aiTradeDay(world, state.season, day, tradeCal, tables())]
+          : []),
+        // From the first league match the squad limit counts: AI clubs over it trim.
+        ...(limitFrom !== null && day >= limitFrom ? [trimSquads(world, state.season, day)] : []),
+      ];
+      for (const log of logs) {
+        for (const pid of log.changed) out.changed.add(pid);
+        out.transactions.push(...log.transactions);
+        if (log.changed.size > 0) squads.regroup();
+      }
+      // An AI club may offer the user a trade (his inbox).
+      if (trading.includes(day)) {
+        out.messages.push(...aiOfferToUser(world, state.season, day, tradeCal, tables()));
+      }
     }
     if (options.hold?.(day, state.fixtures)) {
       out.date = day;
@@ -291,7 +360,7 @@ export function runDays(
       ...Object.values(outcome.cupWinners),
       ...Object.values(outcome.playoffWinners).flat(),
     ]);
-    seasonEndStanding(world.clubs, world.clubSeasons, finish, trophies, config);
+    seasonEndStanding(world.clubs, world.clubSeasons, finish, trophies, world.config);
     state.meritPaid = true;
   }
   if (!out.ended && options.limit !== null && options.limit > out.date) {

@@ -14,7 +14,12 @@ describe("league and cup pages", () => {
     "show a live table, a finished season, cup rounds and the weekly schedule",
     { timeout: 240_000 },
     async () => {
-      const league = await createLeague({ name: "Comps", seed: "comps-view", userCid: 21 });
+      const league = await createLeague({
+        world: "classic",
+        name: "Comps",
+        seed: "comps-view",
+        userCid: 21,
+      });
       const session = await openLeague(league.lid);
       const opening = await getStandings(league.lid, null, null);
       expect(opening).toMatchObject({ leagueId: "ENG2", season: 2026, current: true });

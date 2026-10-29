@@ -3,17 +3,27 @@
  * and the save's meta rows, as one pure function of the options. Same options (seed
  * included) → identical world. Writing it to IndexedDB is the caller's job.
  */
-import { clubDefinitions, type ClubDefinition } from "../../common/config/clubs";
-import { competitionsConfig, leagueById } from "../../common/config/competitions";
+import type { ClubDefinition } from "../../common/config/clubs";
+import { capOf, type CompetitionsConfig, leagueById } from "../../common/config/competitions";
 import { formationById, formationsConfig } from "../../common/config/formations";
+import type { WorldConfig } from "../../common/config/worlds";
 import { exactAge } from "../../common/dates";
-import type { Club, ClubSeason, CompetitionRow, MetaRows, Player } from "../../common/schema";
+import type {
+  Club,
+  ClubSeason,
+  CompetitionRow,
+  DraftPick,
+  MetaRows,
+  Player,
+} from "../../common/schema";
 import { estimatePotential, type PotentialClubContext } from "../core/potential";
 import { Random } from "../core/random";
-import { assignContracts } from "./contracts";
+import { assignContracts, capBill, revenueBill } from "./contracts";
 import { commercialBase, expectedTvAndGates, ticketPrice } from "../finance/finance";
 import { bornLocally } from "./birthplace";
 import { generateFreeAgents, generateReleasedYouth } from "./freeAgents";
+import { worldMix } from "./identity";
+import { draftClass, missingPicks } from "../season/draft";
 import { generateSquad } from "./squad";
 
 /** Bump when generation changes in a way that makes old saves inconsistent. */
@@ -29,6 +39,8 @@ export const FREE_AGENT_CONTEXT: PotentialClubContext = {
 };
 
 export interface WorldOptions {
+  /** The world to generate (SPEC §17.1): its clubs and competitions. */
+  config: WorldConfig;
   seed: string;
   name: string;
   userCid: number;
@@ -43,18 +55,18 @@ export interface World {
   clubs: Club[];
   clubSeasons: ClubSeason[];
   players: Player[];
+  /** Every club's own picks for its first drafts (a world with a draft; SPEC §17.5). */
+  draftPicks: DraftPick[];
   /** Per club: best-XI mean slot OVR in its default formation (for reports/tests). */
   xiStrength: Map<number, number>;
 }
 
-function competitionRows(): CompetitionRow[] {
+function competitionRows(config: CompetitionsConfig): CompetitionRow[] {
   const promotedFrom = new Map(
-    competitionsConfig.leagues
-      .filter((l) => l.relegation)
-      .map((l) => [l.relegation?.to as string, l.id]),
+    config.leagues.filter((l) => l.relegation).map((l) => [l.relegation?.to as string, l.id]),
   );
   return [
-    ...competitionsConfig.leagues.map((l) => ({
+    ...config.leagues.map((l) => ({
       id: l.id,
       type: "league" as const,
       country: l.country,
@@ -63,7 +75,7 @@ function competitionRows(): CompetitionRow[] {
       relegationTo: l.relegation?.to ?? null,
       promotionTo: promotedFrom.get(l.id) ?? null,
     })),
-    ...competitionsConfig.cups.map((c) => ({
+    ...config.cups.map((c) => ({
       id: c.id,
       type: "cup" as const,
       country: c.country,
@@ -75,7 +87,13 @@ function competitionRows(): CompetitionRow[] {
   ];
 }
 
-function clubRow(rng: Random, def: ClubDefinition, cid: number, formation: string): Club {
+function clubRow(
+  rng: Random,
+  def: ClubDefinition,
+  cid: number,
+  formation: string,
+  config: CompetitionsConfig,
+): Club {
   return {
     cid,
     code: def.code,
@@ -98,7 +116,7 @@ function clubRow(rng: Random, def: ClubDefinition, cid: number, formation: strin
       medical: NEUTRAL_DIAL,
       facilities: NEUTRAL_DIAL,
     },
-    ticketPrice: ticketPrice(def.reputation, leagueById(def.league)),
+    ticketPrice: ticketPrice(def.reputation, leagueById(config, def.league)),
     cash: Math.round(def.revenue * rng.real(0.08, 0.25)),
     // Commercial income set so season-1 revenue lands near the anchor (src/worker/finance).
     commercial: {
@@ -108,11 +126,20 @@ function clubRow(rng: Random, def: ClubDefinition, cid: number, formation: strin
           { capacity: def.capacity, market: def.market, leagueId: def.league },
           def.reputation,
           openingHype(def),
+          config,
         ),
       ),
       reputation: def.reputation,
     },
   };
+}
+
+/** The opening squad's bill: from the club's cap in a world with one, else its revenue. */
+function openingBill(rng: Random, def: ClubDefinition, competitions: CompetitionsConfig) {
+  const cap = capOf(competitions, def.league);
+  return cap !== null && competitions.softCap
+    ? capBill(rng, cap, competitions.softCap.openingPayroll)
+    : revenueBill(rng, def.revenue);
 }
 
 const openingHype = (def: ClubDefinition) => Math.round(50 + (def.reputation - 50) * 0.4);
@@ -142,10 +169,13 @@ function clubSeasonRow(def: ClubDefinition, cid: number, season: number): ClubSe
 }
 
 export function generateWorld(options: WorldOptions): World {
+  const { clubs: definitions, competitions, switches } = options.config;
+  const mix = worldMix(options.config);
+  const academies = switches.youth === "academy";
   const root = Random.fromSeed(options.seed);
-  const season = competitionsConfig.firstSeason;
-  const seasonStart = competitionsConfig.seasonStart;
-  if (!clubDefinitions[options.userCid]) throw new Error(`Unknown club ${options.userCid}`);
+  const season = competitions.firstSeason;
+  const seasonStart = competitions.seasonStart;
+  if (!definitions[options.userCid]) throw new Error(`Unknown club ${options.userCid}`);
 
   let pid = 1;
   const nextPid = () => pid++;
@@ -156,13 +186,13 @@ export function generateWorld(options: WorldOptions): World {
   const contextByCid = new Map<number, PotentialClubContext>();
 
   const leagueStrength = new Map<string, number>();
-  for (const league of competitionsConfig.leagues) {
-    const members = clubDefinitions.filter((c) => c.league === league.id);
+  for (const league of competitions.leagues) {
+    const members = definitions.filter((c) => c.league === league.id);
     leagueStrength.set(league.id, members.reduce((s, c) => s + c.strength, 0) / members.length);
   }
 
   const formationIds = Object.keys(formationsConfig.defaultFormationWeights);
-  clubDefinitions.forEach((def, cid) => {
+  definitions.forEach((def, cid) => {
     const rng = root.fork(`club:${def.code}`);
     const formationId = rng.weighted(
       formationIds,
@@ -175,6 +205,9 @@ export function generateWorld(options: WorldOptions): World {
       season,
       seasonStart,
       nextPid,
+      rules: competitions.rosterRules,
+      worldMix: mix,
+      academies,
     });
     const ages = new Map(
       squad.seniors.map((p) => [p.pid, Math.floor(exactAge(p.birthDate, seasonStart))]),
@@ -186,9 +219,10 @@ export function generateWorld(options: WorldOptions): World {
       def.strength,
       def.revenue,
       seasonStart,
+      openingBill(rng, def, competitions),
     );
 
-    const club = clubRow(rng, def, cid, formationId);
+    const club = clubRow(rng, def, cid, formationId, competitions);
     const clubSeason = clubSeasonRow(def, cid, season);
     clubSeason.squadCostRatio = squadCostRatio;
     clubs.push(club);
@@ -204,8 +238,26 @@ export function generateWorld(options: WorldOptions): World {
     });
   });
 
-  players.push(...generateFreeAgents(root.fork("freeAgents"), season, seasonStart, nextPid));
-  players.push(...generateReleasedYouth(root.fork("releasedYouth"), season, seasonStart, nextPid));
+  players.push(...generateFreeAgents(root.fork("freeAgents"), season, seasonStart, nextPid, mix));
+  // A world with a draft starts with its first drafts' classes (SPEC §17.5: three visible).
+  const ahead = competitions.draft?.classesAhead ?? -1;
+  const classSetup = { config: options.config, seed: options.seed, nextPid };
+  for (let s = season; s <= season + ahead; s++) {
+    players.push(...draftClass(classSetup, s, seasonStart));
+  }
+  // Academies release their 18-year-olds into free agency; a world without them doesn't.
+  if (academies) {
+    players.push(
+      ...generateReleasedYouth(
+        root.fork("releasedYouth"),
+        season,
+        seasonStart,
+        nextPid,
+        competitions.leagues,
+        mix,
+      ),
+    );
+  }
 
   for (const player of players) {
     const ratings = player.ratingsHistory[0]?.ratings ?? [];
@@ -245,12 +297,21 @@ export function generateWorld(options: WorldOptions): World {
     ids: { pid, fid: 1, oid: 1, xid: 1, mid: 1, aid: 1 },
     rng: root.getState(),
     world: {
-      leagues: competitionsConfig.leagues.map((l) => l.id),
-      styleModifiers: Object.fromEntries(
-        competitionsConfig.leagues.map((l) => [l.id, l.styleModifiers]),
-      ),
+      id: options.config.id,
+      leagues: competitions.leagues.map((l) => l.id),
+      styleModifiers: Object.fromEntries(competitions.leagues.map((l) => [l.id, l.styleModifiers])),
     },
   };
 
-  return { meta, competitions: competitionRows(), clubs, clubSeasons, players, xiStrength };
+  return {
+    meta,
+    competitions: competitionRows(competitions),
+    clubs,
+    clubSeasons,
+    players,
+    draftPicks: competitions.draft
+      ? missingPicks(competitions.draft, clubs, [], season, season + competitions.draft.picksAhead)
+      : [],
+    xiStrength,
+  };
 }

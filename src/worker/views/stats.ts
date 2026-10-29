@@ -9,7 +9,6 @@ import type {
   PlayerStatsView,
   TeamStatsView,
 } from "../../common/api";
-import { competitionsConfig } from "../../common/config/competitions";
 import { daysBetween, exactAge } from "../../common/dates";
 import { RATING_CODES, ratingsConfig } from "../../common/config/ratings";
 import type { Club, GameMeta, Player, PlayerStatsRow } from "../../common/schema";
@@ -52,7 +51,7 @@ export async function getLeagueLeaders(
   const game = session.cache.get("meta", "game") as GameMeta;
   const s = season ?? game.season;
   const id = leagueId ?? session.cache.get("clubs", game.userCid)?.leagueId ?? "ENG1";
-  const league = competitionsConfig.leagues.find((l) => l.id === id);
+  const league = session.config.competitions.leagues.find((l) => l.id === id);
   const rows = (await seasonRows(session, "playerStats", s)).filter((r) => r.competition === id);
   const players = await playersById(
     session,
@@ -160,7 +159,7 @@ export async function getPlayerStats(
   const all = await seasonRows(session, "playerStats", s);
   const competitions = [...new Set(all.map((r) => r.competition))].map((id) => ({
     id,
-    name: competitionName(id),
+    name: competitionName(session.config.competitions, id),
   }));
   const rows = competition ? all.filter((r) => r.competition === competition) : all;
   // One row per player and club (a player who moved has one per club).
@@ -234,7 +233,7 @@ export async function getTeamStats(
   const game = session.cache.get("meta", "game") as GameMeta;
   const s = season ?? game.season;
   const id = leagueId ?? session.cache.get("clubs", game.userCid)?.leagueId ?? "ENG1";
-  const league = competitionsConfig.leagues.find((l) => l.id === id);
+  const league = session.config.competitions.leagues.find((l) => l.id === id);
   const clubs = clubsOf(session);
   const fixtures = (await seasonRows(session, "fixtures", s)).filter(
     (f) => f.competition === id && f.result,

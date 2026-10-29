@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { worlds } from "../../common/config/worlds";
 import { ageOn as wholeYears, exactAge } from "../../common/dates";
-import { competitionsConfig } from "../../common/config/competitions";
 import type { Player } from "../../common/schema";
 import { generateWorld } from "../generate/world";
 import {
@@ -11,15 +11,20 @@ import {
   seasonAwards,
   type SeasonLine,
   startingReputation,
+  freeAgencyTopUp,
+  preseasonTurnover,
   promoteToSquadSize,
   youthIntake,
 } from "./offseason";
 import { runDays } from "./runner";
 import { applyMoves, createSeason, seasonOutcome } from "./season";
 
+const competitions = worlds.classic.competitions;
+
 const SLOW = { timeout: 120_000 };
 const SEED = "offseason-test";
 const generated = generateWorld({
+  config: worlds.classic,
   seed: SEED,
   name: "t",
   userCid: 0,
@@ -30,9 +35,10 @@ function freshWorld(): LoopWorld {
   const players = structuredClone(generated.players);
   let pid = Math.max(...players.map((p) => p.pid)) + 1;
   return {
+    config: worlds.classic,
     clubs: structuredClone(generated.clubs),
     players,
-    reputation: startingReputation(),
+    reputation: startingReputation(worlds.classic.clubs),
     clubSeasons: new Map(structuredClone(generated.clubSeasons).map((r) => [r.cid, r])),
     userCid: 0,
     seed: SEED,
@@ -58,6 +64,7 @@ function copyOf(w: LoopWorld): LoopWorld {
 const world = freshWorld();
 const before = new Map(world.players.map((p) => [p.pid, structuredClone(p)]));
 const state = createSeason({
+  config: competitions,
   season: 2026,
   seed: SEED,
   clubs: world.clubs,
@@ -65,7 +72,7 @@ const state = createSeason({
   firstFid: 1,
 });
 const days = runDays(world, state, "2026-07-01", { limit: null });
-const outcome = seasonOutcome(state);
+const outcome = seasonOutcome(state, competitions);
 const ageOn = (p: Player, date: string) => exactAge(p.birthDate, date);
 
 describe("development during the season", () => {
@@ -151,8 +158,8 @@ describe("the end of the season", () => {
       }
     }
     lines.push(...totals.values());
-    const awards = seasonAwards(state, outcome, world.clubs, world.players, lines);
-    for (const league of competitionsConfig.leagues) {
+    const awards = seasonAwards(state, outcome, world.clubs, world.players, lines, competitions);
+    for (const league of competitions.leagues) {
       const of = (type: string) =>
         awards.filter((a) => a.competition === league.id && a.type === type);
       expect(of("champions")).toHaveLength(1);
@@ -187,6 +194,116 @@ describe("preseason", () => {
   const pre = copyOf(world);
   applyMoves(pre.clubs, outcome.moves);
   const date = "2027-07-01";
+
+  it(
+    "brings no youths in a world without academies, but a draft class (the Super League)",
+    SLOW,
+    () => {
+      const world = generateWorld({
+        config: worlds.superLeague,
+        seed: SEED,
+        name: "t",
+        userCid: 0,
+        createdAt: "2026-07-01T00:00:00.000Z",
+      });
+      let pid = Math.max(...world.players.map((p) => p.pid)) + 1;
+      const loop: LoopWorld = {
+        config: worlds.superLeague,
+        clubs: world.clubs,
+        players: world.players,
+        reputation: startingReputation(worlds.superLeague.clubs),
+        clubSeasons: new Map(world.clubSeasons.map((r) => [r.cid, r])),
+        userCid: 0,
+        seed: SEED,
+        nextPid: () => pid++,
+      };
+      const lastJune = loop.players.filter((p) => p.draftSeason === 2026);
+      const log = preseasonTurnover(loop, 2027, "2027-07-01");
+      expect(loop.players.some((p) => p.status === "academy")).toBe(false);
+      // Instead of youths, the class two drafts on; last June's undrafted are free agents.
+      expect(log.added).toHaveLength(110);
+      expect(log.added.every((p) => p.status === "prospect" && p.draftSeason === 2029)).toBe(true);
+      // Free agents now; the same summer's free agency may already have signed some.
+      expect(lastJune.every((p) => p.status === "freeAgent" || p.status === "club")).toBe(true);
+      expect(lastJune.some((p) => p.status === "freeAgent")).toBe(true);
+    },
+  );
+
+  it("tops AI squads up to 22 from free agents where players move by trades", SLOW, () => {
+    const sl = generateWorld({
+      config: worlds.superLeague,
+      seed: SEED,
+      name: "t",
+      userCid: 0,
+      createdAt: "2026-07-01T00:00:00.000Z",
+    });
+    let pid = Math.max(...sl.players.map((p) => p.pid)) + 1;
+    const loop: LoopWorld = {
+      config: worlds.superLeague,
+      clubs: sl.clubs,
+      players: sl.players,
+      reputation: startingReputation(worlds.superLeague.clubs),
+      clubSeasons: new Map(sl.clubSeasons.map((r) => [r.cid, r])),
+      userCid: 0,
+      seed: SEED,
+      nextPid: () => pid++,
+    };
+    const seniors = (cid: number) =>
+      loop.players.filter((p) => p.cid === cid && p.status === "club");
+    // Clubs 0 (the user's) and 1 lose players to 18.
+    for (const cid of [0, 1]) {
+      for (const p of seniors(cid).slice(18)) {
+        p.status = "freeAgent";
+        p.cid = null;
+        p.contract = null;
+      }
+    }
+    const log = freeAgencyTopUp(loop, 2026, "2026-07-01");
+    expect(seniors(1)).toHaveLength(22);
+    expect(seniors(0)).toHaveLength(18); // the user signs his own
+    const signed = log.transactions.filter((t) => t.cids[0] === 1);
+    expect(signed).toHaveLength(4);
+    expect(signed.every((t) => t.type === "freeAgent")).toBe(true);
+    for (const pid of signed.map((t) => t.pids[0])) {
+      const p = loop.players.find((x) => x.pid === pid);
+      expect(p?.contract?.expires).toMatch(/^202[78]-06-30$/);
+      expect(p?.contract?.wage).toBeGreaterThan(0);
+    }
+  });
+
+  it("signs free agents only at the minimum wage for a club over its cap", SLOW, () => {
+    const sl = generateWorld({
+      config: worlds.superLeague,
+      seed: SEED,
+      name: "t",
+      userCid: 0,
+      createdAt: "2026-07-01T00:00:00.000Z",
+    });
+    let pid = Math.max(...sl.players.map((p) => p.pid)) + 1;
+    const loop: LoopWorld = {
+      config: worlds.superLeague,
+      clubs: sl.clubs,
+      players: sl.players,
+      reputation: startingReputation(worlds.superLeague.clubs),
+      clubSeasons: new Map(sl.clubSeasons.map((r) => [r.cid, r])),
+      userCid: -1,
+      seed: SEED,
+      nextPid: () => pid++,
+    };
+    // Club 2 (Star) down to 18 seniors, but its best-paid keeps a €200m contract.
+    const own = loop.players.filter((p) => p.cid === 2 && p.status === "club");
+    for (const p of own.slice(18)) {
+      p.status = "freeAgent";
+      p.cid = null;
+      p.contract = null;
+    }
+    (own[0] as (typeof own)[0]).contract = { wage: 200_000_000, expires: "2029-06-30" };
+    const log = freeAgencyTopUp(loop, 2026, "2026-07-01");
+    const signed = log.transactions.filter((t) => t.cids[0] === 2).map((t) => t.pids[0]);
+    expect(signed).toHaveLength(4);
+    const wages = signed.map((id) => loop.players.find((p) => p.pid === id)?.contract?.wage);
+    expect(wages).toEqual([300_000, 300_000, 300_000, 300_000]);
+  });
 
   it("brings 3–6 youths aged 15–16 into every academy", () => {
     const log = youthIntake(pre, 2027, date);

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { POSITIONS, RATING_COUNT, RATING_INDEX } from "../../common/config/ratings";
+import { worlds } from "../../common/config/worlds";
 import { ageOn } from "../../common/dates";
 import { POSITION_INDEX } from "../core/ovr";
 import { Random } from "../core/random";
+import { worldMix } from "./identity";
 import { generatePlayer, heightToRating, type PlayerSpec } from "./player";
 
 const spec = (overrides: Partial<PlayerSpec> = {}): PlayerSpec => ({
@@ -11,6 +13,7 @@ const spec = (overrides: Partial<PlayerSpec> = {}): PlayerSpec => ({
   quality: 65,
   age: 25,
   nationality: "ENG",
+  secondMix: worldMix(worlds.classic),
   status: "club",
   cid: 0,
   ...overrides,

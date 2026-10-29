@@ -1,0 +1,219 @@
+{
+  "_note": "Super League world (SPEC §17.2; T, 2026-10-27). Three tiers of 16, each a double round robin; 3 up and 3 down between tiers (T, 2026-10-28; was 2): the top 2 go up, the third through a play-off among 3rd-6th; nobody drops out of Blue. Every number is config. Dates are templates for season Y/Y+1, placed on the match slots as in Classic. No cups and no transfer windows: players move by trades, the draft and free agency (SL4-SL5 add their dates).",
+  "_financeNote": "As Classic's (competitions_mvp.json). TV money scales by tier (SPEC §17.7; T, 2026-10-27): about EUR 200m, 119m and 81m a club, flatter than the tiers' revenue so relegation doesn't crush a club. Play-off prize money: per round won (the last is the final) and for the beaten finalist.",
+  "_boardNote": "As Classic's, with play-offs (T, 2026-10-27): a target with playoffRound is also met by reaching that round of the league's play-off, one with playoffWin by winning it. So Star's 'Compete for the title' is met by reaching the title play-off's semi-finals, and 'Win promotion' by finishing in the top 2 or winning the promotion play-off (3 up, T 2026-10-28). During the season the board reads the table (position).",
+  "_playoffNote": "A play-off, round by round (as Classic's): the table positions joining each round (entrants) or its fixed ties, how the round's clubs meet (reseed: best-placed against worst-placed; bracket: the previous round's ties in twos), its legs (two-legged: the better-placed club hosts the second leg) and whether it is at a neutral venue. allSingleLeg makes every round single-leg. Knockout rules as SPEC §8.6. Dates: the rounds take the slots after the last league round, midweek first, then alternating; the final is on the weekend nearest finalNear.",
+  "seasonStart": "2026-07-01",
+  "countries": [{ "id": "EUR", "name": "Europe", "winterBreak": null }],
+  "leagues": [
+    {
+      "id": "STAR",
+      "country": "EUR",
+      "tier": 1,
+      "name": "Star",
+      "clubs": 16,
+      "rounds": 30,
+      "firstMatch": "08-15",
+      "lastMatch": "04-25",
+      "promotion": null,
+      "playoff": {
+        "decides": "title",
+        "rounds": [
+          { "name": "Quarter-finals", "legs": 2, "neutral": false, "ties": [[1, 8], [4, 5], [2, 7], [3, 6]] },
+          { "name": "Semi-finals", "legs": 2, "neutral": false, "pairing": "bracket" },
+          { "name": "Final", "legs": 1, "neutral": true, "pairing": "bracket" }
+        ],
+        "allSingleLeg": false,
+        "finalNear": "05-29",
+        "prizeMoney": { "roundWon": [5000000, 10000000, 20000000], "runnerUp": 10000000 },
+        "_note": "The title play-off (SPEC §17.2): the champion is its winner; the table winner is recorded but isn't a title."
+      },
+      "relegation": { "places": 3, "to": "GOLD" },
+      "styleModifiers": { "chanceQuality": 1.0, "foulRate": 1.0, "directness": 0.0 },
+      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
+      "finance": { "broadcastPool": 3200000000, "equalShare": 0.75, "ticketPriceBase": 32, "attendanceBase": 0.92 },
+      "board": [
+        { "id": "title", "label": "Compete for the title", "position": 4, "playoffRound": "Semi-finals", "strongest": 2 },
+        { "id": "topEight", "label": "Reach the top eight", "position": 8, "strongest": 6 },
+        { "id": "survival", "label": "Avoid relegation", "position": 13, "strongest": 8 }
+      ]
+    },
+    {
+      "id": "GOLD",
+      "country": "EUR",
+      "tier": 2,
+      "name": "Gold",
+      "clubs": 16,
+      "rounds": 30,
+      "firstMatch": "08-15",
+      "lastMatch": "04-25",
+      "promotion": { "automatic": 2, "promotedPlaces": 1 },
+      "playoff": {
+        "decides": "promotion",
+        "rounds": [
+          { "name": "Semi-finals", "legs": 1, "neutral": false, "entrants": [3, 4, 5, 6], "pairing": "reseed" },
+          { "name": "Final", "legs": 1, "neutral": true, "pairing": "reseed" }
+        ],
+        "allSingleLeg": false,
+        "finalNear": "05-16",
+        "prizeMoney": { "roundWon": [2000000, 4000000], "runnerUp": 2000000 }
+      },
+      "relegation": { "places": 3, "to": "BLUE" },
+      "styleModifiers": { "chanceQuality": 1.0, "foulRate": 1.0, "directness": 0.0 },
+      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
+      "finance": { "broadcastPool": 1900000000, "equalShare": 0.75, "ticketPriceBase": 26, "attendanceBase": 0.88 },
+      "board": [
+        { "id": "promotion", "label": "Win promotion", "position": 2, "playoffWin": true, "strongest": 2 },
+        { "id": "playoffs", "label": "Reach the play-offs", "position": 6, "strongest": 4 },
+        { "id": "midTable", "label": "Finish in mid-table", "position": 12, "strongest": 10 }
+      ]
+    },
+    {
+      "id": "BLUE",
+      "country": "EUR",
+      "tier": 3,
+      "name": "Blue",
+      "clubs": 16,
+      "rounds": 30,
+      "firstMatch": "08-15",
+      "lastMatch": "04-25",
+      "promotion": { "automatic": 2, "promotedPlaces": 1 },
+      "playoff": {
+        "decides": "promotion",
+        "rounds": [
+          { "name": "Semi-finals", "legs": 1, "neutral": false, "entrants": [3, 4, 5, 6], "pairing": "reseed" },
+          { "name": "Final", "legs": 1, "neutral": true, "pairing": "reseed" }
+        ],
+        "allSingleLeg": false,
+        "finalNear": "05-16",
+        "prizeMoney": { "roundWon": [2000000, 4000000], "runnerUp": 2000000 }
+      },
+      "relegation": null,
+      "_relegationNote": "Nobody drops out of Blue (SPEC §17.2).",
+      "styleModifiers": { "chanceQuality": 1.0, "foulRate": 1.0, "directness": 0.0 },
+      "tieBreakers": ["points", "goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "draw"],
+      "finance": { "broadcastPool": 1300000000, "equalShare": 0.75, "ticketPriceBase": 22, "attendanceBase": 0.85 },
+      "board": [
+        { "id": "promotion", "label": "Win promotion", "position": 2, "playoffWin": true, "strongest": 2 },
+        { "id": "playoffs", "label": "Reach the play-offs", "position": 6, "strongest": 4 },
+        { "id": "midTable", "label": "Finish in mid-table", "position": 12, "strongest": 10 }
+      ]
+    }
+  ],
+  "softCap": {
+    "_note": "The tiered soft cap (SPEC §17.7; figures T, 2026-10-27): Star's cap; Gold's is 80% of it, Blue's 65%, so Blue's median club spends about half its revenue on wages, as Classic's target. Opening payrolls are 85-100% of the club's cap.",
+    "cap": 180000000,
+    "tierShare": { "STAR": 1.0, "GOLD": 0.8, "BLUE": 0.65 },
+    "openingPayroll": { "min": 0.85, "max": 1.0 },
+    "minimumWage": 300000,
+    "luxuryTaxRate": 1.5,
+    "tradeMatching": 1.25,
+    "graceSeasons": 1,
+    "aiWageRatio": 0.5,
+    "coreOverCap": 0.1,
+    "_rulesNote": "Over the cap a club may re-sign its own players, sign its draft picks, sign free agents only at minimumWage, and trade if the wages it takes back are at most tradeMatching x those it sends out. Luxury tax: luxuryTaxRate x the payroll above the cap at season end, shared equally among the tier's clubs under the cap. A relegated club keeps its old tier's cap for graceSeasons. AI re-signings price wages and budget as if the club's revenue were its cap / aiWageRatio, the wage ratio the cap was set for (T, 2026-10-27), so payrolls stay near the cap. Its core players (its best 11) are re-signed over the cap while the payroll stays within the cap plus coreOverCap of it; the others only within the cap."
+  },
+  "draft": {
+    "_note": "The draft (SPEC §17.5). Three classes are visible (T, 2026-10-27): each appears on 1 July classesAhead seasons before its draft and develops each summer (no minutes); it is generated weaker by growthPerYear a summer still to come, so it reaches the target at the draft. Picks are owned assets: each club's picks exist for the coming draft and picksAhead seasons after it (3 drafts, T 2026-10-27) (made on 1 July, used up at the draft); a traded pick takes its original club's slot. The lottery (odds: chance at pick 1, %, T 2026-10-27) draws lotteryPicks picks; the rest of the pool follows in odds order. Order, the same each round: the lottery pool (the 4 worst Blue clubs, then Gold's and Star's bottom 2, relegated); then the other clubs in reverse combined standings (Blue, Gold, Star, each from the bottom of its table; with 3 down, Gold's and Star's 14th, relegated too, pick here); the 6 promoted clubs last, by the same rule. Prospect quality: mean + perYear x (age - youngest) + noise, clamped. AI picks: OVR and POT (potWeight on POT), plus needBonus per player the club is short of areaTargets in the prospect's area. Rookie wages by pick, interpolated. First values, tuned in SL4 and SL6.",
+    "rounds": 2,
+    "classSize": 110,
+    "classesAhead": 2,
+    "picksAhead": 2,
+    "ages": { "min": 17, "max": 19 },
+    "prospectQuality": { "mean": 50, "perYear": 3, "sd": 6, "min": 38, "max": 66, "talentHeadroom": 2, "growthPerYear": 1 },
+    "lotteryPicks": 4,
+    "lotteryPool": [
+      { "league": "BLUE", "position": 16, "odds": 20 },
+      { "league": "BLUE", "position": 15, "odds": 17 },
+      { "league": "BLUE", "position": 14, "odds": 15 },
+      { "league": "BLUE", "position": 13, "odds": 13 },
+      { "league": "GOLD", "position": 16, "odds": 11 },
+      { "league": "GOLD", "position": 15, "odds": 9 },
+      { "league": "STAR", "position": 16, "odds": 8 },
+      { "league": "STAR", "position": 15, "odds": 7 }
+    ],
+    "rookieContract": { "years": 3, "wageByPick": [[1, 2500000], [48, 800000], [96, 400000]] },
+    "aiPick": {
+      "potWeight": 0.6,
+      "needBonus": 2,
+      "areaTargets": { "gk": 3, "def": 8, "mid": 7, "att": 5 }
+    }
+  },
+  "cups": [],
+  "windows": [],
+  "renewals": {
+    "_note": "One re-signing period from the draft to 30 June (SPEC §17.6, SL5); no renewals during the season.",
+    "endOfSeasonResignPhase": true,
+    "expiryWarningMonths": 6
+  },
+  "keyDates": {
+    "summerDevelopmentUpdate": "07-01",
+    "winterDevelopmentUpdate": "01-01",
+    "contractsExpire": "06-30",
+    "endOfSeasonProcessing": "06-01",
+    "draftLottery": "06-05",
+    "draft": "06-15",
+    "resigningOpens": "06-16",
+    "_offseasonNote": "After promotion and relegation (1 June): the draft lottery, the draft, then the re-signing period to 30 June (SPEC §17.2, §17.6). Stages without content until SL4 (draft) and SL5 (re-signing)."
+  },
+  "rosterRules": {
+    "maxSenior": 25,
+    "startingSeniors": { "min": 22, "max": 24 },
+    "academyMaxAge": 18,
+    "mustPromoteLoanOrReleaseBy": 19,
+    "academyMatchdayMinAge": 16,
+    "minSeniorForMatch": 16,
+    "maxSeniorFromFirstMatch": true,
+    "_note": "No academies in this world (SPEC §17.4): the academy fields are unused. The 25 counts from the season's first league match: in the off-season a club may hold more (the draft, free agency); AI clubs trim before that match, and the user can't play it while over."
+  },
+  "freeAgency": {
+    "_note": "Free agency (SPEC §17.6): open from 1 July to the roster deadline, after the league round at deadlineAfterRoundShare of the season (60%: round 18 of 30, early February; T 2026-10-27). AI clubs sign free agents on market days every everyDays days from 1 July (the user has the first go on 1 July): up to squadTarget seniors until busyUntil, after that only to fill a gap (below gapBelow seniors, up to it); perDay signings a club a market day. First values (SL4), tuned in SL6.",
+    "everyDays": 7,
+    "busyUntil": "08-31",
+    "squadTarget": 22,
+    "gapBelow": 18,
+    "perDay": 2,
+    "deadlineAfterRoundShare": 0.6
+  },
+  "trades": {
+    "_note": "AI trade valuation (SPEC §17.6; first values, SL5, tuned in SL5 and SL6), in value points: 1 = a 75-rated player in his prime on a fair contract. Who contends (T, 2026-10-28: 3-4 a league, more or fewer by how close the top is): in each league the clubs whose best 11's mean OVR is within contending.gap of the strongest's, at least contending.min and at most contending.max of them; the others rebuild. A player's rating = OVR + potShare x (POT - OVR) x youth (full to youthFullUntil, none from youthNoneFrom); value = exp(perOvr x (rating - 75)), x declinePerYear a year past declineFrom, x his contract (1 + contract.weight x (worth / wage - 1) x the years left up to contract.years / contract.years, within [min, max]; worth = the going wage at the club's cap / aiWageRatio, scaled to the league's wages against that rate), x finalYear while his contract ends this 30 June. A club's value: its squad by value, each place weighted by squadWeights ([up to place, weight]), so quantity never buys quality; plus its picks; plus its cap room, salary.underCap or salary.overCap points per cap's worth of yearly wages saved (x salary.rebuilding when rebuilding); a club over its cap outside a grace season must shed wages (SPEC §17.7), and the part above its cap weighs salary.mustShed instead of overCap. A pick: the prospect its projected slot would take from its class (the original owner's place in the projected order: the table, or squad strength before a match is played; the number once the lottery has set it), valued as a player, x picks.weight, x picks.yearDiscount a draft further away. An AI club takes a trade that raises its value; asked what would make one work, it asks for up to makeItWorkMaxAdded more of the other club's players and picks, one at a time.",
+    "contending": { "gap": 1, "min": 2, "max": 6 },
+    "value": {
+      "perOvr": 0.16,
+      "youthFullUntil": 21,
+      "youthNoneFrom": 27,
+      "potShare": { "contending": 0.3, "rebuilding": 0.8 },
+      "declineFrom": { "contending": 30, "rebuilding": 28 },
+      "declinePerYear": { "contending": 0.85, "rebuilding": 0.8 },
+      "finalYear": { "contending": 0.9, "rebuilding": 0.4 },
+      "contract": { "weight": 0.3, "years": 3, "min": 0.5, "max": 1.3 }
+    },
+    "squadWeights": [
+      [11, 1],
+      [18, 0.5],
+      [25, 0.2],
+      [99, 0]
+    ],
+    "salary": { "underCap": 0.5, "overCap": 2, "mustShed": 12, "rebuilding": 1.5 },
+    "picks": { "weight": { "contending": 0.7, "rebuilding": 1 }, "yearDiscount": 0.8 },
+    "makeItWorkMaxAdded": 4,
+    "ai": {
+      "_note": "AI-to-AI trades (SL5), on trade days every everyDays days from 1 July while trades are open: attemptsPerDay times a random AI club looks at the players of the other AI clubs it values above their own club's value of them by more than minGain, picks one of the shortlist best at random, and asks the owner what would make it work (makeItWorkMaxAdded). The trade goes ahead when both clubs gain and neither ends below minByArea players in an area (or below what it had). An AI club keeps a player it got by trade for keepAcquiredDays before trading him on. First on each trade day, every AI club that must shed wages offers its shed.candidates players of least value a euro, one by one, to the shed.receivers clubs that value each most among those with room under their cap for his wage; the receiver may ask for the shedding club's picks to make it work. Up to shed.perDay such trades a club a day. Offers to the user: on a trade day, with offers.chance, an AI club offers for one of his players what an AI club in his place would take, if it gains too (of the shortlist players AI clubs value most above his club's value of them, each with its keenest club, the first in random order that makes such an offer, giving him something); it stands offers.standDays (to the deadline at most), offers.maxOpen open at once, and no player is asked for again within offers.repeatAfterDays. The trading block shows the blockOffers best offers for what he puts up: each AI club adds the assets he'd value most while it still gains. First values, tuned in SL5 and SL6.",
+      "everyDays": 7,
+      "attemptsPerDay": 3,
+      "minGain": 0.05,
+      "shortlist": 5,
+      "keepAcquiredDays": 90,
+      "shed": {
+        "candidates": 4,
+        "receivers": 5,
+        "margin": 0.03,
+        "overCapClubs": false,
+        "perDay": 1
+      },
+      "offers": { "chance": 0.3, "standDays": 7, "maxOpen": 1, "repeatAfterDays": 60 },
+      "blockOffers": 5,
+      "minByArea": { "gk": 2, "def": 6, "mid": 5, "att": 3 }
+    }
+  }
+}

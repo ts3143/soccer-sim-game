@@ -61,5 +61,43 @@
     "simOneMatchHeadless": "< 5 ms",
     "simFullMvpSeasonInBrowser": "< 60 s on a mid-range laptop, including all season processing",
     "saveSizeAfter10Seasons": "< 100 MB"
+  },
+  "superLeague": {
+    "_note": "The Super League world's targets (SPEC §17.9; T, 2026-10-27), reported by pnpm calibrate --world superLeague.",
+    "riseSeasons": {
+      "fromBottom": 4,
+      "toTop": 8,
+      "target": 5,
+      "tol": [4, 6],
+      "note": "average seasons from a finish in Blue's bottom 4 to a finish in Star's table top 8; reported, not gated (T, 2026-10-28: not too important)"
+    },
+    "relegatedBackUnderCap": {
+      "maxStillOver": 0.1,
+      "note": "relegated clubs back under their own cap at the close of the season after their grace (MILESTONES SL5): at most this share of relegations still over (T, 2026-10-28: 3-8% were still over across seeds, as few clubs have room under their caps for the wages); relegations too late in the run to judge don't count"
+    },
+    "_worldHealthNote": "The world's health over 20 seasons (MILESTONES SL4): the player count, the squads' OVRs and ages, retirements. Senior mean OVR, the 75+ share and peak age use Classic's bands (worldStability20Seasons), retirement ages Classic's rule (development.retirementAge); the squads are measured at each season's first league match. The ages are gated from season 10: a closed world of draftees (96 a year at 17-19) settles younger than the generated start (under-23s 27% to about 37%, mean age down a year, level from about season 9); the change from season 1 is reported as information.",
+    "playerCountDrift": {
+      "target": 0,
+      "tol": [-0.1, 0.1],
+      "note": "active players after every season against the start: Classic's band"
+    },
+    "seniorMeanAgeDrift": {
+      "target": 0,
+      "tol": [-1, 1],
+      "fromSeason": 10,
+      "note": "seniors' mean age in years, last season less season 10 ([DEFAULT], mine, 2026-10-27, for T)"
+    },
+    "under23ShareDrift": {
+      "target": 0,
+      "tol": [-0.05, 0.05],
+      "fromSeason": 10,
+      "note": "share of seniors under 23, last season less season 10 ([DEFAULT], mine, 2026-10-27, for T)"
+    },
+    "age30plusShareDrift": {
+      "target": 0,
+      "tol": [-0.05, 0.05],
+      "fromSeason": 10,
+      "note": "share of seniors 30 or older, last season less season 10 ([DEFAULT], mine, 2026-10-27, for T)"
+    }
   }
 }

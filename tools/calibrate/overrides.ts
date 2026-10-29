@@ -1,8 +1,10 @@
 /**
  * In-memory coefficient overrides for tuning runs (A3 #3: coefficients live in code and the
  * harness may override them in memory). `--overrides '{"dev":{"declineScale":1.3}}'` is
- * passed to every world process through CALIBRATE_OVERRIDES and deep-merged here.
+ * passed to every world process through CALIBRATE_OVERRIDES and deep-merged here. A world's
+ * config can be overridden the same way, by its id (SL6: config is tuned, with T's OK).
  */
+import { worlds } from "../../src/common/config/worlds";
 import { BOARD } from "../../src/worker/club/board";
 import { STANDING } from "../../src/worker/club/standing";
 import { AGE_CURVES, DEV } from "../../src/worker/core/development";
@@ -34,6 +36,9 @@ const TARGETS: Record<string, object> = {
   ageCurves: AGE_CURVES,
   aiMarket: AI_MARKET,
   transfers: TRANSFERS,
+  // A world's competitions config (data, as parsed): `{"superLeague":{"softCap":{...}}}`.
+  classic: worlds.classic.competitions,
+  superLeague: worlds.superLeague.competitions,
 };
 
 function merge(target: Record<string, unknown>, patch: Record<string, unknown>, path: string) {

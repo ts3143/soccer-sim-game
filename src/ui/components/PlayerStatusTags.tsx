@@ -7,6 +7,8 @@ type StatusPlayer = {
   listed?: { asking: number; date: string } | null;
   expiring?: boolean;
   expires?: string | null;
+  /** With a re-signing period: whether he'd talk about a new contract (SPEC §17.6). */
+  willing?: boolean | null;
   suspension?: number;
   status?: string;
   loan?: string | null;
@@ -19,9 +21,15 @@ export function PlayerStatusTags({ player: p, today }: { player: StatusPlayer; t
       {p.injury && <InjuryTag injury={p.injury} today={today} />}
       {p.expiring && (
         <StatusBadge
-          label="E"
-          tone="warning"
-          description={`Contract expires ${p.expires ? formatDate(p.expires) : "this June"}`}
+          label={p.willing === false ? "E✕" : "E"}
+          tone={p.willing === false ? "danger" : "warning"}
+          description={`Contract expires ${p.expires ? formatDate(p.expires) : "this June"}${
+            p.willing === true
+              ? ": willing to re-sign"
+              : p.willing === false
+                ? ": won't re-sign as things stand"
+                : ""
+          }`}
         />
       )}
       {p.listed && (

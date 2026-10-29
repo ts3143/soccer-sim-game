@@ -20,12 +20,11 @@
  */
 import { contractClub } from "../../common/status";
 import { ffpCheck, type FfpResult } from "./ffp";
+import { clubCap, luxuryTax, payroll, shareTax } from "./softCap";
+import type { WorldConfig } from "../../common/config/worlds";
+import { playoffId } from "../season/season";
 import { addDays } from "../../common/dates";
-import {
-  competitionsConfig,
-  type CompetitionsConfig,
-  type LeagueConfig,
-} from "../../common/config/competitions";
+import type { CompetitionsConfig, LeagueConfig } from "../../common/config/competitions";
 import type { BudgetDials, Club, ClubSeason, Fixture, Player } from "../../common/schema";
 import { startingConfidence } from "../club/board";
 import { aiDials, setEffectiveDials } from "../club/standing";
@@ -62,8 +61,8 @@ export const FINANCE = {
 };
 
 export type RevenueKind =
-  "matchday" | "broadcast" | "merit" | "prize" | "commercial" | "playerSales";
-export type ExpenseKind = "wages" | keyof BudgetDials;
+  "matchday" | "broadcast" | "merit" | "prize" | "commercial" | "playerSales" | "taxShare";
+export type ExpenseKind = "wages" | keyof BudgetDials | "luxuryTax";
 
 const leagueOf = (id: string, config: CompetitionsConfig): LeagueConfig => {
   const league = config.leagues.find((l) => l.id === id);
@@ -103,7 +102,7 @@ export function expectedTvAndGates(
   club: Pick<Club, "capacity" | "market" | "leagueId">,
   reputation: number,
   hype: number,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): number {
   const league = leagueOf(club.leagueId, config);
   const tv = league.finance.broadcastPool / league.clubs;
@@ -159,6 +158,8 @@ export const operatingRevenue = (revenue: Record<string, number>): number =>
 // When money moves
 
 export interface FinanceWorld {
+  /** The save's world: its switches decide the money rule and which dials cost money. */
+  config: WorldConfig;
   clubs: readonly Club[];
   players: readonly Player[];
   /** This season's rows, by club. */
@@ -211,11 +212,16 @@ export function settleMonths(
   world: FinanceWorld,
   from: string,
   to: string,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): Set<number> {
   const changed = new Set<number>();
   const ends = monthEnds(from, to);
   if (ends.length === 0) return changed;
+  // No academies, no Youth dial to pay for (SPEC §17.4).
+  const dials =
+    world.config.switches.youth === "academy"
+      ? (["coaching", "youth", "medical", "facilities"] as const)
+      : (["coaching", "medical", "facilities"] as const);
   const wageBill = new Map<number, number>();
   for (const p of world.players) {
     if (p.cid !== null && p.contract && p.status === "club") {
@@ -258,9 +264,7 @@ export function settleMonths(
       const league = config.leagues.find((l) => l.id === b.season.leagueId);
       debit(b, "wages", ((wageBill.get(club.cid) ?? 0) + owedWages(club, end)) / 12);
       const base = b.season.budgetBase ?? club.revenueAnchor;
-      for (const dial of ["coaching", "youth", "medical", "facilities"] as const) {
-        debit(b, dial, dialCost(club.budget[dial], base) / 12);
-      }
+      for (const dial of dials) debit(b, dial, dialCost(club.budget[dial], base) / 12);
       credit(b, "commercial", seasonCommercial(club, b.season.reputation) / 12);
       if (league && tvMonth) {
         credit(
@@ -285,7 +289,7 @@ export function settleMonths(
 export function matchdayIncome(
   world: FinanceWorld,
   fixture: Fixture,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): void {
   if (fixture.neutral) return;
   const home = books(world, fixture.homeCid);
@@ -314,17 +318,24 @@ export function matchdayIncome(
 export function prizeIncome(
   world: FinanceWorld,
   fixture: Fixture,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): void {
+  // A cup's prizes, or a play-off's (the Super League's: per round won, SPEC §17.7).
   const cup = config.cups.find((c) => c.id === fixture.competition);
+  const playoff = config.leagues.find((l) => playoffId(l.id) === fixture.competition)?.playoff;
+  const prizes = cup
+    ? { rounds: cup.rounds, money: cup.prizeMoney }
+    : playoff?.prizeMoney
+      ? { rounds: playoff.rounds.map((r) => r.name), money: playoff.prizeMoney }
+      : null;
   const winner = fixture.result?.winnerCid;
-  if (!cup || fixture.leg === 1 || winner === null || winner === undefined) return;
-  const round = cup.rounds.indexOf(fixture.round);
+  if (!prizes || fixture.leg === 1 || winner === null || winner === undefined) return;
+  const round = prizes.rounds.indexOf(fixture.round);
   const w = books(world, winner);
-  if (w) credit(w, "prize", cup.prizeMoney.roundWon[round] ?? 0);
-  if (round === cup.rounds.length - 1) {
+  if (w) credit(w, "prize", prizes.money.roundWon[round] ?? 0);
+  if (round === prizes.rounds.length - 1) {
     const loser = books(world, winner === fixture.homeCid ? fixture.awayCid : fixture.homeCid);
-    if (loser) credit(loser, "prize", cup.prizeMoney.runnerUp);
+    if (loser) credit(loser, "prize", prizes.money.runnerUp);
   }
 }
 
@@ -333,7 +344,7 @@ export function meritIncome(
   world: FinanceWorld,
   leagueId: string,
   finalOrder: readonly number[],
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): void {
   const league = config.leagues.find((l) => l.id === leagueId);
   if (!league) return;
@@ -354,21 +365,82 @@ export function meritIncome(
  * season-end cash snapshot, then the FFP check (src/worker/finance/ffp.ts). Returns the
  * players whose fee balance changed and the user's FFP messages.
  */
+/** The season's close: the FFP check's result, and the luxury tax paid and shared. */
+export interface SeasonClose extends FfpResult {
+  /**
+   * Per club: tax paid, and its share of its tier's tax; and the relegated clubs still over
+   * their own cap the season after their grace (soft-cap worlds only).
+   */
+  tax: { paid: Map<number, number>; shared: Map<number, number>; afterGrace: number[] };
+}
+
+/**
+ * 30 June: the season's last month-ends; under a soft cap the luxury tax, paid by clubs
+ * over their cap and shared among their tier's clubs under it (SPEC §17.7); the cash
+ * snapshot; and where the money rule is FFP, the FFP check.
+ */
 export function closeSeasonBooks(
   world: FinanceWorld,
   season: number,
   from: string,
   userCid: number,
-  config: CompetitionsConfig = competitionsConfig,
-): FfpResult {
-  const changed = settleMonths(world, from, `${season + 1}-06-30`, config);
+  config: CompetitionsConfig,
+): SeasonClose {
+  const end = `${season + 1}-06-30`;
+  const changed = settleMonths(world, from, end, config);
+  const tax = {
+    paid: new Map<number, number>(),
+    shared: new Map<number, number>(),
+    afterGrace: [] as number[],
+  };
+  if (world.config.switches.moneyRule === "softCap") luxuryTaxes(world, season, end, config, tax);
   for (const club of world.clubs) {
     const row = world.clubSeasons.get(club.cid);
     if (row) row.cashEnd = club.cash;
   }
-  const result = ffpCheck(world, season, userCid, config);
+  const result =
+    world.config.switches.moneyRule === "ffp"
+      ? ffpCheck(world, season, userCid, config)
+      : { changed: new Set<number>(), messages: [], breaches: [], bans: [] };
   for (const pid of changed) result.changed.add(pid);
-  return result;
+  return { ...result, tax };
+}
+
+/** Each tier's luxury tax: paid by its clubs over their cap, shared by those under it. */
+function luxuryTaxes(
+  world: FinanceWorld,
+  season: number,
+  date: string,
+  config: CompetitionsConfig,
+  out: SeasonClose["tax"],
+): void {
+  const softCap = config.softCap;
+  if (!softCap) return;
+  for (const league of config.leagues) {
+    let total = 0;
+    const under: number[] = [];
+    for (const club of world.clubs) {
+      const b = books(world, club.cid);
+      if (!b || b.season.leagueId !== league.id) continue;
+      const cap = clubCap(config, { leagueId: league.id, capGrace: club.capGrace }, season);
+      if (cap === null) continue;
+      const owed = payroll(club, world.players, date);
+      const tax = luxuryTax(softCap, owed, cap);
+      if (tax > 0) {
+        debit(b, "luxuryTax", tax);
+        out.paid.set(club.cid, tax);
+        total += tax;
+        if (club.capGrace?.through === season - 1) out.afterGrace.push(club.cid);
+      } else if (owed < cap) {
+        under.push(club.cid);
+      }
+    }
+    for (const [cid, share] of shareTax(total, under)) {
+      const b = books(world, cid);
+      if (b) credit(b, "taxShare", share);
+      out.shared.set(cid, share);
+    }
+  }
 }
 
 /**
@@ -381,7 +453,7 @@ export function openSeasonBooks(
   last: ReadonlyMap<number, ClubSeason>,
   season: number,
   userCid: number,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): Map<number, ClubSeason> {
   const out = new Map<number, ClubSeason>();
   for (const club of clubs) {

@@ -17,7 +17,7 @@ import { crestUrl } from "../crests";
 import { formatDate, formatDayMonth } from "../format";
 import { leaguePath, Link, navigate, usePath } from "../router";
 import { onWorkerEvent, toWorker } from "../workerClient";
-import { PAGES, SECTIONS } from "./pages";
+import { inWorld, pageTitle, PAGES, SECTIONS } from "./pages";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { LEAGUE_CLOSED } from "../../common/errors";
 import { errorText } from "../errors";
@@ -29,12 +29,21 @@ export const PLAY_LABELS: Record<PlayOption, string> = {
   untilWindowCloses: "Until the window closes",
   untilEndOfSeason: "Until the end of the season",
   proceedToPromotionRelegation: "Proceed to promotion and relegation",
+  untilDraftLottery: "Until the draft lottery",
+  untilDraft: "Until the draft",
+  untilYourPick: "Until your pick",
+  untilEndOfDraft: "To the end of the draft",
+  untilResigning: "Until the re-signing period",
   advanceToPreseason: "Advance to preseason",
 };
+const TO_DRAFT = new Set<PlayOption>(["untilDraftLottery", "untilDraft", "untilYourPick"]);
 const PHASE_LABELS: Record<string, string> = {
   preseason: "Preseason",
   regularSeason: "Regular season",
   endOfSeason: "End of season",
+  draftLottery: "Draft lottery",
+  draft: "Draft",
+  resigning: "Re-signing period",
 };
 export const seasonLabel = (season: number) =>
   `${season}/${String((season + 1) % 100).padStart(2, "0")}`;
@@ -78,6 +87,8 @@ function PlayMenu() {
       const report = await toWorker("playGame", shell.lid, option);
       setLast(report);
       if (report.live) navigate(leaguePath(shell.lid, "live"));
+      // The lottery's draw and the draft itself are on the Draft page (ZenGM).
+      else if (TO_DRAFT.has(option)) navigate(leaguePath(shell.lid, "draft"));
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -137,6 +148,13 @@ function TopBar({ menuOpen, onMenu }: { menuOpen: boolean; onMenu: () => void })
   const windowText =
     state.window &&
     `${state.window.id === "summer" ? "Summer" : "Winter"} window until ${formatDate(state.window.closes)}`;
+  // A world with trades (SPEC §17.8): "Trades open until <date>", or closed to the play-offs' end.
+  const trades = state.trades;
+  const tradesText = trades
+    ? trades.open && trades.until
+      ? `Trades open until ${formatDate(trades.until)}`
+      : "Trades closed until the play-offs end"
+    : null;
   return (
     <nav
       className="navbar navbar-dark bg-dark sticky-top px-3 gap-3 flex-nowrap"
@@ -178,6 +196,20 @@ function TopBar({ menuOpen, onMenu }: { menuOpen: boolean; onMenu: () => void })
           <span className="badge text-bg-success" title={windowText ?? undefined}>
             <span className="d-none d-xl-inline">{windowText}</span>
             <span className="d-xl-none">Window until {formatDayMonth(state.window.closes)}</span>
+          </span>
+        )}
+        {trades && (
+          <span
+            className={`badge ${trades.open ? "text-bg-success" : "text-bg-secondary"}`}
+            title={tradesText ?? undefined}
+            data-testid="trades-badge"
+          >
+            <span className="d-none d-xl-inline">{tradesText}</span>
+            <span className="d-xl-none">
+              {trades.open && trades.until
+                ? `Trades until ${formatDayMonth(trades.until)}`
+                : "Trades closed"}
+            </span>
           </span>
         )}
       </div>
@@ -223,7 +255,9 @@ function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }
             {section}
           </div>
           <ul className="nav flex-column">
-            {PAGES.filter((p) => p.section === section && !p.hidden).map((p) => {
+            {PAGES.filter(
+              (p) => p.section === section && !p.hidden && inWorld(p, shell.world.switches),
+            ).map((p) => {
               const to = p.team
                 ? leaguePath(shell.lid, p.key, shell.userCid)
                 : leaguePath(shell.lid, p.key);
@@ -234,7 +268,7 @@ function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }
                     onClick={onNavigate}
                     className={`nav-link py-1 ${current === p.key ? "active fw-semibold" : ""}`}
                   >
-                    {p.title}
+                    {pageTitle(p, shell.world)}
                     {p.key === "dashboard" && shell.unread > 0 && (
                       <span
                         className="badge rounded-pill text-bg-primary ms-2"
@@ -296,6 +330,25 @@ function FiredBanner() {
       job.
       <Link to={leaguePath(shell.lid, "fired")} className="btn btn-sm btn-light">
         See your job offers
+      </Link>
+    </div>
+  );
+}
+
+/** While Play waits for the user to trim his squad (SPEC §17.4): why, and his squad. */
+function BlockedBanner() {
+  const { shell } = useShell();
+  const blocked = shell.state.blocked;
+  const user = shell.clubs.find((c) => c.cid === shell.userCid);
+  if (!blocked || !user) return null;
+  return (
+    <div
+      className="alert alert-warning d-flex flex-wrap gap-2 align-items-center"
+      data-testid="blocked-banner"
+    >
+      {blocked}
+      <Link to={leaguePath(shell.lid, "squad", user.cid)} className="btn btn-sm btn-light">
+        Your squad
       </Link>
     </div>
   );
@@ -426,6 +479,7 @@ export function Shell({ lid, children }: { lid: number; children: ReactNode }) {
         <main className="app-main px-3 px-lg-4 py-3">
           <FiredRedirect />
           <FiredBanner />
+          <BlockedBanner />
           <ErrorBoundary resetKey={path}>{children}</ErrorBoundary>
         </main>
       </div>

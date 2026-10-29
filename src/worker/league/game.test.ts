@@ -10,6 +10,7 @@ import type {
   SeasonMeta,
 } from "../../common/schema";
 import { listLeagues } from "../db/globalDb";
+import { fingerprints } from "../fingerprint";
 import { operatingRevenue } from "../finance/finance";
 import { openLeagueDb } from "../db/leagueDb";
 import { getPlayer } from "../views/players";
@@ -50,7 +51,12 @@ let tacticsAtStart: Club["tactics"] | undefined;
 
 describe("the season loop in a save", () => {
   it("sets up a new league's first season in preseason", SLOW, async () => {
-    const league = await createLeague({ name: "Straight", seed: SEED, userCid: 0 });
+    const league = await createLeague({
+      world: "classic",
+      name: "Straight",
+      seed: SEED,
+      userCid: 0,
+    });
     const session = await openLeague(league.lid);
     const state = gameState(session);
     expect(state).toMatchObject({ season: 2026, phase: "preseason", date: "2026-07-01" });
@@ -141,7 +147,12 @@ describe("the season loop in a save", () => {
   });
 
   it("gives the same season when stopped, reloaded and continued", SLOW, async () => {
-    const league = await createLeague({ name: "Stop-start", seed: SEED, userCid: 0 });
+    const league = await createLeague({
+      world: "classic",
+      name: "Stop-start",
+      seed: SEED,
+      userCid: 0,
+    });
     let session = await openLeague(league.lid);
     const week = await play(session, "oneWeek");
     expect(week).toMatchObject({ from: "2026-07-01", to: "2026-07-08", matchesPlayed: 0 });
@@ -256,6 +267,45 @@ describe("the season loop in a save", () => {
     expect(session.cache.getAll("fixtures").every((f) => f.season === 2027)).toBe(true);
   });
 
+  // Recorded from main (50616fc) before the Super League work: a Classic save's first
+  // season and summer stay exactly this (MILESTONES SL0), every store and meta row (less
+  // the creation time). Re-record only for a change T approved. `meta.world` was
+  // re-recorded once, for the world's id the save now records (SPEC §17.1): without it,
+  // the hash was main's. `awards`, `clubs` and `transactions` were re-recorded for T's club
+  // names (SPEC §17.3, SL1): with the old names put back, every store was byte-for-byte
+  // main's. `draftPicks` (SL4) is a new store, empty in Classic: its hash is the empty
+  // list's.
+  it("leaves exactly the recorded Classic save", SLOW, async () => {
+    const { db } = await openLeague(1);
+    const parts: Record<string, unknown> = {};
+    for (const store of Array.from(db.objectStoreNames)) {
+      if (store !== "meta") parts[store] = await db.getAll(store);
+    }
+    for (const key of await db.getAllKeys("meta")) {
+      const row: unknown = await db.get("meta", key);
+      parts[`meta.${String(key)}`] = key === "game" ? { ...(row as GameMeta), createdAt: "" } : row;
+    }
+    expect(await fingerprints(parts)).toEqual({
+      awards: "bd68eee7d511c0d6",
+      clubSeasons: "6aeb9d73f22032da",
+      clubs: "66a899ac6fa217b4",
+      competitions: "9c7053789f091c56",
+      draftPicks: "4f53cda18c2baa0c",
+      fixtures: "bc36a8610645a8ba",
+      inbox: "fac183c7acfaef80",
+      matches: "9ac0b3aab2246683",
+      offers: "4f53cda18c2baa0c",
+      playerStats: "98f2a2af1e532930",
+      players: "ee42b5d7bfb43cde",
+      transactions: "5a2528917627fe8e",
+      "meta.game": "2ea05655402d73d9",
+      "meta.ids": "0b726e34894ca837",
+      "meta.rng": "845fe46aa046db2e",
+      "meta.season": "bb031135b2bbf32b",
+      "meta.world": "6b8ebeaaf51a6147",
+    });
+  });
+
   it("keeps match records two seasons, and the user's club's forever", SLOW, async () => {
     const { db } = await openLeague(1);
     const userCid = ((await db.get("meta", "game")) as GameMeta).userCid;
@@ -314,7 +364,12 @@ describe("the season loop in a save", () => {
     "sacks the user when board confidence collapses, then he takes a job offer",
     SLOW,
     async () => {
-      const league = await createLeague({ name: "Sacked", seed: "sacked-test", userCid: 0 });
+      const league = await createLeague({
+        world: "classic",
+        name: "Sacked",
+        seed: "sacked-test",
+        userCid: 0,
+      });
       const session = await openLeague(league.lid);
       const inbox = session.cache.getAll("inbox");
       expect(inbox.some((m) => /The board's target/.test(m.subject))).toBe(true);
@@ -351,7 +406,12 @@ describe("the season loop in a save", () => {
   );
 
   it("renews the user's players at their asks, only in a window", SLOW, async () => {
-    const league = await createLeague({ name: "Renewals", seed: SEED, userCid: 0 });
+    const league = await createLeague({
+      world: "classic",
+      name: "Renewals",
+      seed: SEED,
+      userCid: 0,
+    });
     const session = await openLeague(league.lid);
     const mine = session.cache
       .getAll("players")
@@ -382,7 +442,12 @@ describe("the season loop in a save", () => {
   });
 
   it("sets up the season for a save made before M3", SLOW, async () => {
-    const league = await createLeague({ name: "Old save", seed: SEED, userCid: 0 });
+    const league = await createLeague({
+      world: "classic",
+      name: "Old save",
+      seed: SEED,
+      userCid: 0,
+    });
     const session = await openLeague(league.lid);
     const expected = session.cache.getAll("fixtures").map((f) => ({ ...f, fid: 0 }));
     await closeLeague();

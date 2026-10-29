@@ -14,9 +14,9 @@
  *   played, or below 35 at the season's end; he is offered 1–3 jobs at clubs with lower
  *   reputation (the MVP has no managers at other clubs: these are fictional vacancies).
  */
-import type { CompetitionsConfig } from "../../common/config/competitions";
-import { competitionsConfig } from "../../common/config/competitions";
-import type { Club, ClubSeason, Player } from "../../common/schema";
+import type { CompetitionsConfig, LeagueConfig } from "../../common/config/competitions";
+import type { Club, ClubSeason, Fixture, Player } from "../../common/schema";
+import { playoffId } from "../season/season";
 import { Random } from "../core/random";
 import type { TableRow } from "../schedule/standings";
 import { clubStrength } from "./standing";
@@ -46,7 +46,7 @@ export interface BoardTargetSet {
 export function boardTargets(
   leagueId: string,
   strengths: readonly { cid: number; strength: number }[],
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): BoardTargetSet[] {
   const league = config.leagues.find((l) => l.id === leagueId);
   if (!league) return [];
@@ -70,7 +70,7 @@ export function boardTargets(
 export function targetPosition(
   leagueId: string,
   target: string | null,
-  config = competitionsConfig,
+  config: CompetitionsConfig,
 ) {
   const league = config.leagues.find((l) => l.id === leagueId);
   return league?.board.find((t) => t.id === target)?.position ?? league?.clubs ?? 20;
@@ -82,12 +82,35 @@ export const startingConfidence = (last: number | null | undefined): number =>
     ? BOARD.fresh
     : Math.round(last + BOARD.carry * (BOARD.fresh - last));
 
+/**
+ * Whether a club met its target in its league's play-off (SPEC §17.2; T, 2026-10-27): by
+ * reaching the target's play-off round, or by winning the play-off.
+ */
+export function metInPlayoff(
+  league: LeagueConfig,
+  targetId: string | null,
+  cid: number,
+  fixtures: readonly Fixture[],
+): boolean {
+  const target = league.board.find((t) => t.id === targetId);
+  if (!target || !league.playoff) return false;
+  const id = playoffId(league.id);
+  const own = fixtures.filter(
+    (f) => f.competition === id && (f.homeCid === cid || f.awayCid === cid),
+  );
+  if (target.playoffRound && own.some((f) => f.round === target.playoffRound)) return true;
+  const final = league.playoff.rounds.at(-1)?.name;
+  return Boolean(
+    target.playoffWin && own.some((f) => f.round === final && f.result?.winnerCid === cid),
+  );
+}
+
 /** Live confidence from the current table, money and hype. */
 export function liveConfidence(
   row: ClubSeason,
   club: Club,
   table: readonly TableRow[],
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): number {
   const me = table.find((r) => r.cid === club.cid);
   const target = targetPosition(row.leagueId, row.boardExpectation, config);
@@ -105,7 +128,7 @@ export function updateConfidence(
   club: Club,
   table: readonly TableRow[],
   progress: number,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): number {
   const start = row.boardStart ?? BOARD.fresh;
   const p = Math.min(1, Math.max(0, progress));
@@ -153,7 +176,7 @@ export function preseasonBoard(
   },
   season: number,
   date: string,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): {
   date: string;
   season: number;

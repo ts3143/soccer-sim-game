@@ -19,7 +19,7 @@
 import { applyDiscipline, isSuspended } from "./discipline";
 import { isSenior } from "../../common/status";
 import { addDays, ageOn, exactAge } from "../../common/dates";
-import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
+import type { CompetitionsConfig } from "../../common/config/competitions";
 import { formationById } from "../../common/config/formations";
 import { RATING_INDEX, type Position } from "../../common/config/ratings";
 import type { MatchResult, PlayerMatchStats } from "../../common/match";
@@ -205,11 +205,9 @@ function hasStakes(
   if (!league || !me) return false;
   // Boundaries between positions k and k+1 that change a club's season.
   const boundaries = [1];
-  if (league.promotion) {
-    boundaries.push(league.promotion.automatic);
-    const po = league.promotion.playoffPositions;
-    if (po.length) boundaries.push(po[po.length - 1] as number);
-  }
+  if (league.promotion) boundaries.push(league.promotion.automatic);
+  const po = league.playoff?.positions ?? [];
+  if (po.length) boundaries.push(po[po.length - 1] as number);
   if (league.relegation) boundaries.push(table.length - league.relegation.places);
   return boundaries.some((k) => {
     const above = table[k - 1];
@@ -226,7 +224,7 @@ export function matchImportance(
   fixture: Fixture,
   cid: number,
   tables: Tables,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
   c: SquadCoefficients = SQUAD_COEFFICIENTS,
 ): number {
   const imp = c.importance;
@@ -277,7 +275,7 @@ export function pickMatchday(
   club: Club,
   squad: readonly Player[],
   ctx: MatchdayContext,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
   c: SquadCoefficients = SQUAD_COEFFICIENTS,
 ): EngineTeamInput {
   const s = c.selection;
@@ -299,6 +297,16 @@ export function pickMatchday(
     pool = [...pool, ...academy.slice(0, Math.max(0, MATCHDAY_SQUAD - pool.length))];
   }
   const formation = formationById(club.tactics.formation);
+  // Still fewer than a team (no academy to fill in: SPEC §17.4): the injured seniors back
+  // soonest play; suspended players never do.
+  if (pool.length < formation.slots.length) {
+    const hurt = squad
+      .filter((p) => isSenior(p) && !isSuspended(p) && isInjured(p, ctx.date))
+      .sort(
+        (a, b) => ((a.injury?.until ?? "") < (b.injury?.until ?? "") ? -1 : 1) || a.pid - b.pid,
+      );
+    pool = [...pool, ...hurt.slice(0, formation.slots.length - pool.length)];
+  }
   const condition = new Map(pool.map((p) => [p.pid, currentCondition(p, ctx.date, medical, c)]));
 
   // Regular starters: the best XI at full condition, or the user's. Each of his counts
@@ -402,7 +410,7 @@ export function squadPlay(
   players: readonly Player[],
   /** The user's club: the AI starts from his saved line-up (null: every club is the AI's). */
   userCid: number | null,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
   c: SquadCoefficients = SQUAD_COEFFICIENTS,
 ): SquadPlay {
   const clubById = new Map(clubs.map((club) => [club.cid, club]));

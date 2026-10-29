@@ -6,9 +6,21 @@
  * worker implements ApiHandlers<WorkerApi>, so any mismatch is a compile error.
  * Arguments and results must be structured-cloneable (plain data).
  */
+import type { ClubNames } from "./clubNames";
 import type { Position } from "./config/ratings";
+import type { WorldId, WorldSwitches } from "./config/worlds";
 import type { MatchEvent, MatchResult, Period } from "./match";
-import type { Fixture, InboxMessage, LeagueSummary, Phase, SliderSettings } from "./schema";
+import type {
+  Fixture,
+  InboxMessage,
+  LeagueSummary,
+  Phase,
+  SliderSettings,
+  TradeAssets,
+} from "./schema";
+
+export type { TradeAssets };
+export type { ClubNames };
 
 export type WorkerKind = "shared" | "dedicated";
 
@@ -24,6 +36,8 @@ export interface ClubChoice {
   cid: number;
   code: string;
   name: string;
+  short: string;
+  abbr: string;
   leagueId: string;
   leagueName: string;
   strength: number;
@@ -35,10 +49,14 @@ export interface ClubChoice {
 }
 
 export interface NewLeagueInput {
+  /** The world to play in (SPEC §17.1). */
+  world: WorldId;
   name: string;
   /** Empty: the worker picks a random seed. */
   seed: string;
   userCid: number;
+  /** The user's names file, read (SPEC §17.3): written into this save only. */
+  names?: ClubNames;
 }
 
 // ---------------------------------------------------------------------------
@@ -52,6 +70,11 @@ export type PlayOption =
   | "untilWindowCloses"
   | "untilEndOfSeason"
   | "proceedToPromotionRelegation"
+  | "untilDraftLottery"
+  | "untilDraft"
+  | "untilYourPick"
+  | "untilEndOfDraft"
+  | "untilResigning"
   | "advanceToPreseason";
 
 export type SeasonEventKind =
@@ -70,6 +93,12 @@ export interface GameState {
   date: string;
   /** The transfer window open on the game date, if any. */
   window: { id: string; closes: string } | null;
+  /**
+   * In a world with trades (SPEC §17.6): whether they're open on the game date, and to
+   * when (the roster deadline, or 30 June after the play-offs); closed, they reopen when
+   * the play-offs end. Null in a world with transfers.
+   */
+  trades: { open: boolean; until: string | null } | null;
   options: PlayOption[];
   /** The user's next fixture, if one is scheduled. */
   nextUserFixture: Fixture | null;
@@ -77,6 +106,11 @@ export interface GameState {
   fired: { date: string; offers: { cid: number; name: string; leagueId: string }[] } | null;
   /** Set while the user watches a match live (M6): play waits until it ends. */
   live: { fid: number } | null;
+  /**
+   * Why Play waits for the user, in plain words: his squad over the limit at the first
+   * league match (SPEC §17.4). Null otherwise.
+   */
+  blocked: string | null;
   /** The Play action under way (started in any tab), or null. */
   playing: PlayOption | null;
 }
@@ -87,6 +121,11 @@ export interface StandingsRow extends TableRowView {
   /** "W-D-L" at home and away. */
   home: string | null;
   away: string | null;
+  /**
+   * In a world with a draft, the live table's chance at the first pick (%) if the season
+   * ended today (SPEC §17.5); null outside the lottery pool; absent otherwise.
+   */
+  lotteryOdds?: number | null;
 }
 
 export interface StandingsView {
@@ -120,6 +159,14 @@ export interface CupView {
   competitions: { id: string; name: string }[];
   rounds: { name: string; date: string | null; ties: CupTie[] }[];
   winner: TeamRef | null;
+  /**
+   * A league play-off not drawn yet this season: its first round if the season ended
+   * today, from the live table (each club with its position). Null otherwise.
+   */
+  projection: {
+    round: string;
+    ties: { home: TeamRef & { position: number }; away: TeamRef & { position: number } }[];
+  } | null;
 }
 
 /** The Weekly Schedule: one week's fixtures in every competition (weeks run Monday–Sunday). */
@@ -160,6 +207,11 @@ export interface SquadPlayerView {
   value: number;
   /** Mood toward his club (−1 to 1); null for academy players. */
   mood: number | null;
+  /**
+   * In a world with a re-signing period (SPEC §17.6): an expiring player of the user's
+   * club would talk about a new contract; null otherwise.
+   */
+  willing: boolean | null;
   season: { appearances: number; goals: number; assists: number; rating: number | null };
 }
 
@@ -219,6 +271,15 @@ export interface PlayerView {
     fee: number;
   }[];
   freeAgentSince: string | null;
+  /** Where he was drafted (SPEC §17.5): null if he wasn't. */
+  drafted: {
+    season: number;
+    round: number;
+    pick: number;
+    club: TeamRef;
+    /** The club whose slot it was, when it wasn't the picking club's own. */
+    from: TeamRef | null;
+  } | null;
   /** On the user's transfer list (his own players only). */
   listed: { asking: number; date: string } | null;
   /** The game date (for what a release would cost). */
@@ -610,6 +671,29 @@ export interface LiveBoardView extends TacticsView {
 }
 
 /** The Free Agents page (M6): every unsigned player, his ask and his mood toward the user's club. */
+/**
+ * A club's payroll against its soft cap (SPEC §17.7), in a world with one: what it may
+ * still spend on free agents, and the luxury tax if the season ended today.
+ */
+export interface CapView {
+  /** Wages of the players under contract plus those owed to released players, a year. */
+  payroll: number;
+  cap: number;
+  /** Cap less payroll: negative when over. */
+  room: number;
+  minimumWage: number;
+  /** The most a free agent's wage can be now: the room, or the minimum wage over the cap. */
+  freeAgentRoom: number;
+  /** The luxury tax on this payroll if the season ended today. */
+  taxIfEnded: number;
+  /** Tax per euro over the cap. */
+  taxRate: number;
+  /** Over the cap, a trade may bring back at most this times the wages sent out. */
+  tradeMatching: number;
+  /** A relegated club's grace: its old league's cap, through this season. */
+  grace: { league: string; through: number } | null;
+}
+
 export interface FreeAgentsView {
   rows: {
     pid: number;
@@ -628,11 +712,17 @@ export interface FreeAgentsView {
     willing: boolean;
     daysFree: number;
   }[];
-  /** The user's wage room (a year) now. */
+  /** The user's wage room (a year) now; under a soft cap, his free-agent room. */
   wageRoom: number;
   seniors: number;
   maxSeniors: number;
+  /** The squad limit counts now (in the Super League from the first league match). */
+  limitCounts: boolean;
   windowOpen: boolean;
+  /** Where free agency has its own dates (SPEC §17.6): why it's closed now, else null. */
+  closed: string | null;
+  /** The soft cap (null in a world without one). */
+  cap: CapView | null;
   /** FFP transfer ban until this date, if any. */
   banned: string | null;
   fired: boolean;
@@ -740,6 +830,11 @@ export interface ClubFinancesView {
     bannedUntil: string | null;
   };
   budget: { transfer: number; wageRoom: number; wageShare: number; base: number };
+  /**
+   * Under a soft cap (SPEC §17.7), in place of FFP and the transfer budget: the cap now,
+   * and last season's luxury tax paid and share received. Null in a world without one.
+   */
+  cap: (CapView & { lastSeason: { season: number; paid: number; received: number } | null }) | null;
   dials: {
     key: "coaching" | "youth" | "medical" | "facilities";
     label: string;
@@ -810,6 +905,8 @@ export interface HistoryView {
       id: string;
       name: string;
       champion: TeamRef | null;
+      /** Where a play-off decides the title: the club that topped the table (not a title). */
+      tableWinner: TeamRef | null;
       promoted: TeamRef[];
       playoffWinner: TeamRef | null;
       relegated: TeamRef[];
@@ -894,6 +991,12 @@ export interface FinancesView {
     wages: number | null;
     /** Squad cost over revenue: projected now, or the season's FFP ratio. */
     squadCostRatio: number | null;
+    /** Under a soft cap, the current season: the payroll and the club's cap. */
+    payroll: number | null;
+    cap: number | null;
+    /** Under a soft cap, a finished season: the luxury tax paid and the share received. */
+    taxPaid: number | null;
+    taxReceived: number | null;
     ffp: "ok" | "warned" | "banned" | null;
     reputation: number;
   }[];
@@ -977,6 +1080,8 @@ export interface DashboardView {
 export interface LeagueShell {
   lid: number;
   name: string;
+  /** The save's world (SPEC §17.1): pages show by its switches; `cups`: it has cups. */
+  world: { id: WorldId; name: string; switches: WorldSwitches; cups: boolean };
   userCid: number;
   /** The first season of every save (season pickers run from it to the current one). */
   firstSeason: number;
@@ -1073,11 +1178,19 @@ export interface ContractTalks {
   /** Wage asked per contract length (1–5 years) and the end date it gives. */
   asks: { years: number; wage: number; expires: string }[];
   windowOpen: boolean;
+  /**
+   * Why he can't sign now, in plain words, where the world's rules say so (a re-signing
+   * period, free agency closed); null otherwise (the window rule above applies).
+   */
+  closedReason: string | null;
   userPlayer: boolean;
   /** Transfer: the fee his club accepted (null until a bid is accepted). */
   feeAgreed: number | null;
-  /** The user's seniors and the cap (SPEC §7.1): a full squad can't sign anyone. */
-  squad: { seniors: number; max: number };
+  /**
+   * The user's seniors and the cap (SPEC §7.1): a full squad can't sign anyone. `enforced`
+   * false: the limit doesn't count yet (the Super League's off-season, SPEC §17.4).
+   */
+  squad: { seniors: number; max: number; enforced: boolean };
   /**
    * The user's transfer budget and wage room (a year) now (SPEC §6.3), his squad cost as a
    * share of revenue against the FFP limit, and any FFP warning or ban (SPEC §6.4).
@@ -1092,6 +1205,8 @@ export interface ContractTalks {
     /** Cash below zero: transfer fees are frozen until it's back above zero (SPEC §6.4). */
     cashFrozen: boolean;
   };
+  /** The soft cap in its place (SPEC §17.7; null in a world without one). */
+  cap: CapView | null;
 }
 
 /** A club's answer to the user's bid. */
@@ -1162,10 +1277,211 @@ export interface OfferView {
   incoming: boolean;
 }
 
+/** A draft prospect, as the draft shows him. */
+export interface DraftProspectView {
+  pid: number;
+  name: string;
+  position: string;
+  age: number;
+  ovr: number;
+  pot: number;
+  nationality: string;
+}
+
+/** A trade the user puts to another club (`cid`): what he gives and what he gets. */
+export interface TradeProposal {
+  cid: number;
+  give: TradeAssets;
+  get: TradeAssets;
+}
+
+/** The other club's answer: yes (the trade is made) or no, and why. */
+export interface TradeAnswer {
+  accepted: boolean;
+  message: string;
+}
+
+/** "What would make this work?": the trade it would take (null: none), and its reply. */
+export interface TradeWork {
+  proposal: TradeProposal | null;
+  message: string;
+}
+
+/** One slot of the draft: its owner (and the club whose slot it was, if traded). */
+export interface DraftSlotView {
+  pick: number;
+  round: number;
+  club: TeamRef;
+  from: TeamRef | null;
+  /** Who was picked; null while the pick is to come. */
+  player: DraftProspectView | null;
+}
+
+/** A club in the draft lottery's pool (SPEC §17.5): where it finished, its odds, its draw. */
+export interface DraftLotteryRow {
+  club: TeamRef;
+  /** Its league's name and its place in the table. */
+  league: string;
+  position: number;
+  /** Its chance at the first pick (%). */
+  odds: number;
+  /** The first-round pick its slot drew; null until the lottery is drawn. */
+  pick: number | null;
+  /** Who holds that pick, when another club does. */
+  owner: TeamRef | null;
+}
+
+/**
+ * A draft (SPEC §17.5). This season's: before the lottery its class (and the lottery pool
+ * if the season ended today); then its order, the picks made and to come, and who is on
+ * the clock. A draft held: the picks made. A class to come: its prospects.
+ */
+export interface DraftView {
+  /** The season whose draft it is (held the next June). */
+  season: number;
+  status: "class" | "notOrdered" | "on" | "over";
+  /** The drafts the page can show, the oldest first: those held, this one, the classes after. */
+  seasons: number[];
+  /** The lottery's and the draft's days. */
+  lotteryDate: string;
+  draftDate: string;
+  /** This season's lottery pool (as it stands or as drawn); null for other drafts. */
+  lottery: DraftLotteryRow[] | null;
+  userCid: number;
+  /** The pick being made, and whether it's the user's club's. */
+  onTheClock: number | null;
+  yourTurn: boolean;
+  slots: DraftSlotView[];
+  /** The prospects still there, the best (OVR) first. */
+  prospects: DraftProspectView[];
+}
+
+/** One draft pick a club holds (SPEC §17.5). */
+export interface DraftPickRow {
+  /** The season whose draft it is in (held the next June). */
+  season: number;
+  round: number;
+  /** The club whose slot it is, when it isn't the holder's own. */
+  from: TeamRef | null;
+  /** Its number once the lottery has set it. */
+  pick: number | null;
+  /**
+   * Before the lottery, for this season's draft: where it would fall if the season ended
+   * today (by squad strength before a league match), and whether that's in the lottery pool,
+   * whose draw can move it. Null for later drafts.
+   */
+  projected: { pick: number; lottery: boolean } | null;
+}
+
+/** A squad player as the Trade page shows him. */
+export interface TradePlayerView {
+  pid: number;
+  name: string;
+  nationality: string;
+  position: string;
+  age: number;
+  ovr: number;
+  pot: number;
+  wage: number;
+  /** His contract's last day. */
+  expires: string;
+  injured: boolean;
+  /** Why his club can't trade him now (null: it can). */
+  untradable: string | null;
+}
+
+/** One club's side of a trade: its squad and picks, and its payroll and squad before and after. */
+export interface TradeSideView {
+  club: TeamRef;
+  players: TradePlayerView[];
+  picks: DraftPickRow[];
+  /** Payroll (wages under contract plus those owed to released players) now and after. */
+  payroll: number;
+  payrollAfter: number;
+  /** Its cap this season (its old tier's in a grace season); null without a cap. */
+  cap: number | null;
+  squad: number;
+  squadAfter: number;
+}
+
+/**
+ * The Trade page (SPEC §17.6, §17.8): the user's side and the other club's, for the trade
+ * as proposed. `proposal` is the one sent, less what no longer belongs to either club.
+ */
+export interface TradeView {
+  proposal: TradeProposal;
+  user: TradeSideView;
+  other: TradeSideView;
+  /** Why trades are closed today; null while they're open. */
+  closed: string | null;
+  /** The rules the trade breaks (none while nothing is proposed). */
+  problems: string[];
+}
+
+/** An offer on the trading block: what the club gives for what the user put up. */
+export interface TradingBlockOffer {
+  proposal: TradeProposal;
+  club: TeamRef;
+  players: TradePlayerView[];
+  picks: DraftPickRow[];
+}
+
+/** The Trading Block (SPEC §17.6): his squad and picks, and the best offers for those put up. */
+export interface TradingBlockView {
+  user: TradeSideView;
+  closed: string | null;
+  /** Best for him first; empty while nothing is put up. */
+  offers: TradingBlockOffer[];
+}
+
+/** A club's draft picks: those it holds, and its own that other clubs hold. */
+export interface DraftPicksView {
+  club: TeamRef;
+  picks: DraftPickRow[];
+  tradedAway: { season: number; round: number; holder: TeamRef }[];
+}
+
+/** A final-year player on the Re-sign Players page. */
+export interface ResigningRow {
+  pid: number;
+  name: string;
+  nationality: string;
+  position: string;
+  age: number;
+  ovr: number;
+  pot: number;
+  /** His wage now, a year. */
+  wage: number;
+  mood: number;
+  willing: boolean;
+  /** His lowest ask a year (over 1–5 years) for a new contract. */
+  ask: number;
+}
+
+/**
+ * Re-sign Players (SPEC §17.6): the user's players whose contracts end this 30 June. They
+ * can be re-signed only in the re-signing period (from the draft to 30 June), over the cap
+ * too; anyone not re-signed leaves on 1 July.
+ */
+export interface ResigningView {
+  open: boolean;
+  /** The period's first and last days this season. */
+  opens: string;
+  closes: string;
+  players: ResigningRow[];
+  /** This season's cap (null without one). */
+  cap: CapView | null;
+  /**
+   * Next season: the wages already committed (contracts running past 30 June, released
+   * players still owed) and the cap then, in the club's league as it stands.
+   */
+  next: { committed: number; cap: number | null; league: string };
+}
+
 export interface WorkerApi {
   getStatus(): WorkerStatus;
   listLeagues(): LeagueSummary[];
-  getClubChoices(): ClubChoice[];
+  getClubChoices(world: WorldId): ClubChoice[];
   createLeague(input: NewLeagueInput): LeagueSummary;
   deleteLeague(lid: number): void;
   /**
@@ -1187,6 +1503,7 @@ export interface WorkerApi {
   getTeamStats(lid: number, leagueId: string | null, season: number | null): TeamStatsView;
   getInjuries(lid: number): InjuriesView;
   getFreeAgents(lid: number): FreeAgentsView;
+  getResigning(lid: number): ResigningView;
   getTransferMarket(lid: number): TransferMarketView;
   getAcademy(lid: number): AcademyView;
   /** When the user has been sacked: the club, his record and his job offers (else null). */
@@ -1248,6 +1565,21 @@ export interface WorkerApi {
   getSchedule(lid: number, week: string | null): ScheduleView;
   markAllInboxRead(lid: number): void;
   playGame(lid: number, option: PlayOption): PlayReport;
+  /** A draft: `season`'s (null: this season's); see `DraftView.seasons`. */
+  getDraft(lid: number, season: number | null): DraftView;
+  /** The user's club picks `pid` when it's on the clock in the draft. */
+  draftProspect(lid: number, pid: number): DraftView;
+  getDraftPicks(lid: number, cid: number): DraftPicksView;
+  /** Puts a trade to another club (SPEC §17.6): made at once if it says yes. */
+  proposeTrade(lid: number, proposal: TradeProposal): TradeAnswer;
+  /** "What would make this work?": what the other club would want added. */
+  makeTradeWork(lid: number, proposal: TradeProposal): TradeWork;
+  /** Answers an AI club's trade offer in the inbox (message `mid`). */
+  respondToTradeOffer(lid: number, mid: number, accept: boolean): TradeAnswer;
+  /** The Trade page for a trade as it stands (nothing is proposed to the other club). */
+  getTrade(lid: number, proposal: TradeProposal): TradeView;
+  /** The trading block: AI clubs' best offers for the players and picks he puts up. */
+  getTradingBlock(lid: number, give: TradeAssets): TradingBlockView;
   acceptJobOffer(lid: number, cid: number): GameState;
   markInboxRead(lid: number, mid: number): void;
   getContractTalks(lid: number, pid: number): ContractTalks;

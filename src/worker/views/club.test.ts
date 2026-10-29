@@ -1,3 +1,4 @@
+import { worlds } from "../../common/config/worlds";
 import { IDBFactory } from "fake-indexeddb";
 import "fake-indexeddb/auto";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -12,6 +13,8 @@ import { createLeague, openLeague } from "../league/session";
 import { academyDecisions, academyReminder } from "../season/offseason";
 import { getAcademy, getClubFinances, getJobOffers } from "./club";
 
+const competitions = worlds.classic.competitions;
+
 beforeAll(() => {
   globalThis.indexedDB = new IDBFactory();
 });
@@ -21,7 +24,12 @@ describe("the user's academy", () => {
     "lists his prospects, promotes and releases on his say, and leaves the rest to 1 July",
     { timeout: 180_000 },
     async () => {
-      const league = await createLeague({ name: "Academy", seed: "academy-view", userCid: 0 });
+      const league = await createLeague({
+        world: "classic",
+        name: "Academy",
+        seed: "academy-view",
+        userCid: 0,
+      });
       const session = await openLeague(league.lid);
       const view = await getAcademy(league.lid);
       expect(view.decideBy).toBe("2027-07-01");
@@ -83,7 +91,7 @@ describe("the user's academy", () => {
 describe("the user's finances", () => {
   it("sells fewer tickets the dearer they are", () => {
     const club = { capacity: 40_000, market: 60, facilitiesLevel: 50 };
-    const league = leagueById("ENG2");
+    const league = leagueById(competitions, "ENG2");
     const at = (ratio: number) => attendance(club, 50, league, 50, 1, ratio);
     expect(at(1)).toBe(attendance(club, 50, league, 50));
     expect(at(1.5)).toBeLessThan(at(1));
@@ -95,7 +103,12 @@ describe("the user's finances", () => {
     "shows the books, sets dials, the fees/wages split and the ticket price until a home match",
     { timeout: 180_000 },
     async () => {
-      const league = await createLeague({ name: "Books", seed: "club-finances", userCid: 0 });
+      const league = await createLeague({
+        world: "classic",
+        name: "Books",
+        seed: "club-finances",
+        userCid: 0,
+      });
       const session = await openLeague(league.lid);
       const view = await getClubFinances(league.lid);
       expect(view.dials.map((d) => d.key)).toEqual(["coaching", "youth", "medical", "facilities"]);
@@ -160,7 +173,12 @@ describe("sacked, and the save's name", () => {
     "shows the club that sacked the user, his record and his offers; renames the save",
     { timeout: 180_000 },
     async () => {
-      const league = await createLeague({ name: "Sacked", seed: "fired-view", userCid: 0 });
+      const league = await createLeague({
+        world: "classic",
+        name: "Sacked",
+        seed: "fired-view",
+        userCid: 0,
+      });
       const session = await openLeague(league.lid);
       expect(await getJobOffers(league.lid)).toBeNull();
       const row = session.cache.get("clubSeasons", [0, 2026]) as ClubSeason;

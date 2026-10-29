@@ -1,4 +1,8 @@
-/** Cups (SPEC §11): each cup and the play-offs, round by round; two-legged ties together. */
+/**
+ * Cups (SPEC §11): each cup and the play-offs, round by round; two-legged ties together.
+ * In a world without cups (the Super League, SPEC §17.8) it's the Play-offs page; a play-off
+ * not drawn yet shows its first round if the season ended today.
+ */
 import type { CupTie } from "../../common/api";
 import { ScoreLink, TeamLink } from "../components/links";
 import { crestUrl } from "../crests";
@@ -48,7 +52,7 @@ export function Cups({ params }: { params: string[] }) {
   return (
     <>
       <PageHeader
-        title="Cups"
+        title={shell.world.cups ? "Cups" : "Play-offs"}
         season={{ season, to: (s) => leaguePath(shell.lid, "cups", id, s) }}
       />
       {error && <div className="alert alert-danger">{error}</div>}
@@ -78,6 +82,34 @@ export function Cups({ params }: { params: string[] }) {
                 <strong>{view.winner.name}</strong> won the {view.name}.
               </span>
             </div>
+          )}
+          {view.projection && (
+            <section className="card mb-3" data-testid="playoff-projection">
+              <div className="card-body py-2">
+                <h2 className="h6 mb-1">If the season ended today</h2>
+                <div className="small text-body-secondary mb-2">{view.projection.round}</div>
+                <div className="d-flex flex-wrap gap-2">
+                  {view.projection.ties.map((tie) => (
+                    <div
+                      key={`${tie.home.cid}-${tie.away.cid}`}
+                      className={`border rounded p-2 small ${
+                        tie.home.cid === shell.userCid || tie.away.cid === shell.userCid
+                          ? "border-primary"
+                          : ""
+                      }`}
+                      style={{ minWidth: 200 }}
+                    >
+                      <div>
+                        {tie.home.position}. <TeamLink team={tie.home} />
+                      </div>
+                      <div>
+                        {tie.away.position}. <TeamLink team={tie.away} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
           )}
           <div className="d-flex gap-3 overflow-auto pb-2" data-testid="cup-rounds">
             {view.rounds.map((round) => (

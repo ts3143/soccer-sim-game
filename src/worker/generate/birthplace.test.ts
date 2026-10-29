@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { worlds } from "../../common/config/worlds";
 import type { Club } from "../../common/schema";
 import { LOCAL_SHARE, localBirthplace } from "./birthplace";
 import { nameFiles } from "./nameData";
@@ -28,6 +29,7 @@ describe("birthplaces: local lads (T, 2026-10-25)", () => {
     { timeout: 60_000 },
     () => {
       const world = generateWorld({
+        config: worlds.classic,
         seed: "birthplaces",
         name: "t",
         userCid: 0,

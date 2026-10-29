@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { worlds } from "../../common/config/worlds";
 import type { Club, Player } from "../../common/schema";
 import { generateWorld } from "../generate/world";
 import { AI_MARKET, marketDay, marketDays, type MarketWorld, needOf } from "./aiMarket";
@@ -6,12 +7,14 @@ import { freeAgentAskFactor } from "./market";
 import { seniorsOf } from "./transfers";
 
 const generated = generateWorld({
+  config: worlds.classic,
   seed: "ai-market-test",
   name: "t",
   userCid: 0,
   createdAt: "2026-07-01T00:00:00.000Z",
 });
 const freshWorld = (): MarketWorld => ({
+  config: worlds.classic,
   clubs: structuredClone(generated.clubs),
   players: structuredClone(generated.players),
   clubSeasons: new Map(structuredClone(generated.clubSeasons).map((r) => [r.cid, r])),
@@ -19,7 +22,7 @@ const freshWorld = (): MarketWorld => ({
   seed: "ai-market-test",
   openBids: [],
 });
-const days = marketDays(2026);
+const days = marketDays(2026, worlds.classic.competitions);
 const totalCash = (w: MarketWorld) => w.clubs.reduce((s, c) => s + c.cash, 0);
 
 describe("market days", () => {

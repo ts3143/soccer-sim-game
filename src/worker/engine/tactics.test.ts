@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { worlds } from "../../common/config/worlds";
 import type { Club, Player, SliderSettings } from "../../common/schema";
 import { generateWorld } from "../generate/world";
 import {
@@ -14,6 +15,7 @@ import { prepareMatch } from "./prepare";
 import type { MatchInput, MatchResult } from "./types";
 
 const world = generateWorld({
+  config: worlds.classic,
   seed: "tactics-test",
   name: "t",
   userCid: 0,

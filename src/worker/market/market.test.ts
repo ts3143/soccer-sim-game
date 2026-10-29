@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { worlds } from "../../common/config/worlds";
 import type { Club, ClubSeason, Player } from "../../common/schema";
 import { generateWorld } from "../generate/world";
 import {
@@ -14,6 +15,7 @@ import {
 import { aiRenewals, contractWarning, expireContracts, type ContractWorld } from "./renewals";
 
 const generated = generateWorld({
+  config: worlds.classic,
   seed: "market-test",
   name: "t",
   userCid: 0,
@@ -25,6 +27,7 @@ const someone = (edit: Partial<Player> = {}): Player => ({
   ...edit,
 });
 const freshWorld = (): ContractWorld => ({
+  config: worlds.classic,
   clubs: structuredClone(generated.clubs),
   players: structuredClone(generated.players),
   clubSeasons: new Map(structuredClone(generated.clubSeasons).map((r) => [r.cid, r])),

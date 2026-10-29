@@ -8,6 +8,7 @@
  * the fields the spec names, and extended (with a DB version bump) when built.
  */
 import type { Position } from "./config/ratings";
+import type { WorldId } from "./config/worlds";
 import type { MatchResult } from "./match";
 
 // ---------------------------------------------------------------------------
@@ -35,7 +36,12 @@ export interface LeagueSummary {
  * inside it); the end of season runs from the last match to 30 June. There is no re-sign
  * phase: renewals happen in windows.
  */
-export type Phase = "preseason" | "regularSeason" | "endOfSeason";
+/**
+ * Where the season is. After the end of the season, a world with a draft has its draft
+ * lottery and draft, one with a re-signing period that period (SPEC §17.6), before 1 July.
+ */
+export type Phase =
+  "preseason" | "regularSeason" | "endOfSeason" | "draftLottery" | "draft" | "resigning";
 
 export interface GameMeta {
   /** Display name of the save. */
@@ -93,8 +99,11 @@ export interface MetaRows {
   ids: IdCounters;
   /** Saved state of the league's main random stream. */
   rng: { seed: string; words: readonly [number, number, number, number] };
-  /** World-size config and per-league modifiers in force for this save. */
-  world: { leagues: string[]; styleModifiers: Record<string, StyleModifiersRow> };
+  /**
+   * The save's world (SPEC §17.1; saves before league DB v8 are Classic), with the
+   * leagues and per-league modifiers it had when created.
+   */
+  world: { id: WorldId; leagues: string[]; styleModifiers: Record<string, StyleModifiersRow> };
 }
 
 export interface StyleModifiersRow {
@@ -199,6 +208,11 @@ export interface Club {
    */
   ffp?: { warned: boolean; bannedUntil: string | null };
   /**
+   * A relegated club's grace under the soft cap (SPEC §17.7): it keeps `leagueId`'s cap
+   * through season `through`. Absent where there is no cap or no grace.
+   */
+  capGrace?: { leagueId: string; through: number } | null;
+  /**
    * The user's one budget control (SPEC §6.3): the share of the FFP headroom kept for
    * wages, the rest backing transfer fees. Absent: half each.
    */
@@ -270,7 +284,8 @@ export interface ClubSeason {
 
 export type CurveType = "normal" | "early" | "late" | "ageless";
 export type MoodTrait = "fame" | "loyalty" | "money" | "winning";
-export type PlayerStatus = "club" | "academy" | "loan" | "freeAgent" | "retired";
+/** `prospect`: in the coming draft's class (SPEC §17.5): unattached, not yet a free agent. */
+export type PlayerStatus = "club" | "academy" | "loan" | "freeAgent" | "retired" | "prospect";
 export type Foot = "L" | "R";
 
 /** One development snapshot (generation, then every summer/winter update). */
@@ -315,7 +330,7 @@ export interface TransferRecord {
   fromCid: number | null;
   toCid: number | null;
   fee: number;
-  type: "transfer" | "loan" | "freeAgent" | "academyPromotion" | "release";
+  type: "transfer" | "loan" | "freeAgent" | "academyPromotion" | "release" | "draft" | "trade";
 }
 
 /** What development needs from the matches since the last update (SPEC §5.3). */
@@ -388,6 +403,13 @@ export interface Player {
   retiredSeason: number | null;
   /** On the user's transfer list (M6): AI clubs that need him bid around the asking price. */
   listed?: { asking: number; date: string };
+  /** A prospect's class: the season whose draft he is in (SPEC §17.5). */
+  draftSeason?: number;
+  /**
+   * Where he was drafted (SPEC §17.5): the season of the draft, round, overall pick, the
+   * club that picked him and the club whose slot it was (absent in older saves).
+   */
+  draft?: { season: number; round: number; pick: number; cid: number; originalCid?: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -504,6 +526,23 @@ export interface Offer {
   season?: number;
 }
 
+/**
+ * A draft pick (SPEC §17.5): a club's slot in one round of one season's draft, an asset its
+ * owner can trade. Each club's picks exist for the coming draft and `picksAhead` seasons
+ * after it; the draft uses them up. Keyed by season, round and original club.
+ */
+export interface DraftPick {
+  /** The season whose draft (held the next June) it is in, as `Player.draftSeason`. */
+  season: number;
+  round: number;
+  /** The club whose slot it is: that club's finish places it, lottery included. */
+  originalCid: number;
+  /** Its owner now. */
+  cid: number;
+  /** Its overall number in the draft, once the lottery has set the order. */
+  pick?: number;
+}
+
 export interface TransactionRow {
   xid: number;
   season: number;
@@ -531,6 +570,24 @@ export interface InboxMessage {
    * player and the message date it names the offer. Absent in older saves.
    */
   bidFrom?: number;
+  /** An AI club's trade offer to the user (SPEC §17.6), until it's answered or expires. */
+  tradeOffer?: TradeOffer;
+}
+
+/** What one club gives in a trade: players and draft picks (by their key), no cash. */
+export interface TradeAssets {
+  pids: number[];
+  picks: { season: number; round: number; originalCid: number }[];
+}
+
+/** A trade an AI club (`cid`) offers the user: what he'd give and get, standing to `expires`. */
+export interface TradeOffer {
+  cid: number;
+  give: TradeAssets;
+  get: TradeAssets;
+  /** Its last day. */
+  expires: string;
+  status: "open" | "accepted" | "rejected";
 }
 
 export interface AwardRow {

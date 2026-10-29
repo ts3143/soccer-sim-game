@@ -13,7 +13,8 @@ import { RATING_CODES, ratingsConfig } from "../../common/config/ratings";
 import { RadarChart } from "../components/charts";
 import { NationalityFlag, RatingChange, RatingsGrid } from "../components/PlayerDetails";
 import { ScoreLink, TeamLink } from "../components/links";
-import { leaguePath, Link } from "../router";
+import { leaguePath, Link, navigate } from "../router";
+import { noAssets, saveTrade } from "../tradeDraft";
 import { resultRowClass } from "../components/results";
 import { HonourBadge, HonoursCard } from "../components/Honours";
 import { formatDate, formatEuros } from "../format";
@@ -31,6 +32,7 @@ const TRANSFER_LABELS: Record<string, string> = {
   freeAgent: "Free transfer",
   academyPromotion: "Academy promotion",
   release: "Released",
+  trade: "Trade",
 };
 const STATUS_LABELS: Record<string, string> = {
   club: "",
@@ -204,14 +206,24 @@ export function Player({ params }: { params: string[] }) {
   if (!view) return <p>Loading…</p>;
   const status = STATUS_LABELS[view.status] ?? view.status;
   const own = view.status === "club" && view.team?.cid === shell.userCid;
+  // A world with trades has no bids, transfer list or loans (SPEC §17.8).
+  const { switches } = shell.world;
+  const transfers = switches.market === "transfers";
   const talk =
     view.status === "freeAgent"
       ? "Offer a contract"
       : view.status === "club" && view.team
         ? view.team.cid === shell.userCid
           ? "New contract"
-          : "Make a bid"
+          : transfers
+            ? "Make a bid"
+            : null
         : null;
+  // Opens the Trade page with him asked for (SPEC §17.8, ZenGM's "Trade For").
+  const tradeFor = (cid: number) => {
+    saveTrade(shell.lid, { cid, give: noAssets(), get: { pids: [view.pid], picks: [] } });
+    navigate(leaguePath(shell.lid, "trade", cid));
+  };
   return (
     <>
       <PageHeader title={view.name}>
@@ -228,23 +240,41 @@ export function Player({ params }: { params: string[] }) {
             {talk}
           </button>
         )}
+        {switches.market === "trades" &&
+          view.status === "club" &&
+          view.team &&
+          !own &&
+          !shell.state.fired && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              data-testid="profile-trade-for"
+              onClick={() => tradeFor(view.team?.cid ?? 0)}
+            >
+              Trade for him
+            </button>
+          )}
         {own && !shell.state.fired && (
           <>
-            <button
-              type="button"
-              className="btn btn-outline-primary btn-sm"
-              onClick={() => setDialog("list")}
-              data-testid="profile-list"
-            >
-              {view.listed ? `Listed at ${formatEuros(view.listed.asking)}` : "List for transfer"}
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline-secondary btn-sm"
-              onClick={() => setDialog("loan")}
-            >
-              Loan out
-            </button>
+            {transfers && (
+              <button
+                type="button"
+                className="btn btn-outline-primary btn-sm"
+                onClick={() => setDialog("list")}
+                data-testid="profile-list"
+              >
+                {view.listed ? `Listed at ${formatEuros(view.listed.asking)}` : "List for transfer"}
+              </button>
+            )}
+            {switches.loans && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => setDialog("loan")}
+              >
+                Loan out
+              </button>
+            )}
             <button
               type="button"
               className="btn btn-outline-danger btn-sm"
@@ -320,6 +350,15 @@ export function Player({ params }: { params: string[] }) {
               <Fact label="Foot">{view.foot === "L" ? "Left" : "Right"}</Fact>
               <Fact label="Height">{view.heightCm} cm</Fact>
               {view.shirtNumber !== null && <Fact label="Shirt">{view.shirtNumber}</Fact>}
+              {view.drafted && (
+                <Fact label="Drafted">
+                  <span data-testid="drafted">
+                    {view.drafted.season + 1} round {view.drafted.round}, pick {view.drafted.pick}{" "}
+                    by <TeamLink team={view.drafted.club} short />
+                    {view.drafted.from && ` (${view.drafted.from.abbr}'s pick)`}
+                  </span>
+                </Fact>
+              )}
               {view.retiredSeason !== null && <Fact label="Retired">{view.retiredSeason}</Fact>}
               {view.freeAgentSince && (
                 <Fact label="Free agent since">{formatDate(view.freeAgentSince)}</Fact>

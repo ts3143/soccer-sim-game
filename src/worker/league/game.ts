@@ -15,19 +15,26 @@
 import { withPlayerReferences } from "./messages";
 import { addDays } from "../../common/dates";
 import { GameError, LEAGUE_CLOSED } from "../../common/errors";
-import { competitionsConfig } from "../../common/config/competitions";
+import type { CompetitionsConfig } from "../../common/config/competitions";
+import type { WorldConfig } from "../../common/config/worlds";
 import {
   PLAYER_STAT_TOTALS,
   type ClubSeason,
   type Fixture,
   type GameMeta,
   type IdCounters,
+  type Phase,
   type PlayerStatsRow,
   type SeasonMeta,
 } from "../../common/schema";
 import type { MatchResult } from "../../common/match";
 import type { GameState, PlayOption, PlayReport } from "../../common/api";
 import { updateLeagueSummary } from "../db/globalDb";
+import { applyCapGrace } from "../finance/softCap";
+import { makePicks, nextPick, setDraftOrder } from "../season/draft";
+import { firstLeagueDay } from "../season/freeAgency";
+import { resigningNotice } from "../market/renewals";
+import { tradeCalendar, tradesClosed } from "../market/trades";
 import { seasonDate } from "../schedule/calendar";
 import {
   endOfSeasonTurnover,
@@ -35,6 +42,7 @@ import {
   type NewTransaction,
   seasonAwards,
   summerTransition,
+  type TurnoverLog,
 } from "../season/offseason";
 import { closeSeasonBooks, openSeasonBooks, settleMonths } from "../finance/finance";
 import { BOARD, jobOffers, preseasonBoard } from "../club/board";
@@ -70,7 +78,7 @@ export function assertNotLive(session: LeagueSession): void {
 }
 
 /** The window open on `date` (opening day included, the day after deadline day not). */
-export function openWindow(date: string, season: number, config = competitionsConfig) {
+export function openWindow(date: string, season: number, config: CompetitionsConfig) {
   for (const w of config.windows) {
     const opens = seasonDate(season, w.opens);
     const closes = seasonDate(season, w.closes);
@@ -91,6 +99,7 @@ export function loopWorld(session: LeagueSession, season: number): LoopWorld {
     clubSeasons.set(row.cid, row);
   }
   return {
+    config: session.config,
     clubs: session.cache.getAll("clubs"),
     players: session.cache.getAll("players"),
     reputation,
@@ -101,6 +110,13 @@ export function loopWorld(session: LeagueSession, season: number): LoopWorld {
       .getAll("offers")
       .filter((o) => o.status === "open" && o.toCid === game.userCid)
       .map((o) => ({ pid: o.pid, fromCid: o.fromCid, expires: o.expires })),
+    draftPicks: session.cache.getAll("draftPicks"),
+    openTradeOffers: session.cache
+      .getAll("inbox")
+      .filter((m) => m.tradeOffer?.status === "open" && m.tradeOffer.expires >= game.date).length,
+    offeredFor: session.cache
+      .getAll("inbox")
+      .flatMap((m) => (m.tradeOffer?.give.pids ?? []).map((pid) => ({ pid, date: m.date }))),
     nextPid: () => {
       const pid = ids.pid++;
       session.cache.put("meta", { ...meta<IdCounters>(session, "ids"), pid: ids.pid }, "ids");
@@ -115,6 +131,26 @@ export function saveBooks(session: LeagueSession, world: LoopWorld): void {
   for (const row of world.clubSeasons.values()) session.cache.put("clubSeasons", row);
 }
 
+/** Saves the draft picks as the season code left them: new ones made, used ones gone. */
+export function savePicks(session: LeagueSession, world: LoopWorld): void {
+  const picks = world.draftPicks ?? [];
+  const kept = new Set(picks.map((p) => `${p.season}/${p.round}/${p.originalCid}`));
+  for (const p of session.cache.getAll("draftPicks")) {
+    if (!kept.has(`${p.season}/${p.round}/${p.originalCid}`)) {
+      session.cache.delete("draftPicks", [p.season, p.round, p.originalCid]);
+    }
+  }
+  for (const p of picks) session.cache.put("draftPicks", p);
+}
+
+/** Saves what a draft step did: new and changed players, the picks, its transactions. */
+export function saveDraftLog(session: LeagueSession, world: LoopWorld, log: TurnoverLog): void {
+  for (const p of log.added) session.cache.put("players", p);
+  for (const p of world.players) if (log.changed.has(p.pid)) session.cache.put("players", p);
+  savePicks(session, world);
+  saveTransactions(session, log.transactions);
+}
+
 export function saveTransactions(session: LeagueSession, rows: readonly NewTransaction[]): void {
   const ids = { ...meta<IdCounters>(session, "ids") };
   for (const row of rows) session.cache.put("transactions", { xid: ids.xid++, ...row });
@@ -126,7 +162,7 @@ export function loadSeason(session: LeagueSession): SeasonState {
   const stored = meta<SeasonMeta>(session, "season");
   const ids = meta<IdCounters>(session, "ids");
   const fixtures = session.cache.getAll("fixtures").filter((f) => f.season === stored.season);
-  return restoreSeason(stored, game.seed, fixtures, ids.fid);
+  return restoreSeason(stored, game.seed, fixtures, ids.fid, session.config.competitions);
 }
 
 function saveSeason(session: LeagueSession, state: SeasonState, movesApplied: boolean) {
@@ -164,12 +200,13 @@ export function ensureSeason(session: LeagueSession): void {
     clubs: session.cache.getAll("clubs"),
     lastFinish: lastFinishes(session, game.season),
     firstFid: ids.fid,
+    config: session.config.competitions,
   });
   for (const f of state.fixtures) session.cache.put("fixtures", f);
   saveSeason(session, state, false);
   // The board's targets for the season (SPEC §6.5).
   const world = loopWorld(session, game.season);
-  const message = preseasonBoard(world, game.season, game.date);
+  const message = preseasonBoard(world, game.season, game.date, session.config.competitions);
   saveBooks(session, world);
   if (message) saveMessages(session, [message]);
 }
@@ -181,10 +218,20 @@ export function saveMessages(session: LeagueSession, rows: readonly NewMessage[]
   session.cache.put("meta", ids, "ids");
 }
 
+/** Trades on the game date (a world with trades): open to the deadline or 30 June, or closed. */
+function tradeWindow(session: LeagueSession, game: GameMeta): GameState["trades"] {
+  if (session.config.switches.market !== "trades") return null;
+  const fixtures = session.cache.getAll("fixtures").filter((f) => f.season === game.season);
+  const cal = tradeCalendar(session.config.competitions, game.season, fixtures);
+  if (tradesClosed(cal, game.date)) return { open: false, until: null };
+  const toDeadline = cal.deadline !== null && game.date <= cal.deadline;
+  return { open: true, until: toDeadline ? cal.deadline : `${game.season + 1}-06-30` };
+}
+
 export function gameState(session: LeagueSession): GameState {
   const game = meta<GameMeta>(session, "game");
   const stored = meta<SeasonMeta>(session, "season");
-  const window = openWindow(game.date, game.season);
+  const window = openWindow(game.date, game.season, session.config.competitions);
   const options: PlayOption[] = [];
   const live = liveFixture(session);
   const next = session.cache
@@ -196,11 +243,19 @@ export function gameState(session: LeagueSession): GameState {
         (f.homeCid === game.userCid || f.awayCid === game.userCid),
     )
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.fid - b.fid))[0];
-  if (game.fired || live !== null) {
+  const blocked = squadBlock(session, game);
+  if (game.fired || live !== null || blocked) {
     // Sacked: nothing to play until the user takes a job (acceptJobOffer). Watching: the
-    // live match comes first.
-  } else if (game.phase === "endOfSeason") {
-    options.push(stored.movesApplied ? "advanceToPreseason" : "proceedToPromotionRelegation");
+    // live match comes first. Over the squad limit: he releases players first.
+  } else if (game.phase === "endOfSeason" && !stored.movesApplied) {
+    options.push("proceedToPromotionRelegation");
+  } else if (game.phase === "endOfSeason" || offseasonPhase(game.phase)) {
+    const drafting = game.phase === "draft" ? draftOptions(session, game) : [];
+    options.push(
+      ...(drafting.length > 0
+        ? drafting
+        : [nextOffseasonStage(session.config, game.phase)?.option ?? "advanceToPreseason"]),
+    );
   } else {
     options.push("untilNextMatch");
     if (next) options.push("watchNextMatch");
@@ -213,9 +268,11 @@ export function gameState(session: LeagueSession): GameState {
     phase: game.phase,
     date: game.date,
     window,
+    trades: tradeWindow(session, game),
     options,
     nextUserFixture: next ?? null,
     live: live === null ? null : { fid: live },
+    blocked,
     playing: running.get(session) ?? null,
     fired: game.fired
       ? {
@@ -249,7 +306,11 @@ export async function acceptJobOffer(session: LeagueSession, cid: number): Promi
   session.cache.put("meta", game, "game");
   // His tactic there starts as the AI's pick, as at a new league.
   if (club) {
-    session.cache.put("clubs", withAutoLineup(club, session.cache.getAll("players"), game.date));
+    const players = session.cache.getAll("players");
+    session.cache.put(
+      "clubs",
+      withAutoLineup(club, players, game.date, session.config.competitions),
+    );
   }
   const row = session.cache.get("clubSeasons", [cid, game.season]);
   if (row) {
@@ -320,7 +381,7 @@ function recordMatch(session: LeagueSession, fixture: Fixture, result: MatchResu
 
 /** End of the season's matches: final tables and the season's awards (SPEC §10.5). */
 function finishSeason(session: LeagueSession, state: SeasonState): void {
-  const outcome = seasonOutcome(state);
+  const outcome = seasonOutcome(state, session.config.competitions);
   const lines = session.cache
     .getAll("playerStats")
     .filter((r) => r.season === state.season)
@@ -340,6 +401,7 @@ function finishSeason(session: LeagueSession, state: SeasonState): void {
     session.cache.getAll("clubs"),
     session.cache.getAll("players"),
     lines,
+    session.config.competitions,
   );
   const ids = { ...meta<IdCounters>(session, "ids") };
   for (const award of awards) session.cache.put("awards", { aid: ids.aid++, ...award });
@@ -347,8 +409,37 @@ function finishSeason(session: LeagueSession, state: SeasonState): void {
 }
 
 /**
+ * Where the squad limit counts from the first league match (SPEC §17.4): the last day the
+ * user can play to while his squad is over it (the day before that match), or null.
+ */
+function squadLimitStop(session: LeagueSession, game: GameMeta): string | null {
+  const competitions = session.config.competitions;
+  const { maxSenior, maxSeniorFromFirstMatch } = competitions.rosterRules;
+  if (!maxSeniorFromFirstMatch || game.phase !== "preseason") return null;
+  const seniors = session.cache
+    .getAll("players")
+    .filter((p) => p.cid === game.userCid && p.status === "club").length;
+  if (seniors <= maxSenior) return null;
+  const fixtures = session.cache.getAll("fixtures").filter((f) => f.season === game.season);
+  const first = firstLeagueDay(competitions, fixtures);
+  return first === null ? null : addDays(first, -1);
+}
+
+/** Why Play waits: the user's squad over the limit on the eve of the first league match. */
+function squadBlock(session: LeagueSession, game: GameMeta): string | null {
+  const stop = squadLimitStop(session, game);
+  if (stop === null || game.date < stop) return null;
+  const max = session.config.competitions.rosterRules.maxSenior;
+  const seniors = session.cache
+    .getAll("players")
+    .filter((p) => p.cid === game.userCid && p.status === "club").length;
+  return `Your squad has ${seniors} players, and ${max} is the most from the first league match: release ${seniors - max} to play on.`;
+}
+
+/**
  * Processes days after the game date (src/worker/season/runner.ts) until `stop` says
- * so, `limit` is reached or the season's matches are over, and saves the results.
+ * so, `limit` is reached or the season's matches are over, and saves the results. A user
+ * over the squad limit stops on the eve of the first league match (`squadLimitStop`).
  */
 export function processDays(
   session: LeagueSession,
@@ -361,7 +452,14 @@ export function processDays(
   const stored = meta<SeasonMeta>(session, "season");
   const world = loopWorld(session, game.season);
   const from = game.date;
-  const days = runDays(world, state, from, { limit, stop, stopWhenUserSacked: true, ...watch });
+  const eve = squadLimitStop(session, game);
+  const until = eve !== null && (limit === null || eve < limit) ? eve : limit;
+  const days = runDays(world, state, from, {
+    limit: until,
+    stop,
+    stopWhenUserSacked: true,
+    ...watch,
+  });
 
   saveBooks(session, world);
   for (const { fixture, result } of days.played) recordMatch(session, fixture, result);
@@ -391,6 +489,8 @@ export function processDays(
   saveMessages(session, days.messages);
   saveTransactions(session, days.transactions);
   saveOffers(session, days.offers);
+  // AI trades move picks too.
+  if (days.transactions.some((t) => t.type === "trade")) savePicks(session, world);
   // Players the AI signed: bids for them elsewhere no longer stand.
   const moved = new Set(
     days.transactions
@@ -431,23 +531,118 @@ function expireOffers(session: LeagueSession, date: string): void {
 }
 
 /** 1 June: promotion and relegation (SPEC §3.1). */
+/** An off-season stage after promotion and relegation: its phase, Play option and date. */
+interface OffseasonStage {
+  phase: Phase;
+  option: PlayOption;
+  /** MM-DD key date (config) the stage starts on. */
+  date: string;
+}
+
+const offseasonPhase = (phase: Phase) =>
+  phase === "draftLottery" || phase === "draft" || phase === "resigning";
+
+/**
+ * The world's off-season stages, in order (SPEC §17.2): with a draft, its lottery and the
+ * draft; with a re-signing period, that period. None in Classic.
+ */
+function offseasonStages(config: WorldConfig): OffseasonStage[] {
+  const dates = config.competitions.keyDates;
+  const stage = (phase: Phase, option: PlayOption, key: string): OffseasonStage => {
+    const date = dates[key];
+    if (!date) throw new Error(`The ${config.name} world has no ${key} date`);
+    return { phase, option, date };
+  };
+  return [
+    ...(config.switches.youth === "draft"
+      ? [
+          stage("draftLottery", "untilDraftLottery", "draftLottery"),
+          stage("draft", "untilDraft", "draft"),
+        ]
+      : []),
+    ...(config.switches.renewals === "resigningPeriod"
+      ? [stage("resigning", "untilResigning", "resigningOpens")]
+      : []),
+  ];
+}
+
+/**
+ * The Play options while the draft is on (SPEC §17.5; none once it's over): "Until your
+ * pick" while the user's club has a pick to come and isn't on the clock, and "To the end
+ * of the draft", the AI picking for him too.
+ */
+function draftOptions(session: LeagueSession, game: GameMeta): PlayOption[] {
+  const picks = session.cache.getAll("draftPicks");
+  const next = nextPick(picks, game.season);
+  if (!next) return [];
+  const userLater =
+    next.cid !== game.userCid &&
+    picks.some((p) => p.season === game.season && p.pick !== undefined && p.cid === game.userCid);
+  return userLater ? ["untilYourPick", "untilEndOfDraft"] : ["untilEndOfDraft"];
+}
+
+/** Makes the draft's picks, the AI choosing, to the user's turn or the draft's end. */
+function draftPlay(session: LeagueSession, untilUser: boolean): PlayReport {
+  const game = meta<GameMeta>(session, "game");
+  const world = loopWorld(session, game.season);
+  saveDraftLog(session, world, makePicks(world, game.season, game.date, untilUser));
+  return { from: game.date, to: game.date, matchesPlayed: 0, events: [], phase: game.phase };
+}
+
+/** The stage after `phase` (from the end of the season), or null when preseason is next. */
+function nextOffseasonStage(config: WorldConfig, phase: Phase): OffseasonStage | null {
+  const stages = offseasonStages(config);
+  const at = stages.findIndex((s) => s.phase === phase);
+  return stages[at + 1] ?? null;
+}
+
+/**
+ * Moves to the next off-season stage. The lottery sets the draft's order (a save that
+ * reaches the draft without one gets it then); the draft's picks are made with the Play
+ * options of its phase (`draftOptions`). The re-signing period opens with a note of the
+ * user's contracts that end; the AI re-signs as it closes (1 July).
+ */
+function toOffseasonStage(session: LeagueSession, option: PlayOption): PlayReport {
+  const game = { ...meta<GameMeta>(session, "game") };
+  const stage = offseasonStages(session.config).find((s) => s.option === option);
+  if (!stage) throw new Error(`No off-season stage for ${option}`);
+  const from = game.date;
+  game.date = seasonDate(game.season, stage.date);
+  game.phase = stage.phase;
+  const ordered = session.cache
+    .getAll("draftPicks")
+    .some((p) => p.season === game.season && p.pick !== undefined);
+  if (stage.phase === "draftLottery" || (stage.phase === "draft" && !ordered)) {
+    const world = loopWorld(session, game.season);
+    const outcome = seasonOutcome(loadSeason(session), session.config.competitions);
+    saveDraftLog(session, world, setDraftOrder(world, outcome, game.season, game.date));
+  }
+  if (stage.phase === "resigning") {
+    const notice = resigningNotice(loopWorld(session, game.season), game.season, game.date);
+    if (notice) saveMessages(session, [notice]);
+  }
+  session.cache.put("meta", game, "game");
+  return { from, to: game.date, matchesPlayed: 0, events: [], phase: game.phase };
+}
+
 function proceedToPromotionRelegation(session: LeagueSession): PlayReport {
   const game = { ...meta<GameMeta>(session, "game") };
   const state = loadSeason(session);
-  const outcome = seasonOutcome(state);
+  const outcome = seasonOutcome(state, session.config.competitions);
   const from = game.date;
   const processing = seasonDate(
     game.season,
-    competitionsConfig.keyDates.endOfSeasonProcessing ?? "06-01",
+    session.config.competitions.keyDates.endOfSeasonProcessing ?? "06-01",
   );
   if (processing > game.date) game.date = processing;
   // Month-end money up to 1 June, in the clubs' leagues of this season.
   const books = loopWorld(session, game.season);
-  const amortised = settleMonths(books, from, game.date);
+  const amortised = settleMonths(books, from, game.date, session.config.competitions);
   for (const p of books.players) if (amortised.has(p.pid)) session.cache.put("players", p);
   saveBooks(session, books);
   const clubs = session.cache.getAll("clubs").map((c) => ({ ...c }));
   applyMoves(clubs, outcome.moves);
+  applyCapGrace(clubs, outcome.moves, session.config.competitions, game.season);
   for (const club of clubs) session.cache.put("clubs", club);
   // Retirements and departures (SPEC §5.5).
   const world = loopWorld(session, game.season);
@@ -556,18 +751,25 @@ async function advanceToPreseason(session: LeagueSession): Promise<PlayReport> {
   // decisions and the squad top-up (src/worker/season/offseason.ts).
   const world = loopWorld(session, old);
   // 30 June: the season's last month-ends, its cash snapshot and the FFP check.
-  const ffp = closeSeasonBooks(world, old, from, game.userCid);
+  const ffp = closeSeasonBooks(world, old, from, game.userCid, world.config.competitions);
   for (const p of world.players) if (ffp.changed.has(p.pid)) cache.put("players", p);
   saveMessages(session, ffp.messages);
   saveBooks(session, world);
   const turnover = summerTransition(world, loadSeason(session));
   for (const p of world.players) if (turnover.changed.has(p.pid)) cache.put("players", p);
   for (const p of turnover.added) cache.put("players", p);
+  savePicks(session, world);
   saveTransactions(session, turnover.transactions);
   saveMessages(session, turnover.messages);
 
   // The new season's club rows (budget base, ticket prices).
-  const next = openSeasonBooks(world.clubs, world.clubSeasons, season, game.userCid);
+  const next = openSeasonBooks(
+    world.clubs,
+    world.clubSeasons,
+    season,
+    game.userCid,
+    world.config.competitions,
+  );
   for (const row of next.values()) cache.put("clubSeasons", row);
   for (const club of world.clubs) cache.put("clubs", club);
   game.season = season;
@@ -685,6 +887,15 @@ async function runPlay(session: LeagueSession, option: PlayOption): Promise<Play
       break;
     case "proceedToPromotionRelegation":
       report = proceedToPromotionRelegation(session);
+      break;
+    case "untilDraftLottery":
+    case "untilDraft":
+    case "untilResigning":
+      report = toOffseasonStage(session, option);
+      break;
+    case "untilYourPick":
+    case "untilEndOfDraft":
+      report = draftPlay(session, option === "untilYourPick");
       break;
     case "advanceToPreseason":
       report = await advanceToPreseason(session);

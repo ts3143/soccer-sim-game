@@ -1,3 +1,4 @@
+import { worlds } from "../../common/config/worlds";
 import { IDBFactory } from "fake-indexeddb";
 import "fake-indexeddb/auto";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -22,12 +23,14 @@ import {
 import { setWageShare } from "./market";
 import { createLeague, openLeague, type LeagueSession } from "./session";
 
+const competitions = worlds.classic.competitions;
+
 beforeAll(() => {
   globalThis.indexedDB = new IDBFactory();
 });
 
 async function league(name: string) {
-  const created = await createLeague({ name, seed: "live-match", userCid: 0 });
+  const created = await createLeague({ world: "classic", name, seed: "live-match", userCid: 0 });
   return { lid: created.lid, session: await openLeague(created.lid) };
 }
 
@@ -434,10 +437,14 @@ describe("watching a match live", () => {
       const world = loopWorld(session, game.season);
       const fixture = season.fixtures.find((f) => f.homeCid === 0 || f.awayCid === 0);
       if (!fixture) throw new Error("no fixture");
-      const { home, away } = squadPlay(season, world.clubs, world.players, game.userCid).prepare(
-        fixture,
-      );
-      const setup = fixtureSetup(season, fixture);
+      const { home, away } = squadPlay(
+        season,
+        world.clubs,
+        world.players,
+        game.userCid,
+        competitions,
+      ).prepare(fixture);
+      const setup = fixtureSetup(season, fixture, competitions);
       let reasons: string[] = [];
       for (let i = 0; i < 60 && !reasons.includes("extraTimeBreak"); i++) {
         const state = startMatch({

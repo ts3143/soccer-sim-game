@@ -4,6 +4,8 @@
  * - Renewals only in the windows. The AI renews the players it wants when the summer
  *   window opens (final year, or two years left for regulars) and, last chance, when the
  *   winter window opens (final year). It never acts for the user's club (T, 2026-10-16).
+ * - A world with a re-signing period (SPEC §17.6) renews only then, final-year players
+ *   only: the AI decides as the period closes (ZenGM), just before the contracts expire.
  * - The user's inbox: a list of his players in their final six months when the winter
  *   window opens, a reminder the day before deadline day, and who left on 1 July.
  */
@@ -11,6 +13,9 @@ import { contractClub } from "../../common/status";
 import { exactAge } from "../../common/dates";
 import type { Club, ClubSeason, InboxMessage, Player, TransactionRow } from "../../common/schema";
 import { clubStrength } from "../club/standing";
+import { capOf } from "../../common/config/competitions";
+import type { WorldConfig } from "../../common/config/worlds";
+import { clubCap, payroll } from "../finance/softCap";
 import {
   contractAsks,
   contractEnd,
@@ -39,6 +44,8 @@ export const RENEWALS = {
 };
 
 export interface ContractWorld {
+  /** The save's world: under a soft cap the AI prices re-signings against the cap. */
+  config: WorldConfig;
   clubs: readonly Club[];
   players: Player[];
   clubSeasons: ReadonlyMap<number, ClubSeason>;
@@ -96,6 +103,35 @@ export function moodAtClub(
 export const clubRevenue = (world: ContractWorld, club: Club): number =>
   world.clubSeasons.get(club.cid)?.budgetBase ?? club.revenueAnchor;
 
+/**
+ * What the AI prices its re-signings against, and the wage bill it keeps them within: its
+ * revenue and a share of it; or under a soft cap the revenue its cap was set for (cap ÷
+ * the config's wage ratio) and the cap itself, so payrolls stay near the cap whatever the
+ * club earns (SPEC §17.7; T, 2026-10-27). Core players are re-signed regardless. A relegated
+ * club uses its own tier's cap from its relegation (its grace only spares it the tax).
+ */
+function wageScale(
+  world: ContractWorld,
+  club: Club,
+  season: number,
+): { revenue: number; budget: number; coreBudget: number } {
+  const competitions = world.config.competitions;
+  // A relegated club re-signs against its own tier's cap, through its grace season too:
+  // it must be under that cap by the season after (SPEC §17.7).
+  const g = club.capGrace ?? null;
+  const cap =
+    g !== null && season <= g.through + 1
+      ? capOf(competitions, club.leagueId)
+      : clubCap(competitions, club, season);
+  const softCap = competitions.softCap;
+  if (cap !== null && softCap) {
+    const coreBudget = cap * (1 + softCap.coreOverCap);
+    return { revenue: cap / softCap.aiWageRatio, budget: cap, coreBudget };
+  }
+  const revenue = clubRevenue(world, club);
+  return { revenue, budget: RENEWALS.wageBudget * revenue, coreBudget: Infinity };
+}
+
 /** 1 July: contracts that ended on 30 June expire; the players become free agents. */
 export function expireContracts(world: ContractWorld, season: number, date: string): ContractLog {
   const log = emptyLog();
@@ -143,16 +179,22 @@ export function expireContracts(world: ContractWorld, season: number, date: stri
   return log;
 }
 
-/** The AI's renewals when a window opens. Summer: final year, or two years left for regulars. */
+/**
+ * The AI's renewals when a window opens (summer: final year, or two years left for
+ * regulars), or as the re-signing period closes on 1 July of `season` (the contracts that
+ * ended on 30 June; the wage bill is then the payroll that stays, SPEC §17.7).
+ */
 export function aiRenewals(
   world: ContractWorld,
   season: number,
   date: string,
-  window: "summer" | "winter",
+  window: "summer" | "winter" | "resigning",
 ): ContractLog {
   const log = emptyLog();
   const r = RENEWALS;
   const levels = clubLevels(world, date);
+  const ended = `${season}-06-30`;
+  const ending = (p: Player) => p.contract?.expires === ended;
   for (const club of world.clubs) {
     if (club.cid === world.userCid) continue;
     const squad = world.players
@@ -161,12 +203,22 @@ export function aiRenewals(
     const rank = new Map(squad.map((p, i) => [p.pid, i]));
     const xi =
       squad.slice(0, 11).reduce((s, p) => s + p.ovr, 0) / Math.max(1, Math.min(11, squad.length));
-    const revenue = clubRevenue(world, club);
-    let wageBill = squad.reduce((s, p) => s + (p.contract?.wage ?? 0), 0);
+    const { revenue, budget, coreBudget } = wageScale(world, club, season);
+    let wageBill =
+      window === "resigning"
+        ? payroll(
+            club,
+            squad.filter((p) => !ending(p)),
+            date,
+          )
+        : squad.reduce((s, p) => s + (p.contract?.wage ?? 0), 0);
     for (const p of squad) {
       const left = yearsLeft(p, date);
       const place = rank.get(p.pid) ?? 99;
-      const due = left === 1 || (window === "summer" && left === 2 && place < r.keepTopRegulars);
+      const due =
+        window === "resigning"
+          ? ending(p)
+          : left === 1 || (window === "summer" && left === 2 && place < r.keepTopRegulars);
       if (!due) continue;
       const age = exactAge(p.birthDate, date);
       const prospect = age <= r.prospectAge && p.pot >= xi - r.prospectPotBelowXi;
@@ -179,14 +231,16 @@ export function aiRenewals(
       let years = old ? 1 : Math.min(5, preferredYears(age));
       while (years < 5 && contractEnd(season, years, date) <= (p.contract?.expires ?? "")) years++;
       const expires = contractEnd(season, years, date);
-      const ask = contractAsks(p, date, revenue, mood.value, left === 1).find(
+      const finalYear = window === "resigning" || left === 1;
+      const ask = contractAsks(p, date, revenue, mood.value, finalYear).find(
         (a) => a.years === years,
       );
       if (!ask || expires <= (p.contract?.expires ?? "")) continue;
-      const raise = ask.wage - (p.contract?.wage ?? 0);
+      // What the bill grows by: his raise, or his whole wage when he was off it.
+      const added = ask.wage - (window === "resigning" ? 0 : (p.contract?.wage ?? 0));
       const core = place < r.keepTopRegulars;
-      if (!core && raise > 0 && wageBill + raise > r.wageBudget * revenue) continue;
-      wageBill += raise;
+      if (added > 0 && wageBill + added > (core ? coreBudget : budget)) continue;
+      wageBill += added;
       signContract(p, ask.wage, expires, date);
       log.changed.add(p.pid);
       log.transactions.push({
@@ -228,6 +282,26 @@ export function contractWarning(
     body: reminder
       ? `Renew by 31 January or they leave on 1 July: ${names}.`
       : `These players are in their final six months (${seasonLabel(season)}). Renew them in this window or they leave on 1 July: ${names}.`,
+    read: false,
+  };
+}
+
+/** Inbox, as the re-signing period opens (SPEC §17.6): the players whose contracts end. */
+export function resigningNotice(
+  world: ContractWorld,
+  season: number,
+  date: string,
+): Omit<InboxMessage, "mid"> | null {
+  const expiring = expiringForUser(world, date);
+  if (expiring.length === 0) return null;
+  const names = expiring.map((p) => `${fullName(p)} (${p.position}, ${p.ovr})`).join(", ");
+  return {
+    date,
+    season,
+    kind: "contracts",
+    players: expiring.map((p) => ({ pid: p.pid, name: fullName(p) })),
+    subject: `The re-signing period: ${expiring.length} contract(s) end on 30 June`,
+    body: `Re-sign them by 30 June or they leave on 1 July: ${names}.`,
     read: false,
   };
 }

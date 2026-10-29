@@ -6,7 +6,7 @@
 import { ratingChanges } from "../../common/ratingChanges";
 import type { HonourType, PlayerView, SquadPlayerView, TeamSquadView } from "../../common/api";
 import { exactAge, formatDay } from "../../common/dates";
-import { competitionsConfig } from "../../common/config/competitions";
+import type { CompetitionsConfig } from "../../common/config/competitions";
 import { formationById } from "../../common/config/formations";
 import { POSITIONS, RATING_CODES, ratingsConfig } from "../../common/config/ratings";
 import type { AwardRow, Club, GameMeta, Player } from "../../common/schema";
@@ -43,6 +43,7 @@ export async function getTeamSquad(lid: number, cid: number): Promise<TeamSquadV
   const levels = clubLevels(world, game.date);
   const level = leagueLevel(world, club.leagueId, game.date);
   const medical = effectiveDials(club).medical;
+  const resigning = session.config.switches.renewals === "resigningPeriod";
   const stats = new Map<
     number,
     { appearances: number; goals: number; assists: number; ratingTotal: number }
@@ -92,6 +93,10 @@ export async function getTeamSquad(lid: number, cid: number): Promise<TeamSquadV
       expiring: status !== "academy" && yearsLeft(p, game.date) === 1,
       value: marketValue(p, game.date, level),
       mood: mood?.value ?? null,
+      willing:
+        resigning && cid === game.userCid && status === "club" && yearsLeft(p, game.date) === 1
+          ? (mood?.willing ?? false)
+          : null,
       season: {
         appearances: s?.appearances ?? 0,
         goals: s?.goals ?? 0,
@@ -126,7 +131,8 @@ export async function getTeamSquad(lid: number, cid: number): Promise<TeamSquadV
       ...teamRef(club),
       leagueId: club.leagueId,
       leagueName:
-        competitionsConfig.leagues.find((l) => l.id === club.leagueId)?.name ?? club.leagueId,
+        session.config.competitions.leagues.find((l) => l.id === club.leagueId)?.name ??
+        club.leagueId,
       position,
     },
     formation: formation.id,
@@ -228,6 +234,18 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
       fee: t.fee,
     })),
     freeAgentSince: p.freeAgentSince,
+    drafted: p.draft
+      ? {
+          season: p.draft.season,
+          round: p.draft.round,
+          pick: p.draft.pick,
+          club: teamRef(clubs.get(p.draft.cid)),
+          from:
+            p.draft.originalCid === undefined || p.draft.originalCid === p.draft.cid
+              ? null
+              : teamRef(clubs.get(p.draft.originalCid)),
+        }
+      : null,
     listed: p.status === "club" && p.cid === game.userCid ? (p.listed ?? null) : null,
     today: game.date,
     retiredSeason: p.retiredSeason,
@@ -247,7 +265,7 @@ export async function getPlayer(lid: number, pid: number): Promise<PlayerView> {
       ),
     })),
     career,
-    honours: honoursOf(await allAwards(session), pid, career, clubs),
+    honours: honoursOf(await allAwards(session), pid, career, clubs, session.config.competitions),
     injuries: [...(p.injuries ?? [])].reverse().map((i) => ({
       date: i.date,
       type: i.type,
@@ -278,6 +296,7 @@ export function honoursOf(
   pid: number,
   career: PlayerView["career"],
   clubs: ReadonlyMap<number, Club>,
+  config: CompetitionsConfig,
 ): PlayerView["honours"] {
   const order = [...CLUB_HONOURS, ...PLAYER_HONOURS];
   const played = (a: AwardRow) =>
@@ -298,7 +317,7 @@ export function honoursOf(
       season: a.season,
       type: a.type as HonourType,
       competition: a.competition,
-      competitionName: competitionName(a.competition),
+      competitionName: competitionName(config, a.competition),
       club: teamRef(clubs.get(a.cid ?? -1)),
     }))
     .sort((a, b) => a.season - b.season || order.indexOf(a.type) - order.indexOf(b.type));
@@ -328,7 +347,7 @@ function formOf(
     const line = record?.result.players.find((l) => l.pid === pid);
     if (!record || !line) continue;
     form.push({
-      ...clubMatch(f, line.side === 0 ? f.homeCid : f.awayCid, clubs),
+      ...clubMatch(f, line.side === 0 ? f.homeCid : f.awayCid, clubs, session.config.competitions),
       rating: line.rating,
       minutes: line.minutes,
       goals: line.goals,
@@ -354,7 +373,7 @@ async function careerOf(
     .getAll("playerStats")
     .filter((r) => r.pid === pid && r.season === season);
   const order = (id: string) => {
-    const leagues = competitionsConfig.leagues.map((l) => l.id);
+    const leagues = session.config.competitions.leagues.map((l) => l.id);
     return leagues.includes(id) ? leagues.indexOf(id) : 10;
   };
   return [...past, ...current]
@@ -363,7 +382,7 @@ async function careerOf(
       season: r.season,
       club: teamRef(clubs.get(r.cid)),
       competition: r.competition,
-      competitionName: competitionName(r.competition),
+      competitionName: competitionName(session.config.competitions, r.competition),
       appearances: r.appearances,
       starts: r.starts,
       minutes: r.minutes,

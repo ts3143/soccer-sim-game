@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { competitionsConfig } from "../../common/config/competitions";
+import { worlds } from "../../common/config/worlds";
 import type { Club, ClubSeason, Fixture } from "../../common/schema";
 import { generateWorld } from "../generate/world";
 import type { TableRow } from "../schedule/standings";
@@ -20,7 +20,10 @@ import {
   updateHype,
 } from "./standing";
 
+const competitions = worlds.classic.competitions;
+
 const world = generateWorld({
+  config: worlds.classic,
   seed: "club-test",
   name: "t",
   userCid: 0,
@@ -72,7 +75,7 @@ describe("hype and reputation", () => {
     )[0] as Club;
     const before = r.get(weakest.cid)?.reputation ?? 0;
     const finish = new Map(eng1.map((c, i) => [c.cid, c.cid === weakest.cid ? 1 : i + 2]));
-    seasonEndStanding(clubs, r, finish, new Set([weakest.cid]));
+    seasonEndStanding(clubs, r, finish, new Set([weakest.cid]), worlds.classic);
     expect(r.get(weakest.cid)?.reputation ?? 0).toBeGreaterThan(before + 2);
     expect(clubs[0]?.facilitiesLevel).toBeGreaterThan(50);
   });
@@ -100,13 +103,13 @@ describe("the board", () => {
     const strengths = world.clubs
       .filter((c) => c.leagueId === "ENG1")
       .map((c, i) => ({ cid: c.cid, strength: 80 - i }));
-    const targets = boardTargets("ENG1", strengths);
+    const targets = boardTargets("ENG1", strengths, competitions);
     const count = (id: string) => targets.filter((t) => t.target === id).length;
     expect([count("title"), count("top4"), count("midTable"), count("avoidRelegation")]).toEqual([
       2, 4, 8, 6,
     ]);
     expect(targets[0]?.cid).toBe(strengths[0]?.cid);
-    const ger = competitionsConfig.leagues.find((l) => l.id === "GER1");
+    const ger = competitions.leagues.find((l) => l.id === "GER1");
     expect(ger?.board.at(-1)?.id).toBe("aboveBottom3");
   });
 
@@ -129,13 +132,13 @@ describe("the board", () => {
         points: 0,
       },
     ];
-    expect(updateConfidence(row, club(0), table(1), 0)).toBe(60);
-    const top = updateConfidence(row, club(0), table(1), 0.5);
-    const bottom = updateConfidence(row, club(0), table(20), 0.5);
+    expect(updateConfidence(row, club(0), table(1), 0, competitions)).toBe(60);
+    const top = updateConfidence(row, club(0), table(1), 0.5, competitions);
+    const bottom = updateConfidence(row, club(0), table(20), 0.5, competitions);
     expect(top).toBeGreaterThan(60);
     expect(bottom).toBeLessThan(top);
     const broke = { ...club(0), cash: -2 * club(0).revenueAnchor };
-    expect(updateConfidence(row, broke, table(20), 0.5)).toBeLessThan(bottom);
+    expect(updateConfidence(row, broke, table(20), 0.5, competitions)).toBeLessThan(bottom);
     expect(startingConfidence(20)).toBe(40);
     expect(startingConfidence(null)).toBe(60);
   });
@@ -163,6 +166,7 @@ describe("the board", () => {
       { clubs: world.clubs, players: world.players, clubSeasons: r, userCid: 0 },
       2026,
       "2026-07-01",
+      competitions,
     );
     expect([...r.values()].every((row) => row.boardExpectation !== null)).toBe(true);
     expect(message?.subject).toMatch(/The board's target/);

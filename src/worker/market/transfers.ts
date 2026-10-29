@@ -123,7 +123,9 @@ export function clubStrategy(world: TransferWorld, club: Club): Strategy {
   // Negative cash, a squad cost over the FFP ratio, or an FFP warning: the club sells.
   if (club.cash < 0 || over || club.ffp?.warned) return "selling";
   const row = world.clubSeasons.get(club.cid);
-  const target = row ? targetPosition(row.leagueId, row.boardExpectation) : 99;
+  const target = row
+    ? targetPosition(row.leagueId, row.boardExpectation, world.config.competitions)
+    : 99;
   return target <= TRANSFERS.strategy.contendingFrom ? "contending" : "developing";
 }
 

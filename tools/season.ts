@@ -1,6 +1,6 @@
 /**
  * Plays whole seasons headlessly and prints what happened:
- * `pnpm season [--seed X] [--seasons N]`.
+ * `pnpm season [--seed X] [--seasons N] [--world classic]`.
  *
  * Per season: the league tables (in full for the first season, top and bottom after),
  * both cups round by round, the play-off bracket, and who went up and down, then the
@@ -9,18 +9,18 @@
  * players develop, retire and come through the academies between seasons (the same code
  * as a save, src/worker/season). `--quiet` prints only the numbers.
  */
-import { competitionsConfig } from "../src/common/config/competitions";
 import type { Fixture } from "../src/common/schema";
-import { PLAYOFF_ROUNDS } from "../src/worker/schedule/calendar";
 import type { TableRow } from "../src/worker/schedule/standings";
 import { playoffId } from "../src/worker/season/season";
 import { simulateWorld } from "./calibrate/world";
+import { worldOption } from "./world-option";
 
 const args = process.argv.slice(2);
 const option = (name: string, fallback: string) => {
   const i = args.indexOf(name);
   return i >= 0 && args[i + 1] ? (args[i + 1] as string) : fallback;
 };
+const config = worldOption(args);
 const SEED = option("--seed", "season");
 const SEASONS = Number(option("--seasons", "1"));
 const QUIET = args.includes("--quiet");
@@ -67,17 +67,17 @@ function printTable(rows: TableRow[], full: boolean, zones: (pos: number) => str
 
 const started = performance.now();
 const champions: string[] = [];
-const run = simulateWorld(SEED, SEASONS, ({ index, state, outcome, metrics, clubs }) => {
+const run = simulateWorld(config, SEED, SEASONS, ({ index, state, outcome, metrics, clubs }) => {
   const season = state.season;
   const label = `${season}/${String((season + 1) % 100).padStart(2, "0")}`;
   for (const c of clubs) name.set(c.cid, c.name);
   log(`\n===== Season ${label} =====`);
 
-  for (const league of competitionsConfig.leagues) {
+  for (const league of config.competitions.leagues) {
     const rows = outcome.tables[league.id] ?? [];
-    const po = league.promotion?.playoffPositions ?? [];
+    const po = league.playoff?.positions ?? [];
     const zones = (pos: number) =>
-      pos === 1
+      pos === 1 && league.playoff?.decides !== "title"
         ? league.promotion
           ? "champions, promoted"
           : "champions"
@@ -93,7 +93,7 @@ const run = simulateWorld(SEED, SEASONS, ({ index, state, outcome, metrics, club
     champions.push(`${label} ${league.id}: ${name.get(outcome.champions[league.id] ?? -1)}`);
   }
 
-  for (const cup of competitionsConfig.cups) {
+  for (const cup of config.competitions.cups) {
     log(`\n${cup.name}`);
     for (const round of cup.rounds) {
       const ties = state.fixtures.filter((f) => f.competition === cup.id && f.round === round);
@@ -104,7 +104,7 @@ const run = simulateWorld(SEED, SEASONS, ({ index, state, outcome, metrics, club
           const winner = f.result?.winnerCid;
           const loser = winner === f.homeCid ? f.awayCid : f.homeCid;
           const tier = (cid: number) =>
-            competitionsConfig.leagues.find((l) => state.leagueClubs[l.id]?.includes(cid))?.tier ??
+            config.competitions.leagues.find((l) => state.leagueClubs[l.id]?.includes(cid))?.tier ??
             0;
           return winner !== undefined && winner !== null && tier(winner) > tier(loser);
         }).length;
@@ -119,7 +119,8 @@ const run = simulateWorld(SEED, SEASONS, ({ index, state, outcome, metrics, club
     log(`  Winner: ${name.get(outcome.cupWinners[cup.id] ?? -1)}`);
   }
 
-  for (const league of competitionsConfig.leagues.filter((l) => l.promotion)) {
+  for (const league of config.competitions.leagues) {
+    if (!league.playoff) continue;
     const id = playoffId(league.id);
     const table = outcome.tables[league.id] ?? [];
     const pos = (cid: number) => table.find((r) => r.cid === cid)?.position;
@@ -131,10 +132,10 @@ const run = simulateWorld(SEED, SEASONS, ({ index, state, outcome, metrics, club
         `  ${round.padEnd(20)} ${day(f.date).padEnd(7)} ${seeded(f.homeCid)} ${score(f)} ${seeded(f.awayCid)}${f.neutral ? " (neutral)" : ""}`,
       );
     }
-    const final = state.fixtures.find(
-      (f) => f.competition === id && f.round === PLAYOFF_ROUNDS.final,
-    );
-    log(`  Promoted through the play-offs: ${name.get(final?.result?.winnerCid ?? -1)}`);
+    const last = league.playoff.rounds.at(-1)?.name;
+    const final = state.fixtures.find((f) => f.competition === id && f.round === last);
+    const won = league.playoff.decides === "title" ? "Champions" : "Promoted through the play-offs";
+    log(`  ${won}: ${name.get(final?.result?.winnerCid ?? -1)}`);
   }
 
   log("\nUp and down");

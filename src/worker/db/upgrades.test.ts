@@ -1,3 +1,4 @@
+import { worlds } from "../../common/config/worlds";
 import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
 import type { Club, MatchRecord, Player, PlayerStatsRow } from "../../common/schema";
@@ -6,6 +7,10 @@ import { localBirthplace } from "../generate/birthplace";
 import { generateWorld } from "../generate/world";
 import { openLeagueDb } from "./leagueDb";
 import { LEAGUE_DB_VERSION } from "./schema";
+
+const competitions = worlds.classic.competitions;
+/** For tests that generate a whole world: GitHub's runners take several times longer. */
+const SLOW = { timeout: 60_000 };
 
 const oldPlayer = (pid: number, position: string, rating: number, goalsConceded = 0) => ({
   pid,
@@ -175,8 +180,9 @@ describe("league DB upgrades", () => {
     v6.close();
   });
 
-  it("saves the AI's pick as the user's tactics in an older save without any", async () => {
+  it("saves the AI's pick as the user's tactics in an older save without any", SLOW, async () => {
     const world = generateWorld({
+      config: worlds.classic,
       seed: "upgrade-v7",
       name: "t",
       userCid: 3,
@@ -190,8 +196,8 @@ describe("league DB upgrades", () => {
     const v7 = await openLeagueDb(9006);
     const club = (await v7.get("clubs", 3)) as Club;
     expect(club.tactics.lineup).toEqual({
-      slots: autoSetup(world.clubs[3] as Club, world.players, "2026-09-12").slots,
-      bench: autoSetup(world.clubs[3] as Club, world.players, "2026-09-12").bench,
+      slots: autoSetup(world.clubs[3] as Club, world.players, "2026-09-12", competitions).slots,
+      bench: autoSetup(world.clubs[3] as Club, world.players, "2026-09-12", competitions).bench,
     });
     expect((await v7.get("clubs", 4))?.tactics.lineup).toBeUndefined();
     v7.close();
@@ -208,6 +214,28 @@ describe("league DB upgrades", () => {
     const kept = await openLeagueDb(9007);
     expect((await kept.get("clubs", 3))?.tactics.lineup).toEqual(mine);
     kept.close();
+  });
+
+  it("records an older save's world: every save before v8 is Classic", async () => {
+    const v7 = await openLeagueDb(9008, 7);
+    await v7.put("meta", { leagues: ["ENG1"], styleModifiers: {} }, "world");
+    v7.close();
+    const v8 = await openLeagueDb(9008);
+    expect(await v8.get("meta", "world")).toEqual({
+      id: "classic",
+      leagues: ["ENG1"],
+      styleModifiers: {},
+    });
+    v8.close();
+  });
+
+  it("gives an older save an empty store of draft picks (v9)", async () => {
+    const v8 = await openLeagueDb(9009, 8);
+    expect(v8.objectStoreNames.contains("draftPicks")).toBe(false);
+    v8.close();
+    const v9 = await openLeagueDb(9009);
+    expect(await v9.count("draftPicks")).toBe(0);
+    v9.close();
   });
 
   it("creates a new save at the current version with nothing to convert", async () => {

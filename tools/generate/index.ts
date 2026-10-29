@@ -1,21 +1,28 @@
 /**
- * `pnpm generate [--seed <seed>] [--check]`: generates a new-league world headlessly
+ * `pnpm generate [--seed <seed>] [--world <id>] [--check]`: generates a new-league world headlessly
  * and prints a report of the M1 acceptance checks. With --check (CI), exits non-zero
  * if any check fails.
  */
 import { createHash } from "node:crypto";
-import { competitionsConfig } from "../../src/common/config/competitions";
 import { ratingsConfig } from "../../src/common/config/ratings";
 import { exactAge } from "../../src/common/dates";
 import type { Player } from "../../src/common/schema";
 import { generateWorld, type World } from "../../src/worker/generate/world";
 import { realClubNamesToCheck } from "../real-club-names";
+import { worldOption } from "../world-option";
 import { evaluateWorld, type Check } from "../../src/worker/generate/checks";
 
 const args = process.argv.slice(2);
 const seed = args.includes("--seed") ? (args[args.indexOf("--seed") + 1] ?? "report") : "report";
 const strict = args.includes("--check");
-const options = { seed, name: "Report", userCid: 0, createdAt: "2026-07-01T00:00:00.000Z" };
+const config = worldOption(args);
+const options = {
+  config,
+  seed,
+  name: "Report",
+  userCid: 0,
+  createdAt: "2026-07-01T00:00:00.000Z",
+};
 
 const started = performance.now();
 const world = generateWorld(options);
@@ -31,7 +38,7 @@ const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const seniors = world.players.filter((p) => p.status === "club");
 const academy = world.players.filter((p) => p.status === "academy");
 const freeAgents = world.players.filter((p) => p.status === "freeAgent");
-const ageOf = (p: Player) => exactAge(p.birthDate, competitionsConfig.seasonStart);
+const ageOf = (p: Player) => exactAge(p.birthDate, config.competitions.seasonStart);
 
 console.log(
   `Soccer Sim Game: new-league report (seed "${seed}", generated in ${elapsed.toFixed(0)} ms)\n`,
@@ -52,7 +59,7 @@ ratingsConfig.ovrBands.forEach((band, i) => {
   );
 });
 
-for (const league of competitionsConfig.leagues) {
+for (const league of config.competitions.leagues) {
   console.log(`\n${league.id}  club                          target   XI     Δ   wage%   form.`);
   for (const club of world.clubs.filter((c) => c.leagueId === league.id)) {
     const xi = world.xiStrength.get(club.cid) ?? NaN;
@@ -78,7 +85,7 @@ for (const [label, lo, hi] of [
     `  age ${label.padEnd(6)} n=${String(group.length).padStart(4)}  mean OVR ${(group.reduce((s, p) => s + p.ovr, 0) / Math.max(1, group.length)).toFixed(1)}  mean POT-OVR ${gap.toFixed(1)}`,
   );
 }
-for (const league of competitionsConfig.leagues) {
+for (const league of academy.length > 0 ? config.competitions.leagues : []) {
   const cids = new Set(world.clubs.filter((c) => c.leagueId === league.id).map((c) => c.cid));
   const kids = academy.filter((p) => p.cid !== null && cids.has(p.cid));
   console.log(
@@ -86,7 +93,7 @@ for (const league of competitionsConfig.leagues) {
   );
 }
 
-const checks: Check[] = evaluateWorld(world, {
+const checks: Check[] = evaluateWorld(world, config, {
   deterministic,
   realNames: realClubNamesToCheck().names,
 });

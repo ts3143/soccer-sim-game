@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { worlds } from "../../common/config/worlds";
 import type { Club, Player } from "../../common/schema";
 import { generateWorld } from "../generate/world";
 import { aiSliders } from "./aiTactics";
@@ -7,6 +8,7 @@ import { prepareMatch, teamInput } from "./prepare";
 import type { MatchInput, MatchResult, TeamSide } from "./types";
 
 const world = generateWorld({
+  config: worlds.classic,
   seed: "rules-test",
   name: "t",
   userCid: 0,

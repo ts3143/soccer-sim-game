@@ -21,6 +21,7 @@ import { loopWorld } from "../league/game";
 import { openLeague } from "../league/session";
 import { clubBudgets, seniorsOf, squadCost, TRANSFERS } from "../market/transfers";
 import { mustDecideBy, promotionWage } from "../season/offseason";
+import { capView } from "./cap";
 import { leagueTables, seasonFixtures, teamRef } from "./common";
 
 export async function getAcademy(lid: number): Promise<AcademyView> {
@@ -64,6 +65,8 @@ const REVENUE_LABELS: Record<string, string> = {
   prize: "Prize money",
   commercial: "Sponsorship and merchandise",
   playerSales: "Player sales",
+  merit: "TV merit payments",
+  taxShare: "Luxury tax share",
 };
 const EXPENSE_LABELS: Record<string, string> = {
   wages: "Wages",
@@ -72,6 +75,7 @@ const EXPENSE_LABELS: Record<string, string> = {
   youth: "Youth academy",
   medical: "Medical",
   facilities: "Facilities",
+  luxuryTax: "Luxury tax",
 };
 const DIALS = [
   { key: "coaching", label: "Coaching", what: "How fast every player develops." },
@@ -97,7 +101,7 @@ export async function getClubFinances(lid: number): Promise<ClubFinancesView> {
   const club = world.clubs.find((c) => c.cid === game.userCid);
   const row = world.clubSeasons.get(game.userCid);
   if (!club || !row) throw new Error("The save has no user club");
-  const league = leagueById(row.leagueId);
+  const league = leagueById(session.config.competitions, row.leagueId);
   const budgets = clubBudgets(world, club);
   const rows = session.cache
     .getAll("clubSeasons")
@@ -122,6 +126,21 @@ export async function getClubFinances(lid: number): Promise<ClubFinancesView> {
   const prices = [...new Set([...PRICE_POINTS.map((f) => Math.round(f * fair)), club.ticketPrice])];
   const effects = effectiveDials(club);
   const income = operatingRevenue(row.revenue) + (row.revenue.playerSales ?? 0);
+  const capOf = () => {
+    const cap = capView(session, club, world.players, game.season, game.date);
+    return (
+      cap && {
+        ...cap,
+        lastSeason: last
+          ? {
+              season: last.season,
+              paid: Math.round(last.expenses.luxuryTax ?? 0),
+              received: Math.round(last.revenue.taxShare ?? 0),
+            }
+          : null,
+      }
+    );
+  };
   const spent = expenses.reduce((sum, e) => sum + e.amount, 0);
   return {
     season: game.season,
@@ -153,7 +172,11 @@ export async function getClubFinances(lid: number): Promise<ClubFinancesView> {
       wageShare: club.wageShare ?? TRANSFERS.budget.wageShare,
       base: budgets.base,
     },
-    dials: DIALS.map((d) => ({
+    cap: capOf(),
+    // Without academies there's no youth dial (SPEC §17.7).
+    dials: DIALS.filter(
+      (d) => d.key !== "youth" || session.config.switches.youth === "academy",
+    ).map((d) => ({
       key: d.key,
       label: d.label,
       what: d.what,
@@ -192,7 +215,8 @@ export async function getJobOffers(lid: number): Promise<FiredView | null> {
   const tables = leagueTables(session, seasonFixtures(session, game.season));
   const positionOf = (cid: number) =>
     tables.flatMap((t) => t.rows).find((r) => r.cid === cid)?.position ?? null;
-  const leagueName = (id: string) => leagueById(id).name;
+  const leagueOf = (id: string) => leagueById(session.config.competitions, id);
+  const leagueName = (id: string) => leagueOf(id).name;
   const old = clubs.get(game.userCid);
   const row = world.clubSeasons.get(game.userCid);
   if (!old || !row) throw new Error("The save has no user club");
@@ -220,7 +244,7 @@ export async function getJobOffers(lid: number): Promise<FiredView | null> {
           strength: Math.round(clubStrength(world.players, cid, game.date) * 10) / 10,
           position: positionOf(cid),
           expectation:
-            leagueById(club.leagueId).board.find((t) => t.id === season?.boardExpectation)?.label ??
+            leagueOf(club.leagueId).board.find((t) => t.id === season?.boardExpectation)?.label ??
             null,
         },
       ];

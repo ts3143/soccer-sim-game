@@ -38,6 +38,11 @@ import { fairTicketPrice, getAcademy, getClubFinances, getJobOffers } from "../v
 import { decideAcademyPlayer, setBudgetDials, setTicketPrice } from "../league/club";
 import { getTactics, previewTactics, saveTactics } from "../views/tactics";
 import { getCups, getSchedule, getStandings } from "../views/competitions";
+import { draftPicksView, draftView } from "../views/draft";
+import { resigningView } from "../views/resigning";
+import { tradeView, tradingBlockView } from "../views/trade";
+import { draftProspect } from "../league/draft";
+import { makeTradeWork, proposeTrade, respondToTradeOffer } from "../league/trade";
 import { getDashboard, markAllInboxRead } from "../views/dashboard";
 import {
   getFinances,
@@ -247,6 +252,36 @@ export function createHandlers(
           ? watchNextMatch(session, "user", () => announce(session))
           : play(session, option, () => announce(session)),
       );
+    },
+    async getDraft(lid, season) {
+      return draftView(await openLeague(lid), season);
+    },
+    async getDraftPicks(lid, cid) {
+      return draftPicksView(await openLeague(lid), cid);
+    },
+    async draftProspect(lid, pid) {
+      return change(lid, async (session) => {
+        await draftProspect(session, pid);
+        return draftView(session);
+      });
+    },
+    async proposeTrade(lid, proposal) {
+      return change(lid, (session) => proposeTrade(session, proposal));
+    },
+    async makeTradeWork(lid, proposal) {
+      return makeTradeWork(await openLeague(lid), proposal);
+    },
+    async respondToTradeOffer(lid, mid, accept) {
+      return change(lid, (session) => respondToTradeOffer(session, mid, accept));
+    },
+    async getResigning(lid) {
+      return resigningView(await openLeague(lid));
+    },
+    async getTrade(lid, proposal) {
+      return tradeView(await openLeague(lid), proposal);
+    },
+    async getTradingBlock(lid, give) {
+      return tradingBlockView(await openLeague(lid), give);
     },
     async getLiveMatch(lid, from) {
       return getLive(await openLeague(lid), from);

@@ -29,7 +29,9 @@ const names = async (rows) =>
   (await rows.locator("td:nth-child(2) a").allInnerTexts()).map((t) => t.trim());
 try {
   await page.goto(`${BASE}/new?worker=dedicated`);
-  await page.locator('[data-testid="club-choices"] button').first().click();
+  await page
+    .locator('[data-testid="club-choices"] button', { hasText: "Manchester Citizens" })
+    .click();
   await page.fill("#new-league-name", "Tactics");
   await page.fill("#new-league-seed", "tactics-check");
   await page.locator('[data-testid="start-league"]').click();

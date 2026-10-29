@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { worlds } from "../../common/config/worlds";
 import { RATING_INDEX } from "../../common/config/ratings";
 import type { PlayerMatchStats } from "../../common/match";
 import { ageOn } from "../../common/dates";
@@ -16,7 +17,10 @@ import {
   trainingInjuries,
 } from "./squads";
 
+const competitions = worlds.classic.competitions;
+
 const world = generateWorld({
+  config: worlds.classic,
   seed: "squads-test",
   name: "t",
   userCid: 0,
@@ -140,14 +144,36 @@ describe("training injuries", () => {
 
 describe("matchday squad", () => {
   const base = { date: DATE, importance: 1, nextImportance: 0 };
-  const startersFrom = (squad: Player[], ctx: typeof base) => pickMatchday(club, squad, ctx).lineup;
+  const startersFrom = (squad: Player[], ctx: typeof base) =>
+    pickMatchday(club, squad, ctx, competitions).lineup;
+
+  it("fills a team with the injured back soonest when fewer than 11 can play", () => {
+    // 13 seniors, no academy: 4 injured (back in 3, 10, 30 and 60 days), 1 suspended, so 8
+    // can play and 3 must come from the injured.
+    const squad = squadOf(club.cid)
+      .filter((p) => p.status === "club")
+      .slice(0, 13)
+      .map((p) => ({ ...p, injury: null, suspension: undefined }));
+    const [a, b, c, d, banned] = squad as [Player, Player, Player, Player, Player];
+    a.injury = { type: "Knock", until: "2026-09-15" };
+    b.injury = { type: "Strain", until: "2026-09-22" };
+    c.injury = { type: "Tear", until: "2026-10-12" };
+    d.injury = { type: "Break", until: "2026-11-11" };
+    banned.suspension = { remaining: 1, date: DATE };
+    const pick = pickMatchday(club, squad, base, competitions);
+    const named = [...pick.lineup, ...pick.bench];
+    expect(pick.lineup).toHaveLength(11);
+    expect(named).toEqual(expect.arrayContaining([a.pid, b.pid, c.pid]));
+    expect(named).not.toContain(d.pid);
+    expect(named).not.toContain(banned.pid);
+  });
 
   it("picks 11 fit players and 9 substitutes with today's condition", () => {
     const squad = squadOf(club.cid);
     const injured = squad.find((p) => p.status === "club") as Player;
     injured.injury = { type: "Knock", until: "2026-09-15" };
     tired(squad[3] as Player, 70, "2026-09-09");
-    const pick = pickMatchday(club, squad, base);
+    const pick = pickMatchday(club, squad, base, competitions);
     expect(pick.lineup).toHaveLength(11);
     expect(pick.bench).toHaveLength(9);
     expect([...pick.lineup, ...pick.bench]).not.toContain(injured.pid);
@@ -177,7 +203,7 @@ describe("matchday squad", () => {
     const squad = squadOf(club.cid);
     const academyIds = new Set(squad.filter((p) => p.status === "academy").map((p) => p.pid));
     const inSquad = (s: Player[]) => {
-      const pick = pickMatchday(club, s, base);
+      const pick = pickMatchday(club, s, base, competitions);
       return [...pick.lineup, ...pick.bench].filter((pid) => academyIds.has(pid));
     };
     expect(inSquad(squad)).toEqual([]);
@@ -198,7 +224,7 @@ describe("the user's matchday squad in a simulated match (T, 2026-10-25)", () =>
   const base = { date: DATE, importance: 1, nextImportance: 0 };
   /** His tactics: the AI's XI with its weakest fit senior up front, a bench of the rest. */
   const tactics = (squad: Player[]): SavedLineup => {
-    const ai = pickMatchday(club, squad, base);
+    const ai = pickMatchday(club, squad, base, competitions);
     const used = new Set([...ai.lineup, ...ai.bench]);
     const spare = squad
       .filter((p) => p.status === "club" && p.position !== "GK" && !used.has(p.pid))
@@ -212,7 +238,7 @@ describe("the user's matchday squad in a simulated match (T, 2026-10-25)", () =>
   it("starts his XI and bench as saved when they're fresh, weaker picks too", () => {
     const squad = squadOf(club.cid);
     const saved = tactics(squad);
-    const pick = pickMatchday(club, squad, { ...base, preferred: saved });
+    const pick = pickMatchday(club, squad, { ...base, preferred: saved }, competitions);
     expect(pick.lineup).toEqual(saved.slots);
     expect(pick.bench).toEqual(saved.bench);
     expect(pick.aiInGame).toBe(true);
@@ -226,7 +252,7 @@ describe("the user's matchday squad in a simulated match (T, 2026-10-25)", () =>
     hurt.injury = { type: "Knock", until: "2026-09-20" };
     banned.suspension = { remaining: 1, date: "2026-09-05" };
     const before = structuredClone(saved);
-    const pick = pickMatchday(club, squad, { ...base, preferred: saved });
+    const pick = pickMatchday(club, squad, { ...base, preferred: saved }, competitions);
     expect([...pick.lineup, ...pick.bench]).not.toContain(hurt.pid);
     expect([...pick.lineup, ...pick.bench]).not.toContain(banned.pid);
     const kept = pick.lineup.filter((pid, i) => pid === saved.slots[i]);
@@ -240,12 +266,12 @@ describe("the user's matchday squad in a simulated match (T, 2026-10-25)", () =>
     const regulars = new Set(saved.slots);
     for (const p of squad) if (regulars.has(p.pid)) tired(p, 84, DATE);
     const count = (importance: number) =>
-      pickMatchday(club, squad, {
-        date: DATE,
-        importance,
-        nextImportance: 0,
-        preferred: saved,
-      }).lineup.filter((pid) => regulars.has(pid)).length;
+      pickMatchday(
+        club,
+        squad,
+        { date: DATE, importance, nextImportance: 0, preferred: saved },
+        competitions,
+      ).lineup.filter((pid) => regulars.has(pid)).length;
     const cup = count(0.65);
     const league = count(1);
     const final = count(1.5);
@@ -261,12 +287,15 @@ describe("the user's matchday squad in a simulated match (T, 2026-10-25)", () =>
     ) as Player;
     const saved = tactics(squad);
     saved.bench[8] = youngster.pid;
-    expect(pickMatchday(club, squad, base).bench).not.toContain(youngster.pid);
-    expect(pickMatchday(club, squad, { ...base, preferred: saved }).bench).toContain(youngster.pid);
+    expect(pickMatchday(club, squad, base, competitions).bench).not.toContain(youngster.pid);
+    expect(pickMatchday(club, squad, { ...base, preferred: saved }, competitions).bench).toContain(
+      youngster.pid,
+    );
   });
 
   it("is used for the user's club only", () => {
     const state = createSeason({
+      config: competitions,
       season: 2026,
       seed: "squads-test",
       clubs: world.clubs,
@@ -279,17 +308,18 @@ describe("the user's matchday squad in a simulated match (T, 2026-10-25)", () =>
     const clubs = world.clubs.map((c) =>
       c.cid === club.cid ? { ...c, tactics: { ...c.tactics, lineup: saved } } : c,
     );
-    expect(squadPlay(state, clubs, players, club.cid).prepare(fixture).home.lineup).toEqual(
-      saved.slots,
-    );
-    expect(squadPlay(state, clubs, players, null).prepare(fixture).home.lineup).not.toEqual(
-      saved.slots,
-    );
+    expect(
+      squadPlay(state, clubs, players, club.cid, competitions).prepare(fixture).home.lineup,
+    ).toEqual(saved.slots);
+    expect(
+      squadPlay(state, clubs, players, null, competitions).prepare(fixture).home.lineup,
+    ).not.toEqual(saved.slots);
   });
 });
 
 describe("match importance", () => {
   const state = createSeason({
+    config: competitions,
     season: 2026,
     seed: "squads-test",
     clubs: world.clubs,
@@ -303,7 +333,7 @@ describe("match importance", () => {
     round,
   });
   it("rates cup rounds, finals and play-offs above or below an ordinary league match", () => {
-    const of = (f: Fixture) => matchImportance(state, f, f.homeCid, tables);
+    const of = (f: Fixture) => matchImportance(state, f, f.homeCid, tables, competitions);
     expect(of(state.fixtures[0] as Fixture)).toBe(1);
     expect(of(fake("ENGCUP", "R1"))).toBeLessThan(1);
     expect(of(fake("ENGCUP", "Quarter-finals"))).toBeLessThan(1);

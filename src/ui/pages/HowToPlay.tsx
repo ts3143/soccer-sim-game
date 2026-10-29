@@ -26,14 +26,22 @@ function Guide() {
       <Part title="Starting">
         <ul>
           <li>
-            On <b>Manage Leagues</b>, start a <b>New league</b> and pick any of 62 clubs in three
-            leagues: the English top flight, the English second tier and the German top flight.
+            On <b>Manage Leagues</b>, start a <b>New league</b> and pick a world. <b>Classic</b> has
+            62 clubs in three leagues: the English top flight, the English second tier and the
+            German top flight. <b>The Super League</b> has 48 clubs in three tiers, with a draft,
+            trades and a salary cap (see below). Then pick any club.
           </li>
           <li>
             Each club&apos;s card shows its strength and revenue. A strong club is expected to win
             things; a small one to survive.
           </li>
           <li>The seed is optional: the same seed and club give the same starting world.</li>
+          <li>
+            <b>Club names</b> (optional): the game ships only its own club names. At New game you
+            can load a JSON file of your own that renames clubs in that save. Download the template
+            there: it lists every club by id with its name, short name and abbreviation. Change what
+            you like and load it.
+          </li>
         </ul>
       </Part>
       <Part title="Playing through a season">
@@ -174,6 +182,64 @@ function Guide() {
             The board sets a target each preseason. Its confidence follows your results against the
             target, your finances and the fans&apos; mood. If it falls too low you&apos;re sacked:
             take a job at another club, or start a new league.
+          </li>
+        </ul>
+      </Part>
+      <Part title="The Super League">
+        <p>Everything above applies, except where this says otherwise.</p>
+        <ul data-testid="how-to-play-super-league">
+          <li>
+            <b>Three tiers of 16:</b> Star, Gold and Blue, 30 matches each. Three go up and three go
+            down between tiers: the top two automatically, and the winner of a play-off between 3rd
+            and 6th. In Star the top eight play off for the title; the play-off winner is champion.
+            There are no cups.
+          </li>
+          <li>
+            <b>No transfers, loans or youth academies.</b> Players move by trades, the draft and
+            free agency.
+          </li>
+          <li>
+            <b>Trades:</b> on the <b>Trade</b> page, tick players and draft picks on both sides and
+            propose. The other club says yes or no; <b>What would make this work?</b> asks what it
+            would want added. On the <b>Trading Block</b> you put players and picks up and get the
+            best offers. AI clubs also send offers to your inbox. Trades are open from 1 July to the
+            roster deadline (round 18, early February) and again after the play-offs. Once the
+            season is over, players in the last year of their contract can&apos;t be traded.
+          </li>
+          <li>
+            <b>The draft:</b> two rounds in mid-June. The bottom four of Blue and the clubs
+            relegated in 15th and 16th from Star and Gold enter a lottery for the first four picks
+            (the <b>Lottery</b> column on Standings shows the odds as things stand). Then the rest
+            in reverse order of the tables, the promoted clubs last. Play{" "}
+            <b>Until the draft lottery</b>, <b>Until the draft</b> and <b>Until your pick</b>, then
+            pick a prospect on the <b>Draft</b> page or play <b>To the end of the draft</b> to let
+            your scouts pick. Picks are assets: each club holds its picks for the coming draft and
+            the two after it (<b>Draft Picks</b>), and can trade them. Rookies sign three-year
+            contracts.
+          </li>
+          <li>
+            <b>Re-signing:</b> contracts are renewed only once a year, from the draft to 30 June,
+            and only for players in their last year. <b>Re-sign Players</b> lists them, with their
+            mood and asks; on your squad a red <b>E✕</b> marks one who won&apos;t re-sign as things
+            stand. Anyone not re-signed leaves on 1 July.
+          </li>
+          <li>
+            <b>Free agents</b> can be signed from 1 July to the roster deadline; AI clubs sign most
+            of them in July and August.
+          </li>
+          <li>
+            <b>The squad limit</b> of 25 counts from the first league match: in the summer you may
+            hold more, but Play stops on the eve of that match until you&apos;re down to 25.
+          </li>
+          <li>
+            <b>The salary cap:</b> €180m in Star, €144m in Gold, €117m in Blue. Your payroll is your
+            wages plus those still owed to players you released. Under the cap a free agent&apos;s
+            wage must fit your room; over it, you can sign free agents only at the minimum wage
+            (€300k). Over the cap you can still re-sign your own players, sign your draft picks and
+            trade, taking back at most 125% of the wages you send. At the season&apos;s end a club
+            over the cap pays a luxury tax of 1.5× the excess, shared among its tier&apos;s clubs
+            under the cap. A relegated club keeps its old tier&apos;s cap for one season. There is
+            no financial fair play.
           </li>
         </ul>
       </Part>

@@ -41,6 +41,7 @@ import SUI from "../../../data/names/SUI.json";
 import SVK from "../../../data/names/SVK.json";
 import SWE from "../../../data/names/SWE.json";
 import TUR from "../../../data/names/TUR.json";
+import UKR from "../../../data/names/UKR.json";
 import URU from "../../../data/names/URU.json";
 import USA from "../../../data/names/USA.json";
 import WAL from "../../../data/names/WAL.json";
@@ -118,6 +119,7 @@ export const nameFiles: Record<string, NameFile> = {
   SVK: parseNameFile(SVK),
   SWE: parseNameFile(SWE),
   TUR: parseNameFile(TUR),
+  UKR: parseNameFile(UKR),
   URU: parseNameFile(URU),
   USA: parseNameFile(USA),
   WAL: parseNameFile(WAL),

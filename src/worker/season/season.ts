@@ -9,17 +9,16 @@
  * played by a `PlayFixture` function the caller supplies, so lineups, rotation and
  * fatigue can change without touching this module.
  */
-import {
-  competitionsConfig,
-  type CompetitionsConfig,
-  type CupConfig,
-  type LeagueConfig,
-  type StyleModifiers,
+import type {
+  CompetitionsConfig,
+  CupConfig,
+  LeagueConfig,
+  StyleModifiers,
 } from "../../common/config/competitions";
 import type { Club, Fixture, SeasonMeta } from "../../common/schema";
 import { Random } from "../core/random";
 import type { KnockoutRules, MatchResult } from "../engine/types";
-import { PLAYOFF_ROUNDS, seasonCalendar, type SeasonCalendar } from "../schedule/calendar";
+import { seasonCalendar, type SeasonCalendar } from "../schedule/calendar";
 import { leagueFixtures } from "../schedule/fixtures";
 import { leagueTable, type TableRow } from "../schedule/standings";
 
@@ -44,7 +43,7 @@ export interface SeasonSetup {
   lastFinish: ReadonlyMap<number, LastFinish>;
   /** First fixture ID to use. */
   firstFid: number;
-  config?: CompetitionsConfig;
+  config: CompetitionsConfig;
 }
 
 export interface SeasonState {
@@ -80,7 +79,7 @@ export function restoreSeason(
   seed: string,
   fixtures: Fixture[],
   nextFid: number,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): SeasonState {
   return {
     season: meta.season,
@@ -177,7 +176,7 @@ function drawCupRound(state: SeasonState, cup: CupConfig, round: number, partici
 
 /** Starts a season: the calendar, all league fixtures, and the first round of every cup. */
 export function createSeason(setup: SeasonSetup): SeasonState {
-  const config = setup.config ?? competitionsConfig;
+  const config = setup.config;
   const state: SeasonState = {
     season: setup.season,
     seed: setup.seed,
@@ -226,7 +225,7 @@ function fixturesOf(state: SeasonState, competition: string, round?: string): Fi
 const winnersOf = (fixtures: readonly Fixture[]): number[] =>
   fixtures.filter((f) => f.leg !== 1).map((f) => f.result?.winnerCid as number);
 
-export function leagueTableOf(state: SeasonState, leagueId: string, config = competitionsConfig) {
+export function leagueTableOf(state: SeasonState, leagueId: string, config: CompetitionsConfig) {
   const league = leagueOf(config, leagueId);
   if (!league) throw new Error(`Unknown league ${leagueId}`);
   return leagueTable(state.leagueClubs[leagueId] ?? [], fixturesOf(state, leagueId), {
@@ -249,88 +248,77 @@ function progressCup(state: SeasonState, cup: CupConfig): boolean {
   return true;
 }
 
-function progressPlayoffs(state: SeasonState, league: LeagueConfig): boolean {
-  const positions = league.promotion?.playoffPositions ?? [];
+function progressPlayoffs(
+  state: SeasonState,
+  league: LeagueConfig,
+  config: CompetitionsConfig,
+): boolean {
+  const format = league.playoff;
   const dates = state.calendar.playoffs[league.id];
-  if (positions.length === 0 || !dates) return false;
+  if (!format || !dates) return false;
   const id = playoffId(league.id);
   const po = fixturesOf(state, id);
   if (!played(po)) return false;
-  const dateOf = (round: string, leg: 1 | 2 | null) => {
-    const d = dates.find((r) => r.round === round && r.leg === leg);
-    if (!d) throw new Error(`${id}: no date for ${round}`);
-    return d;
-  };
-  const add = (round: string, leg: 1 | 2 | null, home: number, away: number, neutral = false) => {
-    const d = dateOf(round, leg);
-    newFixture(state, {
-      date: d.date,
-      slot: d.slot,
-      competition: id,
-      round,
-      homeCid: home,
-      awayCid: away,
-      neutral,
-      leg,
-    });
-  };
-  // Seed = final league position (lower is better).
-  const table = () => leagueTableOf(state, league.id);
-  const seedOf = (cid: number) => table().find((r) => r.cid === cid)?.position ?? 99;
-  const semis = (pairs: [number, number][]) => {
-    // Higher seed hosts the second leg.
-    for (const [high, low] of pairs) {
-      add(PLAYOFF_ROUNDS.semis, 1, low, high);
-      add(PLAYOFF_ROUNDS.semis, 2, high, low);
-    }
-  };
+  if (po.length === 0 && !played(fixturesOf(state, league.id))) return false;
+  const next = format.rounds.findIndex((r) => !po.some((f) => f.round === r.name));
+  const round = format.rounds[next];
+  if (!round) return false;
 
-  if (po.length === 0) {
-    if (!played(fixturesOf(state, league.id))) return false;
-    const rows = table();
-    const at = (pos: number) => rows[pos - 1]?.cid as number;
-    const p = positions.map(at);
-    if (positions.length === 6) {
-      add(PLAYOFF_ROUNDS.eliminators, null, p[2] as number, p[5] as number);
-      add(PLAYOFF_ROUNDS.eliminators, null, p[3] as number, p[4] as number);
-    } else {
-      semis([
-        [p[0] as number, p[3] as number],
-        [p[1] as number, p[2] as number],
-      ]);
+  // Seed = final league position (lower is better).
+  const table = leagueTableOf(state, league.id, config);
+  const at = (pos: number) => table[pos - 1]?.cid as number;
+  const seedOf = (cid: number) => table.find((r) => r.cid === cid)?.position ?? 99;
+  const bySeed = (a: number, b: number) => seedOf(a) - seedOf(b);
+  const before = format.rounds[next - 1];
+  // Last round's winners, tie by tie in the order the ties were made.
+  const winners = before ? winnersOf(po.filter((f) => f.round === before.name)) : [];
+
+  // Each tie as [better placed, worse placed].
+  let ties: [number, number][];
+  if (typeof round.pairing === "object") {
+    ties = round.pairing.ties.map(([a, b]) => [at(a), at(b)].sort(bySeed) as [number, number]);
+  } else if (round.pairing === "bracket") {
+    ties = [];
+    for (let i = 0; i + 1 < winners.length; i += 2) {
+      ties.push([winners[i] as number, winners[i + 1] as number].sort(bySeed) as [number, number]);
     }
-    return true;
+  } else {
+    const clubs = [...round.entrants.map(at), ...winners].sort(bySeed);
+    ties = clubs
+      .slice(0, clubs.length / 2)
+      .map((club, i) => [club, clubs[clubs.length - 1 - i] as number]);
   }
-  const has = (round: string) => po.some((f) => f.round === round);
-  if (!has(PLAYOFF_ROUNDS.semis)) {
-    const [top, second] = positions.map((pos) => table()[pos - 1]?.cid as number);
-    const winners = winnersOf(po.filter((f) => f.round === PLAYOFF_ROUNDS.eliminators)).sort(
-      (a, b) => seedOf(a) - seedOf(b),
-    );
-    // Best-placed club meets the lowest-seeded eliminator winner.
-    semis([
-      [top as number, winners[1] as number],
-      [second as number, winners[0] as number],
-    ]);
-    return true;
+
+  for (const [high, low] of ties) {
+    const legs: (1 | 2 | null)[] = round.legs === 2 ? [1, 2] : [null];
+    for (const leg of legs) {
+      const d = dates.find((r) => r.round === round.name && r.leg === leg);
+      if (!d) throw new Error(`${id}: no date for ${round.name}`);
+      // The better-placed club hosts a single match and a tie's second leg.
+      const [home, away] = leg === 1 ? [low, high] : [high, low];
+      newFixture(state, {
+        date: d.date,
+        slot: d.slot,
+        competition: id,
+        round: round.name,
+        homeCid: home,
+        awayCid: away,
+        neutral: round.neutral,
+        leg,
+      });
+    }
   }
-  if (!has(PLAYOFF_ROUNDS.final)) {
-    const [a, b] = winnersOf(po.filter((f) => f.round === PLAYOFF_ROUNDS.semis)).sort(
-      (x, y) => seedOf(x) - seedOf(y),
-    );
-    add(PLAYOFF_ROUNDS.final, null, a as number, b as number, true);
-    return true;
-  }
-  return false;
+  return true;
 }
 
 /** Creates any fixtures that became due (next cup rounds, play-off stages). */
-export function progress(state: SeasonState, config: CompetitionsConfig = competitionsConfig) {
+export function progress(state: SeasonState, config: CompetitionsConfig) {
   let changed = true;
   while (changed) {
     changed = false;
     for (const cup of config.cups) changed = progressCup(state, cup) || changed;
-    for (const league of config.leagues) changed = progressPlayoffs(state, league) || changed;
+    for (const league of config.leagues)
+      changed = progressPlayoffs(state, league, config) || changed;
   }
 }
 
@@ -363,7 +351,7 @@ export function knockoutRules(state: SeasonState, fixture: Fixture): KnockoutRul
 export function fixtureStyle(
   state: SeasonState,
   fixture: Fixture,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): StyleModifiers {
   const leagueId =
     leagueOf(config, fixture.competition)?.id ??
@@ -399,7 +387,7 @@ export function playDate(
   state: SeasonState,
   date: string,
   play: PlayFixture,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): Fixture[] {
   const today = state.fixtures.filter((f) => f.date === date && !f.result);
   for (const fixture of today) {
@@ -414,7 +402,7 @@ export function playDate(
 export function fixtureSetup(
   state: SeasonState,
   fixture: Fixture,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): FixtureSetup {
   return {
     seed: `${state.seed}/match:${fixture.fid}`,
@@ -425,7 +413,7 @@ export function fixtureSetup(
 }
 
 /** Plays the rest of the season. */
-export function playRest(state: SeasonState, play: PlayFixture, config = competitionsConfig) {
+export function playRest(state: SeasonState, play: PlayFixture, config: CompetitionsConfig) {
   for (let date = nextMatchDate(state); date !== null; date = nextMatchDate(state)) {
     playDate(state, date, play, config);
   }
@@ -440,22 +428,26 @@ export interface ClubMove {
 
 export interface SeasonOutcome {
   tables: Record<string, TableRow[]>;
+  /** Each league's champion: its table winner, or where a play-off decides the title its winner. */
   champions: Record<string, number>;
+  /**
+   * Where a play-off decides the title (the Super League's Star, SPEC §17.2): the table
+   * winner, recorded but not a title. Absent in a world without such a play-off.
+   */
+  tableWinners?: Record<string, number>;
   cupWinners: Record<string, number>;
   playoffWinners: Record<string, number[]>;
   moves: ClubMove[];
 }
 
 /** The season's results once every match is played (throws before that). */
-export function seasonOutcome(
-  state: SeasonState,
-  config: CompetitionsConfig = competitionsConfig,
-): SeasonOutcome {
+export function seasonOutcome(state: SeasonState, config: CompetitionsConfig): SeasonOutcome {
   if (nextMatchDate(state) !== null) throw new Error("The season still has matches to play");
   const tables: Record<string, TableRow[]> = {};
   const champions: Record<string, number> = {};
   const cupWinners: Record<string, number> = {};
   const playoffWinners: Record<string, number[]> = {};
+  const tableWinners: Record<string, number> = {};
   const moves: ClubMove[] = [];
   for (const league of config.leagues) {
     const table = leagueTableOf(state, league.id, config);
@@ -475,11 +467,20 @@ export function seasonOutcome(
       for (const row of table.slice(0, league.promotion.automatic)) {
         moves.push({ cid: row.cid, from: league.id, to: league.promotion.to, reason: "promoted" });
       }
-      const finals = fixturesOf(state, playoffId(league.id), PLAYOFF_ROUNDS.final);
-      const winners = winnersOf(finals);
+    }
+    const playoff = league.playoff;
+    if (playoff) {
+      const final = playoff.rounds.at(-1)?.name ?? "";
+      const winners = winnersOf(fixturesOf(state, playoffId(league.id), final));
       playoffWinners[league.id] = winners;
-      for (const cid of winners) {
-        moves.push({ cid, from: league.id, to: league.promotion.to, reason: "playoffs" });
+      if (playoff.decides === "promotion" && league.promotion) {
+        for (const cid of winners) {
+          moves.push({ cid, from: league.id, to: league.promotion.to, reason: "playoffs" });
+        }
+      }
+      if (playoff.decides === "title" && winners[0] !== undefined) {
+        tableWinners[league.id] = champions[league.id] as number;
+        champions[league.id] = winners[0];
       }
     }
   }
@@ -487,7 +488,8 @@ export function seasonOutcome(
     const final = fixturesOf(state, cup.id, cup.rounds[cup.rounds.length - 1]);
     cupWinners[cup.id] = winnersOf(final)[0] as number;
   }
-  return { tables, champions, cupWinners, playoffWinners, moves };
+  const titles = Object.keys(tableWinners).length > 0 ? { tableWinners } : {};
+  return { tables, champions, ...titles, cupWinners, playoffWinners, moves };
 }
 
 /** Last-season finishes for the next season's setup (cup preliminary rounds). */

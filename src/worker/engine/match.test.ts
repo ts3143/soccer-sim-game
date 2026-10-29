@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { competitionsConfig } from "../../common/config/competitions";
+import { worlds } from "../../common/config/worlds";
 import type { Club, Player } from "../../common/schema";
 import { generateWorld } from "../generate/world";
 import { matchResult, simulateMatch, startMatch, stepMatch } from "./match";
 import { teamInput } from "./prepare";
 import type { MatchEvent, MatchInput, ShotStory } from "./types";
 
+const competitions = worlds.classic.competitions;
+
 const world = generateWorld({
+  config: worlds.classic,
   seed: "engine-test",
   name: "t",
   userCid: 0,
@@ -172,7 +175,7 @@ describe("match engine: plausibility", () => {
     "uses each league's chance quality as an input (fewer goals at 0.88)",
     { timeout: 60_000 },
     () => {
-      const eng2 = competitionsConfig.leagues.find((l) => l.id === "ENG2")?.styleModifiers;
+      const eng2 = competitions.leagues.find((l) => l.id === "ENG2")?.styleModifiers;
       let neutralGoals = 0;
       let eng2Goals = 0;
       for (let i = 0; i < 300; i++) {

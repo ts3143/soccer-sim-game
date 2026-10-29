@@ -25,7 +25,12 @@ describe("free agents", () => {
     "lists them with their asks, and signs one outside a window",
     { timeout: 180_000 },
     async () => {
-      const league = await createLeague({ name: "Free agents", seed: "free-agents", userCid: 0 });
+      const league = await createLeague({
+        world: "classic",
+        name: "Free agents",
+        seed: "free-agents",
+        userCid: 0,
+      });
       const session = await openLeague(league.lid);
       const view = await getFreeAgents(league.lid);
       expect(view.rows.length).toBeGreaterThan(50);
@@ -96,12 +101,22 @@ describe("releasing and listing players", () => {
         return [Math.round(row?.expenses.wages ?? 0), Math.round(row?.amortisation ?? 0)];
       };
       // The same league kept whole, played first (one save is open at a time).
-      const kept = await createLeague({ name: "Kept", seed: "release", userCid: 0 });
+      const kept = await createLeague({
+        world: "classic",
+        name: "Kept",
+        seed: "release",
+        userCid: 0,
+      });
       const a = await openLeague(kept.lid);
       await play(a, "untilWindowCloses");
       const keptBooks = books(a);
 
-      const gone = await createLeague({ name: "Released", seed: "release", userCid: 0 });
+      const gone = await createLeague({
+        world: "classic",
+        name: "Released",
+        seed: "release",
+        userCid: 0,
+      });
       const b = await openLeague(gone.lid);
       const before = await getTransferMarket(gone.lid);
       const p = b.cache
@@ -139,7 +154,12 @@ describe("releasing and listing players", () => {
     "lists a player: AI clubs bid near his price; unlisting stops it",
     { timeout: 180_000 },
     async () => {
-      const league = await createLeague({ name: "Listed", seed: "listing", userCid: 0 });
+      const league = await createLeague({
+        world: "classic",
+        name: "Listed",
+        seed: "listing",
+        userCid: 0,
+      });
       const session = await openLeague(league.lid);
       const view = await getTransferMarket(league.lid);
       const listed = view.squad.filter((r) => ["CM", "ST", "CB"].includes(r.position)).slice(0, 3);
@@ -172,13 +192,18 @@ describe("releasing and listing players", () => {
     { timeout: 180_000 },
     async () => {
       const probe = await openLeague(
-        (await createLeague({ name: "Probe", seed: "career", userCid: 0 })).lid,
+        (await createLeague({ world: "classic", name: "Probe", seed: "career", userCid: 0 })).lid,
       );
       const cid =
         probe.cache
           .getAll("clubs")
           .find((c) => c.leagueId === "ENG2" && c.name === "Lancashire Rovers")?.cid ?? -1;
-      const league = await createLeague({ name: "Second tier", seed: "career", userCid: cid });
+      const league = await createLeague({
+        world: "classic",
+        name: "Second tier",
+        seed: "career",
+        userCid: cid,
+      });
       const session = await openLeague(league.lid);
       const picks = (await getTransferMarket(league.lid)).squad.slice(0, 2);
       for (const r of picks)

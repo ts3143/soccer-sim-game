@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { POSITIONS } from "../../common/config/ratings";
 import { ContractModal } from "../components/ContractModal";
+import { CapSummary } from "../components/CapSummary";
 import { DataTable } from "../components/DataTable";
 import { PlayerLink } from "../components/links";
 import { formatDate, formatEuros } from "../format";
@@ -26,20 +27,34 @@ export function FreeAgents() {
       (position === "all" || r.position === position) &&
       (!affordable || (r.willing && r.ask <= view.wageRoom)),
   );
-  const full = view.seniors >= view.maxSeniors;
+  const full = view.limitCounts && view.seniors >= view.maxSeniors;
   return (
     <>
       <PageHeader title="Free Agents" />
       <p className="small text-body-secondary">
-        Players without a club. They can be signed at any time, inside or outside a transfer window,
-        with no fee; their asks fall the longer they go unsigned.
+        {view.cap
+          ? "Players without a club, signed with no fee from 1 July to the roster deadline. Under the cap a wage must fit your cap room; over it, only the minimum wage. Their asks fall the longer they go unsigned."
+          : "Players without a club. They can be signed at any time, inside or outside a transfer window, with no fee; their asks fall the longer they go unsigned."}
       </p>
+      {view.closed && (
+        <div className="alert alert-warning py-2 small" data-testid="free-agency-closed">
+          {view.closed}
+        </div>
+      )}
+      {view.cap && (
+        <div className="mb-2">
+          <CapSummary cap={view.cap} freeAgents />
+        </div>
+      )}
       <div className="d-flex flex-wrap gap-3 small mb-2" data-testid="free-agents-summary">
-        <span>
-          Wage room <strong>{formatEuros(view.wageRoom)}</strong> a year
-        </span>
+        {!view.cap && (
+          <span>
+            Wage room <strong>{formatEuros(view.wageRoom)}</strong> a year
+          </span>
+        )}
         <span className={full ? "text-danger" : ""}>
-          Seniors {view.seniors}/{view.maxSeniors}
+          {view.cap ? "Squad" : "Seniors"} {view.seniors}/{view.maxSeniors}
+          {!view.limitCounts && " (the limit counts from the first league match)"}
         </span>
         {view.banned && (
           <span className="text-danger">FFP transfer ban until {formatDate(view.banned)}</span>
@@ -66,7 +81,7 @@ export function FreeAgents() {
             onChange={(e) => setAffordable(e.target.checked)}
           />
           <label className="form-check-label" htmlFor="fa-affordable">
-            Only willing players within my wage room
+            Only willing players within my {view.cap ? "cap room" : "wage room"}
           </label>
         </div>
       </div>

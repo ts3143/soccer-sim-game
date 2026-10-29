@@ -122,6 +122,44 @@ Still open:
 | 2 | The pause screen in a live match (dropdowns) | The full tactics board, as before kick-off: pitch, XI and bench tables, sliders, team ratings. Moving players between positions is free, including into a sent-off player's empty slot; substitutions cost as now. A "rating so far" column. Built (SPEC §7.1, §11; design doc #67) |
 | 3 | Dragging or picking a player in a line-up | Highlight the places where he fits: strongly where it's natural (within 3 OVR of his best), lightly where he can cover (4–8 below); everything else stays plain. No OVR overlay. Built (SPEC §11, design doc #66); keepers and outfielders never mix, since a weak player's OVRs bunch together |
 
+## A12. Super League world, answered by T (Oct 27 2026)
+All in SPEC §17 and design doc #79–#83.
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | The "optional real-names file" vs the rule that real club names never appear | The game ships fictional names only; New game can load a names file the user brings (ZenGM style), never in the repo or the app |
+| 2 | Clubs in both worlds with different names | T's names win, in Classic too (T will rename more Classic clubs himself) |
+| 3 | Academy alongside the draft? | No academy, no youth pipeline, no Youth academy dial |
+| 4 | Loans? | None |
+| 5 | Releasing players with "free agency from expiring contracts only" | ZenGM style: wages paid until the contract ends, on the cap |
+| 6 | What the soft cap means | Re-signing and rookies allowed over it; free agents only at the minimum wage; trades take back at most 125% of the wages sent; luxury tax 1.5× the excess; FFP off |
+| 7 | Money amounts | Base cap and TV pools proposed in SL3; opening payrolls 85–100% of the tier's cap |
+| 8a | When is the roster deadline? | After 60% of the regular season (round 18 of 30, early February), ZenGM's default |
+| 8b | One deadline or two? | One, for trades and free agents |
+| 8c | Emergency signings when short of fit players? | Not for now |
+| 8d | Re-signing | One period, draft → 30 June, final-year players only, no in-season renewals |
+| 8e | Squad limit in the off-season | 25 counted from the first league match; Play blocked while the user is over |
+| 8f | Off-season trades | Open from the end of the play-offs; final-year players can't be traded; draft picks at once |
+| 8g | AI free agency | Mostly July–August, later only to fill gaps |
+| 9 | What a trade can hold | Players and picks, no cash; picks up to 3 seasons ahead; no protections |
+| 10 | Draft size | 2 rounds, class of about 110; rookie contracts 3 years, wage by pick |
+| 11 | Lottery | Draws picks 1–4; the rest of the pool by odds |
+| 12 | Draft order | Tier played, then table points (Star by table); promoted clubs 45–48 by the same rule |
+| 13 | The Star title | The play-off winner; the table winner recorded, not a title; fixed bracket, higher seed hosts the second leg |
+| 14 | Gold and Blue play-off | 2nd hosts 5th, 3rd hosts 4th; final at a neutral venue. From SL6 (T, 2026-10-28): 3 up and 3 down, the top 2 automatic and a play-off among 3rd–6th (3rd hosts 6th, 4th hosts 5th) |
+| 15 | Cups | None for now |
+| 16 | Development | Twice a season: winter (1 Jan) and preseason (1 Jul) |
+| 17 | Board targets | Star title / top 8 / avoid relegation; Gold and Blue promotion / play-offs / mid-table |
+| 18 | The 4–6-season rise | Defined as in SPEC §17.9; if tuning can't reach it, back to T |
+| – | New game screen | Just two choices, Classic and Super League; the switches stay behind the scenes |
+
+**Super League defaults** (marked `[DEFAULT]` in SPEC §17; build them unless T changes them):
+1. Existing Classic saves keep their old club names; only new saves get T's names.
+2. With fewer than 16 fit players the bench is shorter; if fewer than 11 can play, the shortest injuries fill in (never suspended players).
+3. ~~The draft class is generated on 1 July, viewable all season; prospects don't develop before the draft.~~ Replaced by T (2026-10-27): three classes visible, each from 1 July two seasons before its draft; prospects develop each summer (SPEC §17.5).
+4. The luxury tax is shared equally among that tier's clubs under the cap (ZenGM).
+5. Play-off prize money per round in config.
+6. The player profile records where he was drafted.
+
 ## B. Defaults set during the kickoff review (marked `[DEFAULT]` in SPEC.md)
 Build these as written unless T changes them.
 1. **Hidden traits** (Injury Prone, Hothead) are generated and affect the sim from the MVP but are never shown until scouting arrives in v1.1.

@@ -10,9 +10,9 @@ import type {
   TeamHistoryView,
   TransactionsView,
 } from "../../common/api";
-import { competitionsConfig } from "../../common/config/competitions";
 import type { AwardRow, Club, GameMeta } from "../../common/schema";
 import { transferBanned } from "../finance/ffp";
+import { clubCap, payroll } from "../finance/softCap";
 import { operatingRevenue, owedAmortisation, owedWages, totalOf } from "../finance/finance";
 import { clubStrength } from "../club/standing";
 import type { LeagueSession } from "../league/session";
@@ -53,7 +53,7 @@ export async function getHistory(lid: number): Promise<HistoryView> {
         session.cache.get("playerStats", key) ?? (await session.db.get("playerStats", key)) ?? null
       );
     };
-    for (const league of competitionsConfig.leagues) {
+    for (const league of session.config.competitions.leagues) {
       const boot = find("goldenBoot", league.id);
       const goals = (await statsOf(boot, league.id))?.goals ?? null;
       const provider = find("topAssists", league.id);
@@ -63,6 +63,7 @@ export async function getHistory(lid: number): Promise<HistoryView> {
         id: league.id,
         name: league.name,
         champion: ref(find("champions", league.id)),
+        tableWinner: ref(find("tableWinner", league.id)),
         promoted: own
           .filter((a) => a.type === "promoted" && a.competition === league.id)
           .map((a) => teamRef(clubs.get(a.cid ?? -1))),
@@ -80,7 +81,7 @@ export async function getHistory(lid: number): Promise<HistoryView> {
     out.push({
       season,
       leagues,
-      cups: competitionsConfig.cups.map((c) => ({
+      cups: session.config.competitions.cups.map((c) => ({
         id: c.id,
         name: c.name,
         winner: ref(find("cupWinner", c.id)),
@@ -97,8 +98,9 @@ export async function getTeamHistory(lid: number, cid: number): Promise<TeamHist
   if (!club) throw new GameError(`There's no club ${cid} in this league.`);
   const awards = (await allAwards(session)).filter((a) => a.cid === cid);
   const leagueName = (id: string) =>
-    competitionsConfig.leagues.find((l) => l.id === id)?.name ?? id;
-  const cupName = (id: string) => competitionsConfig.cups.find((c) => c.id === id)?.name ?? id;
+    session.config.competitions.leagues.find((l) => l.id === id)?.name ?? id;
+  const cupName = (id: string) =>
+    session.config.competitions.cups.find((c) => c.id === id)?.name ?? id;
   const honourOf = (a: AwardRow): string | null => {
     switch (a.type) {
       case "champions":
@@ -107,6 +109,8 @@ export async function getTeamHistory(lid: number, cid: number): Promise<TeamHist
         return `${cupName(a.competition)} winners`;
       case "playoffWinner":
         return `${leagueName(a.competition.replace(/-PO$/, ""))} play-off winners`;
+      case "tableWinner":
+        return `Top of the ${leagueName(a.competition)} table`;
       case "promoted":
         return `Promoted from the ${leagueName(a.competition)}`;
       case "relegated":
@@ -229,6 +233,8 @@ export async function getFinances(lid: number, season: number | null): Promise<F
   const current = s === game.season;
   const clubs = clubsOf(session);
   const players = session.cache.getAll("players");
+  const competitions = session.config.competitions;
+  const softCap = competitions.softCap;
   return {
     season: s,
     current,
@@ -259,8 +265,12 @@ export async function getFinances(lid: number, season: number | null): Promise<F
                   1000,
               ) / 1000
             : r.squadCostRatio,
+          payroll: current && club && softCap ? payroll(club, players, game.date) : null,
+          cap: current && club ? clubCap(competitions, club, s) : null,
+          taxPaid: !current && softCap ? Math.round(r.expenses.luxuryTax ?? 0) : null,
+          taxReceived: !current && softCap ? Math.round(r.revenue.taxShare ?? 0) : null,
           ffp:
-            current && club
+            current && club && !softCap
               ? transferBanned(club, game.date)
                 ? "banned"
                 : club.ffp?.warned

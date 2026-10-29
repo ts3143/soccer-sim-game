@@ -6,7 +6,6 @@
  */
 import { withPlayerReferences } from "../league/messages";
 import type { DashboardView, InboxMessageView } from "../../common/api";
-import { competitionsConfig } from "../../common/config/competitions";
 import type { GameMeta, InboxMessage, Offer } from "../../common/schema";
 import { contractClub, isSenior } from "../../common/status";
 import { effectiveDials } from "../club/standing";
@@ -77,7 +76,7 @@ export async function getDashboard(lid: number): Promise<DashboardView> {
     const p = byPid.get(pid);
     return p ? `${p.firstName} ${p.lastName}`.trim() : "?";
   };
-  const league = competitionsConfig.leagues.find((l) => l.id === user.leagueId);
+  const league = session.config.competitions.leagues.find((l) => l.id === user.leagueId);
   const seasonRow = cache.get("clubSeasons", [user.cid, game.season]);
   const inbox = cache.getAll("inbox").sort((a, b) => b.mid - a.mid);
   const offers = cache.getAll("offers").filter((o) => o.toCid === user.cid);
@@ -97,17 +96,17 @@ export async function getDashboard(lid: number): Promise<DashboardView> {
     nextMatch:
       next && opponent !== null
         ? {
-            ...matchView(next, clubs),
+            ...matchView(next, clubs, session.config.competitions),
             opponentPosition: positionOf(opponent),
             opponentForm: formOf(fixtures, opponent),
           }
         : null,
-    upcoming: unplayed.slice(1, 5).map((f) => matchView(f, clubs)),
+    upcoming: unplayed.slice(1, 5).map((f) => matchView(f, clubs, session.config.competitions)),
     recent: mine
       .filter((f) => f.result)
       .slice(-5)
       .reverse()
-      .map((f) => matchView(f, clubs)),
+      .map((f) => matchView(f, clubs, session.config.competitions)),
     table: own?.rows ?? [],
     board: {
       target: league?.board.find((t) => t.id === seasonRow?.boardExpectation)?.label ?? "",

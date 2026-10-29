@@ -17,7 +17,12 @@ describe("tactics", () => {
     "starts as the AI's pick, previews changes, saves the line-up and checks the rules",
     { timeout: 120_000 },
     async () => {
-      const league = await createLeague({ name: "Tactics", seed: "tactics-view", userCid: 0 });
+      const league = await createLeague({
+        world: "classic",
+        name: "Tactics",
+        seed: "tactics-view",
+        userCid: 0,
+      });
       const session = await openLeague(league.lid);
 
       // A new league saves the AI's pick as the user's tactics.

@@ -4,12 +4,7 @@ import { PageHeader } from "../shell/PageHeader";
 import { seasonLabel, useShell } from "../shell/Shell";
 import { useView } from "../shell/useView";
 import { toWorker } from "../workerClient";
-
-const ordinal = (n: number) => {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
-};
+import { ordinal } from "../format";
 
 export function TeamHistory({ params }: { params: string[] }) {
   const { shell } = useShell();

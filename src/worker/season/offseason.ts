@@ -13,14 +13,16 @@
  */
 import { isSenior } from "../../common/status";
 import { addDays, exactAge } from "../../common/dates";
-import { clubDefinitions } from "../../common/config/clubs";
-import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
+import type { ClubDefinition } from "../../common/config/clubs";
+import type { CompetitionsConfig } from "../../common/config/competitions";
+import type { WorldConfig } from "../../common/config/worlds";
 import { formationById } from "../../common/config/formations";
 import type { Position } from "../../common/config/ratings";
 import type {
   AwardRow,
   Club,
   ClubSeason,
+  DraftPick,
   InboxMessage,
   Player,
   TransactionRow,
@@ -33,6 +35,9 @@ import { Random } from "../core/random";
 import { COEFFICIENTS } from "../engine/coefficients";
 import { ratingCentre } from "../engine/ratings";
 import { roundWage, WAGE_STEEPNESS, wageAgeFactor } from "../generate/contracts";
+import { canSignFreeAgent, clubCap, payroll } from "../finance/softCap";
+import { draftClassTurnover } from "./draft";
+import { worldMix } from "../generate/identity";
 import { generateAcademyPlayer } from "../generate/youth";
 import { FREE_AGENT_CONTEXT } from "../generate/world";
 import { playoffId, type SeasonOutcome, type SeasonState } from "./season";
@@ -92,11 +97,13 @@ export const TURNOVER = {
   topUpTo: 22,
 };
 
-const AREA: Record<Position, "gk" | "def" | "mid" | "att"> = {
+export const AREA: Record<Position, "gk" | "def" | "mid" | "att"> = {
   GK: "gk", CB: "def", FB: "def", WB: "def", DM: "mid", CM: "mid", WM: "mid", AM: "att", W: "att", ST: "att",
 }; // prettier-ignore
 
 export interface LoopWorld {
+  /** The save's world (SPEC §17.1): its clubs file, competitions and switches. */
+  config: WorldConfig;
   clubs: Club[];
   players: Player[];
   /** Club reputation (0–100) for the season being set up. */
@@ -108,6 +115,12 @@ export interface LoopWorld {
   nextPid: () => number;
   /** AI bids for the user's players, open until `expires` (at most one per player). */
   openBids?: { pid: number; fromCid: number; expires: string }[];
+  /** The draft picks (a world with a draft): replaced as picks are made and used up. */
+  draftPicks?: DraftPick[];
+  /** AI trade offers to the user still open (a world with trades). */
+  openTradeOffers?: number;
+  /** His players AI clubs have offered for, and when (a world with trades). */
+  offeredFor?: { pid: number; date: string }[];
 }
 
 export type NewTransaction = Omit<TransactionRow, "xid">;
@@ -123,13 +136,13 @@ export interface TurnoverLog {
   messages: Omit<InboxMessage, "mid">[];
 }
 
-const emptyLog = (): TurnoverLog => ({
+export const emptyLog = (): TurnoverLog => ({
   changed: new Set(),
   added: [],
   transactions: [],
   messages: [],
 });
-const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
+export const fullName = (p: Player) => `${p.firstName} ${p.lastName}`.trim();
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 const ratingsOf = (p: Player): number[] => p.ratingsHistory.at(-1)?.ratings ?? [];
 
@@ -147,7 +160,7 @@ function interpolate(points: readonly [number, number][], x: number): number {
 // ---------------------------------------------------------------------------
 // Club context
 
-interface ClubContext {
+export interface ClubContext {
   club: Club;
   seniors: Player[];
   academy: Player[];
@@ -156,7 +169,7 @@ interface ClubContext {
 }
 
 /** Per club: squads, best-XI level, and the average XI level of its league. */
-function clubContexts(world: LoopWorld): Map<number, ClubContext> {
+export function clubContexts(world: LoopWorld): Map<number, ClubContext> {
   const out = new Map<number, ClubContext>();
   for (const club of world.clubs) {
     const own = world.players.filter((p) => p.cid === club.cid);
@@ -188,7 +201,12 @@ function potContext(ctx: ClubContext | undefined): PotentialClubContext {
   };
 }
 
-function updatePot(p: Player, date: string, ctx: ClubContext | undefined, seed: string): void {
+export function updatePot(
+  p: Player,
+  date: string,
+  ctx: ClubContext | undefined,
+  seed: string,
+): void {
   const age = exactAge(p.birthDate, date);
   p.pot =
     age >= TURNOVER.potArcsBelowAge
@@ -249,7 +267,8 @@ export function developmentUpdate(
     return v;
   };
   for (const p of world.players) {
-    if (p.status === "retired") continue;
+    // Prospects develop each summer while they wait for their draft (T, 2026-10-27).
+    if (p.status === "retired" || (p.status === "prospect" && !summer)) continue;
     const ctx = p.cid === null ? undefined : contexts.get(p.cid);
     const club = ctx?.club;
     const tally = p.devTally ?? { minutes: 0, appearances: 0, ratingTotal: 0, seasonMinutes: 0 };
@@ -334,7 +353,7 @@ export function endOfSeasonTurnover(world: LoopWorld, season: number, date: stri
   const log = emptyLog();
   const r = TURNOVER.retirement;
   for (const p of world.players) {
-    if (p.status === "retired" || p.status === "academy") continue;
+    if (p.status === "retired" || p.status === "academy" || p.status === "prospect") continue;
     const age = exactAge(p.birthDate, date);
     const effectiveAge = p.position === "GK" ? age - r.gkShift : age;
     let chance = interpolate(r.byAge, effectiveAge);
@@ -408,7 +427,46 @@ function wageFor(ctx: ClubContext, ovr: number, age: number, date: string): numb
   return roundWage(scale * weight(ovr, age));
 }
 
-function freeShirtNumber(world: LoopWorld, cid: number, from: number): number {
+/**
+ * Releases a club's player (SPEC §7.6, as ZenGM): he joins free agency at once, and the
+ * club keeps paying his wage until his contract would have ended, and amortising any fee
+ * left on the same schedule (`Club.released`). Returns the transaction.
+ */
+export function releaseToFreeAgency(
+  club: Club,
+  p: Player,
+  date: string,
+  season: number,
+): NewTransaction {
+  const name = fullName(p);
+  if (p.contract) {
+    const { wage, expires } = p.contract;
+    const fee = p.feeBalance && p.feeBalance.remaining > 0 ? { ...p.feeBalance } : undefined;
+    club.released = [
+      ...(club.released ?? []),
+      { pid: p.pid, name, wage, until: expires, ...(fee && { fee }) },
+    ];
+  }
+  p.feeBalance = null;
+  p.status = "freeAgent";
+  p.cid = null;
+  p.contract = null;
+  p.freeAgentSince = date;
+  p.shirtNumber = null;
+  delete p.listed;
+  p.transfers.push({ date, season, fromCid: club.cid, toCid: null, fee: 0, type: "release" });
+  return {
+    season,
+    date,
+    type: "release",
+    pids: [p.pid],
+    cids: [club.cid],
+    names: [name, club.name],
+    fee: 0,
+  };
+}
+
+export function freeShirtNumber(world: LoopWorld, cid: number, from: number): number {
   const taken = new Set(
     world.players.filter((p) => p.cid === cid && p.status !== "retired").map((p) => p.shirtNumber),
   );
@@ -447,6 +505,7 @@ export function youthIntake(world: LoopWorld, season: number, date: string): Tur
         world.nextPid(),
         season,
         date,
+        worldMix(world.config),
       );
       player.shirtNumber = freeShirtNumber(world, club.cid, 36);
       player.birthplace = localBirthplace(world.seed, player, club) ?? player.birthplace;
@@ -521,7 +580,7 @@ function releaseFromAcademy(
 export function academyDecisions(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
   const a = TURNOVER.academy;
-  const maxSenior = competitionsConfig.rosterRules.maxSenior;
+  const maxSenior = world.config.competitions.rosterRules.maxSenior;
   for (const ctx of clubContexts(world).values()) {
     const candidates = [...ctx.academy].sort(
       (x, y) => y.pot - x.pot || y.ovr - x.ovr || x.pid - y.pid,
@@ -553,10 +612,9 @@ export function promoteAcademyPlayer(
   const p = world.players.find((x) => x.pid === pid);
   const ctx = p?.cid == null ? undefined : clubContexts(world).get(p.cid);
   if (!p || !ctx || p.status !== "academy") throw new GameError("He isn't in an academy");
-  if (ctx.seniors.length >= competitionsConfig.rosterRules.maxSenior) {
-    throw new GameError(
-      `Your squad is full (${competitionsConfig.rosterRules.maxSenior} seniors): make room first`,
-    );
+  const maxSenior = world.config.competitions.rosterRules.maxSenior;
+  if (ctx.seniors.length >= maxSenior) {
+    throw new GameError(`Your squad is full (${maxSenior} seniors): make room first`);
   }
   const log = emptyLog();
   promote(p, ctx, season, date, log);
@@ -640,18 +698,106 @@ export function promoteToSquadSize(world: LoopWorld, season: number, date: strin
 }
 
 /**
+ * Free agency from 1 July where players move by trades (SPEC §17.6): there are no windows,
+ * so AI clubs short of the squad size sign free agents, the club with the fewest seniors
+ * first, one at a time: the best by OVR, plus the draft's need bonus for an area the club
+ * is short in. Wages on the club's scale, 2 years (1 from 30); a club over its cap pays the
+ * minimum wage. Its AI core until SL5, which adds the user's signings and the roster
+ * deadline.
+ */
+export function freeAgencyTopUp(
+  world: LoopWorld,
+  season: number,
+  date: string,
+  target: number = TURNOVER.topUpTo,
+  perClub = Infinity,
+): TurnoverLog {
+  const log = emptyLog();
+  const contexts = [...clubContexts(world).values()].filter((c) => c.club.cid !== world.userCid);
+  const pool = world.players.filter((p) => p.status === "freeAgent");
+  const pick = world.config.competitions.draft?.aiPick;
+  const signed = new Map<number, number>();
+  for (;;) {
+    const ctx = contexts
+      .filter((c) => c.seniors.length < target && (signed.get(c.club.cid) ?? 0) < perClub)
+      .sort((a, b) => a.seniors.length - b.seniors.length || a.club.cid - b.club.cid)[0];
+    if (!ctx || pool.length === 0) break;
+    signed.set(ctx.club.cid, (signed.get(ctx.club.cid) ?? 0) + 1);
+    const have = { gk: 0, def: 0, mid: 0, att: 0 };
+    for (const p of ctx.seniors) have[AREA[p.position]]++;
+    const value = (p: Player) => {
+      const area = AREA[p.position];
+      return p.ovr + (pick ? pick.needBonus * Math.max(0, pick.areaTargets[area] - have[area]) : 0);
+    };
+    const best = pool.reduce((a, b) => (value(b) > value(a) ? b : a));
+    pool.splice(pool.indexOf(best), 1);
+    const age = exactAge(best.birthDate, date);
+    // Over its cap (SPEC §17.7), a club signs free agents only at the minimum wage.
+    const asked = wageFor(ctx, best.ovr, age, date);
+    const softCap = world.config.competitions.softCap;
+    const cap = clubCap(world.config.competitions, ctx.club, season);
+    const fits =
+      !softCap ||
+      cap === null ||
+      canSignFreeAgent(softCap, payroll(ctx.club, world.players, date), cap, asked);
+    best.status = "club";
+    best.cid = ctx.club.cid;
+    best.freeAgentSince = null;
+    best.contract = {
+      wage: fits ? asked : (softCap?.minimumWage ?? asked),
+      expires: `${season + (age >= 30 ? 1 : 2)}-06-30`,
+    };
+    best.shirtNumber = freeShirtNumber(world, ctx.club.cid, 30);
+    best.transfers.push({
+      date,
+      season,
+      fromCid: null,
+      toCid: ctx.club.cid,
+      fee: 0,
+      type: "freeAgent",
+    });
+    ctx.seniors.push(best);
+    log.changed.add(best.pid);
+    log.transactions.push({
+      season,
+      date,
+      type: "freeAgent",
+      pids: [best.pid],
+      cids: [ctx.club.cid],
+      names: [fullName(best), ctx.club.name],
+      fee: 0,
+    });
+  }
+  return log;
+}
+
+/**
  * Every preseason step in order: loans returning, expiring contracts, free agents moving on, youth intake,
  * academy decisions, the AI's summer renewals, then AI academy promotions up to squad size.
  */
 export function preseasonTurnover(world: LoopWorld, season: number, date: string): TurnoverLog {
   const log = emptyLog();
+  // The youth intake and academy decisions only where clubs have academies (SPEC §17.4).
+  const academies = world.config.switches.youth === "academy";
+  // With a re-signing period (SPEC §17.6), the AI re-signs as it closes, before contracts
+  // expire, and renews nobody else; otherwise it renews as the summer window opens.
+  const resigning = world.config.switches.renewals === "resigningPeriod";
   const steps: ((w: LoopWorld, s: number, d: string) => Partial<TurnoverLog>)[] = [
     (w, s, d) => returnLoans(w, d, s),
+    ...(resigning
+      ? [(w: LoopWorld, s: number, d: string) => aiRenewals(w, s, d, "resigning")]
+      : []),
     expireContracts,
     freeAgentDepartures,
-    youthIntake,
-    academyDecisions,
-    (w, s, d) => aiRenewals(w, s, d, "summer"),
+    ...(academies ? [youthIntake, academyDecisions] : []),
+    // With a draft: last class's undrafted to free agency, this season's class (SPEC §17.5).
+    ...(world.config.switches.youth === "draft" ? [draftClassTurnover] : []),
+    ...(resigning ? [] : [(w: LoopWorld, s: number, d: string) => aiRenewals(w, s, d, "summer")]),
+    // Where players move by trades without free agency days in config, free agency tops
+    // squads up on 1 July; with them, AI clubs sign on market days (season/freeAgency.ts).
+    ...(world.config.switches.market === "trades" && !world.config.competitions.freeAgency
+      ? [freeAgencyTopUp]
+      : []),
     promoteToSquadSize,
   ];
   for (const step of steps) {
@@ -710,7 +856,8 @@ const AWARD_MIN_SHARE = { playerOfTheYear: 0.5, teamOfTheSeason: 0.4 };
 /**
  * Season awards and honours: per league champions, Player of the Year, Golden Boot, Top
  * assists (T, 2026-10-25), Team of the Season, promotions and relegations; per cup the
- * winner; play-off winners.
+ * winner; promotion play-off winners; where a play-off decides the title, the table
+ * winner (recorded, not a title: SPEC §17.2).
  */
 export function seasonAwards(
   state: SeasonState,
@@ -718,7 +865,7 @@ export function seasonAwards(
   clubs: readonly Club[],
   players: readonly Player[],
   lines: readonly SeasonLine[],
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): NewAward[] {
   const season = state.season;
   const clubName = new Map(clubs.map((c) => [c.cid, c.name]));
@@ -770,14 +917,22 @@ export function seasonAwards(
   for (const move of outcome.moves) {
     clubAward(move.from, move.reason === "relegated" ? "relegated" : "promoted", move.cid);
   }
+  // A title play-off's winner is the champion (above), not a play-off winner too.
+  const titlePlayoffs = new Set(
+    config.leagues.filter((l) => l.playoff?.decides === "title").map((l) => l.id),
+  );
   for (const [leagueId, winners] of Object.entries(outcome.playoffWinners)) {
+    if (titlePlayoffs.has(leagueId)) continue;
     for (const cid of winners) clubAward(playoffId(leagueId), "playoffWinner", cid);
+  }
+  for (const [leagueId, cid] of Object.entries(outcome.tableWinners ?? {})) {
+    clubAward(leagueId, "tableWinner", cid);
   }
   for (const [cupId, cid] of Object.entries(outcome.cupWinners)) clubAward(cupId, "cupWinner", cid);
   return awards;
 }
 
 /** Clubs' reputation for the next season (unchanged until M4's board and finances). */
-export function startingReputation(): Map<number, number> {
-  return new Map(clubDefinitions.map((def, cid) => [cid, def.reputation]));
+export function startingReputation(clubs: readonly ClubDefinition[]): Map<number, number> {
+  return new Map(clubs.map((def, cid) => [cid, def.reputation]));
 }

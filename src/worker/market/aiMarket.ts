@@ -18,7 +18,7 @@
  * 1% of the buyer's budget base the deal costs a year (fee over four years plus wage).
  */
 import { addDays, exactAge, formatDay } from "../../common/dates";
-import { competitionsConfig, type CompetitionsConfig } from "../../common/config/competitions";
+import type { CompetitionsConfig } from "../../common/config/competitions";
 import { formationById, type FormationSlot } from "../../common/config/formations";
 import { POSITIONS, type Position } from "../../common/config/ratings";
 import type { Club, InboxMessage, Offer, Player, TransactionRow } from "../../common/schema";
@@ -110,7 +110,7 @@ export interface MarketLog {
 /** A season's market days per window: weekly from a week after opening, and deadline day. */
 export function marketDays(
   season: number,
-  config: CompetitionsConfig = competitionsConfig,
+  config: CompetitionsConfig,
 ): { date: string; window: string; opens: string; deadline: boolean }[] {
   const out: { date: string; window: string; opens: string; deadline: boolean }[] = [];
   for (const w of config.windows) {
@@ -339,7 +339,7 @@ export function marketDay(
   };
   const closes = seasonDate(
     season,
-    competitionsConfig.windows.find((w) => w.id === window)?.closes ?? "08-31",
+    world.config.competitions.windows.find((w) => w.id === window)?.closes ?? "08-31",
   );
   const maxSignings = AI_MARKET.maxSignings[window] ?? 2;
   const order = rng.shuffle(world.clubs.filter((c) => c.cid !== world.userCid));

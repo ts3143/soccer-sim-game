@@ -47,5 +47,7 @@ jobs:
           cache: true
       - run: pnpm install --frozen-lockfile
       - run: pnpm generate --check
+      - run: pnpm generate --world superLeague --check
       - run: pnpm calibrate --check # match engine: per-match targets and league styles
       - run: pnpm calibrate --world --check # season loop: 3 worlds x 20 seasons, about 5 minutes
+      - run: pnpm calibrate --world superLeague --check # Super League tiers: 3 worlds x 20 seasons

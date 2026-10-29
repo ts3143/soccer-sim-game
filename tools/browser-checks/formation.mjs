@@ -14,7 +14,9 @@ const check = (name, ok, detail) => {
 };
 try {
   await page.goto(`${BASE}/new?worker=dedicated`);
-  await page.locator('[data-testid="club-choices"] button').first().click();
+  await page
+    .locator('[data-testid="club-choices"] button', { hasText: "Manchester Citizens" })
+    .click();
   await page.fill("#new-league-name", "Formation pitch regression");
   await page.fill("#new-league-seed", "formation-pitch");
   await page.locator('[data-testid="start-league"]').click();

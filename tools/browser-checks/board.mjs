@@ -17,7 +17,9 @@ const check = (name, ok, detail) => {
 const testId = (id) => page.locator(`[data-testid="${id}"]`);
 try {
   await page.goto(`${BASE}/new?worker=dedicated`);
-  await page.locator('[data-testid="club-choices"] button').first().click();
+  await page
+    .locator('[data-testid="club-choices"] button', { hasText: "Manchester Citizens" })
+    .click();
   await page.fill("#new-league-name", "Red card board");
   await page.fill("#new-league-seed", "red-card-board");
   await testId("start-league").click();

@@ -132,7 +132,9 @@ const bar = () => document.querySelector('[data-testid="top-bar"]')?.textContent
 await page.goto(BASE);
 await page.locator('[data-testid="no-leagues"]').waitFor({ timeout: 30_000 });
 await page.getByRole("link", { name: "Start a new league" }).click();
-await page.locator('[data-testid="club-choices"] button').first().click();
+await page
+  .locator('[data-testid="club-choices"] button', { hasText: "Manchester Citizens" })
+  .click();
 const club = (await page.locator('[data-testid="start-league"]').innerText()).replace(
   /^Start as /,
   "",

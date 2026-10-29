@@ -15,6 +15,7 @@ export const TYPE_LABELS: Record<string, string> = {
   renewal: "Renewal",
   release: "Release",
   academyPromotion: "Promotion",
+  trade: "Trade",
   retirement: "Retirement",
 };
 

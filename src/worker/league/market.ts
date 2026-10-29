@@ -29,6 +29,9 @@ import {
   startLoan,
 } from "../market/loans";
 import { clubRevenue, moodAtClub } from "../market/renewals";
+import { freeAgencyOpen, rosterDeadline } from "../season/freeAgency";
+import { releaseToFreeAgency } from "../season/offseason";
+import { capView } from "../views/cap";
 import {
   askingPrice,
   bidOutcome,
@@ -79,10 +82,19 @@ function employed(session: LeagueSession): GameMeta {
   return game;
 }
 
+const NO_TRANSFERS =
+  "There's no transfer market in this world: players move by trades, the draft and free agency.";
+
+/** Fails in a world without a transfer market (SPEC §17.1: the Super League trades). */
+function transfersOn(session: LeagueSession) {
+  if (session.config.switches.market !== "transfers") throw new GameError(NO_TRANSFERS);
+}
+
 /** Fails unless the user can act in the market now (a window is open and he has a job). */
 function marketOpen(session: LeagueSession) {
+  transfersOn(session);
   const game = employed(session);
-  const window = openWindow(game.date, game.season);
+  const window = openWindow(game.date, game.season, session.config.competitions);
   if (!window) throw new GameError("The transfer window is closed.");
   return { game, window };
 }
@@ -95,6 +107,31 @@ function notBanned(session: LeagueSession, date: string) {
       `FFP: your club can't sign anyone until ${formatDay(user.ffp?.bannedUntil ?? date)}.`,
     );
   }
+}
+
+/**
+ * Why the user can't sign a free agent now where free agency has its own dates (SPEC
+ * §17.6): from 1 July to the roster deadline. Null when he can, or without such dates.
+ */
+export function freeAgencyClosed(session: LeagueSession, game: GameMeta): string | null {
+  const competitions = session.config.competitions;
+  if (!competitions.freeAgency) return null;
+  const fixtures = session.cache.getAll("fixtures").filter((f) => f.season === game.season);
+  const deadline = rosterDeadline(competitions, fixtures);
+  return freeAgencyOpen(game.season, game.date, deadline)
+    ? null
+    : `Free agency is closed from the roster deadline${deadline ? ` (${formatDay(deadline)})` : ""} until 1 July.`;
+}
+
+/**
+ * Why the user can't renew a player now in a world with a re-signing period (SPEC §17.6):
+ * only in that period, only players in their final year. Null when he can.
+ */
+function resigningClosed(game: GameMeta, left: number): string | null {
+  if (game.phase !== "resigning") {
+    return "Contracts are renewed only in the re-signing period, from the draft to 30 June.";
+  }
+  return left === 1 ? null : "Only players in the final year of their contract can be re-signed.";
 }
 
 /**
@@ -121,8 +158,20 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
   const mood =
     kind === "renewal" ? moodAtClub(world, p, game.date) : moodToward(world, p, user, game.date);
   const left = yearsLeft(p, game.date);
+  const resigning = kind === "renewal" && session.config.switches.renewals === "resigningPeriod";
+  const closedReason = resigning
+    ? resigningClosed(game, left)
+    : kind === "freeAgent"
+      ? freeAgencyClosed(session, game)
+      : kind === "transfer" && session.config.switches.market !== "transfers"
+        ? NO_TRANSFERS
+        : null;
   const level = leagueLevel(world, (club ?? user).leagueId, game.date);
   const budgets = clubBudgets(world, user);
+  // Under a soft cap a signing's wage must fit the cap, or be the minimum wage (SPEC §17.7).
+  const cap = capView(session, user, world.players, game.season, game.date);
+  const wageRoom = cap ? cap.freeAgentRoom : budgets.wageRoom;
+  const rules = session.config.competitions.rosterRules;
   return {
     pid,
     name: fullName(p),
@@ -144,19 +193,28 @@ export function contractTalks(session: LeagueSession, pid: number): ContractTalk
       mood?.value ?? 0,
       kind === "renewal" && left === 1,
     ).map((a) => ({ ...a, expires: contractEnd(game.season, a.years, game.date) })),
-    windowOpen: openWindow(game.date, game.season) !== null,
+    // With a re-signing period, a renewal's "window" is that period.
+    windowOpen: resigning
+      ? closedReason === null
+      : openWindow(game.date, game.season, session.config.competitions) !== null,
+    closedReason,
     userPlayer: kind === "renewal",
     feeAgreed: kind === "transfer" ? (agreedOffer(session, user.cid, pid)?.fee ?? null) : null,
-    squad: { seniors: seniorsOf(world.players, user.cid).length, max: TRANSFERS.maxSeniors },
+    squad: {
+      seniors: seniorsOf(world.players, user.cid).length,
+      max: rules.maxSeniorFromFirstMatch ? rules.maxSenior : TRANSFERS.maxSeniors,
+      enforced: !rules.maxSeniorFromFirstMatch || game.phase === "regularSeason",
+    },
     budget: {
       transfer: budgets.transfer,
-      wageRoom: budgets.wageRoom,
+      wageRoom,
       squadCostRatio: budgets.squadCost / Math.max(1, budgets.base),
       ffpLimit: FFP.ratio,
       warned: user.ffp?.warned ?? false,
       bannedUntil: transferBanned(user, game.date) ? (user.ffp?.bannedUntil ?? null) : null,
       cashFrozen: user.cash < 0,
     },
+    cap,
   };
 }
 
@@ -167,8 +225,11 @@ export function renewContract(session: LeagueSession, pid: number, years: number
     const game = meta<GameMeta>(session, "game");
     const talks = contractTalks(session, pid);
     if (!talks.userPlayer) throw new GameError("You can only renew your own players.");
-    if (!talks.windowOpen)
-      throw new GameError("Contracts can only be renewed in a transfer window.");
+    if (!talks.windowOpen) {
+      throw new GameError(
+        talks.closedReason ?? "Contracts can only be renewed in a transfer window.",
+      );
+    }
     if (!talks.mood.willing) throw new GameError(`${talks.name} won't negotiate with your club`);
     const ask = talks.asks.find((a) => a.years === years);
     const p = session.cache.get("players", pid);
@@ -265,10 +326,12 @@ export function signPlayer(session: LeagueSession, pid: number, years: number) {
   return queued(session, async () => {
     assertNotLive(session);
     const talks = contractTalks(session, pid);
-    // Free agents can be signed at any time (SPEC §3.1); transfers only in a window.
+    // Free agents can be signed at any time (SPEC §3.1; in the Super League from 1 July to
+    // the roster deadline, §17.6); transfers only in a window.
     const { game } = talks.kind === "freeAgent" ? { game: employed(session) } : marketOpen(session);
     if (talks.kind === "renewal")
       throw new GameError("He is already your player: renew him instead");
+    if (talks.closedReason) throw new GameError(talks.closedReason);
     notBanned(session, game.date);
     const offer = agreedOffer(session, game.userCid, pid);
     const at = session.cache.get("players", pid)?.cid ?? null;
@@ -279,8 +342,8 @@ export function signPlayer(session: LeagueSession, pid: number, years: number) {
     const ask = talks.asks.find((a) => a.years === years);
     if (!ask) throw new GameError("Pick a contract of 1 to 5 years.");
     const world = loopWorld(session, game.season);
-    if (seniorsOf(world.players, game.userCid).length >= TRANSFERS.maxSeniors) {
-      throw new GameError(`Your squad is full (${TRANSFERS.maxSeniors} seniors)`);
+    if (talks.squad.enforced && talks.squad.seniors >= talks.squad.max) {
+      throw new GameError(`Your squad is full (${talks.squad.max} seniors)`);
     }
     const fee = offer?.fee ?? 0;
     if (ask.wage > talks.budget.wageRoom) {
@@ -425,6 +488,7 @@ export function proposeLoan(
 ): Promise<LoanReply> {
   return queued(session, async () => {
     assertNotLive(session);
+    if (!session.config.switches.loans) throw new GameError("There are no loans in this world.");
     const { game } = marketOpen(session);
     if (![0, 0.5, 1].includes(wageShare)) throw new GameError("The wage share is 0, 50 or 100%");
     const world = loopWorld(session, game.season);
@@ -511,6 +575,7 @@ export function setWageShare(session: LeagueSession, share: number) {
 export function listPlayer(session: LeagueSession, pid: number, asking: number | null) {
   return queued(session, async () => {
     assertNotLive(session);
+    transfersOn(session);
     const game = employed(session);
     const p = session.cache.get("players", pid);
     if (!p || p.status !== "club" || p.cid !== game.userCid) {
@@ -546,39 +611,10 @@ export function releasePlayer(session: LeagueSession, pid: number): Promise<stri
     }
     const name = fullName(p);
     const { wage, expires } = p.contract;
-    const fee = p.feeBalance && p.feeBalance.remaining > 0 ? { ...p.feeBalance } : undefined;
-    club.released = [
-      ...(club.released ?? []),
-      { pid, name, wage, until: expires, ...(fee && { fee }) },
-    ];
-    p.feeBalance = null;
-    p.status = "freeAgent";
-    p.cid = null;
-    p.contract = null;
-    p.freeAgentSince = game.date;
-    p.shirtNumber = null;
-    delete p.listed;
-    p.transfers.push({
-      date: game.date,
-      season: game.season,
-      fromCid: club.cid,
-      toCid: null,
-      fee: 0,
-      type: "release",
-    });
+    const transaction = releaseToFreeAgency(club, p, game.date, game.season);
     session.cache.put("players", p);
     saveBooks(session, world);
-    saveTransactions(session, [
-      {
-        season: game.season,
-        date: game.date,
-        type: "release",
-        pids: [pid],
-        cids: [club.cid],
-        names: [name, club.name],
-        fee: 0,
-      },
-    ]);
+    saveTransactions(session, [transaction]);
     closeOffersFor(session, pid);
     await session.cache.flush();
     return `${name} is released. You keep paying his ${euros(wage)} a year until ${formatDay(expires)}.`;

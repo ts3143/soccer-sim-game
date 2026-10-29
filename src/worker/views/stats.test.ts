@@ -20,7 +20,12 @@ describe("stats pages", () => {
     "rank leaders, list ratings and stats, total team stats and list injuries",
     { timeout: 180_000 },
     async () => {
-      const league = await createLeague({ name: "Stats", seed: "stats-view", userCid: 0 });
+      const league = await createLeague({
+        world: "classic",
+        name: "Stats",
+        seed: "stats-view",
+        userCid: 0,
+      });
       const session = await openLeague(league.lid);
       await play(session, "untilNextMatch");
       await play(session, "untilWindowCloses");

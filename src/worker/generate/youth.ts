@@ -2,11 +2,10 @@
  * Academy players (SPEC §7.2): one generator for the opening academies (M1) and every
  * summer's youth intake (M3), so both draw from the same quality and nationality rules.
  */
-import { nationalitiesConfig } from "../../common/config/nationalities";
 import { ratingsConfig, type Position, type Side } from "../../common/config/ratings";
 import type { Player } from "../../common/schema";
 import type { Random } from "../core/random";
-import { sampleYouthNationality } from "./identity";
+import { clubMix, sampleYouthNationality } from "./identity";
 import { capCeiling, generatePlayer } from "./player";
 
 export const ACADEMY_POSITIONS: [Position, number][] = [
@@ -46,6 +45,7 @@ export interface AcademyClub {
   maxQuality?: number;
 }
 
+/** `worldMix`: the world's nationality mix (identity.ts), for second nationalities. */
 export function generateAcademyPlayer(
   rng: Random,
   club: AcademyClub,
@@ -53,6 +53,7 @@ export function generateAcademyPlayer(
   pid: number,
   season: number,
   seasonStart: string,
+  worldMix: Record<string, number>,
 ): Player {
   const q = YOUTH_QUALITY;
   const position = rng.weighted(ACADEMY_POSITIONS, ([, w]) => w)[0];
@@ -67,7 +68,7 @@ export function generateAcademyPlayer(
     q.perYouthDial * (club.youthDial - 50) +
     talent * q.sd;
   const quality = Math.min(club.maxQuality ?? q.max, q.max, Math.max(q.min, raw));
-  const leagueMix = nationalitiesConfig.leagueMix[club.leagueId] ?? {};
+  const mix = clubMix(club.leagueId, club.country);
   const player = generatePlayer(
     rng,
     {
@@ -75,7 +76,8 @@ export function generateAcademyPlayer(
       side,
       quality,
       age,
-      nationality: sampleYouthNationality(rng, club.country, club.reputation, leagueMix),
+      nationality: sampleYouthNationality(rng, club.country, club.reputation, mix),
+      secondMix: worldMix,
       status: "academy",
       cid: club.cid,
     },
