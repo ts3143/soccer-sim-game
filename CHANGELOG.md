@@ -1,12 +1,38 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-10-29)
 
 ### Added
+- **The Super League,** a second world to pick at New game beside Classic: 48 fictional clubs in three tiers of 16 (Star, Gold and Blue), run like the big North American leagues.
+  - **Up and down:** three clubs go up and three go down between tiers each season, the top two and the winner of a play-off between 3rd and 6th. In Star the top eight play off for the title. There are no cups.
+  - **No transfer market, loans or academies.** Players move by trades, the draft and free agency.
+  - **Trades:** players and draft picks, on the Trade page. Ask the other club **What would make this work?**, put players and picks on the **Trading Block** for offers, and answer AI clubs' offers in your inbox. Trades close at the roster deadline in February and reopen after the play-offs.
+  - **The draft:** two rounds in June, with a lottery among the weakest clubs for the first four picks (the odds are on Standings). Picks are assets: each club holds its picks for the next three drafts and can trade them. Pick on the **Draft** page, or let your scouts do it; **Draft Picks** shows what each club holds.
+  - **Re-signing** once a year, after the draft, on **Re-sign Players**. A red E✕ on your squad marks a player who won't re-sign as things stand.
+  - **A salary cap** by tier (€180m, €144m and €117m) with a minimum wage, a luxury tax shared among the clubs under the cap, salary matching in trades over the cap, and a grace season for relegated clubs. There is no financial fair play.
+  - **A squad limit of 25** from the first league match.
+  - **How to play** has a section on it.
+- **Your own club names:** at New game, load a file that renames any club (name, short name, abbreviation), in either world. **Download a template** gives you the file to edit.
 - **Man of the match:** the highest-rated player in every match, shown in the box score and at full time of a match you watch. Each player's count is on Player Stats, League Leaders and his profile. Saves from 0.2.0 get it for the matches they still hold.
+- **Yellow-card bans:** every fifth yellow card of a season brings a one-match ban. Saves from 0.2.0 count from their next yellow.
+- **Live commentary that tells the story:** how each chance came about (a cross from the wing, a set piece, a ball won high up, a rebound) and who stopped it. A **Key moments** switch keeps only goals, cards, substitutions, injuries, penalties and big chances.
+- **A match preview** before a match you watch: both sides' last five results this season, their last meeting, and a derby badge for clubs from the same city.
+- **More on the player profile:** his **Form** (his last five matches this season), his **Honours** (titles, promotions and awards, also as badges in his career table), his **Birthplace** and his **Injury history**. About half of a club's home-grown academy players are born in its city.
+- **A Top assists award** in every league each season, on History.
 
 ### Changed
+- **The inbox is on the Dashboard,** in full (the Inbox page is gone). Accept or reject a bid in its message.
+- **Your tactics are yours.** The Tactics page always shows your saved tactics, and only you change them. Simulated matches start from them, and nothing the AI does in a match changes them. A match you watch starts from them as saved; if a player in them can't play, kick-off waits until you swap him out or press Auto.
+- **Before a match you watch,** injured and suspended players show greyed out under Not in the squad.
 - **Easier-to-read ratings,** in the ratings card and on the profile: grouped like FM into Technical, Mental and Physical, plus Set pieces and Goalkeeping, with full names. The ratings that matter most for the player's position are highlighted (on Tactics, the position of the slot he's in), and only the number is coloured red to green.
+- **New names for 14 Classic clubs,** the ones also in the Super League, with new abbreviations and crest initials (Merseyside Reds are now Liverpool Reds, for example). Everything else about them is the same.
+
+### Fixed
+- Each live commentary line showed its minute twice, and first-half added time read 46' instead of 45+1'.
+
+### Saves from 0.2.0
+- They open as Classic leagues and play on. They get the AI's pick saved as your tactics if you never saved any, the city birthplaces for academy players, and injury histories from the day they're first opened.
+- They keep the 14 clubs' old names, while those clubs' crests show the new initials.
 
 ## 0.2.0 (2026-10-21)
 
