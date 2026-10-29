@@ -9,6 +9,8 @@ import { openLeagueDb } from "./leagueDb";
 import { LEAGUE_DB_VERSION } from "./schema";
 
 const competitions = worlds.classic.competitions;
+/** For tests that generate a whole world: GitHub's runners take several times longer. */
+const SLOW = { timeout: 60_000 };
 
 const oldPlayer = (pid: number, position: string, rating: number, goalsConceded = 0) => ({
   pid,
@@ -178,7 +180,7 @@ describe("league DB upgrades", () => {
     v6.close();
   });
 
-  it("saves the AI's pick as the user's tactics in an older save without any", async () => {
+  it("saves the AI's pick as the user's tactics in an older save without any", SLOW, async () => {
     const world = generateWorld({
       config: worlds.classic,
       seed: "upgrade-v7",

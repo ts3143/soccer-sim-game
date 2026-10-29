@@ -195,37 +195,41 @@ describe("preseason", () => {
   applyMoves(pre.clubs, outcome.moves);
   const date = "2027-07-01";
 
-  it("brings no youths in a world without academies, but a draft class (the Super League)", () => {
-    const world = generateWorld({
-      config: worlds.superLeague,
-      seed: SEED,
-      name: "t",
-      userCid: 0,
-      createdAt: "2026-07-01T00:00:00.000Z",
-    });
-    let pid = Math.max(...world.players.map((p) => p.pid)) + 1;
-    const loop: LoopWorld = {
-      config: worlds.superLeague,
-      clubs: world.clubs,
-      players: world.players,
-      reputation: startingReputation(worlds.superLeague.clubs),
-      clubSeasons: new Map(world.clubSeasons.map((r) => [r.cid, r])),
-      userCid: 0,
-      seed: SEED,
-      nextPid: () => pid++,
-    };
-    const lastJune = loop.players.filter((p) => p.draftSeason === 2026);
-    const log = preseasonTurnover(loop, 2027, "2027-07-01");
-    expect(loop.players.some((p) => p.status === "academy")).toBe(false);
-    // Instead of youths, the class two drafts on; last June's undrafted are free agents.
-    expect(log.added).toHaveLength(110);
-    expect(log.added.every((p) => p.status === "prospect" && p.draftSeason === 2029)).toBe(true);
-    // Free agents now; the same summer's free agency may already have signed some.
-    expect(lastJune.every((p) => p.status === "freeAgent" || p.status === "club")).toBe(true);
-    expect(lastJune.some((p) => p.status === "freeAgent")).toBe(true);
-  });
+  it(
+    "brings no youths in a world without academies, but a draft class (the Super League)",
+    SLOW,
+    () => {
+      const world = generateWorld({
+        config: worlds.superLeague,
+        seed: SEED,
+        name: "t",
+        userCid: 0,
+        createdAt: "2026-07-01T00:00:00.000Z",
+      });
+      let pid = Math.max(...world.players.map((p) => p.pid)) + 1;
+      const loop: LoopWorld = {
+        config: worlds.superLeague,
+        clubs: world.clubs,
+        players: world.players,
+        reputation: startingReputation(worlds.superLeague.clubs),
+        clubSeasons: new Map(world.clubSeasons.map((r) => [r.cid, r])),
+        userCid: 0,
+        seed: SEED,
+        nextPid: () => pid++,
+      };
+      const lastJune = loop.players.filter((p) => p.draftSeason === 2026);
+      const log = preseasonTurnover(loop, 2027, "2027-07-01");
+      expect(loop.players.some((p) => p.status === "academy")).toBe(false);
+      // Instead of youths, the class two drafts on; last June's undrafted are free agents.
+      expect(log.added).toHaveLength(110);
+      expect(log.added.every((p) => p.status === "prospect" && p.draftSeason === 2029)).toBe(true);
+      // Free agents now; the same summer's free agency may already have signed some.
+      expect(lastJune.every((p) => p.status === "freeAgent" || p.status === "club")).toBe(true);
+      expect(lastJune.some((p) => p.status === "freeAgent")).toBe(true);
+    },
+  );
 
-  it("tops AI squads up to 22 from free agents where players move by trades", () => {
+  it("tops AI squads up to 22 from free agents where players move by trades", SLOW, () => {
     const sl = generateWorld({
       config: worlds.superLeague,
       seed: SEED,
@@ -267,7 +271,7 @@ describe("preseason", () => {
     }
   });
 
-  it("signs free agents only at the minimum wage for a club over its cap", () => {
+  it("signs free agents only at the minimum wage for a club over its cap", SLOW, () => {
     const sl = generateWorld({
       config: worlds.superLeague,
       seed: SEED,
