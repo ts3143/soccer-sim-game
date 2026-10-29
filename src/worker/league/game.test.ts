@@ -32,7 +32,7 @@ beforeAll(() => {
 // Whole seasons with every result saved: several seconds locally, more on CI.
 // fake-indexeddb rewrites rows in O(store size) per write (real browsers don't), so the
 // stop-start test reloads once, early, rather than saving after many small steps.
-const SLOW = { timeout: 180_000 };
+const SLOW = { timeout: 300_000 }; // the stop-start test took 112 s on GitHub's runners
 const SEED = "game-loop-test";
 
 /** Everything a season leaves in the save, read back from IndexedDB. */

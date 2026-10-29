@@ -14,7 +14,8 @@ beforeAll(() => {
 describe("match preview and player form (T, 2026-10-25)", () => {
   it(
     "shows both clubs' last five, their last meeting, derbies, and a player's last five",
-    { timeout: 120_000 },
+    // About 27 s locally; GitHub's runners took 111-120 s.
+    { timeout: 300_000 },
     async () => {
       const league = await createLeague({
         world: "classic",
